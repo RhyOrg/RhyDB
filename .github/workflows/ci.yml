@@ -1,4 +1,4 @@
-name: LAPIS-SILO
+name: RhyDB
 
 on:
   push:

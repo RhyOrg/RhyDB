@@ -55,5 +55,5 @@ ENV RHYDB_PREPROCESSING_CONFIG="/app/preprocessing_config.yaml"
 ENV RHYDB_DEFAULT_PREPROCESSING_CONFIG="/app/default_preprocessing_config.yaml"
 ENV RHYDB_DEFAULT_RUNTIME_CONFIG="/app/default_runtime_config.yaml"
 
-LABEL org.opencontainers.image.source="https://github.com/GenSpectrum/LAPIS-SILO"
+LABEL org.opencontainers.image.source="https://github.com/RhyOrg/RhyDB"
 LABEL org.opencontainers.image.description="High-performance analytical database for sequence alignment data"

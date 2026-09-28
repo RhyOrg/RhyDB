@@ -26,7 +26,7 @@
   "license": "AGPL-3.0-only",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/GenSpectrum/LAPIS-SILO.git",
+    "url": "git+https://github.com/RhyOrg/RhyDB.git",
     "directory": "wasm"
   }
 }
