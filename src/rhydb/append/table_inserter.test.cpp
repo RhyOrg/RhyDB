@@ -196,7 +196,7 @@ TEST(ClusteredBuffering, flushesBufferWhenItReachesChunkSize) {
 
    // A full first chunk was flushed mid-stream; the overflow row lands in a second chunk.
    EXPECT_EQ(table->row_layout.numChunks(), 2);
-   EXPECT_EQ(table->sequence_count, CHUNK_SIZE + 1);
+   EXPECT_EQ(table->row_count, CHUNK_SIZE + 1);
 }
 
 TEST(ClusteredBuffering, preservesAllRowsRegardlessOfChunkAssignment) {
@@ -211,7 +211,7 @@ TEST(ClusteredBuffering, preservesAllRowsRegardlessOfChunkAssignment) {
    auto baseline = makeTable(60);
    appendRows(baseline, ndjson, ClusteredBufferingOptions{});  // clustering off
 
-   EXPECT_EQ(clustered->sequence_count, baseline->sequence_count);
+   EXPECT_EQ(clustered->row_count, baseline->row_count);
 
    const auto& clustered_nuc =
       clustered->columns.getColumns<SequenceColumn<Nucleotide>>().at(std::string{SEQ_COLUMN});
