@@ -596,13 +596,14 @@ its reflexive pair.
 
 ---
 
-## Writing query results to a table
+## Writing to tables
 
 ### `insertInto(query: expression, table: symbol)`
 
 Runs `query` and inserts the resulting rows into `table` — a query
-against table A whose result lands in table B, expressed as a single SaneQL query. It is the only
-SaneQL construct that writes: it mutates the target table rather than returning rows to the caller.
+against table A whose result lands in table B, expressed as a single SaneQL query. It is a write statement (as is
+[`createTable`](#createtabletable-symbol-columns-record-primarykey-symbol)): it mutates the target table
+rather than returning rows to the caller.
 
 ```
 source.filter(country='CH').insertInto(archive)
@@ -610,7 +611,8 @@ source.filter(country='CH').project({primaryKey, country, age}).insertInto(archi
 ```
 
 The target is written as an identifier (`archive`). It must be an existing table in the database;
-`insertInto` never creates a table.
+`insertInto` never creates a table (use
+[`createTable`](#createtabletable-symbol-columns-record-primarykey-symbol) for that).
 
 **Column matching.** The query's output columns are matched to the target table's columns *by name*.
 Every column of the target table must be produced by the query; any extra output columns are ignored.
@@ -632,6 +634,65 @@ table in place, so it is not safe to run next to other queries against the same 
 [`POST /admin/query`](api.md#post-adminquery) endpoint - the only way to issue it over the API -
 therefore applies it to a database loaded from the data directory and saves the result back as a new
 data version, which is served once the directory watcher picks it up.
+
+### `createTable(table: symbol, columns: record, primaryKey?: symbol)`
+
+Creates a new, empty table with the given schema. Like `insertInto`, it is a write statement: it must
+be the whole query and returns a summary instead of rows:
+
+```json
+{"createdTable": "covid"}
+```
+
+```
+createTable(covid, {
+   primaryKey := string,
+   country := string(generateIndex := true),
+   age := int,
+   date := date,
+   main := nucleotideSequence,
+   "S" := aminoAcidSequence,
+   unaligned_main := unalignedNucleotideSequence
+}, primaryKey := primaryKey)
+```
+
+The table name is an identifier. It must not name an existing table
+(built-in tables such as `reference_genomes` included).
+
+`columns` is a record mapping each column name to its type. A type is written either as a bare name
+(`int`) or with named options (`string(generateIndex := true)`). Column names that are not plain
+identifiers can be written as quoted identifiers, e.g. `"S:ORF1a" := aminoAcidSequence`. The types mirror those of
+`database_config.yaml`:
+
+| Type                          | Options                           | Column                                                        |
+|-------------------------------|-----------------------------------|---------------------------------------------------------------|
+| `string`                      | `generateIndex := <bool>`         | string; with `generateIndex := true` dictionary encoded and indexed |
+| `int` / `int32`, `int64`      |                                   | 32 / 64 bit integer                                           |
+| `float`                       |                                   | floating point number                                         |
+| `boolean`                     |                                   | boolean                                                       |
+| `date`                        |                                   | date                                                          |
+| `nucleotideSequence`          | `reference := <name>`             | aligned nucleotide sequence                                   |
+| `aminoAcidSequence`           | `reference := <name>`             | aligned amino acid sequence                                   |
+| `unalignedNucleotideSequence` | `reference := <name>`             | unaligned nucleotide sequence, zstd compressed                |
+
+**References.** Sequence columns take their reference sequence from the built-in `reference_genomes`
+table: the row whose `name` is the column name and whose `type` matches the column (`nucleotide`
+for `nucleotideSequence` and `unalignedNucleotideSequence`, `amino_acid` for `aminoAcidSequence`).
+An unaligned column uses that sequence as its compression dictionary; named `unaligned_<name>`, it
+defaults to the reference `<name>`. `reference := <name>` picks a different row, e.g.
+`segment := nucleotideSequence(reference := main)`. The reference is copied into the table's
+schema when it is created, so later changes to `reference_genomes` do not affect existing tables.
+Creating a sequence column fails if there is no matching reference.
+
+**Primary key.** The optional `primaryKey` names one of the columns, which must be a `string`
+column without `generateIndex`.
+
+**Limitation:** lineage indexes (`generateLineageIndex`) and phylogenetic tree fields
+(`isPhyloTreeField`) need their definition files and cannot be declared with `createTable`.
+
+Fill the new table with [`insertInto`](#insertintoquery-expression-table-symbol), or append to it
+through the regular append path. The statement bumps the data version and, like `insertInto`, is only
+available through [`POST /admin/query`](api.md#post-adminquery).
 
 ---
 

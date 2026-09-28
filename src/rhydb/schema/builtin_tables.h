@@ -12,6 +12,10 @@ namespace rhydb::schema {
 /// acid sequence.
 inline constexpr std::string_view REFERENCE_GENOMES_TABLE_NAME = "reference_genomes";
 
+/// The values of the `type` column of the reference genomes table.
+inline constexpr std::string_view REFERENCE_GENOMES_NUCLEOTIDE_TYPE = "nucleotide";
+inline constexpr std::string_view REFERENCE_GENOMES_AMINO_ACID_TYPE = "amino_acid";
+
 /// Built-in tables are ordinary tables (persisted, queryable and writable like any other) that
 /// every database is guaranteed to contain. They are created empty together with the database, and
 /// are added to databases loaded from a state that predates them.

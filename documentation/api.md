@@ -200,6 +200,9 @@ Executes a SaneQL **write statement** against the database:
 - `insertInto(query: expression, table: symbol)`. Runs `query` and inserts its result rows into
 `table` — see [`insertInto`](query_documentation.md) for semantics and
 limitations.
+- `createTable(table: symbol, columns: record, primaryKey?: symbol)`. Creates a new, empty table with
+the given schema, taking the reference sequences of sequence columns from `reference_genomes` —
+see [`createTable`](query_documentation.md) for the column types.
 
 The write goes through the [data directory](#runtime-configuration): the most recent state there is
 loaded into a database of its own, the statement is applied to that one, and the result is saved
@@ -220,6 +223,11 @@ source.filter(country='CH').project({primaryKey, country}).insertInto(archive)
 inserted:
 ```json
 {"insertedRows": 42}
+```
+
+For `createTable`, the name of the created table:
+```json
+{"createdTable": "archive"}
 ```
 
 A successful response carries the [`data-version`](#common-response-headers) header naming the
