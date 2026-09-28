@@ -545,6 +545,55 @@ TEST(CopyOnWriteContainer, defaultIsEmptyAndUnionTakesAddend) {
    EXPECT_EQ(toRoaring(cow.toOwning()), (roaring::Roaring{5, 6}));
 }
 
+// Roaring's mixed array/run union reads element 0 of the array operand before checking its
+// cardinality. An empty array's buffer holds a stale value there; if it lies below the run it used
+// to be merged into the result as a spurious row. Pin the stale slot to 0 so this is deterministic.
+TEST(RoaringContainer, unionIntoEmptyArrayIgnoresStaleSlot) {
+   auto* array = roaring::internal::array_container_create_given_capacity(1);
+   array->array[0] = 0;
+   RoaringContainer target{array, 0, ARRAY_CONTAINER_TYPE};
+   const RoaringContainer run{
+      roaring::internal::run_container_create_range(5, 50), 45, RUN_CONTAINER_TYPE
+   };
+
+   target |= RoaringContainerView{run};
+
+   EXPECT_EQ(target.getCardinality(), 45);
+   roaring::Roaring expected;
+   expected.addRange(5, 50);
+   EXPECT_EQ(toRoaring(target), expected);
+}
+
+TEST(RoaringContainer, unionWithEmptyArrayAddendLeavesRunUnchanged) {
+   RoaringContainer target{
+      roaring::internal::run_container_create_range(5, 50), 45, RUN_CONTAINER_TYPE
+   };
+   auto* array = roaring::internal::array_container_create_given_capacity(1);
+   array->array[0] = 0;
+   const RoaringContainer empty_addend{array, 0, ARRAY_CONTAINER_TYPE};
+
+   target |= RoaringContainerView{empty_addend};
+
+   EXPECT_EQ(target.getCardinality(), 45);
+   roaring::Roaring expected;
+   expected.addRange(5, 50);
+   EXPECT_EQ(toRoaring(target), expected);
+}
+
+TEST(CopyOnWriteContainer, defaultUnionWithRunTakesExactlyTheRun) {
+   const RoaringContainer run{
+      roaring::internal::run_container_create_range(5, 50), 45, RUN_CONTAINER_TYPE
+   };
+   CopyOnWriteContainer cow;
+
+   cow |= RoaringContainerView{run};
+
+   EXPECT_EQ(cow.getCardinality(), 45);
+   roaring::Roaring expected;
+   expected.addRange(5, 50);
+   EXPECT_EQ(toRoaring(cow.toOwning()), expected);
+}
+
 TEST(CopyOnWriteContainer, defaultViewsAProperlyConstructedEmptyContainer) {
    const CopyOnWriteContainer cow;
 
