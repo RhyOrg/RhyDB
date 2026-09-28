@@ -1,6 +1,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -469,6 +470,34 @@ const QueryTestScenario ALL_ROWS_MISSING_AT_POSITION = {
    ])")
 };
 
+// Row 0 carries the reference A at segment1[1]; rows 1..49 all carry a deletion there, which the
+// vertical index stores as one run container. The first union of that run into the (empty)
+// accumulator of non-reference rows used to read the empty array's stale first slot -- usually 0 --
+// and add row 0 to it, dropping row 0 from every group. Whether that fires depends on the
+// allocator's leftover memory, so the deterministic regression tests live in
+// roaring_container.test.cpp.
+const QueryTestData DELETION_RUN_TEST_DATA{
+   .ndjson_input_data =
+      [] {
+         std::vector<nlohmann::json> rows{createDataWithSequences("ATGCN", "M*", "Europe")};
+         for (int i = 0; i < 49; ++i) {
+            rows.push_back(createDataWithSequences("-TGCN", "M*", "Europe"));
+         }
+         return rows;
+      }(),
+   .database_config = DATABASE_CONFIG,
+   .reference_genomes = REFERENCE_GENOMES
+};
+
+const QueryTestScenario REFERENCE_ROW_BEFORE_DELETION_RUN = {
+   .name = "REFERENCE_ROW_BEFORE_DELETION_RUN",
+   .query = "default.map({s1 := segment1.at(1)}).groupBy({count:=count()}, {s1})",
+   .expected_query_result = nlohmann::json::parse(R"([
+      {"s1": "-", "count": 49},
+      {"s1": "A", "count": 1}
+   ])")
+};
+
 // ---------------------------------------------------------------------------
 // One grouping key per remaining groupable scalar type
 //
@@ -635,4 +664,10 @@ QUERY_TEST(
    BitmapAggregationAllMissing,
    ALL_MISSING_TEST_DATA,
    ::testing::Values(ALL_ROWS_MISSING_AT_POSITION)
+);
+
+QUERY_TEST(
+   BitmapAggregationDeletionRun,
+   DELETION_RUN_TEST_DATA,
+   ::testing::Values(REFERENCE_ROW_BEFORE_DELETION_RUN)
 );
