@@ -18,6 +18,7 @@
 #include "rhydb/initialize/initializer.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/query_engine/planner.h"
+#include "rhydb/schema/builtin_tables.h"
 #include "rhydb/storage/reference_genomes.h"
 #include "rhydb/test/query_fixture.test.h"
 
@@ -127,6 +128,33 @@ TEST(DatabaseTest, shouldReturnCorrectDatabaseInfoAfterAppendingNewSequences) {
 
    EXPECT_EQ(database_info_after_append.sequence_count, 7);
    EXPECT_GT(data_version_after_append, data_version);
+}
+
+TEST(DatabaseTest, newDatabaseContainsEmptyBuiltinTables) {
+   const rhydb::Database database;
+
+   for (const auto& [table_name, table_schema] : rhydb::schema::getBuiltinTableSchemas()) {
+      ASSERT_TRUE(database.tables.contains(table_name)) << table_name.getName();
+      ASSERT_TRUE(database.schema.tables.contains(table_name)) << table_name.getName();
+      EXPECT_EQ(database.tables.at(table_name)->sequence_count, 0);
+      EXPECT_EQ(
+         database.schema.tables.at(table_name)->getColumnIdentifiers(),
+         table_schema->getColumnIdentifiers()
+      );
+   }
+}
+
+TEST(DatabaseTest, loadedDatabaseContainsBuiltinTables) {
+   // The committed serialized state may predate some built-in tables, which are then added on load
+   const auto database = rhydb::Database::loadDatabaseState(
+      rhydb::RhyDBDirectory{"testBaseData/rhydbSerializedState"}.getMostRecentDataDirectory().value(
+      )
+   );
+
+   for (const auto& [table_name, _] : rhydb::schema::getBuiltinTableSchemas()) {
+      EXPECT_TRUE(database.tables.contains(table_name)) << table_name.getName();
+      EXPECT_TRUE(database.schema.tables.contains(table_name)) << table_name.getName();
+   }
 }
 
 namespace {

@@ -90,8 +90,9 @@ Defines reference sequences for alignment:
 }
 ```
 
-Preprocessing also materializes these sequences as a table named `reference_genomes`, which is
-queried like any other table:
+Preprocessing also stores these sequences in the built-in table `reference_genomes`, which is
+queried like any other table. Being built-in, it is present in every database (empty if the
+database was not initialized with reference genomes):
 
 ```
 reference_genomes

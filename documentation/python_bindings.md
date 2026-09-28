@@ -113,7 +113,6 @@ print(len(matching))                       # number of matching rows
 
 ### Inspecting the database
 
-**`get_tables()`** → `pyarrow.Table` with a single `table_name` column listing all tables.
 **`get_nucleotide_reference_sequence(table_name, sequence_name)`** → `str`.
 **`get_amino_acid_reference_sequence(table_name, sequence_name)`** → `str`.
 **`print_all_data(table_name)`** — prints all rows of a table to stdout (debugging aid).
