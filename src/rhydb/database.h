@@ -110,11 +110,6 @@ class Database {
       const config::QueryOptions& query_options,
       std::string_view request_id
    );
-
-   [[nodiscard]] std::string getTablesAsArrowIpc() const;
-
-  private:
-   [[nodiscard]] arrow::Result<std::string> getTablesAsArrowIpcImpl() const;
 };
 
 }  // namespace rhydb

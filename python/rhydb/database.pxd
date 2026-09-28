@@ -28,7 +28,6 @@ cdef extern from "rhydb/database.h" namespace "rhydb":
         void updateColumn(string table_name, string column_name, string value, string filter_expression) except +handleRhyDBException
         void saveDatabaseState(string save_directory) except +
         string executeQueryAsArrowIpc(string query_string) except +handleRhyDBException
-        string getTablesAsArrowIpc() except +
 
         @staticmethod
         optional[Database] loadDatabaseStateFromPath(string save_directory) except +

@@ -507,40 +507,4 @@ nlohmann::json Database::executeWrite(
    return (*command)->execute(*this, query_options, request_id);
 }
 
-std::string Database::getTablesAsArrowIpc() const {
-   std::string result;
-   auto status = getTablesAsArrowIpcImpl().Value(&result);
-   if (!status.ok()) {
-      throw std::runtime_error(
-         fmt::format("Failed to write finish ArrowIpcSink: {}", status.message())
-      );
-   }
-   return result;
-}
-
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
-arrow::Result<std::string> Database::getTablesAsArrowIpcImpl() const {
-   // Create schema with a single "table_name" column
-   auto arrow_schema = arrow::schema({arrow::field("table_name", arrow::utf8())});
-
-   // Build string array with table names
-   arrow::StringBuilder builder;
-   for (const auto& [table_name, _] : tables) {
-      ARROW_RETURN_NOT_OK(builder.Append(table_name.getName()));
-   }
-
-   ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
-
-   ARROW_ASSIGN_OR_RAISE(auto exec_batch, arrow::ExecBatch::Make({array}, array->length()));
-
-   std::ostringstream output_stream;
-   ARROW_ASSIGN_OR_RAISE(
-      auto output_sink, query_engine::exec_node::ArrowIpcSink::make(&output_stream, arrow_schema)
-   );
-
-   ARROW_RETURN_NOT_OK(output_sink.writeBatch(exec_batch));
-   ARROW_RETURN_NOT_OK(output_sink.finish());
-   return output_stream.str();
-}
-
 }  // namespace rhydb

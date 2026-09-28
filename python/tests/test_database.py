@@ -72,7 +72,6 @@ class TestDatabaseCreation:
             'get_filtered_bitmap',
             'get_nucleotide_reference_sequence',
             'get_amino_acid_reference_sequence',
-            'get_tables',
             'print_all_data',
             'save_checkpoint',
             'update_column',
@@ -549,18 +548,11 @@ class TestExtraColumns:
         # If no exception, table was created
 
 
-class TestGetTables:
-    """Test the get_tables method."""
+class TestCreatedTablesQueryable:
+    """Test listing the created tables through the SaneQL `tables()` function."""
 
-    def test_get_tables_empty_database(self, empty_database):
-        """Test that get_tables returns empty table for empty database."""
-        result = empty_database.get_tables()
-        assert isinstance(result, pa.Table)
-        assert "table_name" in result.column_names
-        assert result.num_rows == 0
-
-    def test_get_tables_single_table(self, empty_database, main_reference_sequence):
-        """Test get_tables with one table."""
+    def test_tables_query_lists_all_tables(self, empty_database, main_reference_sequence):
+        """Test that tables() lists created tables alongside the built-in ones."""
         empty_database.create_nucleotide_sequence_table(
             table_name="sequences",
             primary_key_name="primary_key",
@@ -568,35 +560,9 @@ class TestGetTables:
             reference_sequence=main_reference_sequence
         )
 
-        result = empty_database.get_tables()
+        result = empty_database.query("tables()")
         assert isinstance(result, pa.Table)
-        assert "table_name" in result.column_names
-        assert result.num_rows == 1
-        data = result.to_pydict()
-        assert "sequences" in data["table_name"]
-
-    def test_get_tables_multiple_tables(self, empty_database, main_reference_sequence):
-        """Test get_tables with multiple tables."""
-        empty_database.create_nucleotide_sequence_table(
-            table_name="sequences",
-            primary_key_name="primary_key",
-            sequence_name="main",
-            reference_sequence=main_reference_sequence
-        )
-        empty_database.create_gene_table(
-            table_name="genes",
-            primary_key_name="id",
-            gene_name="S",
-            reference_sequence="MFVFLVLLPLVSSQCVNLTTRTQLPPAYTNSFTRGVYYPDKVFRSSVLHSTQDLFLPFFSNVTWFHAI*"
-        )
-
-        result = empty_database.get_tables()
-        assert isinstance(result, pa.Table)
-        assert result.num_rows == 2
-        data = result.to_pydict()
-        table_names = set(data["table_name"])
-        assert "sequences" in table_names
-        assert "genes" in table_names
+        assert set(result.to_pydict()["tableName"]) == {"reference_genomes", "sequences"}
 
 
 class TestQuery:

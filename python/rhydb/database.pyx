@@ -57,30 +57,6 @@ cdef class PyDatabase:
         except Exception as e:
             raise RuntimeError(f"Failed to save checkpoint to '{save_directory}': {e}")
 
-    def get_tables(self):
-        """
-        Returns a list of all tables in this database
-
-        Returns
-        -------
-        pyarrow.Table
-            pyarrow.Table with a 'table_name' column containing all table names
-
-        """
-        cdef string ipc_buffer
-
-        try:
-            ipc_buffer = self.c_database.getTablesAsArrowIpc()
-
-            # Convert IPC buffer to PyArrow Table
-            ipc_bytes = (<char*> ipc_buffer.data())[:ipc_buffer.size()]
-            buffer_reader = pa.BufferReader(ipc_bytes)
-            reader = pa.ipc.open_stream(buffer_reader)
-            return reader.read_all()
-        except Exception as e:
-            raise RuntimeError(f"Failed to get tables: {e}")
-
-    
     def create_nucleotide_sequence_table(self, str table_name, str primary_key_name, str sequence_name, str reference_sequence, list extra_columns=None):
         """
         Create a new nucleotide sequence table
