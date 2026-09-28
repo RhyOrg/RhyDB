@@ -607,11 +607,10 @@ SaneQL construct that writes: it mutates the target table rather than returning 
 ```
 source.filter(country='CH').insertInto(archive)
 source.filter(country='CH').project({primaryKey, country, age}).insertInto(archive)
-source.insertInto('archive')
 ```
 
-The target may be written as a bare identifier (`archive`) or a string literal (`'archive'`). It
-must be an existing table in the database; `insertInto` never creates a table.
+The target is written as an identifier (`archive`). It must be an existing table in the database;
+`insertInto` never creates a table.
 
 **Column matching.** The query's output columns are matched to the target table's columns *by name*.
 Every column of the target table must be produced by the query; any extra output columns are ignored.

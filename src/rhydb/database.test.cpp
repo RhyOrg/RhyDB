@@ -400,7 +400,7 @@ TEST(DatabaseInsertQueryTest, copiesFilteredRowsFromOneTableIntoAnother) {
    EXPECT_EQ(countInTableWhere(database, "source", "true"), 3);
 }
 
-TEST(DatabaseInsertQueryTest, reshapesWithProjectAcceptsStringTargetAndAccumulates) {
+TEST(DatabaseInsertQueryTest, reshapesWithProjectAndAccumulates) {
    rhydb::Database database;
    database.createTable(TableName{"source"}, makeValueColumnSchema());
    // Target keeps only a subset of columns; the query must project down to match it.
@@ -419,11 +419,9 @@ TEST(DatabaseInsertQueryTest, reshapesWithProjectAcceptsStringTargetAndAccumulat
                << R"({"key":"b","country":"US","age":2})" << "\n";
    database.appendData(TableName{"source"}, source_data);
 
-   // Target named as a string literal; project drops the `age` column the target does not have.
+   // project drops the `age` column the target does not have.
    const nlohmann::json result = database.executeWrite(
-      "source.project({key, country}).insertInto('archive')",
-      defaultQueryOptions(),
-      "test_request_id"
+      "source.project({key, country}).insertInto(archive)", defaultQueryOptions(), "test_request_id"
    );
    EXPECT_EQ(result.at("insertedRows").get<size_t>(), 2);
    EXPECT_EQ(countInTableWhere(database, "archive", "true"), 2);
