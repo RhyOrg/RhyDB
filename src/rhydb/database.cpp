@@ -340,7 +340,7 @@ void addTableStatisticsToDatabaseInfo(DatabaseInfo& database_info, const storage
       database_info.vertical_bitmaps_size += info.vertical_bitmaps_size;
       database_info.horizontal_bitmaps_size += info.horizontal_bitmaps_size;
    }
-   database_info.sequence_count += table.row_layout.numRows();
+   database_info.row_count += table.row_layout.numRows();
 }
 
 }  // namespace
@@ -348,7 +348,7 @@ void addTableStatisticsToDatabaseInfo(DatabaseInfo& database_info, const storage
 DatabaseInfo Database::getDatabaseInfo() const {
    DatabaseInfo database_info{
       .version = rhydb::RELEASE_VERSION,
-      .sequence_count = 0,
+      .row_count = 0,
       .vertical_bitmaps_size = 0,
       .horizontal_bitmaps_size = 0
    };

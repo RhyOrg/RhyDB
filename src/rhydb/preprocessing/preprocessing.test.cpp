@@ -25,7 +25,7 @@ struct Error {
 };
 
 struct Success {
-   size_t expected_sequence_count;
+   size_t expected_row_count;
    std::string query;
    nlohmann::json expected_query_result;
 };
@@ -161,7 +161,7 @@ schema:
   ]
 })",
    .assertion{
-      .expected_sequence_count = 2,
+      .expected_row_count = 2,
       .query = "default.project({accessionVersion, someShortGene, secondSegment, "
                "country}).orderBy({accessionVersion})",
       .expected_query_result = nlohmann::json::parse(R"(
@@ -227,7 +227,7 @@ schema:
   ]
 })",
    .assertion{
-      .expected_sequence_count = 2,
+      .expected_row_count = 2,
       .query = "default.groupBy({count:=count()},{group}).orderBy({group})",
       .expected_query_result = nlohmann::json::parse(
          R"([
@@ -300,7 +300,7 @@ schema:
   ]
 })",
    .assertion{
-      .expected_sequence_count = 2,
+      .expected_row_count = 2,
       .query = R"(default.groupBy({count:=count()},{"2"}).orderBy({"2"}))",
       .expected_query_result = nlohmann::json::parse(
          R"([
@@ -352,7 +352,7 @@ schema:
 })",
    .lineage_trees = {{"test_lineage_definition.yaml", "main: ~\n"}},
    .assertion{
-      .expected_sequence_count = 0,
+      .expected_row_count = 0,
       .query = "default",
       .expected_query_result = nlohmann::json::parse(R"(
 [])")
@@ -397,7 +397,7 @@ schema:
   ]
 })",
    .assertion{
-      .expected_sequence_count = 0,
+      .expected_row_count = 0,
       .query = "default",
       .expected_query_result = nlohmann::json::parse(R"(
 [])")
@@ -442,7 +442,7 @@ schema:
   "genes": []
 })",
    .assertion{
-      .expected_sequence_count = 100,
+      .expected_row_count = 100,
       .query = "default.groupBy({count:=count()})",
       .expected_query_result = nlohmann::json::parse(R"(
 [{"count":100}])")
@@ -486,7 +486,7 @@ schema:
   ]
 })",
    .assertion{
-      .expected_sequence_count = 100,
+      .expected_row_count = 100,
       .query = "default.groupBy({count:=count()})",
       .expected_query_result = nlohmann::json::parse(R"(
 [{"count":100}])")
@@ -525,7 +525,7 @@ schema:
 }
 )",
    .assertion{
-      .expected_sequence_count = 100,
+      .expected_row_count = 100,
       .query = "default.groupBy({count:=count()})",
       .expected_query_result = nlohmann::json::parse(R"(
 [{"count":100}])")
@@ -650,7 +650,7 @@ schema:
   ]
 })",
    .assertion{
-      .expected_sequence_count = 2,
+      .expected_row_count = 2,
       .query = "default.groupBy({count:=count()})",
       .expected_query_result = nlohmann::json::parse(R"(
 [{"count":2}])")
@@ -688,7 +688,7 @@ schema:
   "genes": []
 })",
    .assertion{
-      .expected_sequence_count = 3,
+      .expected_row_count = 3,
       .query = "default.orderBy({accessionVersion})",
       .expected_query_result = nlohmann::json::parse(R"(
 [{"accessionVersion":"0"},{"accessionVersion":"0.12"},{"accessionVersion":"text_without_quotes"}])")
@@ -718,7 +718,7 @@ schema:
 )",
    .reference_genomes = R"({"nucleotideSequences": [], "genes": []})",
    .assertion{
-      .expected_sequence_count = 3,
+      .expected_row_count = 3,
       .query = "default.orderBy({accessionVersion})",
       .expected_query_result = nlohmann::json::parse(R"([
          {"accessionVersion": "1", "theDate": "1969-12-31"},
@@ -779,7 +779,7 @@ child_2:
   parents:
     - root_2)"}},
    .assertion{
-      .expected_sequence_count = 3,
+      .expected_row_count = 3,
       .query = "default.filter(lineage_1.lineage('root_1', includeSublineages:=true))"
                ".orderBy({accessionVersion})",
       .expected_query_result = nlohmann::json::parse(R"([
@@ -817,7 +817,7 @@ schema:
   "genes": []
 })",
    .assertion{
-      .expected_sequence_count = 4,
+      .expected_row_count = 4,
       .query = "default.groupBy({count:=count()},{accessionVersion}).orderBy({accessionVersion})",
       .expected_query_result = nlohmann::json::parse(R"([
          {"count": 2, "accessionVersion": "id_1"},
@@ -856,7 +856,7 @@ TEST_P(PreprocessorTestFixture, shouldProcessData) {
 
    const auto database_info = database->getDatabaseInfo();
 
-   EXPECT_EQ(database_info.sequence_count, scenario.assertion.expected_sequence_count);
+   EXPECT_EQ(database_info.row_count, scenario.assertion.expected_row_count);
 
    auto query_plan = rhydb::query_engine::Planner::planSaneqlQuery(
       scenario.assertion.query,

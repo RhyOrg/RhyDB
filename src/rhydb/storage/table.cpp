@@ -79,7 +79,7 @@ void Table::validate() const {
 
 std::expected<void, std::string> Table::bulkInsert(ColumnGroupBuilder& block) {
    row_layout.appendChunk(static_cast<uint32_t>(block.numBufferedRows()));
-   sequence_count += block.numBufferedRows();
+   row_count += block.numBufferedRows();
    for (const auto& column : columns.metadata) {
       auto result = column::visit(column.type, BulkInsertVisitor{}, columns, block, column.name);
       if (!result.has_value()) {
@@ -123,12 +123,12 @@ void Table::validatePrimaryKeyUnique() const {
 
 void Table::validateNucleotideSequences() const {
    for (const auto& [name, nuc_column] : columns.nuc_columns) {
-      if (nuc_column.sequence_count > sequence_count) {
+      if (nuc_column.sequence_count > row_count) {
          RHYDB_PANIC(
             "nuc_store {} ({}) has invalid size (expected {}).",
             name,
             nuc_column.sequence_count,
-            sequence_count
+            row_count
          );
       }
       if (nuc_column.metadata->reference_sequence.empty()) {
@@ -139,12 +139,12 @@ void Table::validateNucleotideSequences() const {
 
 void Table::validateAminoAcidSequences() const {
    for (const auto& [name, aa_column] : columns.aa_columns) {
-      if (aa_column.sequence_count > sequence_count) {
+      if (aa_column.sequence_count > row_count) {
          RHYDB_PANIC(
             "aa_store {} ({}) has invalid size (expected {}).",
             name,
             aa_column.sequence_count,
-            sequence_count
+            row_count
          );
       }
       if (aa_column.metadata->reference_sequence.empty()) {

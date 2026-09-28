@@ -87,7 +87,7 @@ TEST(DatabaseTest, shouldSaveAndReloadDatabaseWithoutErrors) {
 
    const auto database_info = database.getDatabaseInfo();
 
-   EXPECT_EQ(database_info.sequence_count, 5);
+   EXPECT_EQ(database_info.row_count, 5);
    EXPECT_GT(database_info.vertical_bitmaps_size, 0);
    EXPECT_GT(database_info.horizontal_bitmaps_size, 0);
 
@@ -110,7 +110,7 @@ TEST(DatabaseTest, shouldReturnCorrectDatabaseInfoAfterAppendingNewSequences) {
    const auto database_info = database.getDatabaseInfo();
    auto data_version = database.getDataVersionTimestamp();
 
-   EXPECT_EQ(database_info.sequence_count, 5);
+   EXPECT_EQ(database_info.row_count, 5);
    EXPECT_GT(database_info.vertical_bitmaps_size, 0);
    EXPECT_EQ(database_info.horizontal_bitmaps_size, 9);
 
@@ -126,7 +126,7 @@ TEST(DatabaseTest, shouldReturnCorrectDatabaseInfoAfterAppendingNewSequences) {
    const auto database_info_after_append = database.getDatabaseInfo();
    auto data_version_after_append = database.getDataVersionTimestamp();
 
-   EXPECT_EQ(database_info_after_append.sequence_count, 7);
+   EXPECT_EQ(database_info_after_append.row_count, 7);
    EXPECT_GT(data_version_after_append, data_version);
 }
 
