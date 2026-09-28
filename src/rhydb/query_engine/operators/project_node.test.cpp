@@ -9,7 +9,7 @@ using rhydb::test::QueryTestScenario;
 
 const std::vector<nlohmann::json> DATA = {
    {{"primaryKey", "id_0"}, {"country", "Switzerland"}, {"age", 5}},
-   {{"primaryKey", "id_1"}, {"country", "Germany"}, {"age", 7}}
+   {{"primaryKey", "id_1"}, {"country", "Germany"}, {"age", 7}},
 };
 
 const auto DATABASE_CONFIG =
@@ -31,7 +31,7 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{{}, {}};
 const QueryTestData TEST_DATA{
    .ndjson_input_data = DATA,
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario PROJECT_EMPTY_SCENARIO = {
@@ -45,7 +45,7 @@ const QueryTestScenario PROJECTOUT_SET_SCENARIO = {
    .query = "default.projectout({age})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"country", "Switzerland"}},
-       {{"primaryKey", "id_1"}, {"country", "Germany"}}}
+       {{"primaryKey", "id_1"}, {"country", "Germany"}},}
    ),
 };
 

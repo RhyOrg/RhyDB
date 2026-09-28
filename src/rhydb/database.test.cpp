@@ -253,7 +253,7 @@ TEST(DatabaseTest, canCreateMultipleTablesAndAddData) {
    ColumnIdentifier primary_key{.name = "key", .type = ColumnType::STRING};
    ColumnIdentifier sequence_column{.name = "sequence", .type = ColumnType::NUCLEOTIDE_SEQUENCE};
    std::vector<Nucleotide::Symbol> reference_sequence{
-      Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::G, Nucleotide::Symbol::T
+      Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::G, Nucleotide::Symbol::T,
    };
 
    const std::map<ColumnIdentifier, std::shared_ptr<ColumnMetadata>> column_metadata{
@@ -261,7 +261,7 @@ TEST(DatabaseTest, canCreateMultipleTablesAndAddData) {
       {sequence_column,
        std::make_shared<SequenceColumnMetadata<Nucleotide>>(
           sequence_column.name, std::move(reference_sequence)
-       )},
+       ),},
    };
    const rhydb::schema::TableName first_table_name{"first"};
    database.createTable(

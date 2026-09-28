@@ -26,7 +26,7 @@ NamedArgument makeNamed(std::string name, std::string value) {
    return {
       .name = std::move(name),
       .value = makeExpr(StringLiteral{std::move(value)}, {}),
-      .location = {}
+      .location = {},
    };
 }
 
@@ -49,7 +49,7 @@ TEST(BindArguments, optionalParameterMayBeOmitted) {
 
 TEST(BindArguments, requiredParameterSuppliedPositionally) {
    const FunctionSignature sig{
-      .parameters = {ParameterDefinition{.name = "x", .required = true, .positional = true}}
+      .parameters = {ParameterDefinition{.name = "x", .required = true, .positional = true}},
    };
 
    std::vector<PositionalArgument> pos;
@@ -61,7 +61,7 @@ TEST(BindArguments, requiredParameterSuppliedPositionally) {
 
 TEST(BindArguments, requiredParameterSuppliedByName) {
    const FunctionSignature sig{
-      .parameters = {ParameterDefinition{.name = "x", .required = true, .positional = false}}
+      .parameters = {ParameterDefinition{.name = "x", .required = true, .positional = false}},
    };
 
    std::vector<NamedArgument> named;
@@ -90,7 +90,7 @@ TEST(BindArguments, onlyMissingRequiredParamThrows) {
          {
             ParameterDefinition{.name = "required_param", .required = true},
             ParameterDefinition{.name = "optional_param", .required = false},
-         }
+         },
    };
    std::vector<NamedArgument> named;
    named.push_back(makeNamed("optional_param", "val"));

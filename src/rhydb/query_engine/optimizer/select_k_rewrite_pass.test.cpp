@@ -34,7 +34,7 @@ std::shared_ptr<rhydb::storage::Table> makeTable() {
 
    ColumnIdentifier primary_key{.name = "id", .type = ColumnType::STRING};
    std::map<ColumnIdentifier, std::shared_ptr<ColumnMetadata>> col_meta{
-      {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)}
+      {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)},
    };
    auto schema = std::make_shared<rhydb::schema::TableSchema>(std::move(col_meta), primary_key);
    return std::make_shared<rhydb::storage::Table>(rhydb::schema::TableName("default"), schema);

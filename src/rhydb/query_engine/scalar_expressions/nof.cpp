@@ -210,7 +210,7 @@ std::tuple<filter::operators::OperatorVector, filter::operators::OperatorVector,
    return std::tuple<filter::operators::OperatorVector, filter::operators::OperatorVector, int>{
       std::move(non_negated_child_operators),
       std::move(negated_child_operators),
-      updated_number_of_matchers
+      updated_number_of_matchers,
    };
 }
 

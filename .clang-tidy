@@ -68,3 +68,7 @@ CheckOptions:
     value: 1
   - key: bugprone-easily-swappable-parameters.MinimumLength
     value: 2
+  - key: readability-trailing-comma.SingleLineCommaPolicy
+    value: Remove
+  - key: readability-trailing-comma.MultiLineCommaPolicy
+    value: Append

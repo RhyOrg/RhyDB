@@ -90,7 +90,7 @@ namespace {
          "{}. Current line: {}",                                                            \
          fmt::format(__VA_ARGS__, simdjson::error_message(error)),                          \
          line_context.raw()                                                                 \
-      )};                                                                                   \
+      ),};                                                                                   \
    }
 
 struct InputSequence {
@@ -128,7 +128,7 @@ std::expected<InputSequence, std::string> getSequenceFromJsonLine(
             column_name,
             decoded.error(),
             compressed_base64.size()
-         )};
+         ),};
       }
       try {
          std::string buffer;
@@ -136,7 +136,7 @@ std::expected<InputSequence, std::string> getSequenceFromJsonLine(
          input_sequence.sequence = std::move(buffer);
       } catch (const std::runtime_error& ex) {
          return std::unexpected{
-            fmt::format("failed to decompress 'sequenceCompressed': {}", ex.what())
+            fmt::format("failed to decompress 'sequenceCompressed': {}", ex.what()),
          };
       }
    } else {
@@ -308,7 +308,7 @@ ColumnGroupBuilder::ColumnGroupBuilder(
          getColumnBuilders<ColumnType>().emplace(
             column_identifier.name, typename ColumnType::Builder{}
          );
-      }
+      },
    };
    for (const auto& col : schema.getColumnIdentifiers()) {
       column::visit(col.type, builder_initializer, col, schema);

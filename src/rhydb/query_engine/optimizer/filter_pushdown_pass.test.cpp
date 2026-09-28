@@ -44,7 +44,7 @@ std::shared_ptr<rhydb::storage::Table> makeTable() {
 
    ColumnIdentifier primary_key{.name = "id", .type = ColumnType::STRING};
    std::map<ColumnIdentifier, std::shared_ptr<ColumnMetadata>> col_meta{
-      {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)}
+      {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)},
    };
    auto schema = std::make_shared<rhydb::schema::TableSchema>(std::move(col_meta), primary_key);
    return std::make_shared<rhydb::storage::Table>(rhydb::schema::TableName("default"), schema);
@@ -109,7 +109,7 @@ TEST(FilterPushdownPass, pushesFilterThroughMapIntoTableScan) {
    std::vector<operators::MapNode::Assignment> assignments;
    assignments.push_back(
       {.output_column = {.name = "x", .type = rhydb::schema::ColumnType::INT64},
-       .expression = std::make_unique<scalar_expressions::Int64Literal>(3)}
+       .expression = std::make_unique<scalar_expressions::Int64Literal>(3),}
    );
    auto map_node =
       std::make_unique<operators::MapNode>(std::move(filter_node), std::move(assignments));
@@ -143,7 +143,7 @@ TEST(FilterPushdownPass, pushesFilterThroughDecompressMapIntoTableScan) {
       {.output_column = {.name = "seq", .type = ColumnType::STRING},
        .expression = std::make_unique<scalar_expressions::ZstdDecompressScalar>(
           std::make_unique<scalar_expressions::FieldRef>(seq_column), "A"
-       )}
+       ),}
    );
    auto map_node = std::make_unique<operators::MapNode>(std::move(scan), std::move(assignments));
    auto filter_node =
@@ -182,7 +182,7 @@ TEST(FilterPushdownPass, doesNotPushFilterReferencingMapProducedColumnBelowMap) 
    std::vector<operators::MapNode::Assignment> assignments;
    assignments.push_back(
       {.output_column = produced_column,
-       .expression = std::make_unique<scalar_expressions::Int64Literal>(3)}
+       .expression = std::make_unique<scalar_expressions::Int64Literal>(3),}
    );
    auto map_node = std::make_unique<operators::MapNode>(std::move(scan), std::move(assignments));
 
@@ -220,7 +220,7 @@ TEST(FilterPushdownPass, pushesFilterReferencingPassThroughColumnBelowMap) {
    std::vector<operators::MapNode::Assignment> assignments;
    assignments.push_back(
       {.output_column = produced_column,
-       .expression = std::make_unique<scalar_expressions::Int64Literal>(3)}
+       .expression = std::make_unique<scalar_expressions::Int64Literal>(3),}
    );
    auto map_node = std::make_unique<operators::MapNode>(std::move(scan), std::move(assignments));
 
@@ -258,7 +258,7 @@ TEST(FilterPushdownPass, pushesFilterThroughTransparentDecompressMapIntoTableSca
       {.output_column = {.name = "seq", .type = ColumnType::STRING},
        .expression = std::make_unique<scalar_expressions::ZstdDecompressScalar>(
           std::make_unique<scalar_expressions::FieldRef>(compressed_column), "A"
-       )}
+       ),}
    );
    auto map_node = std::make_unique<operators::MapNode>(std::move(scan), std::move(assignments));
 
@@ -296,7 +296,7 @@ TEST(FilterPushdownPass, doesNotPushFilterThroughValueChangingReplaceInPlaceMap)
    std::vector<operators::MapNode::Assignment> assignments;
    assignments.push_back(
       {.output_column = replaced_column,
-       .expression = std::make_unique<scalar_expressions::Int64Literal>(3)}
+       .expression = std::make_unique<scalar_expressions::Int64Literal>(3),}
    );
    auto map_node = std::make_unique<operators::MapNode>(std::move(scan), std::move(assignments));
 
@@ -323,14 +323,14 @@ TEST(FilterPushdownPass, pushesFilterThroughProjectAndMapIntoTableScan) {
    std::vector<operators::MapNode::Assignment> assignments;
    assignments.push_back(
       {.output_column = {.name = "x", .type = rhydb::schema::ColumnType::INT64},
-       .expression = std::make_unique<scalar_expressions::Int64Literal>(3)}
+       .expression = std::make_unique<scalar_expressions::Int64Literal>(3),}
    );
    auto map_node =
       std::make_unique<operators::MapNode>(std::move(inner_filter), std::move(assignments));
    auto project_node = std::make_unique<operators::ProjectNode>(
       std::move(map_node),
       std::vector<rhydb::schema::ColumnIdentifier>{
-         {.name = "x", .type = rhydb::schema::ColumnType::INT64}
+         {.name = "x", .type = rhydb::schema::ColumnType::INT64},
       }
    );
    auto outer_filter =
@@ -354,7 +354,7 @@ TEST(FilterPushdownPass, pushesFilterThroughProjectAndMapIntoTableScan) {
 TEST(FilterPushdownPass, pushesFilterThroughDeterministicOrderByIntoTableScan) {
    std::vector<rhydb::query_engine::OrderByField> fields;
    fields.push_back(
-      {.field = {.name = "primaryKey", .type = rhydb::schema::ColumnType::STRING}, .ascending = true
+      {.field = {.name = "primaryKey", .type = rhydb::schema::ColumnType::STRING}, .ascending = true,
       }
    );
    auto order_by = std::make_unique<operators::OrderByNode>(

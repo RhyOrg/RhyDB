@@ -160,7 +160,7 @@ roaring_util::RoaringContainer HorizontalCoverageIndex::coveredRowsInChunk(
    // `[batch_max_start, batch_min_end)`, every row in the chunk covers it.
    if (positionCoveredByWholeChunk(position, chunk_id)) {
       return {
-         roaring::internal::run_container_create_range(0, num_rows), num_rows, RUN_CONTAINER_TYPE
+         roaring::internal::run_container_create_range(0, num_rows), num_rows, RUN_CONTAINER_TYPE,
       };
    }
 
@@ -185,7 +185,7 @@ roaring_util::RoaringContainer HorizontalCoverageIndex::coveredRowsInChunk(
    }
 
    roaring_util::RoaringContainer result{
-      bitset, static_cast<uint32_t>(bitset->cardinality), BITSET_CONTAINER_TYPE
+      bitset, static_cast<uint32_t>(bitset->cardinality), BITSET_CONTAINER_TYPE,
    };
    result.runOptimizeAndShrink();
    return result;

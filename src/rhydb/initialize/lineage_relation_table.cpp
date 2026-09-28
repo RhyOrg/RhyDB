@@ -32,7 +32,7 @@ std::vector<LineageRelationRow> buildLineageRelationRows(
             {.lineage = std::move(lineage),
              .parent = std::nullopt,
              .is_recombinant_edge = false,
-             .recombinant_clade_ancestor = std::nullopt}
+             .recombinant_clade_ancestor = std::nullopt,}
          );
          continue;
       }
@@ -50,7 +50,7 @@ std::vector<LineageRelationRow> buildLineageRelationRows(
             {.lineage = lineage,
              .parent = std::string{names.getValue(parent_id)},
              .is_recombinant_edge = is_recombinant,
-             .recombinant_clade_ancestor = recombinant_clade_ancestor}
+             .recombinant_clade_ancestor = recombinant_clade_ancestor,}
          );
       }
    }

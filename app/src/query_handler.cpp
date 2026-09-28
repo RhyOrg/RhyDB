@@ -100,7 +100,7 @@ void QueryHandler::post(
          response.setContentType("application/x-ndjson");
          std::ostream& output_stream = response.send();
          rhydb::query_engine::exec_node::NdjsonSink output_sink{
-            &output_stream, query_plan.results_schema
+            &output_stream, query_plan.results_schema,
          };
 
          EVOBENCH_SCOPE("QueryPlan", "executeAndWrite");

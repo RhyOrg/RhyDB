@@ -67,7 +67,7 @@ ast::ExpressionPtr Parser::parseOrExpr() {
       auto right = parseAndExpr();
       left = ast::makeExpr(
          ast::BinaryExpr{
-            .op = ast::BinaryOp::OR, .left = std::move(left), .right = std::move(right)
+            .op = ast::BinaryOp::OR, .left = std::move(left), .right = std::move(right),
          },
          loc
       );
@@ -86,7 +86,7 @@ ast::ExpressionPtr Parser::parseAndExpr() {
       auto right = parseNotExpr();
       left = ast::makeExpr(
          ast::BinaryExpr{
-            .op = ast::BinaryOp::AND, .left = std::move(left), .right = std::move(right)
+            .op = ast::BinaryOp::AND, .left = std::move(left), .right = std::move(right),
          },
          loc
       );
@@ -143,7 +143,7 @@ ast::ExpressionPtr Parser::parseComparisonExpr() {
       auto right = parsePostfixExpr();
       left = ast::makeExpr(
          ast::BinaryExpr{
-            .op = comparator.value(), .left = std::move(left), .right = std::move(right)
+            .op = comparator.value(), .left = std::move(left), .right = std::move(right),
          },
          loc
       );
@@ -181,7 +181,7 @@ ast::ExpressionPtr Parser::parsePostfixExpr() {
                ast::FunctionCall{
                   .function_name = method_name.getStringValue(),
                   .positional_arguments = std::move(parsed.positional),
-                  .named_arguments = std::move(parsed.named)
+                  .named_arguments = std::move(parsed.named),
                },
                method_name.location
             );
@@ -195,7 +195,7 @@ ast::ExpressionPtr Parser::parsePostfixExpr() {
                ast::FunctionCall{
                   .function_name = method_name.getStringValue(),
                   .positional_arguments = std::move(pos_args),
-                  .named_arguments = {}
+                  .named_arguments = {},
                },
                method_name.location
             );
@@ -341,7 +341,7 @@ ast::ExpressionPtr Parser::parseIdentifierOrFunctionCall() {
          ast::FunctionCall{
             .function_name = std::move(name),
             .positional_arguments = std::move(parsed.positional),
-            .named_arguments = std::move(parsed.named)
+            .named_arguments = std::move(parsed.named),
          },
          loc
       );

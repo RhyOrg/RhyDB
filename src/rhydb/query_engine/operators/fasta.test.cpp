@@ -21,7 +21,7 @@ nlohmann::json createDataWithUnalignedSequences(
       {"unaligned_segment1", segment1},
       {"unaligned_segment2", segment2},
       {"gene1", nullptr},
-      {"gene2", nullptr}
+      {"gene2", nullptr},
    };
 }
 
@@ -32,7 +32,7 @@ const std::vector<nlohmann::json> DATA = {
    createDataWithUnalignedSequences("noSegment", "2024-08-08", nullptr, nullptr),
    createDataWithUnalignedSequences("1", "2024-08-05", nullptr, "A"),
    createDataWithUnalignedSequences("2", "2024-08-03", nullptr, nullptr),
-   createDataWithUnalignedSequences("3", "2024-08-02", nullptr, "AA")
+   createDataWithUnalignedSequences("3", "2024-08-02", nullptr, "AA"),
 };
 
 const auto DATABASE_CONFIG =
@@ -55,7 +55,7 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{
 const QueryTestData TEST_DATA{
    .ndjson_input_data = DATA,
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 std::string createFastaQuery(const std::string& primaryKey) {
@@ -71,25 +71,25 @@ const QueryTestScenario SEQUENCE_WITH_BOTH_SEGMENTS_SCENARIO = {
    .query = createFastaQuery("bothSegments"),
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "bothSegments"}, {"unaligned_segment1", "A"}, {"unaligned_segment2", "G"}}}
-   )
+   ),
 };
 
 const QueryTestScenario SEQUENCE_WITH_ONLY_FIRST_SEGMENT_SCENARIO = {
    .name = "SEQUENCE_WITH_ONLY_FIRST_SEGMENT_SCENARIO",
    .query = createFastaQuery("onlySegment1"),
    .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "onlySegment1"}, {"unaligned_segment1", "T"}, {"unaligned_segment2", nullptr}
-      }}
-   )
+      {{{"primaryKey", "onlySegment1"}, {"unaligned_segment1", "T"}, {"unaligned_segment2", nullptr},
+      },}
+   ),
 };
 
 const QueryTestScenario SEQUENCE_WITH_ONLY_SECOND_SEGMENT_SCENARIO = {
    .name = "SEQUENCE_WITH_ONLY_SECOND_SEGMENT_SCENARIO",
    .query = createFastaQuery("onlySegment2"),
    .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "onlySegment2"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", "T"}
-      }}
-   )
+      {{{"primaryKey", "onlySegment2"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", "T"},
+      },}
+   ),
 };
 
 const QueryTestScenario SEQUENCE_WITH_NO_SEGMENT_SCENARIO = {
@@ -98,8 +98,8 @@ const QueryTestScenario SEQUENCE_WITH_NO_SEGMENT_SCENARIO = {
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "noSegment"},
         {"unaligned_segment1", nullptr},
-        {"unaligned_segment2", nullptr}}}
-   )
+        {"unaligned_segment2", nullptr},},}
+   ),
 };
 
 const QueryTestScenario DOWNLOAD_ALL_SEQUENCES_SCENARIO = {
@@ -113,13 +113,13 @@ const QueryTestScenario DOWNLOAD_ALL_SEQUENCES_SCENARIO = {
        {{"primaryKey", "bothSegments"}, {"unaligned_segment1", "A"}, {"unaligned_segment2", "G"}},
        {{"primaryKey", "noSegment"},
         {"unaligned_segment1", nullptr},
-        {"unaligned_segment2", nullptr}},
-       {{"primaryKey", "onlySegment1"}, {"unaligned_segment1", "T"}, {"unaligned_segment2", nullptr}
+        {"unaligned_segment2", nullptr},},
+       {{"primaryKey", "onlySegment1"}, {"unaligned_segment1", "T"}, {"unaligned_segment2", nullptr},
        },
-       {{"primaryKey", "onlySegment2"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", "T"}
-       }}
+       {{"primaryKey", "onlySegment2"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", "T"},
+       },}
    ),
-   .query_options = rhydb::config::QueryOptions{.materialization_cutoff = 0}
+   .query_options = rhydb::config::QueryOptions{.materialization_cutoff = 0},
 };
 
 const QueryTestScenario DOWNLOAD_ALL_DATA = {
@@ -135,7 +135,7 @@ const QueryTestScenario DOWNLOAD_ALL_DATA = {
 {"date":"2024-08-08","primaryKey":"noSegment","unaligned_segment1":null,"unaligned_segment2":null},
 {"date":"2024-08-03","primaryKey":"onlySegment1","unaligned_segment1":"T","unaligned_segment2":null},
 {"date":"2024-08-02","primaryKey":"onlySegment2","unaligned_segment1":null,"unaligned_segment2":"T"}])"
-   )
+   ),
 };
 
 const QueryTestScenario DUPLICATE_FIELDS = {
@@ -151,7 +151,7 @@ const QueryTestScenario DUPLICATE_FIELDS = {
 {"date":"2024-08-08","primaryKey":"noSegment","unaligned_segment1":null,"unaligned_segment2":null},
 {"date":"2024-08-03","primaryKey":"onlySegment1","unaligned_segment1":"T","unaligned_segment2":null},
 {"date":"2024-08-02","primaryKey":"onlySegment2","unaligned_segment1":null,"unaligned_segment2":"T"}])"
-   )
+   ),
 };
 
 const QueryTestScenario ORDER_BY_NOT_IN_OUTPUT = {
@@ -159,7 +159,7 @@ const QueryTestScenario ORDER_BY_NOT_IN_OUTPUT = {
    .query = "default.project({primaryKey, unaligned_segment1}).orderBy({date.desc()})",
    .expected_error_message =
       "OrderByField date is not contained in the result of this operation. "
-      "Allowed values are primaryKey, unaligned_segment1."
+      "Allowed values are primaryKey, unaligned_segment1.",
 };
 
 const QueryTestScenario ORDER_BY_ADDITIONAL_FIELD = {
@@ -175,7 +175,7 @@ const QueryTestScenario ORDER_BY_ADDITIONAL_FIELD = {
 {"date":"2024-08-03","primaryKey":"2","unaligned_segment1":null,"unaligned_segment2":null},
 {"date":"2024-08-05","primaryKey":"1","unaligned_segment1":null,"unaligned_segment2":"A"},
 {"date":"2024-08-08","primaryKey":"noSegment","unaligned_segment1":null,"unaligned_segment2":null}])"
-   )
+   ),
 };
 
 }  // namespace

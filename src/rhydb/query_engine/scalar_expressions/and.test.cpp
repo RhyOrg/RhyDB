@@ -87,7 +87,7 @@ const QueryTestScenario NESTED_AND = {
    .expected_query_result = nlohmann::json::parse(
       R"(
 [{"age":13,"country":"Germany","coverage":0.9,"date":"2009-06-07","primaryKey":"id_2"}])"
-   )
+   ),
 };
 
 const QueryTestScenario ALL_NEGATED_AND_ON_INDEXED_COLUMN = {

@@ -15,9 +15,9 @@ const std::vector<nlohmann::json> DATA = {
    {{"primaryKey", "id_0"},
     {"str_value", "short"},
     {"segment1", alignedSequence("ACGT")},
-    {"gene1", nullptr}},
-   {{"primaryKey", "id_1"}, {"str_value", "longlonglong"}, {"segment1", nullptr}, {"gene1", nullptr}
-   }
+    {"gene1", nullptr},},
+   {{"primaryKey", "id_1"}, {"str_value", "longlonglong"}, {"segment1", nullptr}, {"gene1", nullptr},
+   },
 };
 
 const auto DATABASE_CONFIG =
@@ -41,7 +41,7 @@ const QueryTestData TEST_DATA{
    .ndjson_input_data = DATA,
    .database_config = DATABASE_CONFIG,
    .reference_genomes = REFERENCE_GENOMES,
-   .without_unaligned_sequences = true
+   .without_unaligned_sequences = true,
 };
 
 const QueryTestScenario AT_STRING_SCENARIO = {
@@ -49,7 +49,7 @@ const QueryTestScenario AT_STRING_SCENARIO = {
    .query = "default.map({second := primaryKey.at(4)}).project({primaryKey, second})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"second", "0"}}, {{"primaryKey", "id_1"}, {"second", "1"}}}
-   )
+   ),
 };
 
 // The square-bracket notation `col[i]` is shorthand for `col.at(i)`.
@@ -66,7 +66,7 @@ const QueryTestScenario AT_STRING_OUT_OF_BOUNDS_SCENARIO = {
    .query = "default.map({eighth := str_value.at(8)}).project({primaryKey, eighth})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"eighth", ""}}, {{"primaryKey", "id_1"}, {"eighth", "g"}}}
-   )
+   ),
 };
 
 const QueryTestScenario AT_SEQUENCE_FIRST_SCENARIO = {
@@ -74,7 +74,7 @@ const QueryTestScenario AT_SEQUENCE_FIRST_SCENARIO = {
    .query = "default.map({base := segment1.at(1)}).project({primaryKey, base})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"base", "A"}}, {{"primaryKey", "id_1"}, {"base", nullptr}}}
-   )
+   ),
 };
 
 const QueryTestScenario AT_SEQUENCE_INNER_SCENARIO = {
@@ -82,7 +82,7 @@ const QueryTestScenario AT_SEQUENCE_INNER_SCENARIO = {
    .query = "default.map({base := segment1.at(3)}).project({primaryKey, base})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"base", "G"}}, {{"primaryKey", "id_1"}, {"base", nullptr}}}
-   )
+   ),
 };
 
 // A sequence `.at()` predicate cannot be lowered to a bitmap filter (neither side is a plain column
@@ -93,7 +93,7 @@ const QueryTestScenario AT_FILTER_ON_SCAN_REJECTED_SCENARIO = {
    .query = "default.filter(segment1.at(1) = 'A').project({primaryKey})",
    .expected_error_message =
       "A Comparison expression can only be compiled to a filter when exactly one side is a column "
-      "reference and the other a literal value"
+      "reference and the other a literal value",
 };
 
 // The same `.at()` predicate placed above a limit() cannot be pushed into the scan (limit is a
@@ -101,7 +101,7 @@ const QueryTestScenario AT_FILTER_ON_SCAN_REJECTED_SCENARIO = {
 const QueryTestScenario AT_FILTER_ABOVE_LIMIT_SCENARIO = {
    .name = "AT_FILTER_ABOVE_LIMIT",
    .query = "default.limit(2).filter(segment1.at(1) = 'A').project({primaryKey})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}}),
 };
 
 }  // namespace

@@ -21,12 +21,12 @@ const std::vector<nlohmann::json> DATA = {
     {"country", "CH"},
     {"segment1", nullptr},
     {"gene1", nullptr},
-    {"unaligned_segment1", nullptr}},
+    {"unaligned_segment1", nullptr},},
    {{"primaryKey", "id_1"},
     {"country", "DE"},
     {"segment1", nullptr},
     {"gene1", nullptr},
-    {"unaligned_segment1", nullptr}},
+    {"unaligned_segment1", nullptr},},
 };
 
 const auto DATABASE_CONFIG =
@@ -49,7 +49,7 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{
 const QueryTestData TEST_DATA{
    .ndjson_input_data = DATA,
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario TABLES_SCENARIO = {

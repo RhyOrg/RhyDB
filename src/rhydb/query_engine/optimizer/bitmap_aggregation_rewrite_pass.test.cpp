@@ -67,7 +67,7 @@ std::shared_ptr<rhydb::storage::Table> tableWithColumns() {
       {NUC_COLUMN,
        std::make_shared<SequenceColumnMetadata<Nucleotide>>(
           NUC_COLUMN.name, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::A}
-       )}
+       ),},
    };
    auto schema = std::make_shared<rhydb::schema::TableSchema>(std::move(col_meta), ID_COLUMN);
    return std::make_shared<rhydb::storage::Table>(rhydb::schema::TableName::getDefault(), schema);
@@ -92,7 +92,7 @@ operators::QueryNodePtr makeMapWithAt(
       {.output_column = {.name = field, .type = ColumnType::STRING},
        .expression = std::make_unique<scalar_expressions::At>(
           std::make_unique<scalar_expressions::FieldRef>(at_column), 1
-       )}
+       ),}
    );
    return std::make_unique<operators::MapNode>(std::move(child), std::move(assignments));
 }
@@ -108,7 +108,7 @@ operators::QueryNodePtr makeMapWithIsoWeek(
       {.output_column = {.name = field, .type = ColumnType::STRING},
        .expression = std::make_unique<scalar_expressions::IsoWeek>(
           std::make_unique<scalar_expressions::FieldRef>(date_column)
-       )}
+       ),}
    );
    return std::make_unique<operators::MapNode>(std::move(child), std::move(assignments));
 }
@@ -123,7 +123,7 @@ operators::QueryNodePtr makeMapWithFieldRef(
    std::vector<operators::MapNode::Assignment> assignments;
    assignments.push_back(
       {.output_column = {.name = field, .type = output_type},
-       .expression = std::make_unique<scalar_expressions::FieldRef>(source_column)}
+       .expression = std::make_unique<scalar_expressions::FieldRef>(source_column),}
    );
    return std::make_unique<operators::MapNode>(std::move(child), std::move(assignments));
 }
@@ -136,7 +136,7 @@ operators::QueryNodePtr withSequencePosition(operators::QueryNodePtr map) {
       {.output_column = {.name = "s", .type = ColumnType::STRING},
        .expression = std::make_unique<scalar_expressions::At>(
           std::make_unique<scalar_expressions::FieldRef>(NUC_COLUMN), 1
-       )}
+       ),}
    );
    return map;
 }
@@ -150,7 +150,7 @@ operators::QueryNodePtr makeMapOverridingColumn(
    std::vector<operators::MapNode::Assignment> assignments;
    assignments.push_back(
       {.output_column = column,
-       .expression = std::make_unique<scalar_expressions::StringLiteral>("overridden")}
+       .expression = std::make_unique<scalar_expressions::StringLiteral>("overridden"),}
    );
    return std::make_unique<operators::MapNode>(std::move(child), std::move(assignments));
 }
@@ -170,7 +170,7 @@ operators::QueryNodePtr makeGroupByCount(
    std::vector<operators::AggregateDefinition> aggregates{
       {.output_name = "count",
        .function = operators::AggregateFunction::COUNT,
-       .source_column = std::move(count_source)}
+       .source_column = std::move(count_source),},
    };
    return std::make_unique<operators::AggregateNode>(
       std::move(child), std::move(group_by), std::move(aggregates)

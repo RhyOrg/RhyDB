@@ -30,7 +30,7 @@ LineageRelationRow edge(
       .lineage = std::move(lineage),
       .parent = std::move(parent),
       .is_recombinant_edge = is_recombinant_edge,
-      .recombinant_clade_ancestor = std::move(recombinant_clade_ancestor)
+      .recombinant_clade_ancestor = std::move(recombinant_clade_ancestor),
    };
 }
 }  // namespace
@@ -89,7 +89,7 @@ XBB:
           edge("A.1", "A"),
           edge("A.2", "A"),
           edge("XBB", "A.1", /*is_recombinant_edge=*/true, /*recombinant_clade_ancestor=*/"A"),
-          edge("XBB", "A.2", /*is_recombinant_edge=*/true, /*recombinant_clade_ancestor=*/"A")}
+          edge("XBB", "A.2", /*is_recombinant_edge=*/true, /*recombinant_clade_ancestor=*/"A"),}
       )
    );
 }
@@ -135,7 +135,7 @@ nlohmann::json createDataWithLineageValue(const std::string& primary_key, std::s
       {"lin", std::move(value)},
       {"segment1", nullptr},
       {"unaligned_segment1", nullptr},
-      {"gene1", nullptr}
+      {"gene1", nullptr},
    };
 }
 
@@ -144,7 +144,7 @@ const QueryTestData TEST_DATA{
       {createDataWithLineageValue("id_1", "CHILD"), createDataWithLineageValue("id_2", "BASE")},
    .database_config = DATABASE_CONFIG,
    .reference_genomes = REFERENCE_GENOMES,
-   .lineage_trees = {{"test_lineage_index", QUERYABLE_LINEAGE_TREE}}
+   .lineage_trees = {{"test_lineage_index", QUERYABLE_LINEAGE_TREE}},
 };
 
 // Only the direct edges are stored (no transitive closure, no per-mode duplication): the root BASE
@@ -152,7 +152,7 @@ const QueryTestData TEST_DATA{
 const QueryTestScenario RELATION_TABLE_CONTAINS_ONLY_DIRECT_EDGES = {
    .name = "RELATION_TABLE_CONTAINS_ONLY_DIRECT_EDGES",
    .query = "lin.groupBy({count:=count()})",
-   .expected_query_result = nlohmann::json::parse(R"([{"count":2}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count":2}])"),
 };
 
 // The `parent` column is directly queryable: exactly one lineage (CHILD) has BASE as its direct
@@ -160,7 +160,7 @@ const QueryTestScenario RELATION_TABLE_CONTAINS_ONLY_DIRECT_EDGES = {
 const QueryTestScenario RELATION_TABLE_PARENT_IS_QUERYABLE = {
    .name = "RELATION_TABLE_PARENT_IS_QUERYABLE",
    .query = "lin.filter(parent = 'BASE').groupBy({count:=count()})",
-   .expected_query_result = nlohmann::json::parse(R"([{"count":1}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count":1}])"),
 };
 
 const QueryTestScenario RELATION_TABLE_ROW_SHAPE = {
@@ -171,7 +171,7 @@ const QueryTestScenario RELATION_TABLE_ROW_SHAPE = {
    .expected_query_result = nlohmann::json::parse(R"(
 [{"lineage":"CHILD","parent":"BASE","is_recombinant_edge":false,
 "recombinant_clade_ancestor":null}]
-)")
+)"),
 };
 
 }  // namespace

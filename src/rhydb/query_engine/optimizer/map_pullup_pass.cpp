@@ -182,7 +182,7 @@ operators::QueryNodePtr MapPullupPass::operator()(operators::MapNode& node) {
    for (size_t i = 0; i < node.assignments.size(); ++i) {
       merged.push_back(
          {.output_column = node.assignments[i].output_column,
-          .expression = std::move(substituted_expressions[i])}
+          .expression = std::move(substituted_expressions[i]),}
       );
    }
 

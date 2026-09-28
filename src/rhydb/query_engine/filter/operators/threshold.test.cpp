@@ -170,7 +170,7 @@ TEST(OperatorThreshold, evaluateShouldReturnCorrectValuesManyNegated) {
       roaring::Roaring({3}),
       roaring::Roaring({4}),
       roaring::Roaring({2, 4}),
-   }});
+   },});
    const auto row_layout = RowLayout::of(5);
 
    const Threshold under_test_1_exact(
@@ -252,7 +252,7 @@ TEST(OperatorThreshold, evaluateShouldReturnCorrectValuesEmptyInput) {
       roaring::Roaring({3}),
       roaring::Roaring({4}),
       roaring::Roaring({2, 4}),
-   }});
+   },});
    const auto row_layout = RowLayout::of(4);
 
    const Threshold under_test_1_exact(

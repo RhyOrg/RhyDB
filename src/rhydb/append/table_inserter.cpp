@@ -172,7 +172,7 @@ TableInserter::TableInserter(
       output_buffers.reserve(num_buffers);
       for (size_t i = 0; i < num_buffers; ++i) {
          output_buffers.push_back(ClusterBuffer{
-            storage::ColumnGroupBuilder{*this->table->schema, this->table->columns}, std::nullopt
+            storage::ColumnGroupBuilder{*this->table->schema, this->table->columns}, std::nullopt,
          });
       }
    }
@@ -213,7 +213,7 @@ TableInserter::ClusterBuffer& TableInserter::chooseBuffer(
    // new cluster. Otherwise seed a fresh buffer with this row's range.
    if (best != nullptr && (best_growth <= growth_threshold || free_slot == nullptr)) {
       best->range = {
-         std::min(best->range->first, row_start), std::max(best->range->second, row_end)
+         std::min(best->range->first, row_start), std::max(best->range->second, row_end),
       };
       return *best;
    }
@@ -258,7 +258,7 @@ std::expected<std::vector<TableInserter::SniffedField>, std::string> TableInsert
          continue;
       }
       order_in_json_line.push_back(SniffedField{
-         .column_identifier = *maybe_column_metadata, .escaped_key = std::string{raw_key_sv}
+         .column_identifier = *maybe_column_metadata, .escaped_key = std::string{raw_key_sv},
       });
    }
    for (const auto& column_metadata : columns_in_table) {
@@ -268,7 +268,7 @@ std::expected<std::vector<TableInserter::SniffedField>, std::string> TableInsert
          }) != order_in_json_line.end();
       if (!contained_in_sniffed_fields) {
          return std::unexpected{
-            fmt::format("the column '{}' is not contained in the object", column_metadata.name)
+            fmt::format("the column '{}' is not contained in the object", column_metadata.name),
          };
       }
    }
@@ -370,7 +370,7 @@ void NdjsonInsertStream::insertAll(NdjsonLineReader& input_data) {
          auto sniffed_field_order_or_error = table_inserter->sniffFieldOrder(ndjson_line);
          if (!sniffed_field_order_or_error.has_value()) {
             throw AppendException{
-               "{} - current line: {}", sniffed_field_order_or_error.error(), raw_line
+               "{} - current line: {}", sniffed_field_order_or_error.error(), raw_line,
             };
          }
          field_order = sniffed_field_order_or_error.value();

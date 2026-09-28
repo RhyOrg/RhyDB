@@ -34,7 +34,7 @@ TEST(BatchedBitmapReader, batchesCorrectlyEmpty) {
 TEST(BatchedBitmapReader, batchesCorrectlyLargeValues) {
    uint32_t offset = 1 << 20;
    roaring::Roaring bitmap{
-      offset + 1, offset + 3, offset + 5, offset + 7, offset + 9, offset + 11, offset + 13
+      offset + 1, offset + 3, offset + 5, offset + 7, offset + 9, offset + 11, offset + 13,
    };
    BatchedBitmapReader under_test{bitmap, 2};
    ASSERT_EQ(under_test.nextBatch(), (roaring::Roaring{offset + 1, offset + 3, offset + 5}));

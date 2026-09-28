@@ -31,7 +31,7 @@ nlohmann::json createDataWithSequences(
       {"date", date},
       {"unaligned_segment1", {}},
       {"segment1", {{"sequence", nucleotideSequence}, {"insertions", nlohmann::json::array()}}},
-      {"gene1", {{"sequence", aminoAcidSequence}, {"insertions", nlohmann::json::array()}}}
+      {"gene1", {{"sequence", aminoAcidSequence}, {"insertions", nlohmann::json::array()}}},
    };
 }
 
@@ -77,7 +77,7 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{
 const QueryTestData TEST_DATA{
    .ndjson_input_data = {ROW_AT, ROW_AT2, ROW_NN, ROW_CA},
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 // Mutation co-occurrence is an optimizer-only feature: it is expressed with the generic `at` scalar
@@ -94,7 +94,7 @@ const QueryTestScenario CO_OCCURRENCE_VIA_MAP_TWO_POSITIONS = {
       {"s1": "A", "s2": "T", "count": 2},
       {"s1": "C", "s2": "A", "count": 1},
       {"s1": "N", "s2": "N", "count": 1}
-   ])")
+   ])"),
 };
 
 const QueryTestScenario CO_OCCURRENCE_VIA_MAP_WITH_FILTER = {
@@ -105,7 +105,7 @@ const QueryTestScenario CO_OCCURRENCE_VIA_MAP_WITH_FILTER = {
       ".groupBy({count:=count()}, {s1, s2})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "C", "s2": "A", "count": 1}
-   ])")
+   ])"),
 };
 
 const QueryTestScenario CO_OCCURRENCE_VIA_MAP_AMINO_ACID = {
@@ -113,7 +113,7 @@ const QueryTestScenario CO_OCCURRENCE_VIA_MAP_AMINO_ACID = {
    .query = "default.map({stop := gene1.at(2)}).groupBy({count:=count()}, {stop})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"stop": "*", "count": 4}
-   ])")
+   ])"),
 };
 
 // `at` on a non-sequence string column is not a sequence-position lookup, but it is still a general
@@ -125,7 +125,7 @@ const QueryTestScenario CO_OCCURRENCE_VIA_MAP_NON_SEQUENCE_STRING_AT = {
    .query = "default.map({first := primaryKey.at(1)}).groupBy({count:=count()}, {first})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"first": "i", "count": 4}
-   ])")
+   ])"),
 };
 
 // A limit applied to an (unordered) aggregation used to be rejected outright because the group-by
@@ -137,7 +137,7 @@ const QueryTestScenario LIMIT_ON_UNORDERED_AGGREGATION = {
    .query = "default.map({first := primaryKey.at(1)}).groupBy({count:=count()}, {first}).limit(1)",
    .expected_query_result = nlohmann::json::parse(R"([
       {"first": "i", "count": 4}
-   ])")
+   ])"),
 };
 
 // The reference at segment1[5] is N, i.e. the local reference symbol is itself the missing symbol.
@@ -148,7 +148,7 @@ const QueryTestScenario CO_OCCURRENCE_VIA_MAP_REFERENCE_IS_MISSING = {
    .expected_query_result = nlohmann::json::parse(R"([
       {"s5": "T", "count": 1},
       {"s5": "N", "count": 3}
-   ])")
+   ])"),
 };
 
 // The reference is only 5 symbols long, so position 6 is out of range. The rewritten bitmap
@@ -156,7 +156,8 @@ const QueryTestScenario CO_OCCURRENCE_VIA_MAP_REFERENCE_IS_MISSING = {
 const QueryTestScenario CO_OCCURRENCE_VIA_MAP_POSITION_OUT_OF_RANGE = {
    .name = "CO_OCCURRENCE_VIA_MAP_POSITION_OUT_OF_RANGE",
    .query = "default.map({s := segment1.at(6)}).groupBy({count:=count()}, {s})",
-   .expected_error_message = "segment1.at(6) is out of bounds: the nucleotide sequence has length 5"
+   .expected_error_message =
+      "segment1.at(6) is out of bounds: the nucleotide sequence has length 5",
 };
 
 // Grouping directly on an indexed string column is now routed through the bitmap engine too: the
@@ -169,7 +170,7 @@ const QueryTestScenario INDEXED_COLUMN_SINGLE = {
    .expected_query_result = nlohmann::json::parse(R"([
       {"region": "Asia", "count": 1},
       {"region": "Europe", "count": 3}
-   ])")
+   ])"),
 };
 
 // A filter on an aggregate output column (`count`) must run above the groupBy, not be pushed into
@@ -202,7 +203,7 @@ const QueryTestScenario MIXED_SEQUENCE_AND_INDEXED_COLUMN = {
       {"s1": "A", "region": "Europe", "count": 2},
       {"s1": "C", "region": "Europe", "count": 1},
       {"s1": "N", "region": "Asia", "count": 1}
-   ])")
+   ])"),
 };
 
 // A bare field reference produced by the map (`r := region`, no `at`) over an *indexed* column is
@@ -214,7 +215,7 @@ const QueryTestScenario MAP_FIELD_REF_INDEXED_COLUMN = {
    .expected_query_result = nlohmann::json::parse(R"([
       {"r": "Asia", "count": 1},
       {"r": "Europe", "count": 3}
-   ])")
+   ])"),
 };
 
 // A bare field reference produced by the map over a *plain, non-indexed* string column, as the only
@@ -229,7 +230,7 @@ const QueryTestScenario MAP_FIELD_REF_PLAIN_STRING_COLUMN = {
       {"c": "France", "count": 1},
       {"c": "Germany", "count": 2},
       {"c": "Japan", "count": 1}
-   ])")
+   ])"),
 };
 
 // A sequence position and a plain (scanned) string column grouped together in one node. Depth-first
@@ -245,7 +246,7 @@ const QueryTestScenario MIXED_SEQUENCE_AND_FIELD_COLUMN = {
       {"s1": "A", "c": "Germany", "count": 1},
       {"s1": "C", "c": "Germany", "count": 1},
       {"s1": "N", "c": "Japan", "count": 1}
-   ])")
+   ])"),
 };
 
 // A scalar-expression key under a filter: the grouper evaluates `country` only over the filtered
@@ -262,7 +263,7 @@ const QueryTestScenario MIXED_SEQUENCE_AND_FIELD_COLUMN_WITH_FILTER = {
       {"s1": "A", "c": "France", "count": 1},
       {"s1": "A", "c": "Germany", "count": 1},
       {"s1": "C", "c": "Germany", "count": 1}
-   ])")
+   ])"),
 };
 
 // A general map-computed scalar expression, `date.isoWeek()`, as the only grouping key: like
@@ -279,7 +280,7 @@ const QueryTestScenario MAP_ISO_WEEK_EXPRESSION = {
       {"week": "2021-W01", "count": 1},
       {"week": "2021-W02", "count": 2},
       {"week": "2021-W10", "count": 1}
-   ])")
+   ])"),
 };
 
 // A sequence position and an isoWeek expression grouped together in one node, mixing the sequence
@@ -298,7 +299,7 @@ const QueryTestScenario MIXED_SEQUENCE_AND_ISO_WEEK = {
       {"s1": "A", "week": "2021-W10", "count": 1},
       {"s1": "C", "week": "2021-W02", "count": 1},
       {"s1": "N", "week": "2021-W02", "count": 1}
-   ])")
+   ])"),
 };
 
 // A sequence-less row carries no symbol at any position. The generic `at()`/groupBy path emits a
@@ -328,7 +329,7 @@ nlohmann::json createDataWithOptionalSequences(
       {"date", "2021-01-04"},
       {"unaligned_segment1", {}},
       {"segment1", sequence_field(nucleotideSequence)},
-      {"gene1", sequence_field(aminoAcidSequence)}
+      {"gene1", sequence_field(aminoAcidSequence)},
    };
 }
 
@@ -341,7 +342,7 @@ const nlohmann::json NULL_ROW_NO_AA =
 const QueryTestData NULL_TEST_DATA{
    .ndjson_input_data = {NULL_ROW_A, NULL_ROW_B, NULL_ROW_NO_NUC, NULL_ROW_NO_AA},
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 // segment1[1], segment1[2]: (A,T) for the two full rows, (C,A) for the row without an amino acid
@@ -355,7 +356,7 @@ const QueryTestScenario CO_OCCURRENCE_NULL_TWO_NUCLEOTIDE_POSITIONS = {
       {"s1": "A", "s2": "T", "count": 2},
       {"s1": "C", "s2": "A", "count": 1},
       {"s1": null, "s2": null, "count": 1}
-   ])")
+   ])"),
 };
 
 // segment1[5] has the missing symbol N as its reference: the two full rows carry N, the row without
@@ -368,7 +369,7 @@ const QueryTestScenario CO_OCCURRENCE_NULL_REFERENCE_IS_MISSING = {
       {"s5": "T", "count": 1},
       {"s5": "N", "count": 2},
       {"s5": null, "count": 1}
-   ])")
+   ])"),
 };
 
 // gene1[1] is the reference symbol M for the three rows that have an amino acid sequence, and null
@@ -379,7 +380,7 @@ const QueryTestScenario CO_OCCURRENCE_NULL_AMINO_ACID = {
    .expected_query_result = nlohmann::json::parse(R"([
       {"aa": "M", "count": 3},
       {"aa": null, "count": 1}
-   ])")
+   ])"),
 };
 
 // A combination across a nucleotide and an amino acid position: the null falls in different
@@ -396,7 +397,7 @@ const QueryTestScenario CO_OCCURRENCE_NULL_MIXED_POSITIONS = {
       {"s1": "A", "aa": "M", "count": 2},
       {"s1": "C", "aa": null, "count": 1},
       {"s1": null, "aa": "M", "count": 1}
-   ])")
+   ])"),
 };
 
 // The indexed `region` column is Europe for three rows and null for NULL_ROW_NO_AA. The null rows
@@ -407,7 +408,7 @@ const QueryTestScenario INDEXED_COLUMN_NULL_GROUP = {
    .expected_query_result = nlohmann::json::parse(R"([
       {"region": "Europe", "count": 3},
       {"region": null, "count": 1}
-   ])")
+   ])"),
 };
 
 // The bitmap aggregation node emits its combinations in pipeline-sized batches
@@ -424,7 +425,7 @@ const QueryTestScenario CO_OCCURRENCE_NULL_CHUNKED_OUTPUT = {
       {"s1": "C", "s2": "A", "count": 1},
       {"s1": null, "s2": null, "count": 1}
    ])"),
-   .query_options = rhydb::config::QueryOptions{.materialization_cutoff = 0}
+   .query_options = rhydb::config::QueryOptions{.materialization_cutoff = 0},
 };
 
 const nlohmann::json AMBIGUITY_ROW_A = createDataWithSequences("ATGCN", "M*", "Europe");
@@ -435,7 +436,7 @@ const nlohmann::json AMBIGUITY_ROW_Y = createDataWithSequences("YTGCN", "M*", "E
 const QueryTestData AMBIGUITY_TEST_DATA{
    .ndjson_input_data = {AMBIGUITY_ROW_A, AMBIGUITY_ROW_R1, AMBIGUITY_ROW_R2, AMBIGUITY_ROW_Y},
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario CO_OCCURRENCE_AMBIGUOUS_CODES = {
@@ -445,7 +446,7 @@ const QueryTestScenario CO_OCCURRENCE_AMBIGUOUS_CODES = {
       {"s1": "A", "count": 1},
       {"s1": "R", "count": 2},
       {"s1": "Y", "count": 1}
-   ])")
+   ])"),
 };
 
 // Every row's segment1 is fully missing (all N), so no row covers any position -- an all-N sequence
@@ -458,7 +459,7 @@ const nlohmann::json ALL_MISSING_ROW_C = createDataWithSequences("NNNNN", "M*", 
 const QueryTestData ALL_MISSING_TEST_DATA{
    .ndjson_input_data = {ALL_MISSING_ROW_A, ALL_MISSING_ROW_B, ALL_MISSING_ROW_C},
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario ALL_ROWS_MISSING_AT_POSITION = {
@@ -466,7 +467,7 @@ const QueryTestScenario ALL_ROWS_MISSING_AT_POSITION = {
    .query = "default.map({s1 := segment1.at(1)}).groupBy({count:=count()}, {s1})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "N", "count": 3}
-   ])")
+   ])"),
 };
 
 // ---------------------------------------------------------------------------
@@ -496,7 +497,7 @@ nlohmann::json createRowWithScalarTypes(
       {"passed", passed.has_value() ? nlohmann::json(*passed) : nlohmann::json()},
       {"unaligned_segment1", {}},
       {"segment1", {{"sequence", "ATGCN"}, {"insertions", nlohmann::json::array()}}},
-      {"gene1", {{"sequence", "M*"}, {"insertions", nlohmann::json::array()}}}
+      {"gene1", {{"sequence", "M*"}, {"insertions", nlohmann::json::array()}}},
    };
 }
 
@@ -524,12 +525,14 @@ schema:
 // ambiguity in the expected output.
 const QueryTestData SCALAR_TYPE_TEST_DATA{
    .ndjson_input_data =
-      {createRowWithScalarTypes(30, 1000000000000, 1.5, true),
-       createRowWithScalarTypes(30, 1000000000000, 1.5, false),
-       createRowWithScalarTypes(41, 2000000000000, 2.5, true),
-       createRowWithScalarTypes(std::nullopt, std::nullopt, std::nullopt, std::nullopt)},
+      {
+         createRowWithScalarTypes(30, 1000000000000, 1.5, true),
+         createRowWithScalarTypes(30, 1000000000000, 1.5, false),
+         createRowWithScalarTypes(41, 2000000000000, 2.5, true),
+         createRowWithScalarTypes(std::nullopt, std::nullopt, std::nullopt, std::nullopt),
+      },
    .database_config = SCALAR_TYPE_DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 // Groups come out in ascending value order with the null group last, so the expected rows are
@@ -541,7 +544,7 @@ const QueryTestScenario GROUP_BY_MAPPED_INT32_COLUMN = {
       {"s": "A", "a": 30, "count": 2},
       {"s": "A", "a": 41, "count": 1},
       {"s": "A", "a": null, "count": 1}
-   ])")
+   ])"),
 };
 
 const QueryTestScenario GROUP_BY_MAPPED_INT64_COLUMN = {
@@ -551,7 +554,7 @@ const QueryTestScenario GROUP_BY_MAPPED_INT64_COLUMN = {
       {"s": "A", "r": 1000000000000, "count": 2},
       {"s": "A", "r": 2000000000000, "count": 1},
       {"s": "A", "r": null, "count": 1}
-   ])")
+   ])"),
 };
 
 const QueryTestScenario GROUP_BY_MAPPED_FLOAT_COLUMN = {
@@ -561,7 +564,7 @@ const QueryTestScenario GROUP_BY_MAPPED_FLOAT_COLUMN = {
       {"s": "A", "c": 1.5, "count": 2},
       {"s": "A", "c": 2.5, "count": 1},
       {"s": "A", "c": null, "count": 1}
-   ])")
+   ])"),
 };
 
 // false sorts before true, so the two boolean groups come out in that order.
@@ -572,7 +575,7 @@ const QueryTestScenario GROUP_BY_MAPPED_BOOL_COLUMN = {
       {"s": "A", "p": false, "count": 1},
       {"s": "A", "p": true, "count": 2},
       {"s": "A", "p": null, "count": 1}
-   ])")
+   ])"),
 };
 
 }  // namespace

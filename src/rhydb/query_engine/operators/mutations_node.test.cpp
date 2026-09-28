@@ -17,7 +17,7 @@ nlohmann::json createData(
       {"primaryKey", primary_key},
       {"segment1", {{"sequence", segment1}, {"insertions", nlohmann::json::array()}}},
       {"segment2", {{"sequence", segment2}, {"insertions", nlohmann::json::array()}}},
-      {"gene1", {{"sequence", gene1}, {"insertions", nlohmann::json::array()}}}
+      {"gene1", {{"sequence", gene1}, {"insertions", nlohmann::json::array()}}},
    };
 }
 
@@ -40,11 +40,11 @@ const QueryTestData TEST_DATA{
          createData("s2", "CTGC", "GG", "TK"),  // segment1 A->C, gene1 M->T
          createData("s3", "CTGC", "TG", "TK"),  // segment1 A->C, segment2 G->T, gene1 M->T
          createData("s4", "GTGC", "GG", "MK"),  // segment1 A->G
-         createData("s5", "NTGC", "GG", "MK")   // segment1 position 1 is N (uncovered)
+         createData("s5", "NTGC", "GG", "MK"),   // segment1 position 1 is N (uncovered)
       },
    .database_config = DATABASE_CONFIG,
    .reference_genomes = REFERENCE_GENOMES,
-   .without_unaligned_sequences = true
+   .without_unaligned_sequences = true,
 };
 
 // ---- nucleotide mutations() ----
@@ -100,7 +100,7 @@ const QueryTestScenario MUTATIONS_SEQUENCE_NAMES_SELECTS = {
        "proportion":0.5,"coverage":4,"count":2},
       {"mutationFrom":"A","mutationTo":"G","sequenceName":"segment1","position":1,
        "proportion":0.25,"coverage":4,"count":1}
-   ])")
+   ])"),
 };
 
 const QueryTestScenario MUTATIONS_WITH_INPUT_FILTER = {
@@ -113,7 +113,7 @@ const QueryTestScenario MUTATIONS_WITH_INPUT_FILTER = {
        "proportion":1.0,"coverage":2,"count":2},
       {"mutationFrom":"G","mutationTo":"T","sequenceName":"segment2","position":1,
        "proportion":0.5,"coverage":2,"count":1}
-   ])")
+   ])"),
 };
 
 const QueryTestScenario MUTATIONS_FIELDS_NARROWED = {
@@ -122,39 +122,39 @@ const QueryTestScenario MUTATIONS_FIELDS_NARROWED = {
       "default.mutations(minProportion:=0.0, sequenceNames:={segment2}, fields:={position, count})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"position":1,"count":1}
-   ])")
+   ])"),
 };
 
 const QueryTestScenario MUTATIONS_INVALID_MIN_PROPORTION = {
    .name = "MUTATIONS_INVALID_MIN_PROPORTION",
    .query = "default.mutations(minProportion:=1.5)",
-   .expected_error_message = "Invalid proportion: minProportion must be in interval [0.0, 1.0]"
+   .expected_error_message = "Invalid proportion: minProportion must be in interval [0.0, 1.0]",
 };
 
 const QueryTestScenario MUTATIONS_MISSING_MIN_PROPORTION = {
    .name = "MUTATIONS_MISSING_MIN_PROPORTION",
    .query = "default.mutations()",
-   .expected_error_message = "mutations() requires argument 'minProportion'"
+   .expected_error_message = "mutations() requires argument 'minProportion'",
 };
 
 const QueryTestScenario MUTATIONS_ON_NON_SCAN = {
    .name = "MUTATIONS_ON_NON_SCAN",
    .query = "default.project({primaryKey}).mutations(minProportion:=0.1)",
-   .expected_error_message = "mutations() must be applied to a table scan"
+   .expected_error_message = "mutations() must be applied to a table scan",
 };
 
 const QueryTestScenario MUTATIONS_UNKNOWN_SEQUENCE_NAME = {
    .name = "MUTATIONS_UNKNOWN_SEQUENCE_NAME",
    .query = "default.mutations(minProportion:=0.1, sequenceNames:={unknownSegment})",
    .expected_error_message =
-      "The database does not contain the Nucleotide sequence 'unknownSegment'"
+      "The database does not contain the Nucleotide sequence 'unknownSegment'",
 };
 
 // gene1 exists but is an amino acid sequence
 const QueryTestScenario MUTATIONS_WRONG_TYPE_SEQUENCE_NAME = {
    .name = "MUTATIONS_WRONG_TYPE_SEQUENCE_NAME",
    .query = "default.mutations(minProportion:=0.1, sequenceNames:={gene1})",
-   .expected_error_message = "The database does not contain the Nucleotide sequence 'gene1'"
+   .expected_error_message = "The database does not contain the Nucleotide sequence 'gene1'",
 };
 
 const QueryTestScenario MUTATIONS_INVALID_FIELD = {
@@ -162,7 +162,7 @@ const QueryTestScenario MUTATIONS_INVALID_FIELD = {
    .query = "default.mutations(minProportion:=0.1, fields:={notAField})",
    .expected_error_message =
       "The attribute 'fields' contains an invalid field 'notAField'. Valid fields are "
-      "mutationFrom, mutationTo, position, sequenceName, proportion, coverage, count."
+      "mutationFrom, mutationTo, position, sequenceName, proportion, coverage, count.",
 };
 
 // ---- filtering the OUTPUT of mutations() ----
@@ -173,13 +173,13 @@ const QueryTestScenario FILTER_MUTATIONS_OUTPUT_PROPORTION_KEEP = {
    .expected_query_result = nlohmann::json::parse(R"([
       {"mutationFrom":"A","mutationTo":"C","sequenceName":"segment1","position":1,
        "proportion":0.5,"coverage":4,"count":2}
-   ])")
+   ])"),
 };
 
 const QueryTestScenario FILTER_MUTATIONS_OUTPUT_PROPORTION_DROP = {
    .name = "FILTER_MUTATIONS_OUTPUT_PROPORTION_DROP",
    .query = "default.mutations(minProportion:=0.0).filter(proportion > 0.6)",
-   .expected_query_result = nlohmann::json::array()
+   .expected_query_result = nlohmann::json::array(),
 };
 
 const QueryTestScenario FILTER_MUTATIONS_OUTPUT_COUNT_AND_SEQUENCE = {
@@ -188,7 +188,7 @@ const QueryTestScenario FILTER_MUTATIONS_OUTPUT_COUNT_AND_SEQUENCE = {
    .expected_query_result = nlohmann::json::parse(R"([
       {"mutationFrom":"G","mutationTo":"T","sequenceName":"segment2","position":1,
        "proportion":0.2,"coverage":5,"count":1}
-   ])")
+   ])"),
 };
 
 // ---- amino acid aminoAcidMutations() ----
@@ -199,13 +199,13 @@ const QueryTestScenario AA_MUTATIONS_ALL_FIELDS = {
    .expected_query_result = nlohmann::json::parse(R"([
       {"mutationFrom":"M","mutationTo":"T","sequenceName":"gene1","position":1,
        "proportion":0.4,"coverage":5,"count":2}
-   ])")
+   ])"),
 };
 
 const QueryTestScenario AA_MUTATIONS_MIN_PROPORTION_EXCLUDES = {
    .name = "AA_MUTATIONS_MIN_PROPORTION_EXCLUDES",
    .query = "default.aminoAcidMutations(minProportion:=0.5)",
-   .expected_query_result = nlohmann::json::array()
+   .expected_query_result = nlohmann::json::array(),
 };
 
 const QueryTestScenario AA_MUTATIONS_SEQUENCE_NAMES_SELECTS = {
@@ -214,14 +214,14 @@ const QueryTestScenario AA_MUTATIONS_SEQUENCE_NAMES_SELECTS = {
    .expected_query_result = nlohmann::json::parse(R"([
       {"mutationFrom":"M","mutationTo":"T","sequenceName":"gene1","position":1,
        "proportion":0.4,"coverage":5,"count":2}
-   ])")
+   ])"),
 };
 
 // segment1 is a nucleotide sequence
 const QueryTestScenario AA_MUTATIONS_WRONG_TYPE_SEQUENCE_NAME = {
    .name = "AA_MUTATIONS_WRONG_TYPE_SEQUENCE_NAME",
    .query = "default.aminoAcidMutations(minProportion:=0.1, sequenceNames:={segment1})",
-   .expected_error_message = "The database does not contain the AminoAcid sequence 'segment1'"
+   .expected_error_message = "The database does not contain the AminoAcid sequence 'segment1'",
 };
 
 }  // namespace

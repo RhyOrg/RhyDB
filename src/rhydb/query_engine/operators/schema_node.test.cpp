@@ -66,7 +66,7 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{
 const QueryTestData TEST_DATA{
    .ndjson_input_data = DATA,
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario TABLE_SCHEMA_SCENARIO = {
@@ -81,8 +81,8 @@ const QueryTestScenario TABLE_SCHEMA_SCENARIO = {
        {{"fieldName", "primaryKey"}, {"type", "STRING"}},
        {{"fieldName", "proportion"}, {"type", "FLOAT"}},
        {{"fieldName", "segment1"}, {"type", "STRING"}},
-       {{"fieldName", "unaligned_segment1"}, {"type", "STRING"}}}
-   )
+       {{"fieldName", "unaligned_segment1"}, {"type", "STRING"}},}
+   ),
 };
 
 const QueryTestScenario GROUP_BY_SCHEMA_SCENARIO = {
@@ -90,14 +90,14 @@ const QueryTestScenario GROUP_BY_SCHEMA_SCENARIO = {
    .query = "default.filter(country='CH').groupBy({count := count()}, {age}).schema()",
    .expected_query_result = nlohmann::json(
       {{{"fieldName", "age"}, {"type", "INT32"}}, {{"fieldName", "count"}, {"type", "INT64"}}}
-   )
+   ),
 };
 
 const QueryTestScenario CHAINING_SCHEMA_SCENARIO = {
    .name = "CHAINING_SCHEMA",
    .query =
       "default.filter(country='CH').groupBy({count := count()}, {age}).schema().project({type})",
-   .expected_query_result = nlohmann::json({{{"type", "INT32"}}, {{"type", "INT64"}}})
+   .expected_query_result = nlohmann::json({{{"type", "INT32"}}, {{"type", "INT64"}}}),
 };
 
 const QueryTestScenario MUTATIONS_SCHEMA_SCENARIO = {
@@ -110,8 +110,8 @@ const QueryTestScenario MUTATIONS_SCHEMA_SCENARIO = {
        {{"fieldName", "position"}, {"type", "INT32"}},
        {{"fieldName", "proportion"}, {"type", "FLOAT"}},
        {{"fieldName", "coverage"}, {"type", "INT32"}},
-       {{"fieldName", "count"}, {"type", "INT32"}}}
-   )
+       {{"fieldName", "count"}, {"type", "INT32"}},}
+   ),
 };
 
 const QueryTestScenario INSERTIONS_SCHEMA_SCENARIO = {
@@ -121,8 +121,8 @@ const QueryTestScenario INSERTIONS_SCHEMA_SCENARIO = {
       {{{"fieldName", "position"}, {"type", "INT32"}},
        {{"fieldName", "insertedSymbols"}, {"type", "STRING"}},
        {{"fieldName", "sequenceName"}, {"type", "STRING"}},
-       {{"fieldName", "count"}, {"type", "INT32"}}}
-   )
+       {{"fieldName", "count"}, {"type", "INT32"}},}
+   ),
 };
 
 const QueryTestScenario SCHEMA_AFTER_MAP_SCENARIO = {
@@ -131,8 +131,8 @@ const QueryTestScenario SCHEMA_AFTER_MAP_SCENARIO = {
    .expected_query_result = nlohmann::json(
       {{{"fieldName", "primaryKey"}, {"type", "STRING"}},
        {{"fieldName", "tag"}, {"type", "INT64"}},
-       {{"fieldName", "label"}, {"type", "STRING"}}}
-   )
+       {{"fieldName", "label"}, {"type", "STRING"}},}
+   ),
 };
 
 // project() before schema() controls field selection and order
@@ -142,8 +142,8 @@ const QueryTestScenario SCHEMA_AFTER_PROJECT_ORDER_SCENARIO = {
    .expected_query_result = nlohmann::json(
       {{{"fieldName", "date"}, {"type", "DATE32"}},
        {{"fieldName", "age"}, {"type", "INT32"}},
-       {{"fieldName", "primaryKey"}, {"type", "STRING"}}}
-   )
+       {{"fieldName", "primaryKey"}, {"type", "STRING"}},}
+   ),
 };
 
 // orderBy() after schema() is schema-preserving and needs no data source below it,
@@ -153,14 +153,14 @@ const QueryTestScenario ORDER_BY_AFTER_SCHEMA_SCENARIO = {
    .query = "default.groupBy({count := count()}, {age}).schema().orderBy({fieldName})",
    .expected_query_result = nlohmann::json(
       {{{"fieldName", "age"}, {"type", "INT32"}}, {{"fieldName", "count"}, {"type", "INT64"}}}
-   )
+   ),
 };
 
 // limit() after schema() truncates the schema() rows.
 const QueryTestScenario LIMIT_AFTER_SCHEMA_SCENARIO = {
    .name = "LIMIT_AFTER_SCHEMA",
    .query = "default.groupBy({count := count()}, {age}).schema().orderBy({fieldName}).limit(1)",
-   .expected_query_result = nlohmann::json({{{"fieldName", "age"}, {"type", "INT32"}}})
+   .expected_query_result = nlohmann::json({{{"fieldName", "age"}, {"type", "INT32"}}}),
 };
 
 const QueryTestScenario MAP_AFTER_SCHEMA_SCENARIO = {
@@ -168,17 +168,17 @@ const QueryTestScenario MAP_AFTER_SCHEMA_SCENARIO = {
    .query = "default.groupBy({count := count()}, {age}).schema().map({kind := 'field'})",
    .expected_query_result = nlohmann::json(
       {{{"fieldName", "age"}, {"type", "INT32"}, {"kind", "field"}},
-       {{"fieldName", "count"}, {"type", "INT64"}, {"kind", "field"}}}
-   )
+       {{"fieldName", "count"}, {"type", "INT64"}, {"kind", "field"}},}
+   ),
 };
 
 const QueryTestScenario SCHEMA_OF_SCHEMA_SCENARIO = {
    .name = "SCHEMA_OF_SCHEMA",
    .query = "default.schema().schema()",
    .expected_query_result = nlohmann::json(
-      {{{"fieldName", "fieldName"}, {"type", "STRING"}}, {{"fieldName", "type"}, {"type", "STRING"}}
+      {{{"fieldName", "fieldName"}, {"type", "STRING"}}, {{"fieldName", "type"}, {"type", "STRING"}},
       }
-   )
+   ),
 };
 
 // Amino acid mutations resolve through a different node template than nucleotide mutations
@@ -192,8 +192,8 @@ const QueryTestScenario AMINO_ACID_MUTATIONS_SCHEMA_SCENARIO = {
        {{"fieldName", "position"}, {"type", "INT32"}},
        {{"fieldName", "proportion"}, {"type", "FLOAT"}},
        {{"fieldName", "coverage"}, {"type", "INT32"}},
-       {{"fieldName", "count"}, {"type", "INT32"}}}
-   )
+       {{"fieldName", "count"}, {"type", "INT32"}},}
+   ),
 };
 
 // schema() inspects only the declared output schema, never the data: a child that
@@ -203,7 +203,7 @@ const QueryTestScenario SCHEMA_IGNORES_DATA_SCENARIO = {
    .query = "default.filter(country='does-not-exist').project({primaryKey, age}).schema()",
    .expected_query_result = nlohmann::json(
       {{{"fieldName", "primaryKey"}, {"type", "STRING"}}, {{"fieldName", "age"}, {"type", "INT32"}}}
-   )
+   ),
 };
 
 // schema() takes no arguments beyond its input; passing an extra positional argument
@@ -211,7 +211,7 @@ const QueryTestScenario SCHEMA_IGNORES_DATA_SCENARIO = {
 const QueryTestScenario SCHEMA_EXTRA_ARG_ERROR_SCENARIO = {
    .name = "SCHEMA_EXTRA_ARG_ERROR",
    .query = "default.schema(age)",
-   .expected_error_message = "schema() received too many positional arguments"
+   .expected_error_message = "schema() received too many positional arguments",
 };
 
 const QueryTestScenario FILTER_AFTER_SCHEMA_SCENARIO = {
@@ -230,14 +230,14 @@ const QueryTestScenario FILTER_AFTER_SCHEMA_SCENARIO = {
 const QueryTestScenario SCHEMA_PROPAGATES_BAD_SEQUENCE_ERROR_SCENARIO = {
    .name = "SCHEMA_PROPAGATES_BAD_SEQUENCE_ERROR",
    .query = "default.aminoAcidMutations(minProportion:=0.1, sequenceNames:={noseq}).schema()",
-   .expected_error_message = "The database does not contain the AminoAcid sequence 'noseq'"
+   .expected_error_message = "The database does not contain the AminoAcid sequence 'noseq'",
 };
 
 // mutations() must be applied to a table scan and schema() must not suppress that error.
 const QueryTestScenario SCHEMA_PROPAGATES_NON_SCAN_ERROR_SCENARIO = {
    .name = "SCHEMA_PROPAGATES_NON_SCAN_ERROR",
    .query = "default.project({age}).mutations(minProportion:=0.1).schema()",
-   .expected_error_message = "mutations() must be applied to a table scan"
+   .expected_error_message = "mutations() must be applied to a table scan",
 };
 
 // Positive control: a filter() before mutations() inside the child must still be pushed
@@ -253,8 +253,8 @@ const QueryTestScenario SCHEMA_AFTER_FILTERED_MUTATIONS_SCENARIO = {
        {{"fieldName", "position"}, {"type", "INT32"}},
        {{"fieldName", "proportion"}, {"type", "FLOAT"}},
        {{"fieldName", "coverage"}, {"type", "INT32"}},
-       {{"fieldName", "count"}, {"type", "INT32"}}}
-   )
+       {{"fieldName", "count"}, {"type", "INT32"}},}
+   ),
 };
 
 }  // namespace

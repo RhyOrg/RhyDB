@@ -20,9 +20,9 @@ std::string serializeResultOrdering(const arrow::compute::Ordering& ordering) {
       sort_keys.push_back(
          {{"field", field_name != nullptr ? *field_name : sort_key.target.ToString()},
           {"order",
-           sort_key.order == arrow::compute::SortOrder::Ascending ? "ascending" : "descending"},
+           sort_key.order == arrow::compute::SortOrder::Ascending ? "ascending" : "descending",},
           {"nullPlacement",
-           sort_key.null_placement == arrow::compute::NullPlacement::AtStart ? "atStart" : "atEnd"}}
+           sort_key.null_placement == arrow::compute::NullPlacement::AtStart ? "atStart" : "atEnd",},}
       );
    }
    return sort_keys.dump();
@@ -40,7 +40,7 @@ arrow::Result<QueryPlan> QueryPlan::makeQueryPlan(
       backpressure_monitor, createGenerator(arrow_plan.get(), root, &results_generator)
    );
    QueryPlan query_plan{
-      std::move(arrow_plan), std::move(results_generator), backpressure_monitor, request_id
+      std::move(arrow_plan), std::move(results_generator), backpressure_monitor, request_id,
    };
    query_plan.results_schema = root->output_schema();
    query_plan.result_ordering = std::move(result_ordering);
@@ -181,9 +181,9 @@ arrow::Result<arrow::acero::BackpressureMonitor*> QueryPlan::createGenerator(
       generator,
       arrow::acero::BackpressureOptions{
          /*.resume_if_below =*/common::S_16_KB,
-         /*.pause_if_above =*/common::S_64_MB
+         /*.pause_if_above =*/common::S_64_MB,
       },
-      &backpressure_monitor
+      &backpressure_monitor,
    };
 
    ARROW_ASSIGN_OR_RAISE(

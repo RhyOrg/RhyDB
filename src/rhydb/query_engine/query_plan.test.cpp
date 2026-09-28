@@ -65,7 +65,7 @@ TEST(QueryPlan, reportsExplicitSortFieldsForOrderedResult) {
                    .ValueOrDie();
 
    const arrow::compute::Ordering ordering{
-      {arrow::compute::SortKey{"id", arrow::compute::SortOrder::Descending}}
+      {arrow::compute::SortKey{"id", arrow::compute::SortOrder::Descending}},
    };
    arrow::AsyncGenerator<std::optional<arrow::ExecBatch>> generator;
    node = arrow::acero::MakeExecNode(

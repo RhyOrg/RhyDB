@@ -479,7 +479,7 @@ TEST(splitIdsIntoBatches, MultipleBatches) {
       0x00020001,
       0x00020002,
       0x00020003,  // Batch 2: upper bits = 0x0002
-      0x00030001   // Batch 3: upper bits = 0x0003
+      0x00030001,   // Batch 3: upper bits = 0x0003
    };
    auto result = splitIdsIntoBatches(input);
 
@@ -509,7 +509,7 @@ TEST(splitIdsIntoBatches, BoundaryValues) {
       0x00000000,  // Minimum value
       0x0000FFFF,  // Maximum lower bits with 0 upper bits
       0xFFFF0000,  // Maximum upper bits with 0 lower bits
-      0xFFFFFFFF   // Maximum value
+      0xFFFFFFFF,   // Maximum value
    };
    auto result = splitIdsIntoBatches(input);
 
@@ -546,7 +546,7 @@ TEST(splitIdsIntoBatches, LargeGapInUpperBits) {
       0x00010001,
       0x00010002,
       0x80000001,  // Large gap
-      0x80000002
+      0x80000002,
    };
    auto result = splitIdsIntoBatches(input);
 

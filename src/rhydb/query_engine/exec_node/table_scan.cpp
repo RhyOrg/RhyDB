@@ -247,7 +247,9 @@ arrow::Result<arrow::acero::ExecNode*> makeTableScan(
       columns, std::move(bitmap_filter_), std::move(table), batch_size_cutoff
    );
    const arrow::acero::SourceNodeOptions source_node_options{
-      exec_node::columnsToArrowSchema(columns), generator, arrow::Ordering::Implicit()
+      exec_node::columnsToArrowSchema(columns),
+      generator,
+      arrow::Ordering::Implicit(),
    };
    return arrow::acero::MakeExecNode("source", plan, {}, source_node_options);
 }

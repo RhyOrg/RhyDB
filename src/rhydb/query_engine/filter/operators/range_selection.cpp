@@ -103,7 +103,7 @@ std::unique_ptr<Operator> RangeSelection::negate(std::unique_ptr<RangeSelection>
       last_end = current.end;
    }
    const RowId ranges_end{
-      .chunk_id = static_cast<uint16_t>(range_selection->row_layout.numChunks()), .row_in_chunk = 0
+      .chunk_id = static_cast<uint16_t>(range_selection->row_layout.numChunks()), .row_in_chunk = 0,
    };
    if (last_end != ranges_end) {
       new_ranges.emplace_back(last_end, ranges_end);

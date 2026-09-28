@@ -796,7 +796,7 @@ std::unique_ptr<scalar_expressions::ScalarExpression> convertToFilter(
                ast.location.line,
                ast.location.column
             );
-         }
+         },
       },
       ast.value
    );
@@ -878,7 +878,7 @@ operators::AggregateDefinition parseAggregateDefinition(
       validateSumArguments(field, func, source_column);
    }
    return {
-      .output_name = field.name, .function = agg_func, .source_column = std::move(source_column)
+      .output_name = field.name, .function = agg_func, .source_column = std::move(source_column),
    };
 }
 
@@ -1072,7 +1072,7 @@ operators::QueryNodePtr wrapWithDecompressIfNeeded(
             {.output_column = {.name = col.name, .type = schema::ColumnType::STRING},
              .expression = std::make_unique<scalar_expressions::ZstdDecompressScalar>(
                 std::make_unique<scalar_expressions::FieldRef>(col), std::move(reference).value()
-             )}
+             ),}
          );
       }
    }
@@ -1223,7 +1223,7 @@ MapNode::Assignment parseMapAssignment(
    );
    return {
       .output_column = {.name = field.name, .type = expression->type()},
-      .expression = std::move(expression)
+      .expression = std::move(expression),
    };
 }
 
@@ -1753,7 +1753,7 @@ FunctionRegistry::FunctionRegistry() {
    registerFunction("map", {{pos("input"), pos("expressions")}}, handleMap);
 
    auto mutations_sig = FunctionSignature{
-      {pos("input"), named("minProportion"), named("sequenceNames", false), named("fields", false)}
+      {pos("input"), named("minProportion"), named("sequenceNames", false), named("fields", false)},
    };
    registerFunction(
       std::string{NUCLEOTIDE_MUTATIONS_FUNCTION_NAME}, mutations_sig, handleMutations
@@ -1789,7 +1789,7 @@ FunctionRegistry::FunctionRegistry() {
       {{pos("input"),
         pos("column"),
         named("printNodesNotInTree", false),
-        named("contractUnaryNodes", false)}},
+        named("contractUnaryNodes", false),},},
       handlePhyloSubtree
    );
 
@@ -1805,7 +1805,7 @@ FunctionRegistry::FunctionRegistry() {
         pos("from"),
         pos("to"),
         named("includeVertices", false),
-        named("startingFrom", false)}},
+        named("startingFrom", false),},},
       handleTransitiveClosure
    );
 }
@@ -1828,7 +1828,7 @@ ScalarFunctionRegistry::ScalarFunctionRegistry() {
       {{pos("column"),
         pos("value"),
         named("includeSublineages", false),
-        named("recombinantFollowingMode", false)}},
+        named("recombinantFollowingMode", false),},},
       handleLineage
    );
 
@@ -1866,7 +1866,7 @@ ScalarFunctionRegistry::ScalarFunctionRegistry() {
       named("querySequence", false),
       named("sequenceId", false),
       named("mutations", false),
-   }};
+   },};
    registerFunction("nucleotideMutationProfile", mutation_profile_sig, handleMutationProfile<Nucleotide>);
    registerFunction("aminoAcidMutationProfile", mutation_profile_sig, handleMutationProfile<AminoAcid>);
 }

@@ -91,7 +91,7 @@ class GermanString {
 
    [[nodiscard]] std::string_view prefix() const {
       return std::string_view{
-         reinterpret_cast<const char*>(data.data() + PREFIX_START), PREFIX_LENGTH
+         reinterpret_cast<const char*>(data.data() + PREFIX_START), PREFIX_LENGTH,
       };
    }
 

@@ -30,7 +30,7 @@ arrow::Result<std::shared_ptr<arrow::Table>> setupTestTable(
 ) {
    std::shared_ptr<arrow::Schema> schema = arrow::schema(
       {arrow::field("id", arrow::int32()),
-       arrow::field("some_zstd_compressed_column", arrow::binary())}
+       arrow::field("some_zstd_compressed_column", arrow::binary()),}
    );
 
    auto dictionary = std::make_shared<rhydb::ZstdCDictionary>(dictionary_string, 3);
@@ -70,7 +70,7 @@ std::shared_ptr<arrow::Table> runValuesThroughProjection(
       {arrow::compute::field_ref("id"),
        ZstdDecompressExpression::make(
           arrow::compute::field_ref("some_zstd_compressed_column"), dictionary_string
-       )}
+       ),}
    );
    node =
       arrow::acero::MakeExecNode("project", arrow_plan.get(), {node}, project_options).ValueOrDie();

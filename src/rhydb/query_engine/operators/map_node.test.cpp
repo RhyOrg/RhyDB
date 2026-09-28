@@ -22,7 +22,7 @@ nlohmann::json createData(
       {"segment1", segment1},
       {"gene1", nullptr},
       {"unaligned_segment1", unaligned_segment1},
-      {"date", date_value.empty() ? nlohmann::json(nullptr) : nlohmann::json(date_value)}
+      {"date", date_value.empty() ? nlohmann::json(nullptr) : nlohmann::json(date_value)},
    };
 }
 
@@ -38,7 +38,7 @@ nlohmann::json alignedSequence(const std::string& sequence) {
 // decompression scenarios.
 const std::vector<nlohmann::json> DATA = {
    createData("id_0", 1, "short", alignedSequence("ACGT"), "ACGT", "2023-01-05"),
-   createData("id_1", 2, "longlonglong", nullptr, nullptr, "2023-12-31")
+   createData("id_1", 2, "longlonglong", nullptr, nullptr, "2023-12-31"),
 };
 
 const auto DATABASE_CONFIG =
@@ -65,7 +65,7 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{
 const QueryTestData TEST_DATA{
    .ndjson_input_data = DATA,
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 // Assigns a literal of each supported type to a new column.
@@ -75,8 +75,8 @@ const QueryTestScenario MAP_LITERALS_SCENARIO = {
       R"(default.map({a := 3, b := 1.5, c := 'hello', d := true}).project({primaryKey, a, b, c, d}))",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"a", 3}, {"b", 1.5}, {"c", "hello"}, {"d", true}},
-       {{"primaryKey", "id_1"}, {"a", 3}, {"b", 1.5}, {"c", "hello"}, {"d", true}}}
-   )
+       {{"primaryKey", "id_1"}, {"a", 3}, {"b", 1.5}, {"c", "hello"}, {"d", true}},}
+   ),
 };
 
 // An assignment whose name matches an existing column replaces it in place.
@@ -85,7 +85,7 @@ const QueryTestScenario MAP_OVERRIDE_SCENARIO = {
    .query = "default.map({int_value := 42}).project({primaryKey, int_value})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"int_value", 42}}, {{"primaryKey", "id_1"}, {"int_value", 42}}}
-   )
+   ),
 };
 
 const QueryTestScenario MAP_OVERRIDE_TWICE_SCENARIO = {
@@ -93,7 +93,7 @@ const QueryTestScenario MAP_OVERRIDE_TWICE_SCENARIO = {
    .query = "default.map({int_value := 42}).map({int_value := 5}).project({primaryKey, int_value})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"int_value", 5}}, {{"primaryKey", "id_1"}, {"int_value", 5}}}
-   )
+   ),
 };
 
 const QueryTestScenario MAP_INT64_SCENARIO = {
@@ -101,7 +101,7 @@ const QueryTestScenario MAP_INT64_SCENARIO = {
    .query = "default.map({x := 3000000000}).project({primaryKey, x})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"x", 3000000000}}, {{"primaryKey", "id_1"}, {"x", 3000000000}}}
-   )
+   ),
 };
 
 // A column reference assigns an existing column's value to a new column.
@@ -110,7 +110,7 @@ const QueryTestScenario MAP_FIELD_REF_SCENARIO = {
    .query = "default.map({copied := int_value}).project({primaryKey, copied})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"copied", 1}}, {{"primaryKey", "id_1"}, {"copied", 2}}}
-   )
+   ),
 };
 
 // All projected columns are produced by the map; none are passed through from
@@ -119,7 +119,7 @@ const QueryTestScenario MAP_FIELD_REF_SCENARIO = {
 const QueryTestScenario MAP_ONLY_MAPPED_COLUMN_SCENARIO = {
    .name = "MAP_ONLY_MAPPED_COLUMN",
    .query = "default.map({a := 1}).project({a})",
-   .expected_query_result = nlohmann::json({{{"a", 1}}, {{"a", 1}}})
+   .expected_query_result = nlohmann::json({{{"a", 1}}, {{"a", 1}}}),
 };
 
 // A map() that assigns the same output column twice is rejected at query construction
@@ -128,7 +128,7 @@ const QueryTestScenario MAP_DUPLICATE_OUTPUT_NAME_SCENARIO = {
    .name = "MAP_DUPLICATE_OUTPUT_NAME",
    .query = "default.map({x := 1, x := 2}).project({primaryKey, x})",
    .expected_query_result = {},
-   .expected_error_message = "map() assigns the output column 'x' more than once"
+   .expected_error_message = "map() assigns the output column 'x' more than once",
 };
 
 // A table scan that exposes a (compressed) sequence column is wrapped in a MapNode
@@ -140,8 +140,8 @@ const QueryTestScenario DECOMPRESS_SEQUENCE_SCENARIO = {
    .query = "default.project({primaryKey, unaligned_segment1}).orderBy({primaryKey})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"unaligned_segment1", "ACGT"}},
-       {{"primaryKey", "id_1"}, {"unaligned_segment1", nullptr}}}
-   )
+       {{"primaryKey", "id_1"}, {"unaligned_segment1", nullptr}},}
+   ),
 };
 
 // A user map() stacked on top of the implicit decompression MapNode: both the
@@ -153,8 +153,8 @@ const QueryTestScenario DECOMPRESS_WITH_USER_MAP_SCENARIO = {
       "tag}).orderBy({primaryKey})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"unaligned_segment1", "ACGT"}, {"tag", 7}},
-       {{"primaryKey", "id_1"}, {"unaligned_segment1", nullptr}, {"tag", 7}}}
-   )
+       {{"primaryKey", "id_1"}, {"unaligned_segment1", nullptr}, {"tag", 7}},}
+   ),
 };
 
 // A nucleotide-symbol filter stacked on top of the implicit decompression MapNode for a
@@ -170,8 +170,8 @@ const QueryTestScenario FILTER_NUCLEOTIDE_EQUALS_OVER_DECOMPRESS_MAP_SCENARIO = 
       "default.filter(nucleotideEquals(position := 1, symbol := 'A', sequenceName := 'segment1'))"
       ".project({primaryKey, segment1, unaligned_segment1})",
    .expected_query_result =
-      nlohmann::json({{{"primaryKey", "id_0"}, {"segment1", "ACGT"}, {"unaligned_segment1", "ACGT"}}
-      })
+      nlohmann::json({{{"primaryKey", "id_0"}, {"segment1", "ACGT"}, {"unaligned_segment1", "ACGT"}},
+      }),
 };
 
 // Regression guard: selecting the (zstd-compressed) sequence column together with a
@@ -180,7 +180,7 @@ const QueryTestScenario DECOMPRESS_SEQUENCE_WITH_LIMIT_SCENARIO = {
    .name = "DECOMPRESS_SEQUENCE_WITH_LIMIT",
    .query = "default.project({primaryKey, unaligned_segment1}).orderBy({primaryKey}).limit(1)",
    .expected_query_result =
-      nlohmann::json({{{"primaryKey", "id_0"}, {"unaligned_segment1", "ACGT"}}})
+      nlohmann::json({{{"primaryKey", "id_0"}, {"unaligned_segment1", "ACGT"}}}),
 };
 
 // Correctness regression guard for a shape MapPullupPass is eligible to rewrite:
@@ -191,7 +191,7 @@ const QueryTestScenario DECOMPRESS_SEQUENCE_WITH_LIMIT_SCENARIO = {
 const QueryTestScenario MAP_WITH_LIMIT_TRIGGERS_PULLUP_SCENARIO = {
    .name = "MAP_WITH_LIMIT_TRIGGERS_PULLUP",
    .query = "default.map({a := 3}).orderBy({primaryKey}).map({b := 7}).limit(1).project({a, b})",
-   .expected_query_result = nlohmann::json({{{"a", 3}, {"b", 7}}})
+   .expected_query_result = nlohmann::json({{{"a", 3}, {"b", 7}}}),
 };
 
 // --- map()/filter() ordering combinations ---
@@ -206,7 +206,7 @@ const QueryTestScenario MAP_WITH_LIMIT_TRIGGERS_PULLUP_SCENARIO = {
 const QueryTestScenario FILTER_ON_TOP_OF_MAP_SCENARIO = {
    .name = "FILTER_ON_TOP_OF_MAP",
    .query = "default.map({a := 3}).filter(int_value = 1).project({primaryKey, a})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}, {"a", 3}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}, {"a", 3}}}),
 };
 
 // map() stacked on top of filter(): Map(Filter(scan)). The Map is already above the filter,
@@ -214,7 +214,7 @@ const QueryTestScenario FILTER_ON_TOP_OF_MAP_SCENARIO = {
 const QueryTestScenario MAP_ON_TOP_OF_FILTER_SCENARIO = {
    .name = "MAP_ON_TOP_OF_FILTER",
    .query = "default.filter(int_value = 1).map({a := 3}).project({primaryKey, a})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}, {"a", 3}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}, {"a", 3}}}),
 };
 
 // A map() whose assignment reads a passed-through column, stacked below a filter on a
@@ -224,7 +224,7 @@ const QueryTestScenario FILTER_ON_TOP_OF_MAP_FIELD_REF_SCENARIO = {
    .query =
       "default.map({copied := int_value}).filter(str_value = 'short').project({primaryKey, "
       "copied})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}, {"copied", 1}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}, {"copied", 1}}}),
 };
 
 // filter() over the implicit decompression MapNode: Filter(Map_decompress(scan)). The filter is
@@ -233,7 +233,7 @@ const QueryTestScenario FILTER_OVER_DECOMPRESS_MAP_SCENARIO = {
    .name = "FILTER_OVER_DECOMPRESS_MAP",
    .query = "default.filter(int_value = 1).project({primaryKey, unaligned_segment1})",
    .expected_query_result =
-      nlohmann::json({{{"primaryKey", "id_0"}, {"unaligned_segment1", "ACGT"}}})
+      nlohmann::json({{{"primaryKey", "id_0"}, {"unaligned_segment1", "ACGT"}}}),
 };
 
 // filter() + user map() + implicit decompression map() + limit, all stacked. The filter is
@@ -244,7 +244,7 @@ const QueryTestScenario FILTER_MAP_DECOMPRESS_LIMIT_SCENARIO = {
       "default.filter(int_value >= 1).map({tag := 7}).project({primaryKey, unaligned_segment1, "
       "tag}).orderBy({primaryKey}).limit(1)",
    .expected_query_result =
-      nlohmann::json({{{"primaryKey", "id_0"}, {"unaligned_segment1", "ACGT"}, {"tag", 7}}})
+      nlohmann::json({{{"primaryKey", "id_0"}, {"unaligned_segment1", "ACGT"}, {"tag", 7}}}),
 };
 
 // A filter that references a column the map produces (`a`) stays above the map and is executed as
@@ -252,7 +252,7 @@ const QueryTestScenario FILTER_MAP_DECOMPRESS_LIMIT_SCENARIO = {
 const QueryTestScenario FILTER_ON_MAPPED_COLUMN_SCENARIO = {
    .name = "FILTER_ON_MAPPED_COLUMN",
    .query = "default.map({a := 3}).filter(a = 3).project({primaryKey})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}, {{"primaryKey", "id_1"}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}, {{"primaryKey", "id_1"}}}),
 };
 
 // #1371/#1372 verbatim: filtering on an isoWeek-derived column stays above the map and is executed
@@ -260,7 +260,7 @@ const QueryTestScenario FILTER_ON_MAPPED_COLUMN_SCENARIO = {
 const QueryTestScenario FILTER_ON_ISO_WEEK_MAPPED_COLUMN_SCENARIO = {
    .name = "FILTER_ON_ISO_WEEK_MAPPED_COLUMN",
    .query = "default.map({week := date.isoWeek()}).filter(week = '2023-W01').project({primaryKey})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}}),
 };
 
 // A filter on a column the map REPLACES in place with a value-changing expression (`str_value :=
@@ -270,7 +270,7 @@ const QueryTestScenario FILTER_ON_REPLACED_MAPPED_COLUMN_SCENARIO = {
    .name = "FILTER_ON_REPLACED_MAPPED_COLUMN",
    .query =
       "default.map({str_value := str_value.at(1)}).filter(str_value = 's').project({primaryKey})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}}),
 };
 
 // A conjunction mixing a bitmap-only sequence predicate (hasMutation) with a derived column
@@ -284,7 +284,7 @@ const QueryTestScenario FILTER_MIXED_PUSHABLE_AND_DERIVED_SCENARIO = {
       "default.map({week := date.isoWeek()})"
       ".filter(hasMutation(sequenceName := 'segment1', position := 1) && week = '2023-W01')"
       ".project({primaryKey})",
-   .expected_query_result = nlohmann::json::array()
+   .expected_query_result = nlohmann::json::array(),
 };
 
 // A filter on a passed-through column (`int_value`) stacked above a map that produces an
@@ -293,7 +293,7 @@ const QueryTestScenario FILTER_MIXED_PUSHABLE_AND_DERIVED_SCENARIO = {
 const QueryTestScenario FILTER_PUSHED_PAST_UNRELATED_DERIVED_MAP_SCENARIO = {
    .name = "FILTER_PUSHED_PAST_UNRELATED_DERIVED_MAP",
    .query = "default.map({week := date.isoWeek()}).filter(int_value = 1).project({primaryKey})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}}),
 };
 
 // A `>` comparison on a map-produced column cannot be pushed below the map and is executed as an
@@ -301,7 +301,7 @@ const QueryTestScenario FILTER_PUSHED_PAST_UNRELATED_DERIVED_MAP_SCENARIO = {
 const QueryTestScenario FILTER_COMPARISON_ABOVE_MAP_SCENARIO = {
    .name = "FILTER_COMPARISON_ABOVE_MAP",
    .query = "default.map({tag := int_value}).filter(tag > 1).project({primaryKey, tag})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_1"}, {"tag", 2}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_1"}, {"tag", 2}}}),
 };
 
 // A conjunction of two comparisons on a map-produced column, executed as a single Arrow filter
@@ -309,7 +309,7 @@ const QueryTestScenario FILTER_COMPARISON_ABOVE_MAP_SCENARIO = {
 const QueryTestScenario FILTER_AND_RANGE_ABOVE_MAP_SCENARIO = {
    .name = "FILTER_AND_RANGE_ABOVE_MAP",
    .query = "default.map({tag := int_value}).filter(tag >= 2 && tag <= 2).project({primaryKey})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_1"}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_1"}}}),
 };
 
 // A disjunction over a map-produced column, executed as an Arrow filter above the map.
@@ -318,19 +318,19 @@ const QueryTestScenario FILTER_OR_ABOVE_MAP_SCENARIO = {
    .query =
       "default.map({week := date.isoWeek()})"
       ".filter(week = '2023-W01' || week = '2023-W52').project({primaryKey})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}, {{"primaryKey", "id_1"}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}, {{"primaryKey", "id_1"}}}),
 };
 
 const QueryTestScenario FILTER_NOT_EQUALS_ABOVE_MAP_SCENARIO = {
    .name = "FILTER_NOT_EQUALS_ABOVE_MAP",
    .query = "default.map({tag := int_value}).filter(tag <> 1).project({primaryKey, tag})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_1"}, {"tag", 2}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_1"}, {"tag", 2}}}),
 };
 
 const QueryTestScenario FILTER_LESS_ABOVE_MAP_SCENARIO = {
    .name = "FILTER_LESS_ABOVE_MAP",
    .query = "default.map({tag := int_value}).filter(tag < 2).project({primaryKey, tag})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}, {"tag", 1}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}, {"tag", 1}}}),
 };
 
 // A comparison against a date literal on a map-produced date column, executed as an Arrow filter
@@ -338,7 +338,7 @@ const QueryTestScenario FILTER_LESS_ABOVE_MAP_SCENARIO = {
 const QueryTestScenario FILTER_DATE_LITERAL_ABOVE_MAP_SCENARIO = {
    .name = "FILTER_DATE_LITERAL_ABOVE_MAP",
    .query = "default.map({d := date}).filter(d > '2023-06-01'::date).project({primaryKey})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_1"}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_1"}}}),
 };
 
 const QueryTestScenario FILTER_NESTED_AND_IN_OR_ABOVE_MAP_SCENARIO = {
@@ -346,7 +346,7 @@ const QueryTestScenario FILTER_NESTED_AND_IN_OR_ABOVE_MAP_SCENARIO = {
    .query =
       "default.map({tag := int_value})"
       ".filter((tag >= 2 && tag <= 2) || tag = 1).project({primaryKey})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}, {{"primaryKey", "id_1"}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}, {{"primaryKey", "id_1"}}}),
 };
 
 // Negation is deliberately rejected in filters on subexpressions until the native null-semantics
@@ -359,7 +359,7 @@ const QueryTestScenario FILTER_NEGATION_ABOVE_MAP_REJECTED_SCENARIO = {
    .expected_error_message =
       "Error when planning query execution: NotImplemented: negation ('!') is not yet supported in "
       "filters on subexpressions (see GitHub issue #1525); apply the negation in a filter that is "
-      "pushed into the table scan instead"
+      "pushed into the table scan instead",
 };
 
 // `isoWeek` maps a date column to its ISO 8601 week date, `<ISO-year>-W<ISO-week>`, as a string.
@@ -368,8 +368,8 @@ const QueryTestScenario MAP_ISO_WEEK_SCENARIO = {
    .query = "default.map({week := date.isoWeek()}).project({primaryKey, week})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"week", "2023-W01"}},
-       {{"primaryKey", "id_1"}, {"week", "2023-W52"}}}
-   )
+       {{"primaryKey", "id_1"}, {"week", "2023-W52"}},}
+   ),
 };
 
 }  // namespace
@@ -416,13 +416,13 @@ namespace {
 
 const std::vector<nlohmann::json> ISO_WEEK_NULL_DATA = {
    createData("id_0", 1, "short"),
-   createData("id_1", 2, "short", nullptr, nullptr, "2020-12-31")
+   createData("id_1", 2, "short", nullptr, nullptr, "2020-12-31"),
 };
 
 const QueryTestData ISO_WEEK_NULL_TEST_DATA{
    .ndjson_input_data = ISO_WEEK_NULL_DATA,
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario MAP_ISO_WEEK_NULL_SCENARIO = {
@@ -430,7 +430,7 @@ const QueryTestScenario MAP_ISO_WEEK_NULL_SCENARIO = {
    .query = "default.map({week := date.isoWeek()}).project({primaryKey, week})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"week", nullptr}}, {{"primaryKey", "id_1"}, {"week", "2020-W53"}}}
-   )
+   ),
 };
 
 // An isNull() predicate on a map-produced column, executed as an Arrow filter above the map. Only
@@ -438,7 +438,7 @@ const QueryTestScenario MAP_ISO_WEEK_NULL_SCENARIO = {
 const QueryTestScenario FILTER_ISNULL_ABOVE_MAP_SCENARIO = {
    .name = "FILTER_ISNULL_ABOVE_MAP",
    .query = "default.map({week := date.isoWeek()}).filter(week.isNull()).project({primaryKey})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}}),
 };
 
 // Negation above a map runs on the Arrow (subexpression) path, which deliberately rejects negation
@@ -450,7 +450,7 @@ const QueryTestScenario FILTER_NEGATION_ABOVE_MAP_NULL_REJECTED_SCENARIO = {
    .expected_error_message =
       "Error when planning query execution: NotImplemented: negation ('!') is not yet supported in "
       "filters on subexpressions (see GitHub issue #1525); apply the negation in a filter that is "
-      "pushed into the table scan instead"
+      "pushed into the table scan instead",
 };
 
 // The same negation pushed into the table scan runs on the native bitmap path, which is unaffected
@@ -458,7 +458,7 @@ const QueryTestScenario FILTER_NEGATION_ABOVE_MAP_NULL_REJECTED_SCENARIO = {
 const QueryTestScenario FILTER_NEGATION_KEEPS_NULL_PUSHED_DOWN_SCENARIO = {
    .name = "FILTER_NEGATION_KEEPS_NULL_PUSHED_DOWN",
    .query = "default.filter(!(date = '2020-12-31'::date)).project({primaryKey})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}}),
 };
 
 }  // namespace

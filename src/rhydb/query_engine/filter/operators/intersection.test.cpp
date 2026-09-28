@@ -98,7 +98,7 @@ TEST(OperatorIntersection, evaluateShouldReturnCorrectValuesManyNegated) {
       roaring::Roaring({3}),
       roaring::Roaring({4}),
       roaring::Roaring({2, 4}),
-   }});
+   },});
    const auto row_layout = RowLayout::of(5);
 
    OperatorVector non_negated = generateTestInput(test_bitmaps, row_layout);
@@ -113,7 +113,7 @@ TEST(OperatorIntersection, evaluateShouldReturnCorrectValuesEmptyInput) {
       roaring::Roaring({3}),
       roaring::Roaring({4}),
       roaring::Roaring({2, 4}),
-   }});
+   },});
    const auto row_layout = RowLayout::of(5);
 
    OperatorVector non_negated = generateTestInput(test_bitmaps, row_layout);

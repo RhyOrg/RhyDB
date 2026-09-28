@@ -43,7 +43,7 @@ CHILD:
       ),
       (std::set<Idx>{
          lineage_tree.lineage_id_lookup_map.getId("BASE").value(),
-         lineage_tree.lineage_id_lookup_map.getId("CHILD").value()
+         lineage_tree.lineage_id_lookup_map.getId("CHILD").value(),
       })
    );
 }

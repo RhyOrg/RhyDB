@@ -50,83 +50,83 @@ const QueryTestData TEST_DATA{
          createData("id_null", std::nullopt, std::nullopt),
       },
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario EQUALS_NON_BOOL_COLUMN_REJECTED = {
    .name = "BOOL_EQUALS_NON_BOOL_COLUMN_REJECTED",
    .query = "default.filter(intField = true).project(primaryKey)",
-   .expected_error_message = "The column 'intField' is not of type bool"
+   .expected_error_message = "The column 'intField' is not of type bool",
 };
 
 const QueryTestScenario NOT_EQUALS_NON_BOOL_COLUMN_REJECTED = {
    .name = "BOOL_NOT_EQUALS_NON_BOOL_COLUMN_REJECTED",
    .query = "default.filter(intField <> true).project(primaryKey)",
-   .expected_error_message = "The column 'intField' is not of type bool"
+   .expected_error_message = "The column 'intField' is not of type bool",
 };
 
 const QueryTestScenario EQUALS_TRUE = {
    .name = "BOOL_EQUALS_TRUE",
    .query = "default.filter(boolField = true).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_true"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_true"}])"),
 };
 
 const QueryTestScenario EQUALS_FALSE = {
    .name = "BOOL_EQUALS_FALSE",
    .query = "default.filter(boolField = false).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_false"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_false"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_TRUE = {
    .name = "BOOL_NOT_EQUALS_TRUE",
    .query = "default.filter(boolField <> true).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_false"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_false"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_FALSE = {
    .name = "BOOL_NOT_EQUALS_FALSE",
    .query = "default.filter(boolField <> false).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_true"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_true"}])"),
 };
 
 const QueryTestScenario EQUALS_COLUMN_ON_RIGHT = {
    .name = "BOOL_EQUALS_COLUMN_ON_RIGHT",
    .query = "default.filter(true = boolField).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_true"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_true"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_COLUMN_ON_RIGHT = {
    .name = "BOOL_NOT_EQUALS_COLUMN_ON_RIGHT",
    .query = "default.filter(true <> boolField).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_false"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_false"}])"),
 };
 
 const QueryTestScenario LESS_THAN_REJECTED = {
    .name = "BOOL_LESS_THAN_REJECTED",
    .query = "default.filter(boolField < true).project(primaryKey)",
    .expected_error_message =
-      "The comparison operators <,>,<=,>= are not supported for boolean column 'boolField'"
+      "The comparison operators <,>,<=,>= are not supported for boolean column 'boolField'",
 };
 
 const QueryTestScenario LESS_EQUAL_REJECTED = {
    .name = "BOOL_LESS_EQUAL_REJECTED",
    .query = "default.filter(boolField <= true).project(primaryKey)",
    .expected_error_message =
-      "The comparison operators <,>,<=,>= are not supported for boolean column 'boolField'"
+      "The comparison operators <,>,<=,>= are not supported for boolean column 'boolField'",
 };
 
 const QueryTestScenario GREATER_THAN_REJECTED = {
    .name = "BOOL_GREATER_THAN_REJECTED",
    .query = "default.filter(boolField > false).project(primaryKey)",
    .expected_error_message =
-      "The comparison operators <,>,<=,>= are not supported for boolean column 'boolField'"
+      "The comparison operators <,>,<=,>= are not supported for boolean column 'boolField'",
 };
 
 const QueryTestScenario GREATER_EQUAL_REJECTED = {
    .name = "BOOL_GREATER_EQUAL_REJECTED",
    .query = "default.filter(boolField >= false).project(primaryKey)",
    .expected_error_message =
-      "The comparison operators <,>,<=,>= are not supported for boolean column 'boolField'"
+      "The comparison operators <,>,<=,>= are not supported for boolean column 'boolField'",
 };
 
 // An ordering comparison flips its comparator when the column is on the right, so the
@@ -135,27 +135,27 @@ const QueryTestScenario ORDERING_COLUMN_ON_RIGHT_REJECTED = {
    .name = "BOOL_ORDERING_COLUMN_ON_RIGHT_REJECTED",
    .query = "default.filter(true > boolField).project(primaryKey)",
    .expected_error_message =
-      "The comparison operators <,>,<=,>= are not supported for boolean column 'boolField'"
+      "The comparison operators <,>,<=,>= are not supported for boolean column 'boolField'",
 };
 
 const QueryTestScenario BARE_BOOL_FILTER = {
    .name = "BOOL_BARE_FILTER",
    .query = "default.filter(boolField).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_true"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_true"}])"),
 };
 
 const QueryTestScenario NEGATED_BARE_BOOL_FILTER = {
    .name = "BOOL_NEGATED_BARE_FILTER",
    .query = "default.filter(!boolField).project(primaryKey)",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_false"},{"primaryKey":"id_null"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_false"},{"primaryKey":"id_null"}])"),
 };
 
 const QueryTestScenario BARE_NON_BOOL_FILTER_REJECTED = {
    .name = "BOOL_BARE_NON_BOOL_FILTER_REJECTED",
    .query = "default.filter(intField).project(primaryKey)",
    .expected_error_message =
-      "The column 'intField' is not of type bool and cannot be used directly as a filter predicate"
+      "The column 'intField' is not of type bool and cannot be used directly as a filter predicate",
 };
 
 }  // namespace

@@ -45,7 +45,7 @@ WriteStatementRegistry::WriteStatementRegistry() {
    registerStatement(
       "insertInto",
       FunctionSignature{
-         {ParameterDefinition{.name = "input"}, ParameterDefinition{.name = "target"}}
+         {ParameterDefinition{.name = "input"}, ParameterDefinition{.name = "target"}},
       },
       buildInsertInto
    );

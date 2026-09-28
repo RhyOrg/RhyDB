@@ -86,7 +86,7 @@ arrow::Result<arrow::acero::ExecNode*> JoinNode::addToExecPlan(
    }
 
    const arrow::acero::HashJoinNodeOptions options{
-      join_type, std::move(left_key_refs), std::move(right_key_refs)
+      join_type, std::move(left_key_refs), std::move(right_key_refs),
    };
    return arrow::acero::MakeExecNode("hashjoin", &plan, {left_node, right_node}, options);
 }

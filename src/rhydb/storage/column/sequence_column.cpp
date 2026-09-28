@@ -233,7 +233,7 @@ SequenceColumnInfo SequenceColumn<SymbolType>::calculateInfo() {
    sequence_column_info = {
       .sequence_count = sequence_count,
       .vertical_bitmaps_size = computeVerticalBitmapsSize(),
-      .horizontal_bitmaps_size = computeHorizontalBitmapsSize()
+      .horizontal_bitmaps_size = computeHorizontalBitmapsSize(),
    };
    return sequence_column_info;
 }
@@ -336,7 +336,7 @@ void SequenceColumnBuilder<SymbolType>::insert(
    auto [coverage, mutations] = std::move(coverage_mutations).value();
 
    buffer.push_back(typename SequenceColumn<SymbolType>::BufferedSequence{
-      .coverage = std::move(coverage), .mutations = std::move(mutations), .insertions = {insertions}
+      .coverage = std::move(coverage), .mutations = std::move(mutations), .insertions = {insertions},
    });
 }
 

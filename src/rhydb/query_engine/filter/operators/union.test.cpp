@@ -79,7 +79,7 @@ TEST(OperatorUnion, evaluateShouldReturnCorrectValuesMany) {
       roaring::Roaring({2, 4}),
       roaring::Roaring({2, 4}),
       roaring::Roaring({2, 4}),
-   }});
+   },});
    const auto row_layout = RowLayout::of(13);
 
    OperatorVector input = generateTestInput(test_bitmaps, row_layout);

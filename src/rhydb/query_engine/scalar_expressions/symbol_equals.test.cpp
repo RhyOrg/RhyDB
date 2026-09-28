@@ -22,7 +22,7 @@ nlohmann::json createDataWithNucleotideSequence(const std::string& nucleotideSeq
       {"float_value", nullptr},
       {"segment1", {{"sequence", nucleotideSequence}, {"insertions", nlohmann::json::array()}}},
       {"unaligned_segment1", {}},
-      {"gene1", {}}
+      {"gene1", {}},
    };
 }
 
@@ -35,7 +35,7 @@ nlohmann::json createDataWithoutNucleotideSequence() {
       {"float_value", nullptr},
       {"segment1", nullptr},
       {"unaligned_segment1", {}},
-      {"gene1", {}}
+      {"gene1", {}},
    };
 }
 
@@ -69,9 +69,9 @@ const QueryTestData TEST_DATA{
        DATA_SAME_AS_REFERENCE2,
        DATA_WITH_ALL_N,
        DATA_WITH_ALL_MUTATED,
-       DATA_WITHOUT_SEQUENCE},
+       DATA_WITHOUT_SEQUENCE,},
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 std::string createNucleotideSymbolEqualsQuery(const std::string& symbol, int position) {
@@ -86,127 +86,127 @@ std::string createNucleotideSymbolEqualsQuery(const std::string& symbol, int pos
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL",
    .query = createNucleotideSymbolEqualsQuery("C", 1),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_DOT_RETURNS_REFERENCE = {
    .name = "NUCLEOTIDE_EQUALS_WITH_DOT_RETURNS_REFERENCE",
    .query = createNucleotideSymbolEqualsQuery(".", 1),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 2}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 2}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_C_AT_2 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_C_AT_2",
    .query = createNucleotideSymbolEqualsQuery("C", 2),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_C_AT_3 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_C_AT_3",
    .query = createNucleotideSymbolEqualsQuery("C", 3),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_C_AT_4 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_C_AT_4",
    .query = createNucleotideSymbolEqualsQuery("C", 4),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 2}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 2}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_C_AT_5 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_C_AT_5",
    .query = createNucleotideSymbolEqualsQuery("C", 5),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_A_AT_1 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_A_AT_1",
    .query = createNucleotideSymbolEqualsQuery("A", 1),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 2}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 2}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_A_AT_2 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_A_AT_2",
    .query = createNucleotideSymbolEqualsQuery("A", 2),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_A_AT_3 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_A_AT_3",
    .query = createNucleotideSymbolEqualsQuery("A", 3),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_A_AT_4 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_A_AT_4",
    .query = createNucleotideSymbolEqualsQuery("A", 4),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_A_AT_5 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_A_AT_5",
    .query = createNucleotideSymbolEqualsQuery("A", 5),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_G_AT_1 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_G_AT_1",
    .query = createNucleotideSymbolEqualsQuery("G", 1),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_G_AT_2 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_G_AT_2",
    .query = createNucleotideSymbolEqualsQuery("G", 2),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_G_AT_3 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_G_AT_3",
    .query = createNucleotideSymbolEqualsQuery("G", 3),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 2}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 2}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_G_AT_4 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_G_AT_4",
    .query = createNucleotideSymbolEqualsQuery("G", 4),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_G_AT_5 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_G_AT_5",
    .query = createNucleotideSymbolEqualsQuery("G", 5),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_T_AT_1 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_T_AT_1",
    .query = createNucleotideSymbolEqualsQuery("T", 1),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_T_AT_2 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_T_AT_2",
    .query = createNucleotideSymbolEqualsQuery("T", 2),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 2}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 2}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_T_AT_3 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_T_AT_3",
    .query = createNucleotideSymbolEqualsQuery("T", 3),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_T_AT_4 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_T_AT_4",
    .query = createNucleotideSymbolEqualsQuery("T", 4),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_T_AT_5 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_T_AT_5",
    .query = createNucleotideSymbolEqualsQuery("T", 5),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])"),
 };
 
 // The missing symbol is matched via the rows that are not covered at this position. The row without
@@ -214,7 +214,7 @@ const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_T_AT_5 = {
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_N_AT_1 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_N_AT_1",
    .query = createNucleotideSymbolEqualsQuery("N", 1),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])"),
 };
 
 // Position 5 is N in the reference, so this takes the compilation for the case where the queried
@@ -223,7 +223,7 @@ const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_N_AT_1 = {
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITH_SYMBOL_N_AT_5 = {
    .name = "NUCLEOTIDE_EQUALS_WITH_SYMBOL_N_AT_5",
    .query = createNucleotideSymbolEqualsQuery("N", 5),
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 3}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 3}])"),
 };
 
 // Every row of this dataset is without an amino acid sequence, so nothing matches the missing
@@ -233,19 +233,19 @@ const QueryTestScenario AMINO_ACID_EQUALS_MISSING_SYMBOL_WITHOUT_SEQUENCES = {
    .query =
       "default.filter(aminoAcidEquals(position:=1, symbol:='X', sequenceName:='gene1'))"
       ".groupBy({count:=count()})",
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])"),
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_SYMBOL_OUT_OF_RANGE = {
    .name = "NUCLEOTIDE_EQUALS_SYMBOL_OUT_OF_RANGE",
    .query = createNucleotideSymbolEqualsQuery("C", 1000),
-   .expected_error_message = "SymbolEquals<Nucleotide> position is out of bounds 1000 > 5"
+   .expected_error_message = "SymbolEquals<Nucleotide> position is out of bounds 1000 > 5",
 };
 
 const QueryTestScenario NUCLEOTIDE_EQUALS_OUT_OF_RANGE_EDGE_LOW = {
    .name = "NUCLEOTIDE_EQUALS_OUT_OF_RANGE_EDGE_LOW",
    .query = createNucleotideSymbolEqualsQuery(".", 0),
-   .expected_error_message = "The field 'position' is 1-indexed. Value of 0 not allowed."
+   .expected_error_message = "The field 'position' is 1-indexed. Value of 0 not allowed.",
 };
 
 // A sequence name is always required; there is no implicit default even though the reference genome
@@ -253,7 +253,7 @@ const QueryTestScenario NUCLEOTIDE_EQUALS_OUT_OF_RANGE_EDGE_LOW = {
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITHOUT_SEQUENCE_NAME = {
    .name = "NUCLEOTIDE_EQUALS_WITHOUT_SEQUENCE_NAME",
    .query = "default.filter(nucleotideEquals(position:=1, symbol:='A')).groupBy({count:=count()})",
-   .expected_error_message = "nucleotideEquals() requires argument 'sequenceName'"
+   .expected_error_message = "nucleotideEquals() requires argument 'sequenceName'",
 };
 
 }  // namespace nucleotide
@@ -269,7 +269,7 @@ nlohmann::json createDataWithAminoAcidSequence(const std::string& aminoAcidSeque
       {"primaryKey", fmt::format("id_{}", idx++)},
       {"segment1", nullptr},
       {GENE, {{"sequence", aminoAcidSequence}, {"insertions", nlohmann::json::array()}}},
-      {"unaligned_segment1", {}}
+      {"unaligned_segment1", {}},
    };
 }
 const nlohmann::json DATA_WITH_D = createDataWithAminoAcidSequence("D*");
@@ -295,7 +295,7 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{
 const QueryTestData TEST_DATA{
    .ndjson_input_data = {DATA_WITH_D, DATA_SAME_AS_REFERENCE, DATA_SAME_AS_REFERENCE2, DATA_WITH_B},
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario AMINO_ACID_EQUALS_D = {
@@ -303,7 +303,7 @@ const QueryTestScenario AMINO_ACID_EQUALS_D = {
    .query =
       "default.filter(aminoAcidEquals(position:=1, symbol:='D', sequenceName:='gene1'))"
       ".groupBy({count:=count()})",
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])"),
 };
 
 const QueryTestScenario AMINO_ACID_EQUALS_WITH_DOT_RETURNS_AS_IF_REFERENCE = {
@@ -311,14 +311,14 @@ const QueryTestScenario AMINO_ACID_EQUALS_WITH_DOT_RETURNS_AS_IF_REFERENCE = {
    .query =
       "default.filter(aminoAcidEquals(position:=1, symbol:='.', sequenceName:='gene1'))"
       ".groupBy({count:=count()})",
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 2}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 2}])"),
 };
 
 // Amino acid filters always require a sequence name.
 const QueryTestScenario AMINO_ACID_EQUALS_WITHOUT_SEQUENCE_NAME = {
    .name = "AMINO_ACID_EQUALS_WITHOUT_SEQUENCE_NAME",
    .query = "default.filter(aminoAcidEquals(position:=1, symbol:='D')).groupBy({count:=count()})",
-   .expected_error_message = "aminoAcidEquals() requires argument 'sequenceName'"
+   .expected_error_message = "aminoAcidEquals() requires argument 'sequenceName'",
 };
 
 }  // namespace amino_acid

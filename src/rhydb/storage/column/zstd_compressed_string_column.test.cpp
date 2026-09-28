@@ -96,7 +96,7 @@ TEST(ZstdCompressedStringColumn, valuesSpanningMultipleAppendedChunks) {
    const std::vector<std::vector<std::optional<std::string>>> chunks{
       {"2020-01-01", "2023-01-05"},
       {std::nullopt, "2021-12-03", "2025-01-01", std::nullopt},
-      {"asd"}
+      {"asd"},
    };
    const auto num_chunks = static_cast<uint16_t>(chunks.size());
    for (const auto& chunk : chunks) {

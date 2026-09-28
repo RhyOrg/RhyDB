@@ -76,7 +76,7 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{
 const QueryTestData TEST_DATA{
    .ndjson_input_data = DATA,
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario RANDOMIZE_SEED = {
@@ -88,7 +88,7 @@ const QueryTestScenario RANDOMIZE_SEED = {
           {"key": "id4"},
           {"key": "id2"},
           {"key": "id3"}])"
-   )
+   ),
 };
 
 const QueryTestScenario RANDOMIZE_INDEPENDENT_ON_COL_NUMS = {
@@ -102,7 +102,7 @@ const QueryTestScenario RANDOMIZE_INDEPENDENT_ON_COL_NUMS = {
 {"col":"B","key":"id2"},
 {"col":"A","key":"id3"}]
 )"
-   )
+   ),
 };
 
 const QueryTestScenario RANDOMIZE_INDEPENDENT_ON_BATCH_SIZE = {
@@ -115,7 +115,7 @@ const QueryTestScenario RANDOMIZE_INDEPENDENT_ON_BATCH_SIZE = {
           {"key": "id2"},
           {"key": "id3"}])"
    ),
-   .query_options = rhydb::config::QueryOptions{.materialization_cutoff = 2}
+   .query_options = rhydb::config::QueryOptions{.materialization_cutoff = 2},
 };
 
 const QueryTestScenario DIFFERENT_RANDOMIZE_SEED_DIFFERENT_RESULT = {
@@ -127,7 +127,7 @@ const QueryTestScenario DIFFERENT_RANDOMIZE_SEED_DIFFERENT_RESULT = {
           {"key": "id5"},
           {"key": "id2"},
           {"key": "id4"}])"
-   )
+   ),
 };
 
 const QueryTestScenario EXPLICIT_DO_NOT_RANDOMIZE = {
@@ -139,7 +139,7 @@ const QueryTestScenario EXPLICIT_DO_NOT_RANDOMIZE = {
           {"key": "id3"},
           {"key": "id4"},
           {"key": "id5"}])"
-   )
+   ),
 };
 
 const QueryTestScenario AGGREGATE_RANDOMIZE = {
@@ -153,7 +153,7 @@ const QueryTestScenario AGGREGATE_RANDOMIZE = {
 {"count": 1, "key": "id3"},
 {"count": 1, "key": "id2"}
 ])"
-   )
+   ),
 };
 
 const QueryTestScenario ORDER_BY_PRECEDENCE = {
@@ -167,7 +167,7 @@ const QueryTestScenario ORDER_BY_PRECEDENCE = {
 {"key": "id4", "col": "B"},
 {"key": "id2", "col": "B"}
 ])"
-   )
+   ),
 };
 
 const QueryTestScenario ORDER_BY_AGGREGATE_RANDOMIZE = {
@@ -176,7 +176,7 @@ const QueryTestScenario ORDER_BY_AGGREGATE_RANDOMIZE = {
    .expected_query_result = json::parse(
       R"([{"count": 2, "col": "B"},
           {"count": 3, "col": "A"}])"
-   )
+   ),
 };
 
 const QueryTestScenario LIMIT_2_RANDOMIZE = {
@@ -186,7 +186,7 @@ const QueryTestScenario LIMIT_2_RANDOMIZE = {
    .expected_query_result = json::parse(
       R"([{"key": "id1", "col": "A"},
           {"key": "id5", "col": "A"}])"
-   )
+   ),
 };
 
 const QueryTestScenario LIMIT_3_RANDOMIZE = {
@@ -197,7 +197,7 @@ const QueryTestScenario LIMIT_3_RANDOMIZE = {
       R"([{"key": "id1", "col": "A"},
           {"key": "id5", "col": "A"},
           {"key": "id4", "col": "B"}])"
-   )
+   ),
 };
 
 // A randomize directly followed by a limit is combined into an OrderByWithLimitNode that uses the
@@ -210,7 +210,7 @@ const QueryTestScenario RANDOMIZE_WITH_LIMIT = {
       R"([{"key": "id5"},
           {"key": "id1"},
           {"key": "id4"}])"
-   )
+   ),
 };
 
 const QueryTestScenario AGGREGATE_LIMIT_RANDOMIZE = {
@@ -219,7 +219,7 @@ const QueryTestScenario AGGREGATE_LIMIT_RANDOMIZE = {
    .expected_query_result = json::parse(
       R"([{"count": 1, "key": "id5"},
           {"count": 1, "key": "id1"}])"
-   )
+   ),
 };
 
 }  // namespace

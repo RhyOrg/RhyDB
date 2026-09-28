@@ -65,9 +65,11 @@ Table::Table(schema::TableName table_name, std::shared_ptr<schema::TableSchema> 
 nlohmann::json Table::logTable() const {
    return {
       {"name", table_name.getName()},
-      {"primaryKey",
-       schema->primary_key.has_value() ? nlohmann::json(schema->primary_key->name)
-                                       : nlohmann::json(nullptr)}
+      {
+         "primaryKey",
+         schema->primary_key.has_value() ? nlohmann::json(schema->primary_key->name)
+                                         : nlohmann::json(nullptr),
+      },
    };
 }
 

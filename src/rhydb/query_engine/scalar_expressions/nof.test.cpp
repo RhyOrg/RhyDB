@@ -112,10 +112,10 @@ const QueryTestData NOF_TEST_DATA{
        createNOfData("id_1", "Germany", "Europe", "2021-06-15"),
        createNOfData("id_2", "USA", "Americas", "2019-03-20"),
        createNOfData("id_3", "Switzerland", "Europe", "2018-11-01"),
-       createNOfData("id_4", "France", "Europe", "2022-07-10")},
+       createNOfData("id_4", "France", "Europe", "2022-07-10"),},
    .database_config = DATABASE_CONFIG,
    .reference_genomes = REFERENCE_GENOMES,
-   .without_unaligned_sequences = true
+   .without_unaligned_sequences = true,
 };
 
 const QueryTestScenario NOF_AT_LEAST_2_OF_3 = {
@@ -129,7 +129,7 @@ const QueryTestScenario NOF_AT_LEAST_2_OF_3 = {
 {"country":"Germany","primaryKey":"id_1"},
 {"country":"Switzerland","primaryKey":"id_3"}
 ])"
-   )
+   ),
 };
 
 const QueryTestScenario NOF_AT_LEAST_3_OF_3 = {
@@ -140,7 +140,7 @@ const QueryTestScenario NOF_AT_LEAST_3_OF_3 = {
       ".project({primaryKey})",
    .expected_query_result = nlohmann::json::parse(R"([
 {"primaryKey":"id_0"}
-])")
+])"),
 };
 
 const QueryTestScenario NOF_AT_LEAST_3_OF_3_EMPTY = {
@@ -148,7 +148,7 @@ const QueryTestScenario NOF_AT_LEAST_3_OF_3_EMPTY = {
    .query =
       "default.filter(nOf(3, {country = 'Switzerland', country = 'Germany', region = 'Europe'}))"
       ".project({primaryKey})",
-   .expected_query_result = nlohmann::json::parse(R"([])")
+   .expected_query_result = nlohmann::json::parse(R"([])"),
 };
 
 const QueryTestScenario NOF_AT_LEAST_1_OF_2 = {
@@ -162,7 +162,7 @@ const QueryTestScenario NOF_AT_LEAST_1_OF_2 = {
 {"country":"USA","primaryKey":"id_2"},
 {"country":"Switzerland","primaryKey":"id_3"}
 ])"
-   )
+   ),
 };
 
 const QueryTestScenario NOF_EXACTLY_1_OF_2 = {
@@ -175,7 +175,7 @@ const QueryTestScenario NOF_EXACTLY_1_OF_2 = {
 {"country":"Germany","primaryKey":"id_1","region":"Europe"},
 {"country":"France","primaryKey":"id_4","region":"Europe"}
 ])"
-   )
+   ),
 };
 
 const QueryTestScenario NOF_EXACTLY_2_OF_2 = {
@@ -188,7 +188,7 @@ const QueryTestScenario NOF_EXACTLY_2_OF_2 = {
 {"country":"Switzerland","primaryKey":"id_0"},
 {"country":"Switzerland","primaryKey":"id_3"}
 ])"
-   )
+   ),
 };
 
 const QueryTestScenario NOF_AT_LEAST_0 = {
@@ -204,7 +204,7 @@ const QueryTestScenario NOF_AT_LEAST_0 = {
 {"primaryKey":"id_3"},
 {"primaryKey":"id_4"}
 ])"
-   )
+   ),
 };
 
 const QueryTestScenario NOF_EXACTLY_0 = {
@@ -216,7 +216,7 @@ const QueryTestScenario NOF_EXACTLY_0 = {
       R"([
 {"country":"USA","primaryKey":"id_2"}
 ])"
-   )
+   ),
 };
 
 const QueryTestScenario NOF_WITH_NEGATION = {
@@ -229,7 +229,7 @@ const QueryTestScenario NOF_WITH_NEGATION = {
 {"country":"Switzerland","primaryKey":"id_0"},
 {"country":"Switzerland","primaryKey":"id_3"}
 ])"
-   )
+   ),
 };
 
 // --- Gap coverage: handleOrCase with negated child (DeMorgan path) ---
@@ -250,7 +250,7 @@ const QueryTestScenario NOF_OR_WITH_NEGATED_CHILD = {
 {"country":"Switzerland","primaryKey":"id_3"},
 {"country":"France","primaryKey":"id_4"}
 ])"
-   )
+   ),
 };
 
 // --- Gap coverage: exactly-0-of with 1 non-negated child (Complement) ---
@@ -266,7 +266,7 @@ const QueryTestScenario NOF_EXACTLY_0_SINGLE_NON_NEGATED = {
 {"country":"USA","primaryKey":"id_2"},
 {"country":"France","primaryKey":"id_4"}
 ])"
-   )
+   ),
 };
 
 // --- Gap coverage: exactly-0-of with 1 negated child (return negated) ---
@@ -284,7 +284,7 @@ const QueryTestScenario NOF_EXACTLY_0_SINGLE_NEGATED = {
 {"country":"Switzerland","primaryKey":"id_0"},
 {"country":"Switzerland","primaryKey":"id_3"}
 ])"
-   )
+   ),
 };
 
 // --- Gap coverage: handleAndCase all negated (Complement(Union)) ---
@@ -303,7 +303,7 @@ const QueryTestScenario NOF_ALL_NEGATED_AND_CASE = {
 {"country":"Germany","primaryKey":"id_1"},
 {"country":"France","primaryKey":"id_4"}
 ])"
-   )
+   ),
 };
 
 // --- Gap coverage: exactly-0-of with mixed negated/non-negated children (Intersection) ---
@@ -320,7 +320,7 @@ const QueryTestScenario NOF_EXACTLY_0_MIXED_NEGATED = {
       R"([
 {"country":"USA","primaryKey":"id_2"}
 ])"
-   )
+   ),
 };
 
 const QueryTestScenario NOF_EXACT_COUNT_EXCEEDS_CHILDREN = {
@@ -328,7 +328,7 @@ const QueryTestScenario NOF_EXACT_COUNT_EXCEEDS_CHILDREN = {
    .query =
       "default.filter(nOf(5, {country = 'Switzerland', country = 'USA'}, matchExactly:=true))"
       ".project({primaryKey})",
-   .expected_query_result = nlohmann::json::parse(R"([])")
+   .expected_query_result = nlohmann::json::parse(R"([])"),
 };
 
 const QueryTestScenario NOF_AT_LEAST_COUNT_EXCEEDS_CHILDREN = {
@@ -336,7 +336,7 @@ const QueryTestScenario NOF_AT_LEAST_COUNT_EXCEEDS_CHILDREN = {
    .query =
       "default.filter(nOf(5, {country = 'Switzerland', country = 'USA'}))"
       ".project({primaryKey})",
-   .expected_query_result = nlohmann::json::parse(R"([])")
+   .expected_query_result = nlohmann::json::parse(R"([])"),
 };
 
 // --- Gap coverage: single negated child, count=1 (Complement) ---
@@ -350,7 +350,7 @@ const QueryTestScenario NOF_SINGLE_NEGATED_CHILD = {
 {"country":"USA","primaryKey":"id_2"},
 {"country":"France","primaryKey":"id_4"}
 ])"
-   )
+   ),
 };
 
 // --- Coverage: count=1, 1 non-negated child → return child directly ---
@@ -362,7 +362,7 @@ const QueryTestScenario NOF_SINGLE_NON_NEGATED_CHILD = {
 {"country":"Switzerland","primaryKey":"id_0"},
 {"country":"Switzerland","primaryKey":"id_3"}
 ])"
-   )
+   ),
 };
 
 // --- Gap coverage: exactly-1-of with 3 children → Threshold exact path ---
@@ -381,7 +381,7 @@ const QueryTestScenario NOF_EXACTLY_1_OF_3_THRESHOLD = {
       R"([
 {"country":"France","primaryKey":"id_4"}
 ])"
-   )
+   ),
 };
 
 // --- maybe(nOf(...)) exercises rewriteToNonExact decomposition end-to-end ---
@@ -399,7 +399,7 @@ const QueryTestScenario NOF_MAYBE_EXACT_DECOMPOSITION = {
 {"country":"Germany","primaryKey":"id_1","region":"Europe"},
 {"country":"France","primaryKey":"id_4","region":"Europe"}
 ])"
-   )
+   ),
 };
 
 // --- Coverage: all True children, count goes negative, !exact → Full ---
@@ -414,21 +414,21 @@ const QueryTestScenario NOF_ALL_TRUE_CHILDREN = {
 {"primaryKey":"id_3"},
 {"primaryKey":"id_4"}
 ])"
-   )
+   ),
 };
 
 // --- Coverage: all True children, count goes negative, exact → Empty ---
 const QueryTestScenario NOF_ALL_TRUE_EXACT_EMPTY = {
    .name = "NOF_ALL_TRUE_EXACT_EMPTY",
    .query = "default.filter(nOf(1, {true, true, true}, matchExactly:=true)).project({primaryKey})",
-   .expected_query_result = nlohmann::json::parse(R"([])")
+   .expected_query_result = nlohmann::json::parse(R"([])"),
 };
 
 // --- Coverage: all False children → all skipped, count > 0 remaining → Empty
 const QueryTestScenario NOF_ALL_FALSE_CHILDREN = {
    .name = "NOF_ALL_FALSE_CHILDREN",
    .query = "default.filter(nOf(2, {false, false, false})).project({primaryKey})",
-   .expected_query_result = nlohmann::json::parse(R"([])")
+   .expected_query_result = nlohmann::json::parse(R"([])"),
 };
 
 // --- Coverage: mix of True/False/real children in mapChildExpressions ---
@@ -445,7 +445,7 @@ const QueryTestScenario NOF_MIXED_TRIVIAL_AND_REAL = {
 {"primaryKey":"id_3"},
 {"primaryKey":"id_4"}
 ])"
-   )
+   ),
 };
 
 const QueryTestScenario NOF_NEGATIVE_COUNT = {
@@ -459,7 +459,7 @@ const QueryTestScenario NOF_NEGATIVE_COUNT = {
 {"primaryKey":"id_3"},
 {"primaryKey":"id_4"}
 ])"
-   )
+   ),
 };
 
 const QueryTestScenario NOF_NEGATIVE_COUNT_EXACT = {
@@ -467,7 +467,7 @@ const QueryTestScenario NOF_NEGATIVE_COUNT_EXACT = {
    .query =
       "default.filter(nOf(-1, {country = 'Switzerland'}, matchExactly:=true))"
       ".project({primaryKey})",
-   .expected_query_result = nlohmann::json::parse(R"([])")
+   .expected_query_result = nlohmann::json::parse(R"([])"),
 };
 
 }  // namespace

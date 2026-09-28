@@ -71,7 +71,7 @@ std::unique_ptr<filter::operators::Operator> HasMutation<SymbolType>::compile(
    const storage::Table& /*table*/
 ) const {
    throw QueryCompilationException{
-      "Has{}Mutation expression must be eliminated in query rewrite phase", SymbolType::SYMBOL_NAME
+      "Has{}Mutation expression must be eliminated in query rewrite phase", SymbolType::SYMBOL_NAME,
    };
 }
 

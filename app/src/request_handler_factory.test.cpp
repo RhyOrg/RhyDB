@@ -24,7 +24,7 @@ std::unique_ptr<RhyDBRequestHandlerFactory> createRequestHandlerWithInitializedD
    table_schema->primary_key = {.name = "primary_key", .type = rhydb::schema::ColumnType::STRING};
    table_schema->column_metadata.emplace(
       rhydb::schema::ColumnIdentifier{
-         .name = "primary_key", .type = rhydb::schema::ColumnType::STRING
+         .name = "primary_key", .type = rhydb::schema::ColumnType::STRING,
       },
       std::make_shared<rhydb::storage::column::StringColumnMetadata>("primary_key")
    );

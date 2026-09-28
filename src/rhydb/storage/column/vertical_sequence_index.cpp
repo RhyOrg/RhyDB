@@ -25,7 +25,7 @@ void VerticalSequenceIndex<SymbolType>::addSymbolsToPositions(
          RHYDB_ASSERT_GT(lower_bits_vector.size(), 0ULL);
 
          const SequenceDiffKey key{
-            .position = position_idx, .v_index = upper_bits, .symbol = symbol
+            .position = position_idx, .v_index = upper_bits, .symbol = symbol,
          };
          SequenceDiff& sequence_diff =
             getContainerOrCreateWithCapacity(key, lower_bits_vector.size());
@@ -49,7 +49,7 @@ std::pair<const_iterator<SymbolType>, const_iterator<SymbolType>> VerticalSequen
       ),
       vertical_bitmaps.lower_bound(
          SequenceDiffKey{position_idx + 1, 0, static_cast<SymbolType::Symbol>(0)}
-      )
+      ),
    };
 }
 
@@ -290,7 +290,7 @@ void VerticalSequenceIndex<SymbolType>::overwriteSymbolsInSequences(
          current_v_index_sequences[id_in_reconstructed_sequences].at(sequence_diff_key.position) =
             SymbolType::symbolToChar(sequence_diff_key.symbol);
       }
-   }
+   },
 };
 
 template class VerticalSequenceIndex<Nucleotide>;

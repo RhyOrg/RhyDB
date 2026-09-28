@@ -40,7 +40,7 @@ std::map<rhydb::schema::TableName, std::shared_ptr<rhydb::storage::Table>> makeT
 
    ColumnIdentifier primary_key{.name = "id", .type = ColumnType::STRING};
    std::map<ColumnIdentifier, std::shared_ptr<ColumnMetadata>> col_meta{
-      {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)}
+      {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)},
    };
    auto schema = std::make_shared<rhydb::schema::TableSchema>(std::move(col_meta), primary_key);
    std::map<rhydb::schema::TableName, std::shared_ptr<rhydb::storage::Table>> tables;
@@ -69,7 +69,7 @@ std::vector<operators::MapNode::Assignment> makeMapAssignments() {
    std::vector<operators::MapNode::Assignment> assignments;
    assignments.push_back(
       {.output_column = {.name = "x", .type = rhydb::schema::ColumnType::INT64},
-       .expression = std::make_unique<rhydb::query_engine::scalar_expressions::Int64Literal>(3)}
+       .expression = std::make_unique<rhydb::query_engine::scalar_expressions::Int64Literal>(3),}
    );
    return assignments;
 }
@@ -82,7 +82,7 @@ operators::QueryNodePtr makeCountStarAggregate(operators::QueryNodePtr child) {
       std::vector<operators::AggregateDefinition>{
          {.output_name = "count",
           .function = operators::AggregateFunction::COUNT,
-          .source_column = std::nullopt}
+          .source_column = std::nullopt,},
       }
    );
 }

@@ -38,7 +38,7 @@ A.11:
   parents:
   - A
 )")
-       )}
+       ),},
    };
    auto table_schema = Initializer::createSchemaFromConfigFiles(
       database_config,
@@ -233,7 +233,7 @@ A.1:
   parents:
   - A
 )")
-       )}
+       ),},
    };
    auto table_schema = Initializer::createSchemaFromConfigFiles(
       database_config, reference_genomes, lineage_trees, PhyloTree{}, false

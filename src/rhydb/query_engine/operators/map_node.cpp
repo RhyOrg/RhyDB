@@ -83,7 +83,7 @@ arrow::Result<std::optional<arrow::acero::ExecNode*>> insertBackpressureForDecom
             &batch_generator,
             &schema_of_sequence_batches,
             arrow::acero::BackpressureOptions{rhydb::common::S_16_KB, rhydb::common::S_64_MB},
-            &backpressure_monitor
+            &backpressure_monitor,
          }
       )
    );
@@ -105,9 +105,9 @@ arrow::Result<std::optional<arrow::acero::ExecNode*>> insertBackpressureForDecom
          arrow::acero::SourceNodeOptions{
             schema_of_sequence_batches,
             rhydb::query_engine::exec_node::ThrottledBatchReslicer{
-               batch_generator, maximum_batch_size, TARGET_BATCH_RATE, backpressure_monitor
+               batch_generator, maximum_batch_size, TARGET_BATCH_RATE, backpressure_monitor,
             },
-            input_ordering
+            input_ordering,
          }
       )
    );
@@ -188,7 +188,7 @@ nlohmann::json MapNode::toJson() const {
    return nlohmann::json{
       {"type", nodeKindToString(kind())},
       {"child", child->toJson()},
-      {"mapExpressions", map_expressions}
+      {"mapExpressions", map_expressions},
    };
 }
 

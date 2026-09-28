@@ -48,9 +48,9 @@ const QueryTestData TEST_DATA{
       {createData("id_z", "z"),
        createData("id_ae", SHORT_NON_ASCII),
        createData("id_long_ascii", LONG_ASCII),
-       createData("id_long_non_ascii", LONG_NON_ASCII)},
+       createData("id_long_non_ascii", LONG_NON_ASCII),},
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 // --- short-string path: 'a-umlaut' (0xC3..) must be greater than 'z' (0x7A) ---
@@ -58,13 +58,13 @@ const QueryTestData TEST_DATA{
 const QueryTestScenario SHORT_GREATER_THAN_ASCII = {
    .name = "STRING_SHORT_NON_ASCII_GREATER_THAN_ASCII",
    .query = "default.filter(stringField > 'z').project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_ae"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_ae"}])"),
 };
 
 const QueryTestScenario DICT_SHORT_GREATER_THAN_ASCII = {
    .name = "DICT_SHORT_NON_ASCII_GREATER_THAN_ASCII",
    .query = "default.filter(dictField > 'z').project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_ae"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_ae"}])"),
 };
 
 // --- long-string suffix fall-back path: id_long_non_ascii proves the fix ---
@@ -74,7 +74,7 @@ const QueryTestScenario LONG_FALLBACK_GREATER = {
    .query = "default.filter(stringField > 'prefixaaaaaaz').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"id_z"},{"primaryKey":"id_ae"},{"primaryKey":"id_long_non_ascii"}])"
-   )
+   ),
 };
 
 const QueryTestScenario DICT_LONG_GREATER = {
@@ -82,7 +82,7 @@ const QueryTestScenario DICT_LONG_GREATER = {
    .query = "default.filter(dictField > 'prefixaaaaaaz').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"id_z"},{"primaryKey":"id_ae"},{"primaryKey":"id_long_non_ascii"}])"
-   )
+   ),
 };
 
 }  // namespace

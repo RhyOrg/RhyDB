@@ -110,33 +110,33 @@ INSTANTIATE_TEST_SUITE_P(
       TestParameter{
          .value_type = ValueType::STRING,
          .generate_index = true,
-         .expected_column_type = ColumnType::DICTIONARY_ENCODED
+         .expected_column_type = ColumnType::DICTIONARY_ENCODED,
       },
       TestParameter{
          .value_type = ValueType::DATE,
          .generate_index = false,
-         .expected_column_type = ColumnType::DATE32
+         .expected_column_type = ColumnType::DATE32,
       },
       TestParameter{
          .value_type = ValueType::STRING,
          .generate_index = true,
          .generate_lineage_index = true,
-         .expected_column_type = ColumnType::DICTIONARY_ENCODED
+         .expected_column_type = ColumnType::DICTIONARY_ENCODED,
       },
       TestParameter{
          .value_type = ValueType::INT32,
          .generate_index = false,
-         .expected_column_type = ColumnType::INT32
+         .expected_column_type = ColumnType::INT32,
       },
       TestParameter{
          .value_type = ValueType::INT64,
          .generate_index = false,
-         .expected_column_type = ColumnType::INT64
+         .expected_column_type = ColumnType::INT64,
       },
       TestParameter{
          .value_type = ValueType::FLOAT,
          .generate_index = false,
-         .expected_column_type = ColumnType::FLOAT
+         .expected_column_type = ColumnType::FLOAT,
       }
    )
 );

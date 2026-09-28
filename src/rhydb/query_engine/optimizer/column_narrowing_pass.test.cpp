@@ -46,7 +46,7 @@ std::shared_ptr<rhydb::storage::Table> dummyTable() {
 
    ColumnIdentifier primary_key = col("id");
    std::map<ColumnIdentifier, std::shared_ptr<ColumnMetadata>> col_meta{
-      {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)}
+      {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)},
    };
    auto schema = std::make_shared<rhydb::schema::TableSchema>(std::move(col_meta), primary_key);
    return std::make_shared<rhydb::storage::Table>(rhydb::schema::TableName::getDefault(), schema);
@@ -98,7 +98,7 @@ operators::MapNode::Assignment decompressAssignment(const ColumnIdentifier& sequ
       .output_column = col(sequence_col.name),
       .expression = std::make_unique<rhydb::query_engine::scalar_expressions::ZstdDecompressScalar>(
          std::make_unique<rhydb::query_engine::scalar_expressions::FieldRef>(sequence_col), "A"
-      )
+      ),
    };
 }
 
@@ -163,7 +163,7 @@ TEST(ColumnNarrowingPassAggregate, narrowsScanToGroupByColumns) {
       std::vector<operators::AggregateDefinition>{
          {.output_name = "cnt",
           .function = operators::AggregateFunction::COUNT,
-          .source_column = std::nullopt}
+          .source_column = std::nullopt,},
       }
    );
 
@@ -181,7 +181,7 @@ TEST(ColumnNarrowingPassAggregate, countStarWithNoGroupByKeepsOneColumn) {
       std::vector<operators::AggregateDefinition>{
          {.output_name = "cnt",
           .function = operators::AggregateFunction::COUNT,
-          .source_column = std::nullopt}
+          .source_column = std::nullopt,},
       }
    );
 
@@ -357,11 +357,11 @@ TEST(ColumnNarrowingPassMap, preservesAssignmentOrderForAddedColumns) {
    std::vector<operators::MapNode::Assignment> assignments;
    assignments.push_back(
       {.output_column = col("x"),
-       .expression = std::make_unique<rhydb::query_engine::scalar_expressions::Int64Literal>(1)}
+       .expression = std::make_unique<rhydb::query_engine::scalar_expressions::Int64Literal>(1),}
    );
    assignments.push_back(
       {.output_column = col("y"),
-       .expression = std::make_unique<rhydb::query_engine::scalar_expressions::Int64Literal>(2)}
+       .expression = std::make_unique<rhydb::query_engine::scalar_expressions::Int64Literal>(2),}
    );
    operators::QueryNodePtr node =
       std::make_unique<operators::MapNode>(std::move(scan), std::move(assignments));
@@ -415,7 +415,7 @@ TEST(ColumnNarrowingPassMap, keepsReferencedColumnAndPrunesOthers) {
    std::vector<operators::MapNode::Assignment> assignments;
    assignments.push_back(
       {.output_column = col("x"),
-       .expression = std::make_unique<rhydb::query_engine::scalar_expressions::FieldRef>(col("b"))}
+       .expression = std::make_unique<rhydb::query_engine::scalar_expressions::FieldRef>(col("b")),}
    );
    auto map = std::make_unique<operators::MapNode>(std::move(scan), std::move(assignments));
 

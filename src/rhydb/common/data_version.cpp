@@ -17,6 +17,7 @@ namespace rhydb {
 const DataVersion::SerializationVersion DataVersion::CURRENT_RHYDB_SERIALIZATION_VERSION{
 // clang-format off
 #include "serialization_version.txt"
+   ,
    // clang-format on
 };
 // NOLINTEND(readability-identifier-naming)
@@ -59,7 +60,7 @@ DataVersion DataVersion::mineDataVersion() {
    const auto now = std::chrono::system_clock::now();
    const auto now_as_time_t = std::chrono::system_clock::to_time_t(now);
    return DataVersion{
-      *Timestamp::fromString(std::to_string(now_as_time_t)), {CURRENT_RHYDB_SERIALIZATION_VERSION}
+      *Timestamp::fromString(std::to_string(now_as_time_t)), {CURRENT_RHYDB_SERIALIZATION_VERSION},
    };
 }
 
@@ -70,7 +71,7 @@ DataVersion DataVersion::mineDataVersionAfter(const DataVersion& previous) {
    }
    const auto next_timestamp = std::stoull(previous.timestamp.value) + 1;
    return DataVersion{
-      *Timestamp::fromString(std::to_string(next_timestamp)), {CURRENT_RHYDB_SERIALIZATION_VERSION}
+      *Timestamp::fromString(std::to_string(next_timestamp)), {CURRENT_RHYDB_SERIALIZATION_VERSION},
    };
 }
 

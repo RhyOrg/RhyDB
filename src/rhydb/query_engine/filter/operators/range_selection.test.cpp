@@ -12,7 +12,7 @@ TEST(OperatorRangeSelection, evaluateShouldReturnCorrectValues) {
    std::vector<RangeSelection::Range> test_ranges(
       // NOLINTNEXTLINE(readability-magic-numbers)
       {{RangeSelection::Range{RowId::fromGlobal(0), RowId::fromGlobal(2)},
-        RangeSelection::Range{RowId::fromGlobal(3), RowId::fromGlobal(5)}}}
+        RangeSelection::Range{RowId::fromGlobal(3), RowId::fromGlobal(5)},},}
    );
 
    auto under_test = std::make_unique<RangeSelection>(std::move(test_ranges), row_layout);
@@ -34,7 +34,7 @@ TEST(OperatorRangeSelection, evaluateShouldReturnCorrectValuesEmptyDatabase) {
 TEST(OperatorRangeSelection, evaluateShouldReturnCorrectValuesEmptyRanges) {
    std::vector<RangeSelection::Range> test_ranges(
       {{RangeSelection::Range{RowId::fromGlobal(0), RowId::fromGlobal(0)},
-        RangeSelection::Range{RowId::fromGlobal(4), RowId::fromGlobal(4)}}}
+        RangeSelection::Range{RowId::fromGlobal(4), RowId::fromGlobal(4)},},}
    );
    const auto row_layout = RowLayout::of(9);
 
@@ -49,8 +49,8 @@ TEST(OperatorRangeSelection, evaluateShouldReturnCorrectValuesFullRange) {
    // NOLINTNEXTLINE(readability-magic-numbers)
    std::vector<RangeSelection::Range> test_ranges({{RangeSelection::Range{
       RowId::fromGlobal(0),
-      RowId{.chunk_id = static_cast<uint16_t>(row_layout.numChunks()), .row_in_chunk = 0}
-   }}});
+      RowId{.chunk_id = static_cast<uint16_t>(row_layout.numChunks()), .row_in_chunk = 0},
+   },},});
 
    auto under_test = std::make_unique<RangeSelection>(std::move(test_ranges), row_layout);
    ASSERT_EQ(under_test->evaluate().toRoaring(), roaring::Roaring({0, 1, 2, 3, 4, 5, 6, 7}));
@@ -61,7 +61,7 @@ TEST(OperatorRangeSelection, evaluateShouldReturnCorrectValuesFullRange) {
 TEST(OperatorRangeSelection, evaluateShouldReturnCorrectValuesMeetingRanges) {
    std::vector<RangeSelection::Range> test_ranges(
       {{RangeSelection::Range{RowId::fromGlobal(0), RowId::fromGlobal(2)},
-        RangeSelection::Range{RowId::fromGlobal(2), RowId::fromGlobal(4)}}}
+        RangeSelection::Range{RowId::fromGlobal(2), RowId::fromGlobal(4)},},}
    );
    const auto row_layout = RowLayout::of(9);
 
@@ -77,8 +77,8 @@ TEST(OperatorRangeSelection, evaluateExpandsRangeSpanningMultipleChunks) {
    // middle chunk and a partial last chunk.
    const auto row_layout = RowLayout::of(4, 3, 5);
    std::vector<RangeSelection::Range> test_ranges({{RangeSelection::Range{
-      RowId{.chunk_id = 0, .row_in_chunk = 2}, RowId{.chunk_id = 2, .row_in_chunk = 2}
-   }}});
+      RowId{.chunk_id = 0, .row_in_chunk = 2}, RowId{.chunk_id = 2, .row_in_chunk = 2},
+   },},});
 
    auto under_test = std::make_unique<RangeSelection>(std::move(test_ranges), row_layout);
 
@@ -108,7 +108,7 @@ TEST(OperatorRangeSelection, evaluateExpandsRangeSpanningMultipleChunks) {
 TEST(OperatorRangeSelection, returnsCorrectTypeInfo) {
    std::vector<RangeSelection::Range> test_ranges(
       {{RangeSelection::Range{RowId::fromGlobal(0), RowId::fromGlobal(2)},
-        RangeSelection::Range{RowId::fromGlobal(2), RowId::fromGlobal(4)}}}
+        RangeSelection::Range{RowId::fromGlobal(2), RowId::fromGlobal(4)},},}
    );
    const auto row_layout = RowLayout::of(8);
 

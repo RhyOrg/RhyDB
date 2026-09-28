@@ -22,7 +22,7 @@ size_t StringColumnChunk::insert(std::string_view value) {
    RHYDB_ASSERT(value.length() < UINT32_MAX);
    auto suffix_id = variable_string_data.insert(value.substr(RhyDBString::PREFIX_LENGTH));
    return fixed_string_data.insert(RhyDBString{
-      static_cast<uint32_t>(value.length()), value.substr(0, RhyDBString::PREFIX_LENGTH), suffix_id
+      static_cast<uint32_t>(value.length()), value.substr(0, RhyDBString::PREFIX_LENGTH), suffix_id,
    });
 }
 
@@ -156,7 +156,7 @@ void StringColumn::update(
       StringColumnChunk rebuilt_chunk;
       for (uint32_t row_in_chunk = 0; row_in_chunk < chunk_row_count; ++row_in_chunk) {
          const RowId row_id{
-            .chunk_id = chunk_id, .row_in_chunk = static_cast<uint16_t>(row_in_chunk)
+            .chunk_id = chunk_id, .row_in_chunk = static_cast<uint16_t>(row_in_chunk),
          };
          const uint32_t global_row_id = row_id.toGlobal();
          if (row_ids.contains(global_row_id)) {

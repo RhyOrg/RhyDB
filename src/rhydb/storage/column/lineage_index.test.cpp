@@ -51,7 +51,7 @@ TEST(LineageIndex, someTreeValuesCorrectBehavior) {
       assertEqualHelper(actual, expected);
    }
    std::vector<roaring::Roaring> lineages_with_sublineages_no_recombinants{
-      {4}, {0, 2, 3, 4}, {3}, {1}, {}, {}
+      {4}, {0, 2, 3, 4}, {3}, {1}, {}, {},
    };
    for (Idx lineage_id = 0; lineage_id < lineages_without_sublineages.size(); lineage_id++) {
       auto actual = lineage_index.filterIncludingSublineages(
@@ -61,7 +61,7 @@ TEST(LineageIndex, someTreeValuesCorrectBehavior) {
       assertEqualHelper(actual, expected);
    }
    std::vector<roaring::Roaring> lineages_with_sublineages_contained_recombinants{
-      {4}, {0, 2, 3, 4, 1}, {3}, {1}, {}, {}
+      {4}, {0, 2, 3, 4, 1}, {3}, {1}, {}, {},
    };
    for (Idx lineage_id = 0; lineage_id < lineages_without_sublineages.size(); lineage_id++) {
       auto actual = lineage_index.filterIncludingSublineages(
@@ -71,7 +71,7 @@ TEST(LineageIndex, someTreeValuesCorrectBehavior) {
       assertEqualHelper(actual, expected);
    }
    std::vector<roaring::Roaring> lineages_with_sublineages_all_recombinants{
-      {4, 1}, {0, 2, 3, 4, 1}, {3, 1}, {1}, {}, {}
+      {4, 1}, {0, 2, 3, 4, 1}, {3, 1}, {1}, {}, {},
    };
    for (Idx lineage_id = 0; lineage_id < lineages_without_sublineages.size(); lineage_id++) {
       auto actual = lineage_index.filterIncludingSublineages(
@@ -96,7 +96,7 @@ TEST(LineageIndex, allTreeValuesCorrectBehavior) {
    lineage_index.insert(8, 5);
    lineage_index.insert(9, 5);
    std::vector<roaring::Roaring> lineages_without_sublineages{
-      {4}, {0, 2}, {3}, {1}, {5, 7}, {6, 8, 9}
+      {4}, {0, 2}, {3}, {1}, {5, 7}, {6, 8, 9},
    };
    for (Idx lineage_id = 0; lineage_id < lineages_without_sublineages.size(); lineage_id++) {
       auto actual = lineage_index.filterExcludingSublineages(lineage_id);
@@ -104,7 +104,7 @@ TEST(LineageIndex, allTreeValuesCorrectBehavior) {
       assertEqualHelper(actual, expected);
    }
    std::vector<roaring::Roaring> lineages_with_sublineages_no_recombinants{
-      {4, 6, 8, 9}, {0, 2, 3, 4, 6, 8, 9}, {3}, {1}, {5, 7}, {6, 8, 9}
+      {4, 6, 8, 9}, {0, 2, 3, 4, 6, 8, 9}, {3}, {1}, {5, 7}, {6, 8, 9},
    };
    for (Idx lineage_id = 0; lineage_id < lineages_without_sublineages.size(); lineage_id++) {
       auto actual = lineage_index.filterIncludingSublineages(
@@ -114,7 +114,7 @@ TEST(LineageIndex, allTreeValuesCorrectBehavior) {
       assertEqualHelper(actual, expected);
    }
    std::vector<roaring::Roaring> lineages_with_sublineages_contained_recombinants{
-      {4, 6, 8, 9}, {0, 2, 3, 4, 1, 6, 8, 9, 5, 7}, {3}, {1}, {5, 7}, {6, 8, 9}
+      {4, 6, 8, 9}, {0, 2, 3, 4, 1, 6, 8, 9, 5, 7}, {3}, {1}, {5, 7}, {6, 8, 9},
    };
    for (Idx lineage_id = 0; lineage_id < lineages_without_sublineages.size(); lineage_id++) {
       auto actual = lineage_index.filterIncludingSublineages(
@@ -129,7 +129,7 @@ TEST(LineageIndex, allTreeValuesCorrectBehavior) {
       {1, 3, 5, 7},
       {1, 5, 7},
       {5, 7},
-      {6, 8, 9, 5, 7}
+      {6, 8, 9, 5, 7},
    };
    for (Idx lineage_id = 0; lineage_id < lineages_without_sublineages.size(); lineage_id++) {
       auto actual = lineage_index.filterIncludingSublineages(

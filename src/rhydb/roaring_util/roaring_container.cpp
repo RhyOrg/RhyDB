@@ -142,7 +142,7 @@ std::variant<RoaringContainerView, RoaringContainer> cloneCowState(
             return held;
          } else {
             return RoaringContainer::clonedFrom(held.rawContainer(), held.getTypecode());
-         }
+         },
       },
       source
    );

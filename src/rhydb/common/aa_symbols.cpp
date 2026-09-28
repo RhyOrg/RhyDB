@@ -42,8 +42,8 @@ const rhydb::SymbolMap<AminoAcid, std::vector<AminoAcid::Symbol>> AminoAcid::COD
    {Symbol::GAP, Symbol::A, Symbol::C, Symbol::D, Symbol::E, Symbol::F,    Symbol::G,
     Symbol::H,   Symbol::I, Symbol::K, Symbol::L, Symbol::M, Symbol::N,    Symbol::O,
     Symbol::P,   Symbol::Q, Symbol::R, Symbol::S, Symbol::T, Symbol::U,    Symbol::V,
-    Symbol::W,   Symbol::Y, Symbol::B, Symbol::J, Symbol::Z, Symbol::STOP, Symbol::X},
-}}};
+    Symbol::W,   Symbol::Y, Symbol::B, Symbol::J, Symbol::Z, Symbol::STOP, Symbol::X,},
+},},};
 
 namespace {
 rhydb::SymbolMap<AminoAcid, std::vector<AminoAcid::Symbol>> deriveAmbiguitySymbols() {

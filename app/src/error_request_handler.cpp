@@ -76,7 +76,7 @@ void ErrorRequestHandler::handleRequest(
          );
       } else {
          out_stream << nlohmann::json(ErrorResponse{
-            .error = "Internal Server Error", .message = "non recoverable error message"
+            .error = "Internal Server Error", .message = "non recoverable error message",
          });
       }
    }

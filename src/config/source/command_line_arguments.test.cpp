@@ -98,7 +98,7 @@ ConfigSpecification specification{
           ConfigValue::fromBool(false),
           "help"
        ),
-       ConfigAttributeSpecification::createWithoutDefault(bar_key, ConfigValueType::INT32, "help")}
+       ConfigAttributeSpecification::createWithoutDefault(bar_key, ConfigValueType::INT32, "help"),},
 };
 
 }  // namespace

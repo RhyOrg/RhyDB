@@ -49,7 +49,7 @@ std::vector<std::array<typename SymbolType::Symbol, 3>> extractThreeMers(
       auto continuous_symbols = stringToSymbolVector<SymbolType>(continuous_string);
       for (size_t i = 0; (i + 2) < continuous_symbols.size(); i += 3) {
          const std::array<typename SymbolType::Symbol, 3> three_mer{
-            continuous_symbols.at(i), continuous_symbols.at(i + 1), continuous_symbols.at(i + 2)
+            continuous_symbols.at(i), continuous_symbols.at(i + 1), continuous_symbols.at(i + 2),
          };
          result.insert(three_mer);
       }

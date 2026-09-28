@@ -135,7 +135,7 @@ ConfigSpecification RuntimeConfig::getConfigSpecification() {
                "in memory before sending it to the client. If it affects more rows, \n"
                "it will be streamed by constructing the result items lazily."
             ),
-         }
+         },
    };
 }
 

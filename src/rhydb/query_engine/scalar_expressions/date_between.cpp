@@ -119,14 +119,14 @@ std::vector<RangeSelection::Range> DateBetween::computeRangesOfSortedColumn(
             ? RowId{.chunk_id = static_cast<uint16_t>(chunk_idx + 1), .row_in_chunk = 0}
             : RowId{
                  .chunk_id = static_cast<uint16_t>(chunk_idx),
-                 .row_in_chunk = static_cast<uint16_t>(lower_index)
+                 .row_in_chunk = static_cast<uint16_t>(lower_index),
               };
       const RowId end_row =
          (upper_index == chunk_size)
             ? RowId{.chunk_id = static_cast<uint16_t>(chunk_idx + 1), .row_in_chunk = 0}
             : RowId{
                  .chunk_id = static_cast<uint16_t>(chunk_idx),
-                 .row_in_chunk = static_cast<uint16_t>(upper_index)
+                 .row_in_chunk = static_cast<uint16_t>(upper_index),
               };
       ranges.emplace_back(start_row, end_row);
    }

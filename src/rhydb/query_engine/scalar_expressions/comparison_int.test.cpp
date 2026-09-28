@@ -19,7 +19,7 @@ nlohmann::json createData(const std::string& primary_key, const std::optional<in
       {"primaryKey", primary_key},
       {"int_value", value.has_value() ? nlohmann::json(value.value()) : nlohmann::json(nullptr)},
       {"int64_value",
-       value.has_value() ? nlohmann::json(value.value() * INT64_SCALE) : nlohmann::json(nullptr)},
+       value.has_value() ? nlohmann::json(value.value() * INT64_SCALE) : nlohmann::json(nullptr),},
       {"bool_value", nullptr},
    };
 }
@@ -47,35 +47,35 @@ const QueryTestData TEST_DATA{
       {createData("id_below", BELOW),
        createData("id_bound", BOUND),
        createData("id_above", ABOVE),
-       createData("id_null", std::nullopt)},
+       createData("id_null", std::nullopt),},
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario LESS_THAN = {
    .name = "INT_LESS_THAN",
    .query = "default.filter(int_value < 3).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_below"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_below"}])"),
 };
 
 const QueryTestScenario LESS_EQUAL = {
    .name = "INT_LESS_EQUAL",
    .query = "default.filter(int_value <= 3).project(primaryKey)",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_below"},{"primaryKey":"id_bound"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_below"},{"primaryKey":"id_bound"}])"),
 };
 
 const QueryTestScenario GREATER_THAN = {
    .name = "INT_GREATER_THAN",
    .query = "default.filter(int_value > 3).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_above"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_above"}])"),
 };
 
 const QueryTestScenario GREATER_EQUAL = {
    .name = "INT_GREATER_EQUAL",
    .query = "default.filter(int_value >= 3).project(primaryKey)",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"}])"),
 };
 
 // !(int_value < 3) == int_value >= 3, and nulls are included by the negation.
@@ -84,41 +84,41 @@ const QueryTestScenario NEGATED_LESS_THAN = {
    .query = "default.filter(!(int_value < 3)).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"},{"primaryKey":"id_null"}])"
-   )
+   ),
 };
 
 // Operand flip: `3 > int_value` must equal `int_value < 3`.
 const QueryTestScenario FLIPPED_OPERANDS = {
    .name = "INT_FLIPPED_OPERANDS",
    .query = "default.filter(3 > int_value).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_below"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_below"}])"),
 };
 
 const QueryTestScenario FLIPPED_OPERANDS_INCLUSIVE = {
    .name = "INT_FLIPPED_OPERANDS_INCLUSIVE",
    .query = "default.filter(3 >= int_value).project(primaryKey)",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_below"},{"primaryKey":"id_bound"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_below"},{"primaryKey":"id_bound"}])"),
 };
 
 const QueryTestScenario TYPE_MISMATCH = {
    .name = "INT_TYPE_MISMATCH",
    .query = "default.filter(int_value < 'x').project(primaryKey)",
-   .expected_error_message = "The column 'int_value' is not of type string"
+   .expected_error_message = "The column 'int_value' is not of type string",
 };
 
 const QueryTestScenario BOOL_COMPARISON = {
    .name = "INT_BOOL_COMPARISON",
    .query = "default.filter(bool_value < true).project(primaryKey)",
    .expected_error_message =
-      "The comparison operators <,>,<=,>= are not supported for boolean column 'bool_value'"
+      "The comparison operators <,>,<=,>= are not supported for boolean column 'bool_value'",
 };
 
 const QueryTestScenario UNKNOWN_COLUMN = {
    .name = "INT_UNKNOWN_COLUMN",
    .query = "default.filter(does_not_exist < 3).project(primaryKey)",
    .expected_error_message =
-      "the left side of a comparison references unknown column 'does_not_exist' at 1:16"
+      "the left side of a comparison references unknown column 'does_not_exist' at 1:16",
 };
 
 const QueryTestScenario TWO_COLUMNS = {
@@ -126,7 +126,7 @@ const QueryTestScenario TWO_COLUMNS = {
    .query = "default.filter(int_value < primaryKey).project(primaryKey)",
    .expected_error_message =
       "A Comparison expression can only be compiled to a filter when exactly one side is a column "
-      "reference and the other a literal value"
+      "reference and the other a literal value",
 };
 
 const QueryTestScenario NO_COLUMN = {
@@ -134,7 +134,7 @@ const QueryTestScenario NO_COLUMN = {
    .query = "default.filter(1 < 2).project(primaryKey)",
    .expected_error_message =
       "A Comparison expression can only be compiled to a filter when exactly one side is a column "
-      "reference and the other a literal value"
+      "reference and the other a literal value",
 };
 
 const QueryTestScenario NO_LITERAL = {

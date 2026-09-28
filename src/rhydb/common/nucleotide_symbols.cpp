@@ -40,8 +40,8 @@ const rhydb::SymbolMap<Nucleotide, std::vector<Nucleotide::Symbol>> Nucleotide::
     Symbol::D,
     Symbol::H,
     Symbol::V,
-    Symbol::N},
-}}};
+    Symbol::N,},
+},},};
 
 namespace {
 rhydb::SymbolMap<Nucleotide, std::vector<Nucleotide::Symbol>> deriveAmbiguitySymbols() {

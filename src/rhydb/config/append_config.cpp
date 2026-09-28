@@ -53,8 +53,8 @@ ConfigSpecification AppendConfig::getConfigSpecification() {
             ConfigValueType::PATH,
             "A directory that contains a valid rhydb state. If this is not given, the most recent "
             "database state from the data directory is taken instead."
-         )
-      }
+         ),
+      },
    };
 }
 

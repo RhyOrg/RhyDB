@@ -18,13 +18,13 @@ nlohmann::json createDataWithNucleotideInsertions(
       {"primaryKey", primaryKey},
       {"segment1",
        {{"sequence", "AAAACCCCGGGGTTTTAAAACCCCGGGGTTTT"},
-        {"insertions", nucleotideInsertionsSegment1}}},
+        {"insertions", nucleotideInsertionsSegment1},},},
       {"segment2",
        {{"sequence", "CCCCGGGGTTTTAAAACCCCGGGGTTTTAAAA"},
-        {"insertions", nucleotideInsertionsSegment2}}},
+        {"insertions", nucleotideInsertionsSegment2},},},
       {"unaligned_segment1", nullptr},
       {"unaligned_segment2", nullptr},
-      {"gene1", nullptr}
+      {"gene1", nullptr},
    };
 }
 
@@ -48,14 +48,14 @@ schema:
 
 const auto REFERENCE_GENOMES = ReferenceGenomes{
    {{"segment1", "AAAACCCCGGGGTTTTAAAACCCCGGGGTTTT"},
-    {"segment2", "CCCCGGGGTTTTAAAACCCCGGGGTTTTAAAA"}},
+    {"segment2", "CCCCGGGGTTTTAAAACCCCGGGGTTTTAAAA"},},
    {{"gene1", "*"}},
 };
 
 const QueryTestData TEST_DATA{
    .ndjson_input_data = DATA,
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario INSERTION_CONTAINS_SCENARIO = {
@@ -63,7 +63,7 @@ const QueryTestScenario INSERTION_CONTAINS_SCENARIO = {
    .query =
       "default.filter(insertionContains(position:=12, value:='A', "
       "sequenceName:='segment1')).project(primaryKey)",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}, {{"primaryKey", "id_1"}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}, {{"primaryKey", "id_1"}}}),
 };
 
 const QueryTestScenario INSERTION_CONTAINS_SCENARIO_POSITION_0_EQUALS_BEFORE_FIRST = {
@@ -71,14 +71,14 @@ const QueryTestScenario INSERTION_CONTAINS_SCENARIO_POSITION_0_EQUALS_BEFORE_FIR
    .query =
       "default.filter(insertionContains(position:=0, value:='A', "
       "sequenceName:='segment1')).project(primaryKey)",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_4"}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_4"}}}),
 };
 
 // A sequence name is required for every nucleotide sequence filter.
 const QueryTestScenario INSERTION_CONTAINS_WITHOUT_SEQUENCE_NAME_ERRORS = {
    .name = "INSERTION_CONTAINS_WITHOUT_SEQUENCE_NAME_ERRORS",
    .query = "default.filter(insertionContains(position:=12, value:='A')).project(primaryKey)",
-   .expected_error_message = "insertionContains() requires argument 'sequenceName'"
+   .expected_error_message = "insertionContains() requires argument 'sequenceName'",
 };
 
 const QueryTestScenario INSERTION_CONTAINS_WITH_UNKNOWN_SEGMENT_SCENARIO = {
@@ -86,7 +86,7 @@ const QueryTestScenario INSERTION_CONTAINS_WITH_UNKNOWN_SEGMENT_SCENARIO = {
    .query =
       "default.filter(insertionContains(position:=12, value:='A', "
       "sequenceName:='unknownSegmentName'))",
-   .expected_error_message = "The database does not contain the column 'unknownSegmentName'"
+   .expected_error_message = "The database does not contain the column 'unknownSegmentName'",
 };
 
 const QueryTestScenario INSERTION_CONTAINS_POSITION_OUT_OF_RANGE = {
@@ -95,14 +95,14 @@ const QueryTestScenario INSERTION_CONTAINS_POSITION_OUT_OF_RANGE = {
       "default.filter(insertionContains(position:=100, value:='A', sequenceName:='segment2'))",
    .expected_error_message =
       "the requested insertion position (100) is larger than the length of the reference sequence "
-      "(32) for sequence 'segment2'"
+      "(32) for sequence 'segment2'",
 };
 
 // A sequence name is required even before the insertion position is validated.
 const QueryTestScenario INSERTION_CONTAINS_WITHOUT_SEQUENCE_NAME_POSITION_OUT_OF_RANGE = {
    .name = "INSERTION_CONTAINS_WITHOUT_SEQUENCE_NAME_POSITION_OUT_OF_RANGE",
    .query = "default.filter(insertionContains(position:=100, value:='A'))",
-   .expected_error_message = "insertionContains() requires argument 'sequenceName'"
+   .expected_error_message = "insertionContains() requires argument 'sequenceName'",
 };
 
 }  // namespace nucleotide
@@ -120,9 +120,9 @@ nlohmann::json createDataWithAminoAcidInsertions(
       {"segment2", nullptr},
       {"unaligned_segment1", nullptr},
       {"unaligned_segment2", nullptr},
-      {"gene1", {{"sequence", "ABCDEFGHIKLMNPQRSTVWYZ*"}, {"insertions", aminoAcidInsertionsGene1}}
+      {"gene1", {{"sequence", "ABCDEFGHIKLMNPQRSTVWYZ*"}, {"insertions", aminoAcidInsertionsGene1}},
       },
-      {"gene2", {{"sequence", "ABCDEFGHIKLMNPQRSTVWYZ*"}, {"insertions", aminoAcidInsertionsGene2}}}
+      {"gene2", {{"sequence", "ABCDEFGHIKLMNPQRSTVWYZ*"}, {"insertions", aminoAcidInsertionsGene2}}},
    };
 }
 
@@ -151,7 +151,7 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{
 const QueryTestData TEST_DATA{
    .ndjson_input_data = DATA,
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario AMINO_ACID_INSERTION_CONTAINS_SCENARIO = {
@@ -159,7 +159,7 @@ const QueryTestScenario AMINO_ACID_INSERTION_CONTAINS_SCENARIO = {
    .query =
       "default.filter(aminoAcidInsertionContains(position:=12, value:='A', "
       "sequenceName:='gene1')).project(primaryKey)",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}, {{"primaryKey", "id_1"}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}, {{"primaryKey", "id_1"}}}),
 };
 
 const QueryTestScenario AMINO_ACID_INSERTION_CONTAINS_WITH_NULL_SEGMENT_SCENARIO = {

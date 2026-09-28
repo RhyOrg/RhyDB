@@ -159,7 +159,7 @@ TEST(SequenceColumn, validInsertionAtPositionEqualToGenomeLength) {
 TEST(SequenceColumn, adaptsLocalReferenceWhenMajorityOfCoveredRowsDiffers) {
    SequenceColumnMetadata<Nucleotide> column_metadata{
       "test_column",
-      {Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::G, Nucleotide::Symbol::T}
+      {Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::G, Nucleotide::Symbol::T},
    };
    SequenceColumn<Nucleotide> under_test(&column_metadata);
 
@@ -183,7 +183,7 @@ TEST(SequenceColumn, adaptsLocalReferenceWhenMajorityOfCoveredRowsDiffers) {
    ASSERT_EQ(
       under_test.getLocalReference(),
       (std::vector<Nucleotide::Symbol>{
-         Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::T, Nucleotide::Symbol::T
+         Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::T, Nucleotide::Symbol::T,
       })
    );
 }
@@ -191,7 +191,7 @@ TEST(SequenceColumn, adaptsLocalReferenceWhenMajorityOfCoveredRowsDiffers) {
 TEST(SequenceColumn, canFinalizeTwice) {
    SequenceColumnMetadata<Nucleotide> column_metadata{
       "test_column",
-      {Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::G, Nucleotide::Symbol::T}
+      {Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::G, Nucleotide::Symbol::T},
    };
    SequenceColumn<Nucleotide> under_test(&column_metadata);
 
@@ -211,7 +211,7 @@ TEST(SequenceColumn, canFinalizeTwice) {
    ASSERT_EQ(
       under_test.getLocalReference(),
       (std::vector<Nucleotide::Symbol>{
-         Nucleotide::Symbol::A, Nucleotide::Symbol::A, Nucleotide::Symbol::G, Nucleotide::Symbol::T
+         Nucleotide::Symbol::A, Nucleotide::Symbol::A, Nucleotide::Symbol::G, Nucleotide::Symbol::T,
       })
    );
 
@@ -242,7 +242,7 @@ TEST(SequenceColumn, canFinalizeTwice) {
    ASSERT_EQ(
       under_test.getLocalReference(),
       (std::vector<Nucleotide::Symbol>{
-         Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::G, Nucleotide::Symbol::T
+         Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::G, Nucleotide::Symbol::T,
       })
    );
 }

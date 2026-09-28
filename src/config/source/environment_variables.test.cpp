@@ -78,7 +78,7 @@ TEST(EnvironmentVariables, errorsOnWrongType) {
                   ConfigKeyPath::tryFrom({{"foo"}}).value(),
                   rhydb::config::ConfigValueType::INT32,
                   "some help text"
-               )}
+               ),},
          });
       },
       ThrowsMessage<rhydb::config::ConfigException>(::testing::HasSubstr("cannot parse 'bar' as i32"
@@ -104,7 +104,7 @@ TEST(EnvironmentVariables, parsesVariables) {
              ConfigKeyPath::tryFrom({{"foo"}, {"int"}}).value(),
              rhydb::config::ConfigValueType::INT32,
              "some help text"
-          )}
+          ),},
    }));
 }
 
@@ -122,7 +122,7 @@ TEST(EnvironmentVariables, parsesVariablesWithDoubleEquals) {
                   ConfigKeyPath::tryFrom({{"foo"}}).value(),
                   rhydb::config::ConfigValueType::STRING,
                   "some help text"
-               )}
+               ),},
          })
          .getString(ConfigKeyPath::tryFrom({{"foo"}}).value()),
       "bar=baz"
