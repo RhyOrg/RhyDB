@@ -69,6 +69,11 @@ void Initializer::createTableInDatabase(
    bool without_unaligned_sequences,
    Database& database
 ) {
+   if (database.tables.contains(table_name)) {
+      throw InitializeException(
+         "Cannot create table '{}': a table with that name already exists.", table_name.getName()
+      );
+   }
    auto table_schema = createSchemaFromConfigFiles(
       database_config, reference_genomes, lineage_trees, phylo_tree, without_unaligned_sequences
    );
