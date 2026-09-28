@@ -113,7 +113,7 @@ void Initializer::fillReferenceGenomesTable(
    const std::string table_name_string{schema::REFERENCE_GENOMES_TABLE_NAME};
    const schema::TableName table_name{table_name_string};
    RHYDB_ASSERT(database.tables.contains(table_name));
-   if (database.tables.at(table_name)->sequence_count > 0) {
+   if (database.tables.at(table_name)->row_count > 0) {
       throw InitializeException(
          "Cannot fill reference genomes table '{}': it already contains rows.", table_name_string
       );

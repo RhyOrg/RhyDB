@@ -136,7 +136,7 @@ TEST(DatabaseTest, newDatabaseContainsEmptyBuiltinTables) {
    for (const auto& [table_name, table_schema] : rhydb::schema::getBuiltinTableSchemas()) {
       ASSERT_TRUE(database.tables.contains(table_name)) << table_name.getName();
       ASSERT_TRUE(database.schema.tables.contains(table_name)) << table_name.getName();
-      EXPECT_EQ(database.tables.at(table_name)->sequence_count, 0);
+      EXPECT_EQ(database.tables.at(table_name)->row_count, 0);
       EXPECT_EQ(
          database.schema.tables.at(table_name)->getColumnIdentifiers(),
          table_schema->getColumnIdentifiers()
