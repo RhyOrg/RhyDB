@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.14.5](https://github.com/RhyOrg/RhyDB/compare/v0.14.4...v0.14.5) (2026-09-28)
+
+
+### Features
+
+* **query_engine:** accept set literals of any scalar type in in() ([#1579](https://github.com/RhyOrg/RhyDB/issues/1579)) ([970ce71](https://github.com/RhyOrg/RhyDB/commit/970ce717ddd96e15b40d60a6a516984506f8ce87))
+* **query_engine:** add `sum` aggregation function ([#1584](https://github.com/RhyOrg/RhyDB/issues/1584)) ([3c4473c](https://github.com/RhyOrg/RhyDB/commit/3c4473ca9b720e188bed6c1f13f9b8ca120ae6d2))
+* **rhydb:** introduce `built-in` tables, which are always present ([#1591](https://github.com/RhyOrg/RhyDB/issues/1591)) ([4a8cc26](https://github.com/RhyOrg/RhyDB/commit/4a8cc2649368bdda4d2dad53ed01395c929fd223))
+
+
+### Bug Fixes
+
+* **query_engine:** do not report incorrect results when bitmap container is empty ([#1608](https://github.com/RhyOrg/RhyDB/issues/1608)) ([b3c37c4](https://github.com/RhyOrg/RhyDB/commit/b3c37c41919515549424383e3c2aaf2471ca0a81))
+* **query_engine:** don't hardcode the "count(*)" result column name to `count` ([#1590](https://github.com/RhyOrg/RhyDB/issues/1590)) ([e3455d8](https://github.com/RhyOrg/RhyDB/commit/e3455d87d317a4bb3eb8d3aa0084bcc8a826bf9c))
+* **query_engine:** let a plan finish before tearing it down after end of stream ([cf5c61f](https://github.com/RhyOrg/RhyDB/commit/cf5c61f53996b40781d6366ee9945a869f0ca0a1))
+
+
+### Performance Improvements
+
+* **query_engine:** narrow columns through joins ([#1595](https://github.com/RhyOrg/RhyDB/issues/1595)) ([ca1aae8](https://github.com/RhyOrg/RhyDB/commit/ca1aae88a3951d2626f28d480cb9c1104727c809))
+
 ## [0.14.4](https://github.com/GenSpectrum/LAPIS-SILO/compare/v0.14.3...v0.14.4) (2026-09-24)
 
 
