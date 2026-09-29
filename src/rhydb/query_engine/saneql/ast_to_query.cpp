@@ -1642,8 +1642,8 @@ operators::QueryNodePtr handleTransitiveClosure(
    const ChildConverter& convert_child
 ) {
    auto child = convert_child(args.at("input"), tables);
-   auto from_column = extractStringLiteral(args.at("from"));
-   auto to_column = extractStringLiteral(args.at("to"));
+   auto from_column = extractIdentifierName(args.at("from"));
+   auto to_column = extractIdentifierName(args.at("to"));
    bool include_vertices = false;
    if (const auto* expr = args.get("includeVertices")) {
       include_vertices = extractBoolLiteral(*expr);
