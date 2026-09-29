@@ -19,6 +19,7 @@
 #include "rhydb/database.h"
 #include "rhydb/initialize/initialize_exception.h"
 #include "rhydb/initialize/lineage_relation_table.h"
+#include "rhydb/schema/builtin_tables.h"
 #include "rhydb/storage/column/column_metadata.h"
 #include "rhydb/storage/column/column_type_visitor.h"
 #include "rhydb/storage/column/dictionary_encoded_column.h"
@@ -68,12 +69,17 @@ void Initializer::createTableInDatabase(
    bool without_unaligned_sequences,
    Database& database
 ) {
+   if (database.tables.contains(table_name)) {
+      throw InitializeException(
+         "Cannot create table '{}': a table with that name already exists.", table_name.getName()
+      );
+   }
    auto table_schema = createSchemaFromConfigFiles(
       database_config, reference_genomes, lineage_trees, phylo_tree, without_unaligned_sequences
    );
    database.createTable(std::move(table_name), std::move(table_schema));
 
-   createReferenceGenomesTable(reference_genomes, database);
+   fillReferenceGenomesTable(reference_genomes, database);
 
    // Materialize a companion lineage relation table for every column configured with
    // `lineageIndexType` 'table' or 'both'. The tree name is resolved against the loaded lineage
@@ -100,38 +106,18 @@ void Initializer::createTableInDatabase(
    }
 }
 
-void Initializer::createReferenceGenomesTable(
+void Initializer::fillReferenceGenomesTable(
    const ReferenceGenomes& reference_genomes,
    Database& database
 ) {
-   const std::string table_name_string{REFERENCE_GENOMES_TABLE_NAME};
+   const std::string table_name_string{schema::REFERENCE_GENOMES_TABLE_NAME};
    const schema::TableName table_name{table_name_string};
-   if (database.tables.contains(table_name)) {
+   RHYDB_ASSERT(database.tables.contains(table_name));
+   if (database.tables.at(table_name)->row_count > 0) {
       throw InitializeException(
-         "Cannot create reference genomes table '{}': a table with that name already exists.",
-         table_name_string
+         "Cannot fill reference genomes table '{}': it already contains rows.", table_name_string
       );
    }
-
-   // No primary key: a nucleotide and an amino acid sequence may share a name, so only (name, type)
-   // identifies a row.
-   const schema::ColumnIdentifier name_column{.name = "name", .type = schema::ColumnType::STRING};
-   // Either "nucleotide" or "amino_acid".
-   const schema::ColumnIdentifier type_column{.name = "type", .type = schema::ColumnType::STRING};
-   const schema::ColumnIdentifier sequence_column{
-      .name = "sequence", .type = schema::ColumnType::STRING
-   };
-   auto table_schema = std::make_shared<schema::TableSchema>();
-   table_schema->column_metadata.emplace(
-      name_column, std::make_shared<storage::column::StringColumnMetadata>(name_column.name)
-   );
-   table_schema->column_metadata.emplace(
-      type_column, std::make_shared<storage::column::StringColumnMetadata>(type_column.name)
-   );
-   table_schema->column_metadata.emplace(
-      sequence_column, std::make_shared<storage::column::StringColumnMetadata>(sequence_column.name)
-   );
-   database.createTable(table_name, std::move(table_schema));
 
    std::string ndjson;
    const auto append_rows = [&ndjson](
@@ -159,7 +145,7 @@ void Initializer::createReferenceGenomesTable(
    rhydb::append::NdjsonLineReader ndjson_reader{ndjson_stream};
    rhydb::append::appendDataToTable(database.tables.at(table_name), ndjson_reader);
    SPDLOG_INFO(
-      "Built reference genomes table '{}' with {} rows",
+      "Filled reference genomes table '{}' with {} rows",
       table_name_string,
       reference_genomes.nucleotide_sequence_names.size() +
          reference_genomes.aa_sequence_names.size()

@@ -201,15 +201,35 @@ operators::QueryNodePtr ColumnNarrowingPass::operator()(operators::TransitiveClo
 
 // NOLINTNEXTLINE(misc-no-recursion,readability-make-member-function-const)
 operators::QueryNodePtr ColumnNarrowingPass::operator()(operators::JoinNode& node) {
-   // A join reads columns from both inputs (at minimum its key columns), and the mapping
-   // between the join's own required columns and each input's columns is not a simple
-   // subset relation. Rather than track that, recurse into each branch with a fresh pass
-   // seeded with that branch's complete output schema: no column is pruned directly below
-   // the join (keeping the join keys and all outputs intact), while structural
-   // simplifications deeper in each branch still run.
-   ColumnNarrowingPass left_pass{node.left->getOutputSchema()};
+   // Each input must provide its join keys plus those of its columns that are required from the
+   // join output. The side dropped by a semi/anti join contributes no output columns, so only its
+   // keys are needed. Both inputs are narrowed with a pass of their own, as `required` differs.
+   using arrow::acero::JoinType;
+   const bool left_output_dropped =
+      node.join_type == JoinType::RIGHT_SEMI || node.join_type == JoinType::RIGHT_ANTI;
+   const bool right_output_dropped =
+      node.join_type == JoinType::LEFT_SEMI || node.join_type == JoinType::LEFT_ANTI;
+   const auto input_required = [&](
+                                  const operators::QueryNode& input,
+                                  const std::vector<schema::ColumnIdentifier>& keys,
+                                  bool output_dropped
+                               ) {
+      RequiredColumns columns{keys.begin(), keys.end()};
+      if (output_dropped) {
+         return columns;
+      }
+      for (const auto& column : input.getOutputSchema()) {
+         if (std::ranges::find(required, column) != required.end() &&
+             std::ranges::find(columns, column) == columns.end()) {
+            columns.push_back(column);
+         }
+      }
+      return columns;
+   };
+   ColumnNarrowingPass left_pass{input_required(*node.left, node.left_keys, left_output_dropped)};
+   ColumnNarrowingPass right_pass{input_required(*node.right, node.right_keys, right_output_dropped)
+   };
    left_pass.propagateToNode(node.left);
-   ColumnNarrowingPass right_pass{node.right->getOutputSchema()};
    right_pass.propagateToNode(node.right);
    return nullptr;
 }

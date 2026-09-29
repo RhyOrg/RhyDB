@@ -1,4 +1,4 @@
-name: LAPIS-SILO
+name: RhyDB
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
   pull_request:
 
 env:
-  DOCKER_DEPENDENCY_IMAGE_NAME: ghcr.io/genspectrum/lapis-silo-dependencies
-  DOCKER_IMAGE_NAME: ghcr.io/genspectrum/lapis-silo
+  DOCKER_DEPENDENCY_IMAGE_NAME: ghcr.io/rhyorg/rhydb-dependencies
+  DOCKER_IMAGE_NAME: ghcr.io/rhyorg/rhydb
 
 jobs:
   release-please:

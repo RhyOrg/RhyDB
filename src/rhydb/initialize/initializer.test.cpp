@@ -3,6 +3,9 @@
 #include <fmt/format.h>
 #include <gtest/gtest.h>
 
+#include "rhydb/database.h"
+#include "rhydb/initialize/initialize_exception.h"
+#include "rhydb/schema/builtin_tables.h"
 #include "rhydb/storage/column/dictionary_encoded_column.h"
 #include "rhydb/storage/column/sequence_column.h"
 #include "rhydb/storage/column/zstd_compressed_string_column.h"
@@ -257,6 +260,27 @@ TEST(Initializer, lineageIndexTypeTableDoesNotAttachInMemoryTree) {
    // 'table' mode materializes only the relation table; the column stays a plain indexed string
    // column without the in-memory lineage index.
    EXPECT_FALSE(lineageColumnHasInMemoryTree("table"));
+}
+
+TEST(Initializer, rejectsCreatingTableWithNameOfExistingTable) {
+   const auto database_config = rhydb::config::DatabaseConfig::getValidatedConfigFromFile(
+      "testBaseData/unitTestDummyDataset/database_config.yaml"
+   );
+   const ReferenceGenomes reference_genomes =
+      ReferenceGenomes::readFromFile("testBaseData/unitTestDummyDataset/reference_genomes.json");
+   rhydb::Database database;
+   EXPECT_THROW(
+      Initializer::createTableInDatabase(
+         rhydb::schema::TableName{std::string{rhydb::schema::REFERENCE_GENOMES_TABLE_NAME}},
+         database_config,
+         reference_genomes,
+         {},
+         PhyloTree{},
+         /*without_unaligned_sequences=*/false,
+         database
+      ),
+      rhydb::initialize::InitializeException
+   );
 }
 
 class FindLineageTreeForName : public ::testing::Test {

@@ -24,11 +24,7 @@ WriteCommandPtr buildInsertInto(
    const Tables& tables,
    const ChildConverter& convert_child
 ) {
-   const auto& target_expr = args.at("target");
-   // The target may be a bare identifier (`archive`) or a string literal (`'archive'`).
-   const std::string target_name = saneql::ast::isStringLiteral(target_expr)
-                                      ? saneql::ast::extractStringLiteral(target_expr)
-                                      : saneql::ast::extractIdentifierName(target_expr);
+   const std::string target_name = saneql::ast::extractIdentifierName(args.at("target"));
    auto target_table = schema::TableName(target_name);
    CHECK_RHYDB_QUERY(
       tables.contains(target_table),

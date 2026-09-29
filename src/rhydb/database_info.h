@@ -7,7 +7,7 @@ namespace rhydb {
 
 struct DatabaseInfo {
    std::string_view version;
-   uint32_t sequence_count;
+   uint32_t row_count;
    uint64_t vertical_bitmaps_size;
    uint64_t horizontal_bitmaps_size;
 };

@@ -18,10 +18,10 @@ class Table {
    schema::TableName table_name;
    std::shared_ptr<schema::TableSchema> schema;
    ColumnGroup columns;
-   uint32_t sequence_count = 0;
+   uint32_t row_count = 0;
    /// The shared per-chunk row layout of this table partition: every column is appended to in
    /// lockstep, so this single layout is the source of truth for iterating the partition's rows by
-   /// `RowId`. `sequence_count == row_layout.numRows()`.
+   /// `RowId`. `row_count == row_layout.numRows()`.
    column::RowLayout row_layout;
 
    explicit Table(schema::TableName table_name, std::shared_ptr<schema::TableSchema> schema);
@@ -36,7 +36,7 @@ class Table {
    void serializeData(Archive& archive, [[maybe_unused]] const uint32_t version) {
       // clang-format off
       archive & columns;
-      archive & sequence_count;
+      archive & row_count;
       archive & row_layout;
       // clang-format on
    }

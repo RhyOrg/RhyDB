@@ -37,6 +37,7 @@
 #include "rhydb/query_engine/saneql/parser.h"
 #include "rhydb/query_engine/scalar_column_update.h"
 #include "rhydb/query_engine/scalar_expressions/literal.h"
+#include "rhydb/schema/builtin_tables.h"
 #include "rhydb/schema/database_schema.h"
 #include "rhydb/storage/column/sequence_column.h"
 #include "rhydb/storage/column/string_column.h"
@@ -77,10 +78,23 @@ std::string symbolVectorToString(const std::vector<typename SymbolType::Symbol>&
 
 namespace rhydb {
 
+Database::Database() {
+   createMissingBuiltinTables();
+}
+
 Database::Database(schema::DatabaseSchema database_schema)
     : schema(std::move(database_schema)) {
    for (const auto& [table_name, table_schema] : schema.tables) {
       tables.emplace(table_name, std::make_shared<storage::Table>(table_name, table_schema));
+   }
+   createMissingBuiltinTables();
+}
+
+void Database::createMissingBuiltinTables() {
+   for (auto& [table_name, table_schema] : schema::getBuiltinTableSchemas()) {
+      if (!tables.contains(table_name)) {
+         createTable(table_name, std::move(table_schema));
+      }
    }
 }
 
@@ -326,7 +340,7 @@ void addTableStatisticsToDatabaseInfo(DatabaseInfo& database_info, const storage
       database_info.vertical_bitmaps_size += info.vertical_bitmaps_size;
       database_info.horizontal_bitmaps_size += info.horizontal_bitmaps_size;
    }
-   database_info.sequence_count += table.row_layout.numRows();
+   database_info.row_count += table.row_layout.numRows();
 }
 
 }  // namespace
@@ -334,7 +348,7 @@ void addTableStatisticsToDatabaseInfo(DatabaseInfo& database_info, const storage
 DatabaseInfo Database::getDatabaseInfo() const {
    DatabaseInfo database_info{
       .version = rhydb::RELEASE_VERSION,
-      .sequence_count = 0,
+      .row_count = 0,
       .vertical_bitmaps_size = 0,
       .horizontal_bitmaps_size = 0
    };
@@ -491,42 +505,6 @@ nlohmann::json Database::executeWrite(
       );
    }
    return (*command)->execute(*this, query_options, request_id);
-}
-
-std::string Database::getTablesAsArrowIpc() const {
-   std::string result;
-   auto status = getTablesAsArrowIpcImpl().Value(&result);
-   if (!status.ok()) {
-      throw std::runtime_error(
-         fmt::format("Failed to write finish ArrowIpcSink: {}", status.message())
-      );
-   }
-   return result;
-}
-
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
-arrow::Result<std::string> Database::getTablesAsArrowIpcImpl() const {
-   // Create schema with a single "table_name" column
-   auto arrow_schema = arrow::schema({arrow::field("table_name", arrow::utf8())});
-
-   // Build string array with table names
-   arrow::StringBuilder builder;
-   for (const auto& [table_name, _] : tables) {
-      ARROW_RETURN_NOT_OK(builder.Append(table_name.getName()));
-   }
-
-   ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
-
-   ARROW_ASSIGN_OR_RAISE(auto exec_batch, arrow::ExecBatch::Make({array}, array->length()));
-
-   std::ostringstream output_stream;
-   ARROW_ASSIGN_OR_RAISE(
-      auto output_sink, query_engine::exec_node::ArrowIpcSink::make(&output_stream, arrow_schema)
-   );
-
-   ARROW_RETURN_NOT_OK(output_sink.writeBatch(exec_batch));
-   ARROW_RETURN_NOT_OK(output_sink.finish());
-   return output_stream.str();
 }
 
 }  // namespace rhydb

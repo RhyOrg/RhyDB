@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rhydb"
-version = "0.14.4"
+version = "0.14.5"
 description = "Python bindings for RhyDB - high-performance sequence database"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -39,9 +39,9 @@ test = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/GenSpectrum/LAPIS-SILO"
-Repository = "https://github.com/GenSpectrum/LAPIS-SILO"
-Issues = "https://github.com/GenSpectrum/LAPIS-SILO/issues"
+Homepage = "https://github.com/RhyOrg/RhyDB"
+Repository = "https://github.com/RhyOrg/RhyDB"
+Issues = "https://github.com/RhyOrg/RhyDB/issues"
 
 [tool.pytest.ini_options]
 testpaths = ["python/tests"]

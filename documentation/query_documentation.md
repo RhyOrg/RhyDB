@@ -21,8 +21,11 @@ Additional tables exist if the database config declares columns with `lineageInd
 lineage tree. These are queried like any other table — see
 [lineage_definitions.md](lineage_definitions.md#lineage-relation-tables) for their schema.
 
-A `reference_genomes` table holds the reference sequences from `reference_genomes.json`, one row
-per sequence — see [input_format.md](input_format.md#reference_genomesjson) for its schema.
+Some tables are **built-in**: every database contains them, so queries can always rely on their
+presence. Otherwise they behave like any other table. The built-in tables are:
+
+- `reference_genomes`: the reference sequences from `reference_genomes.json`, one row per
+  sequence — see [input_format.md](input_format.md#reference_genomesjson) for its schema.
 
 ### Tabular data model
 
@@ -604,11 +607,10 @@ SaneQL construct that writes: it mutates the target table rather than returning 
 ```
 source.filter(country='CH').insertInto(archive)
 source.filter(country='CH').project({primaryKey, country, age}).insertInto(archive)
-source.insertInto('archive')
 ```
 
-The target may be written as a bare identifier (`archive`) or a string literal (`'archive'`). It
-must be an existing table in the database; `insertInto` never creates a table.
+The target is written as an identifier (`archive`). It must be an existing table in the database;
+`insertInto` never creates a table.
 
 **Column matching.** The query's output columns are matched to the target table's columns *by name*.
 Every column of the target table must be produced by the query; any extra output columns are ignored.

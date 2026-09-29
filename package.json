@@ -14,7 +14,7 @@
   "scripts": {
     "commitlint:last-commit": "commitlint --from=HEAD~1 --verbose",
     "commitlint:merge-base": "commitlint --from=$(git merge-base HEAD main) --verbose",
-    "release-please-dry-run": "npx release-please release-pr --dry-run --config-file=release-please-config.json --manifest-file=.release-please-manifest.json --repo-url='https://github.com/GenSpectrum/LAPIS-SILO'",
+    "release-please-dry-run": "npx release-please release-pr --dry-run --config-file=release-please-config.json --manifest-file=.release-please-manifest.json --repo-url='https://github.com/RhyOrg/RhyDB'",
     "release-please-changelog-preview": ".github/scripts/preview-changelog.sh"
   }
 }

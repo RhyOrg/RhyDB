@@ -13,7 +13,7 @@ services:
         target: /workspace/reference_genomes.json
 
   rhydb:
-    image: ghcr.io/genspectrum/lapis-silo:${RHYDB_TAG}
+    image: ghcr.io/rhyorg/rhydb:${RHYDB_TAG}
     ports:
       - "8091:8081"
     command: api
@@ -24,7 +24,7 @@ services:
         condition: service_completed_successfully
 
   rhydbPreprocessing:
-    image: ghcr.io/genspectrum/lapis-silo:${RHYDB_TAG}
+    image: ghcr.io/rhyorg/rhydb:${RHYDB_TAG}
     command: preprocessing
     volumes:
       - ./:/preprocessing/input

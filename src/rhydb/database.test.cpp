@@ -18,6 +18,7 @@
 #include "rhydb/initialize/initializer.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/query_engine/planner.h"
+#include "rhydb/schema/builtin_tables.h"
 #include "rhydb/storage/reference_genomes.h"
 #include "rhydb/test/query_fixture.test.h"
 
@@ -86,7 +87,7 @@ TEST(DatabaseTest, shouldSaveAndReloadDatabaseWithoutErrors) {
 
    const auto database_info = database.getDatabaseInfo();
 
-   EXPECT_EQ(database_info.sequence_count, 5);
+   EXPECT_EQ(database_info.row_count, 5);
    EXPECT_GT(database_info.vertical_bitmaps_size, 0);
    EXPECT_GT(database_info.horizontal_bitmaps_size, 0);
 
@@ -109,7 +110,7 @@ TEST(DatabaseTest, shouldReturnCorrectDatabaseInfoAfterAppendingNewSequences) {
    const auto database_info = database.getDatabaseInfo();
    auto data_version = database.getDataVersionTimestamp();
 
-   EXPECT_EQ(database_info.sequence_count, 5);
+   EXPECT_EQ(database_info.row_count, 5);
    EXPECT_GT(database_info.vertical_bitmaps_size, 0);
    EXPECT_EQ(database_info.horizontal_bitmaps_size, 9);
 
@@ -125,8 +126,35 @@ TEST(DatabaseTest, shouldReturnCorrectDatabaseInfoAfterAppendingNewSequences) {
    const auto database_info_after_append = database.getDatabaseInfo();
    auto data_version_after_append = database.getDataVersionTimestamp();
 
-   EXPECT_EQ(database_info_after_append.sequence_count, 7);
+   EXPECT_EQ(database_info_after_append.row_count, 7);
    EXPECT_GT(data_version_after_append, data_version);
+}
+
+TEST(DatabaseTest, newDatabaseContainsEmptyBuiltinTables) {
+   const rhydb::Database database;
+
+   for (const auto& [table_name, table_schema] : rhydb::schema::getBuiltinTableSchemas()) {
+      ASSERT_TRUE(database.tables.contains(table_name)) << table_name.getName();
+      ASSERT_TRUE(database.schema.tables.contains(table_name)) << table_name.getName();
+      EXPECT_EQ(database.tables.at(table_name)->row_count, 0);
+      EXPECT_EQ(
+         database.schema.tables.at(table_name)->getColumnIdentifiers(),
+         table_schema->getColumnIdentifiers()
+      );
+   }
+}
+
+TEST(DatabaseTest, loadedDatabaseContainsBuiltinTables) {
+   // The committed serialized state may predate some built-in tables, which are then added on load
+   const auto database = rhydb::Database::loadDatabaseState(
+      rhydb::RhyDBDirectory{"testBaseData/rhydbSerializedState"}.getMostRecentDataDirectory().value(
+      )
+   );
+
+   for (const auto& [table_name, _] : rhydb::schema::getBuiltinTableSchemas()) {
+      EXPECT_TRUE(database.tables.contains(table_name)) << table_name.getName();
+      EXPECT_TRUE(database.schema.tables.contains(table_name)) << table_name.getName();
+   }
 }
 
 namespace {
@@ -372,7 +400,7 @@ TEST(DatabaseInsertQueryTest, copiesFilteredRowsFromOneTableIntoAnother) {
    EXPECT_EQ(countInTableWhere(database, "source", "true"), 3);
 }
 
-TEST(DatabaseInsertQueryTest, reshapesWithProjectAcceptsStringTargetAndAccumulates) {
+TEST(DatabaseInsertQueryTest, reshapesWithProjectAndAccumulates) {
    rhydb::Database database;
    database.createTable(TableName{"source"}, makeValueColumnSchema());
    // Target keeps only a subset of columns; the query must project down to match it.
@@ -391,11 +419,9 @@ TEST(DatabaseInsertQueryTest, reshapesWithProjectAcceptsStringTargetAndAccumulat
                << R"({"key":"b","country":"US","age":2})" << "\n";
    database.appendData(TableName{"source"}, source_data);
 
-   // Target named as a string literal; project drops the `age` column the target does not have.
+   // project drops the `age` column the target does not have.
    const nlohmann::json result = database.executeWrite(
-      "source.project({key, country}).insertInto('archive')",
-      defaultQueryOptions(),
-      "test_request_id"
+      "source.project({key, country}).insertInto(archive)", defaultQueryOptions(), "test_request_id"
    );
    EXPECT_EQ(result.at("insertedRows").get<size_t>(), 2);
    EXPECT_EQ(countInTableWhere(database, "archive", "true"), 2);

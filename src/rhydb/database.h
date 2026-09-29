@@ -25,8 +25,10 @@ class Database {
   private:
    DataVersion data_version_ = DataVersion::mineDataVersion();
 
+   void createMissingBuiltinTables();
+
   public:
-   Database() = default;
+   Database();
 
    explicit Database(schema::DatabaseSchema database_schema);
 
@@ -108,11 +110,6 @@ class Database {
       const config::QueryOptions& query_options,
       std::string_view request_id
    );
-
-   [[nodiscard]] std::string getTablesAsArrowIpc() const;
-
-  private:
-   [[nodiscard]] arrow::Result<std::string> getTablesAsArrowIpcImpl() const;
 };
 
 }  // namespace rhydb
