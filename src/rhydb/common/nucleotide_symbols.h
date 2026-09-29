@@ -211,7 +211,7 @@ class Nucleotide {
 /// The switch in charToSymbolSwitch compiles to an indirect jump, which is mispredicted for
 /// every base of every inserted sequence. The table turns it into a single L1 load.
 inline constexpr std::array<std::optional<Nucleotide::Symbol>, 256> NUCLEOTIDE_CHAR_TO_SYMBOL =
-   []() {
+   [] {
       std::array<std::optional<Nucleotide::Symbol>, 256> table{};
       for (size_t character = 0; character < table.size(); ++character) {
          table[character] = Nucleotide::charToSymbolSwitch(static_cast<char>(character));

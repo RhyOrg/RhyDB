@@ -161,7 +161,7 @@ class TableSchema {
          );
          return std::nullopt;
       }
-      auto typed_metadata = dynamic_cast<typename ColumnType::Metadata*>(iter->second.get());
+      auto typed_metadata = dynamic_cast<ColumnType::Metadata*>(iter->second.get());
       RHYDB_ASSERT(typed_metadata != nullptr);
       return typed_metadata;
    }

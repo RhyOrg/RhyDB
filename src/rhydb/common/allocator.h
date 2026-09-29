@@ -1,4 +1,4 @@
-#if defined(__linux__)
+#ifdef __linux__
 #include <malloc.h>
 #endif
 
@@ -8,7 +8,7 @@ namespace rhydb::common {
 
 class Allocator {
   public:
-#if defined(__linux__)
+#ifdef __linux__
    static void trim() {
       SPDLOG_INFO("Manually invoking malloc_trim() to give back memory to OS.");
       malloc_trim(0);
