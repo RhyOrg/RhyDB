@@ -185,6 +185,12 @@ std::vector<typename SymbolType::Symbol> toReferenceSymbols(
    const std::string& sequence,
    const ColumnDefinition& column
 ) {
+   CHECK_RHYDB_QUERY(
+      !sequence.empty(),
+      "createTable(): the reference '{}' of column '{}' must not be empty",
+      column.reference_name.value(),
+      column.name
+   );
    std::vector<typename SymbolType::Symbol> symbols;
    symbols.reserve(sequence.size());
    for (const char character : sequence) {
