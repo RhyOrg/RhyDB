@@ -27,9 +27,7 @@ class SymbolMap {
    explicit SymbolMap(std::array<T, SymbolType::COUNT>&& data)
        : data(data) {}
 
-   T& operator[](SymbolType::Symbol symbol) {
-      return data.at(static_cast<uint8_t>(symbol));
-   }
+   T& operator[](SymbolType::Symbol symbol) { return data.at(static_cast<uint8_t>(symbol)); }
 
    [[nodiscard]] const T& at(SymbolType::Symbol symbol) const {
       return data.at(static_cast<uint8_t>(symbol));
