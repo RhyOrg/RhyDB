@@ -241,3 +241,42 @@ TEST(CreateTableCommand, rejectsMissingOrInvalidReference) {
       "the reference 'broken' of column 'broken' contains the illegal nucleotide symbol '?'"
    );
 }
+
+// A table's data is saved to `<table>.silo` in the data directory, so a name must neither escape
+// that directory nor collide with the database's own metadata files.
+TEST(CreateTableCommand, rejectsTableNamesThatAreUnsafeAsFileNames) {
+   expectCreateTableError(
+      R"(createTable("../escape", {a := int}))",
+      "the table name '../escape' may only contain letters, digits, '_' and '-'"
+   );
+   expectCreateTableError(
+      R"(createTable("/tmp/absolute", {a := int}))",
+      "the table name '/tmp/absolute' may only contain letters, digits, '_' and '-'"
+   );
+   expectCreateTableError(
+      R"(createTable("with.dot", {a := int}))",
+      "the table name 'with.dot' may only contain letters, digits, '_' and '-'"
+   );
+   expectCreateTableError(R"(createTable("", {a := int}))", "a table name must not be empty");
+   expectCreateTableError(
+      "createTable(database_schema, {a := int})", "the table name 'database_schema' is reserved"
+   );
+   expectCreateTableError(
+      "createTable(data_version, {a := int})", "the table name 'data_version' is reserved"
+   );
+}
+
+TEST(CreateTableCommand, databaseRejectsUnsafeTableNamesForEveryCaller) {
+   rhydb::Database database;
+   EXPECT_THAT(
+      [&]() {
+         database.createTable(
+            TableName{"../escape"}, std::make_shared<rhydb::schema::TableSchema>()
+         );
+      },
+      ThrowsMessage<std::runtime_error>(HasSubstr("Cannot create table: the table name '../escape'")
+      )
+   );
+   EXPECT_FALSE(database.tables.contains(TableName{"../escape"}));
+   EXPECT_FALSE(database.schema.tables.contains(TableName{"../escape"}));
+}

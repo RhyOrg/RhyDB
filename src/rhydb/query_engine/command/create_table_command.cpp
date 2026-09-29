@@ -317,6 +317,8 @@ nlohmann::json CreateTableCommand::execute(
    const config::QueryOptions& /*query_options*/,
    std::string_view /*request_id*/
 ) {
+   const auto valid_table_name = Database::validateTableName(table_name_.getName());
+   CHECK_RHYDB_QUERY(valid_table_name.has_value(), "createTable(): {}", valid_table_name.error());
    CHECK_RHYDB_QUERY(
       !database.tables.contains(table_name_),
       "createTable(): a table named '{}' already exists",

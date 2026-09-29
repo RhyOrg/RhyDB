@@ -656,8 +656,8 @@ createTable(covid, {
 }, primaryKey := primaryKey)
 ```
 
-The table name is an identifier. It must not name an existing table
-(built-in tables such as `reference_genomes` included).
+The table name is an identifier made of letters, digits, `_` and `-`, other than `database_schema` and `data_version`. 
+It must not name an existing table (built-in tables such as `reference_genomes` included).
 
 `columns` is a record mapping each column name to its type. A type is written either as a bare name
 (`int`) or with named options (`string(generateIndex := true)`). Column names that are not plain
