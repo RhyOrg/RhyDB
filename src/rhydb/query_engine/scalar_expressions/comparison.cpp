@@ -116,21 +116,23 @@ bool matchesComparator(std::string_view actual, Comparator comparator, std::stri
    RHYDB_UNREACHABLE();
 }
 
-template <typename ColumnType, typename ColumnMap>
+template <typename ColumnType>
 std::unique_ptr<Operator> compileTypedComparison(
    const Table& table,
-   const ColumnMap& column_map,
    const std::string& column_name,
    Comparator comparator,
    std::string_view type_name,
    typename ColumnType::value_type value
 ) {
    CHECK_RHYDB_QUERY(
-      column_map.contains(column_name), "The column '{}' is not of type {}", column_name, type_name
+      table.hasColumn<ColumnType>(column_name),
+      "The column '{}' is not of type {}",
+      column_name,
+      type_name
    );
    return std::make_unique<Selection>(
       std::make_unique<CompareToValueSelection<ColumnType>>(
-         column_map.at(column_name), comparator, value
+         table.getColumn<ColumnType>(column_name), comparator, value
       ),
       table.row_layout
    );
@@ -174,10 +176,10 @@ std::unique_ptr<Operator> compileStringComparison(
    Comparator comparator,
    const std::string& literal
 ) {
-   if (table.columns.string_columns.contains(column_name)) {
+   if (table.hasColumn<StringColumn>(column_name)) {
       // Equality on non-indexed string columns is always converted to StringInSet
       RHYDB_ASSERT(comparator != Comparator::EQUALS);
-      const auto& string_column = table.columns.string_columns.at(column_name);
+      const auto& string_column = table.getColumn<StringColumn>(column_name);
       return std::make_unique<Selection>(
          std::make_unique<CompareToValueSelection<StringColumn>>(
             string_column, comparator, literal
@@ -187,12 +189,12 @@ std::unique_ptr<Operator> compileStringComparison(
    }
 
    CHECK_RHYDB_QUERY(
-      table.columns.dictionary_encoded_columns.contains(column_name),
+      table.hasColumn<DictionaryEncodedColumn>(column_name),
       "The column '{}' is not of type string",
       column_name
    );
 
-   const auto& dictionary_column = table.columns.dictionary_encoded_columns.at(column_name);
+   const auto& dictionary_column = table.getColumn<DictionaryEncodedColumn>(column_name);
 
    if (comparator == Comparator::EQUALS) {
       const auto bitmap = dictionary_column.filter(literal);
@@ -232,7 +234,7 @@ std::unique_ptr<Operator> compileBoolComparison(
    // The column type is checked first so that comparing a non-bool column against a
    // bool literal reports the type mismatch rather than claiming the column is boolean.
    CHECK_RHYDB_QUERY(
-      table.columns.bool_columns.contains(column_name),
+      table.hasColumn<storage::column::BoolColumn>(column_name),
       "The column '{}' is not of type bool",
       column_name
    );
@@ -241,7 +243,7 @@ std::unique_ptr<Operator> compileBoolComparison(
       "The comparison operators <,>,<=,>= are not supported for boolean column '{}'",
       column_name
    );
-   const auto& bool_column = table.columns.bool_columns.at(column_name);
+   const auto& bool_column = table.getColumn<storage::column::BoolColumn>(column_name);
    // `column <> true` selects the same rows as `column = false`. Null rows are in
    // neither bitmap, so they are excluded either way, consistent with the other
    // comparison operators.
@@ -261,15 +263,11 @@ std::unique_ptr<Operator> compileIntComparison(
    Comparator comparator,
    int64_t value
 ) {
-   if (table.columns.int64_columns.contains(column_name)) {
-      return compileTypedComparison<Int64Column>(
-         table, table.columns.int64_columns, column_name, comparator, "int64", value
-      );
+   if (table.hasColumn<Int64Column>(column_name)) {
+      return compileTypedComparison<Int64Column>(table, column_name, comparator, "int64", value);
    }
    CHECK_RHYDB_QUERY(
-      table.columns.int32_columns.contains(column_name),
-      "The column '{}' is not of type int",
-      column_name
+      table.hasColumn<Int32Column>(column_name), "The column '{}' is not of type int", column_name
    );
    CHECK_RHYDB_QUERY(
       value >= std::numeric_limits<int32_t>::min() && value <= std::numeric_limits<int32_t>::max(),
@@ -277,12 +275,7 @@ std::unique_ptr<Operator> compileIntComparison(
       value
    );
    return compileTypedComparison<Int32Column>(
-      table,
-      table.columns.int32_columns,
-      column_name,
-      comparator,
-      "int",
-      static_cast<int32_t>(value)
+      table, column_name, comparator, "int", static_cast<int32_t>(value)
    );
 }
 
@@ -351,12 +344,12 @@ std::unique_ptr<ScalarExpression> Comparison::rewrite(
             column_name
          );
          CHECK_RHYDB_QUERY(
-            table.columns.string_columns.contains(column_name) ||
-               table.columns.dictionary_encoded_columns.contains(column_name),
+            table.hasColumn<StringColumn>(column_name) ||
+               table.hasColumn<DictionaryEncodedColumn>(column_name),
             "The column '{}' is not of type string",
             column_name
          );
-         if (table.columns.string_columns.contains(column_name)) {
+         if (table.hasColumn<StringColumn>(column_name)) {
             return std::make_unique<StringInSet>(
                split->column->column, std::unordered_set<std::string>{string_value->value}
             );
@@ -395,23 +388,13 @@ std::unique_ptr<Operator> Comparison::compile(const Table& table) const {
 
    if (const auto* float_value = dynCast<FloatLiteral>(value)) {
       return compileTypedComparison<FloatColumn>(
-         table,
-         table.columns.float_columns,
-         column_name,
-         effective_comparator,
-         "float",
-         float_value->value
+         table, column_name, effective_comparator, "float", float_value->value
       );
    }
 
    if (const auto* date_value = dynCast<DateLiteral>(value)) {
       return compileTypedComparison<Date32Column>(
-         table,
-         table.columns.date32_columns,
-         column_name,
-         effective_comparator,
-         "date",
-         date_value->value
+         table, column_name, effective_comparator, "date", date_value->value
       );
    }
 

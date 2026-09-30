@@ -60,7 +60,7 @@ arrow::Status addAggregatedInsertionsToInsertionCounts(
    exec_node::SchemaOutputBuilder& output_builder
 ) {
    const auto& sequence_column =
-      table.columns.getColumns<storage::column::SequenceColumn<SymbolType>>().at(sequence_name);
+      table.getColumn<storage::column::SequenceColumn<SymbolType>>(sequence_name);
    std::unordered_map<PositionAndInsertionKey, uint32_t> all_insertions;
    const roaring::Roaring filter_bitmap = bitmap_filter.toRoaring();
    auto bitmap_cardinality = filter_bitmap.cardinality();

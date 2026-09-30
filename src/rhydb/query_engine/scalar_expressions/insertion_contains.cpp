@@ -52,11 +52,8 @@ std::unique_ptr<filter::operators::Operator> InsertionContains<SymbolType>::comp
 ) const {
    const auto valid_sequence_name = validateSequenceName<SymbolType>(column.name, *table.schema);
 
-   const std::map<std::string, storage::column::SequenceColumn<SymbolType>>& sequence_stores =
-      table.columns.getColumns<typename SymbolType::Column>();
-
    const storage::column::SequenceColumn<SymbolType>& sequence_store =
-      sequence_stores.at(valid_sequence_name);
+      table.getColumn<typename SymbolType::Column>(valid_sequence_name);
    const size_t reference_sequence_size = sequence_store.metadata->reference_sequence.size();
    CHECK_RHYDB_QUERY(
       position_idx <= reference_sequence_size,

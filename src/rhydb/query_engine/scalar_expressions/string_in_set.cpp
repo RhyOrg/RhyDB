@@ -47,14 +47,14 @@ std::unique_ptr<ScalarExpression> StringInSet::rewrite(
       column.name
    );
    CHECK_RHYDB_QUERY(
-      table.columns.string_columns.contains(column.name) ||
-         table.columns.dictionary_encoded_columns.contains(column.name),
+      table.hasColumn<StringColumn>(column.name) ||
+         table.hasColumn<storage::column::DictionaryEncodedColumn>(column.name),
       "The column '{}' is not of type string",
       column.name
    );
 
    // We do not change expressions for StringColumn
-   if (table.columns.string_columns.contains(column.name)) {
+   if (table.hasColumn<StringColumn>(column.name)) {
       return std::make_unique<StringInSet>(column, values);
    }
 
@@ -74,8 +74,8 @@ std::unique_ptr<ScalarExpression> StringInSet::rewrite(
 
 std::unique_ptr<filter::operators::Operator> StringInSet::compile(const storage::Table& table
 ) const {
-   RHYDB_ASSERT(table.columns.string_columns.contains(column.name));
-   const auto& string_column = table.columns.string_columns.at(column.name);
+   RHYDB_ASSERT(table.hasColumn<StringColumn>(column.name));
+   const auto& string_column = table.getColumn<StringColumn>(column.name);
    return std::make_unique<filter::operators::Selection>(
       std::make_unique<filter::operators::StringInSet<StringColumn>>(
          &string_column, filter::operators::StringInSet<StringColumn>::Comparator::IN, values

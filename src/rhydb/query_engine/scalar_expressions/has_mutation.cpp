@@ -37,8 +37,7 @@ std::unique_ptr<ScalarExpression> HasMutation<SymbolType>::rewrite(
 ) const {
    const auto valid_sequence_name = validateSequenceName<SymbolType>(column.name, *table.schema);
 
-   const auto& sequence_column =
-      table.columns.getColumns<typename SymbolType::Column>().at(valid_sequence_name);
+   const auto& sequence_column = table.getColumn<typename SymbolType::Column>(valid_sequence_name);
 
    auto column_metadata =
       table.schema->getColumnMetadata<typename SymbolType::Column>(valid_sequence_name).value();
