@@ -552,7 +552,7 @@ its direct parent in a `parent` column (null for roots). Its closure pairs every
 each of its descendants:
 
 ```
-pango_lineage.transitiveClosure('parent', 'lineage').orderBy({from, to})
+pango_lineage.transitiveClosure(parent, lineage).orderBy({from, to})
 ```
 
 **Counting a lineage together with all of its sublineages.** Joining the reflexive closure's
@@ -561,7 +561,7 @@ all sequences below it in the hierarchy (and â€” thanks to the reflexive pair â€
 sequences):
 
 ```
-pango_lineage.transitiveClosure('parent', 'lineage', includeVertices:=true)
+pango_lineage.transitiveClosure(parent, lineage, includeVertices:=true)
   .join(default, to = lineage_column)
   .groupBy({count := count()}, {from})
   .orderBy({from})
@@ -578,7 +578,7 @@ vertices reach is ever walked. Asking for the descendants of one lineage therefo
 instead of one per vertex in the relation:
 
 ```
-pango_lineage.transitiveClosure('parent', 'lineage', includeVertices:=true, startingFrom:={'B.1.1.7'})
+pango_lineage.transitiveClosure(parent, lineage, includeVertices:=true, startingFrom:={'B.1.1.7'})
   .join(default, to = lineage_column)
   .groupBy({count := count()}, {from})
 ```
@@ -588,7 +588,7 @@ its reflexive pair.
 
 **Restrictions:**
 
-- `from` and `to` must be `STRING` columns of the input.
+- `from` and `to` must be `STRING` columns of the input, written as identifiers (e.g. `parent`).
 - `startingFrom` must be a set literal of string literals, e.g. `{'A', 'B'}`.
 
 **Output:** the reachable `{from, to}` pairs. The order of rows is not guaranteed; use
