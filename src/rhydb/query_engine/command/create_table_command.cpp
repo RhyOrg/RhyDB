@@ -45,10 +45,6 @@ struct ColumnDefinition {
    std::optional<std::string> reference_name;
 };
 
-// TODO(#741) unaligned sequence columns are conventionally named after their aligned counterpart
-// with this prefix, which is also how preprocessing names them.
-constexpr std::string_view UNALIGNED_NUCLEOTIDE_SEQUENCE_PREFIX = "unaligned_";
-
 const std::map<std::string, ColumnType, std::less<>> VALUE_TYPES_WITHOUT_OPTIONS{
    {"int", ColumnType::INT32},
    {"int32", ColumnType::INT32},
@@ -69,21 +65,10 @@ const FunctionSignature STRING_TYPE_SIGNATURE{
 };
 
 const FunctionSignature SEQUENCE_TYPE_SIGNATURE{
-   {ParameterDefinition{.name = "reference", .required = false, .positional = false}}
+   {ParameterDefinition{.name = "reference", .required = true, .positional = false}}
 };
 
 const FunctionSignature NO_OPTIONS_SIGNATURE{};
-
-/// By default a sequence column takes the reference of the same name. An unaligned column is
-/// named after its aligned counterpart (`unaligned_main` for `main`), so it defaults to that one.
-std::string defaultReferenceName(const std::string& column_name, ColumnType type) {
-   if (type == ColumnType::ZSTD_COMPRESSED_STRING &&
-       column_name.starts_with(UNALIGNED_NUCLEOTIDE_SEQUENCE_PREFIX) &&
-       column_name.size() > UNALIGNED_NUCLEOTIDE_SEQUENCE_PREFIX.size()) {
-      return column_name.substr(UNALIGNED_NUCLEOTIDE_SEQUENCE_PREFIX.size());
-   }
-   return column_name;
-}
 
 using saneql::ast::Expression;
 using saneql::ast::extractBoolLiteral;
@@ -141,13 +126,10 @@ ColumnDefinition parseColumnDefinition(
 
    if (auto sequence_type = SEQUENCE_TYPES.find(type_name); sequence_type != SEQUENCE_TYPES.end()) {
       auto options = saneql::bindArguments(type_name, SEQUENCE_TYPE_SIGNATURE, *positional, *named);
-      const auto* reference = options.get("reference");
       return ColumnDefinition{
          .name = column_name,
          .type = sequence_type->second,
-         .reference_name = reference != nullptr
-                              ? extractIdentifierName(*reference)
-                              : defaultReferenceName(column_name, sequence_type->second)
+         .reference_name = extractIdentifierName(options.at("reference"))
       };
    }
 

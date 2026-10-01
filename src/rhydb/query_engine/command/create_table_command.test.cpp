@@ -70,10 +70,10 @@ createTable(covid, {
    qc := float,
    complete := boolean,
    date := date,
-   main := nucleotideSequence,
+   main := nucleotideSequence(reference := main),
    segment := nucleotideSequence(reference := other),
-   "S" := aminoAcidSequence,
-   unaligned_main := unalignedNucleotideSequence
+   "S" := aminoAcidSequence(reference := "S"),
+   unaligned_main := unalignedNucleotideSequence(reference := main)
 }, primaryKey := key)
 )";
 
@@ -203,6 +203,19 @@ TEST(CreateTableCommand, rejectsInvalidColumnDefinitions) {
    expectCreateTableError(
       "createTable(t, {a := nucleotideSequence(reference := 'main')})", "expected identifier"
    );
+   // The reference is never derived from the column name.
+   expectCreateTableError(
+      "createTable(t, {main := nucleotideSequence})",
+      "nucleotideSequence() requires argument 'reference'"
+   );
+   expectCreateTableError(
+      "createTable(t, {\"S\" := aminoAcidSequence})",
+      "aminoAcidSequence() requires argument 'reference'"
+   );
+   expectCreateTableError(
+      "createTable(t, {unaligned_main := unalignedNucleotideSequence})",
+      "unalignedNucleotideSequence() requires argument 'reference'"
+   );
    expectCreateTableError("createTable(t, {a := int(generateIndex := true)})", "int()");
    expectCreateTableError("createTable(t, {a := string(indexed := true)})", "indexed");
    expectCreateTableError("createTable(t, {a := string(generateIndex := 1)})", "boolean literal");
@@ -224,21 +237,21 @@ TEST(CreateTableCommand, rejectsInvalidPrimaryKey) {
 
 TEST(CreateTableCommand, rejectsMissingOrInvalidReference) {
    expectCreateTableError(
-      "createTable(t, {unknown := nucleotideSequence})",
-      "column 'unknown' requires a reference named 'unknown' of type 'nucleotide'"
+      "createTable(t, {a := nucleotideSequence(reference := unknown)})",
+      "column 'a' requires a reference named 'unknown' of type 'nucleotide'"
    );
    // A reference of the other sequence type does not qualify.
    expectCreateTableError(
-      "createTable(t, {main := aminoAcidSequence})",
-      "column 'main' requires a reference named 'main' of type 'amino_acid'"
+      "createTable(t, {a := aminoAcidSequence(reference := main)})",
+      "column 'a' requires a reference named 'main' of type 'amino_acid'"
    );
    expectCreateTableError(
       "createTable(t, {x := unalignedNucleotideSequence(reference := S)})",
       "column 'x' requires a reference named 'S' of type 'nucleotide'"
    );
    expectCreateTableError(
-      "createTable(t, {broken := nucleotideSequence})",
-      "the reference 'broken' of column 'broken' contains the illegal nucleotide symbol '?'"
+      "createTable(t, {a := nucleotideSequence(reference := broken)})",
+      "the reference 'broken' of column 'a' contains the illegal nucleotide symbol '?'"
    );
 }
 

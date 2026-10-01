@@ -649,9 +649,9 @@ createTable(covid, {
    country := string(generateIndex := true),
    age := int,
    date := date,
-   main := nucleotideSequence,
-   "S" := aminoAcidSequence,
-   unaligned_main := unalignedNucleotideSequence
+   main := nucleotideSequence(reference := main),
+   "S" := aminoAcidSequence(reference := "S"),
+   unaligned_main := unalignedNucleotideSequence(reference := main)
 }, primaryKey := primaryKey)
 ```
 
@@ -660,7 +660,7 @@ It must not name an existing table (built-in tables such as `reference_genomes` 
 
 `columns` is a record mapping each column name to its type. A type is written either as a bare name
 (`int`) or with named options (`string(generateIndex := true)`). Column names that are not plain
-identifiers can be written as quoted identifiers, e.g. `"S:ORF1a" := aminoAcidSequence`. The types mirror those of
+identifiers can be written as quoted identifiers, e.g. `"S:ORF1a" := aminoAcidSequence(reference := "S:ORF1a")`. The types mirror those of
 `database_config.yaml`:
 
 | Type                          | Options                           | Column                                                        |
@@ -670,16 +670,16 @@ identifiers can be written as quoted identifiers, e.g. `"S:ORF1a" := aminoAcidSe
 | `float`                       |                                   | floating point number                                         |
 | `boolean`                     |                                   | boolean                                                       |
 | `date`                        |                                   | date                                                          |
-| `nucleotideSequence`          | `reference := <name>`             | aligned nucleotide sequence                                   |
-| `aminoAcidSequence`           | `reference := <name>`             | aligned amino acid sequence                                   |
-| `unalignedNucleotideSequence` | `reference := <name>`             | unaligned nucleotide sequence, zstd compressed                |
+| `nucleotideSequence`          | `reference := <name>` (required)  | aligned nucleotide sequence                                   |
+| `aminoAcidSequence`           | `reference := <name>` (required)  | aligned amino acid sequence                                   |
+| `unalignedNucleotideSequence` | `reference := <name>` (required)  | unaligned nucleotide sequence, zstd compressed                |
 
-**References.** Sequence columns take their reference sequence from the built-in `reference_genomes`
-table: the row whose `name` is the column name and whose `type` matches the column (`nucleotide`
-for `nucleotideSequence` and `unalignedNucleotideSequence`, `amino_acid` for `aminoAcidSequence`).
-An unaligned column uses that sequence as its compression dictionary; named `unaligned_<name>`, it
-defaults to the reference `<name>`. `reference := <name>` picks a different row, e.g.
-`segment := nucleotideSequence(reference := main)`. The reference is copied into the table's
+**References.** Sequence columns require the `reference := <name>` option, which names the row of
+the built-in `reference_genomes` table to take their reference sequence from: the row with that
+`name` whose `type` matches the column (`nucleotide` for `nucleotideSequence` and
+`unalignedNucleotideSequence`, `amino_acid` for `aminoAcidSequence`), e.g.
+`segment := nucleotideSequence(reference := main)`. An unaligned column uses that sequence as its
+compression dictionary. The reference is never derived from the column name. The reference is copied into the table's
 schema when it is created, so later changes to `reference_genomes` do not affect existing tables.
 Creating a sequence column fails if there is no matching reference.
 
