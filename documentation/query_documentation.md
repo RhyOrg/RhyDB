@@ -601,8 +601,7 @@ its reflexive pair.
 ### `insertInto(query: expression, table: symbol)`
 
 Runs `query` and inserts the resulting rows into `table` — a query
-against table A whose result lands in table B, expressed as a single SaneQL query. It is a write statement (as is
-[`createTable`](#createtabletable-symbol-columns-record-primarykey-symbol)): it mutates the target table
+against table A whose result lands in table B, expressed as a single SaneQL query. It is a write statement: it mutates the target table
 rather than returning rows to the caller.
 
 ```
