@@ -166,7 +166,7 @@ describe('The /query endpoint', () => {
     });
 
     it('has no explicit ordering for a query without an order by', async () => {
-      const response = await postQuery('default.groupBy({count:=count()})');
+      const response = await postQuery('default.group(by:={}, aggs:={count:=count()})');
       expect(response.status).to.equal(200);
       expect(getResultOrdering(response)).to.deep.equal([]);
     });

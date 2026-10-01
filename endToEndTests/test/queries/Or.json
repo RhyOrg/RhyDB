@@ -1,6 +1,6 @@
 {
   "testCaseName": "Or Query with two children",
-  "query": "default.filter((pango_lineage.lineage('B.1.1.7')) || (pango_lineage.lineage('B.1.1.7', includeSublineages:=true))).groupBy({count:=count()})",
+  "query": "default.filter((pango_lineage.lineage('B.1.1.7')) || (pango_lineage.lineage('B.1.1.7', includeSublineages:=true))).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 51

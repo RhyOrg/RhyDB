@@ -62,7 +62,7 @@ const QueryTestData TEST_DATA{
 
 const QueryTestScenario SUM_WITHOUT_GROUPS = {
    .name = "SUM_WITHOUT_GROUPS",
-   .query = "default.groupBy({total:=sum(age)})",
+   .query = "default.group(by:={}, aggs:={total:=sum(age)})",
    .expected_query_result = nlohmann::json::parse(R"([{"total": 23}])")
 };
 
@@ -70,7 +70,7 @@ const QueryTestScenario SUM_WITHOUT_GROUPS = {
 // country forms its own group, which the ascending order lists first.
 const QueryTestScenario SUM_INT32_PER_GROUP = {
    .name = "SUM_INT32_PER_GROUP",
-   .query = "default.groupBy({total:=sum(age)}, {country}).orderBy({country})",
+   .query = "default.group(by:={country}, aggs:={total:=sum(age)}).orderBy({country})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"country": null, "total": 1},
       {"country": "France", "total": null},
@@ -81,7 +81,7 @@ const QueryTestScenario SUM_INT32_PER_GROUP = {
 
 const QueryTestScenario SUM_INT64_PER_GROUP = {
    .name = "SUM_INT64_PER_GROUP",
-   .query = "default.groupBy({total:=sum(reads)}, {country}).orderBy({country})",
+   .query = "default.group(by:={country}, aggs:={total:=sum(reads)}).orderBy({country})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"country": null, "total": 2},
       {"country": "France", "total": null},
@@ -92,7 +92,7 @@ const QueryTestScenario SUM_INT64_PER_GROUP = {
 
 const QueryTestScenario SUM_FLOAT_PER_GROUP = {
    .name = "SUM_FLOAT_PER_GROUP",
-   .query = "default.groupBy({total:=sum(coverage)}, {country}).orderBy({country})",
+   .query = "default.group(by:={country}, aggs:={total:=sum(coverage)}).orderBy({country})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"country": null, "total": 0.25},
       {"country": "France", "total": null},
@@ -105,7 +105,8 @@ const QueryTestScenario SUM_FLOAT_PER_GROUP = {
 const QueryTestScenario SUM_AND_COUNT_TOGETHER = {
    .name = "SUM_AND_COUNT_TOGETHER",
    .query =
-      "default.groupBy({count:=count(), age_total:=sum(age), reads_total:=sum(reads)}, {country})"
+      "default.group(by:={country}, aggs:={count:=count(), age_total:=sum(age), "
+      "reads_total:=sum(reads)})"
       ".orderBy({country})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"country": null, "count": 1, "age_total": 1, "reads_total": 2},
@@ -117,27 +118,28 @@ const QueryTestScenario SUM_AND_COUNT_TOGETHER = {
 
 const QueryTestScenario SUM_OF_MAPPED_COLUMN = {
    .name = "SUM_OF_MAPPED_COLUMN",
-   .query = "default.map({years := age}).groupBy({total:=sum(years)})",
+   .query = "default.map({years := age}).group(by:={}, aggs:={total:=sum(years)})",
    .expected_query_result = nlohmann::json::parse(R"([{"total": 23}])")
 };
 
-// Without groupBy columns there is always one result row; with no rows to sum it holds null (while
+// Without `by` columns there is always one result row; with no rows to sum it holds null (while
 // count() is 0).
 const QueryTestScenario SUM_OVER_NO_ROWS = {
    .name = "SUM_OVER_NO_ROWS",
-   .query = "default.filter(country = 'Italy').groupBy({count:=count(), total:=sum(age)})",
+   .query =
+      "default.filter(country = 'Italy').group(by:={}, aggs:={count:=count(), total:=sum(age)})",
    .expected_query_result = nlohmann::json::parse(R"([{"count": 0, "total": null}])")
 };
 
 const QueryTestScenario SUM_OVER_NO_ROWS_PER_GROUP = {
    .name = "SUM_OVER_NO_ROWS_PER_GROUP",
-   .query = "default.filter(country = 'Italy').groupBy({total:=sum(age)}, {country})",
+   .query = "default.filter(country = 'Italy').group(by:={country}, aggs:={total:=sum(age)})",
    .expected_query_result = nlohmann::json::array()
 };
 
 const QueryTestScenario SUM_OF_STRING_COLUMN = {
    .name = "SUM_OF_STRING_COLUMN",
-   .query = "default.groupBy({total:=sum(country)})",
+   .query = "default.group(by:={}, aggs:={total:=sum(country)})",
    .expected_error_message =
       "aggregate 'total': sum requires a numeric (int, int64 or float) column, but 'country' has "
       "type STRING"
@@ -145,33 +147,33 @@ const QueryTestScenario SUM_OF_STRING_COLUMN = {
 
 const QueryTestScenario SUM_WITHOUT_COLUMN = {
    .name = "SUM_WITHOUT_COLUMN",
-   .query = "default.groupBy({total:=sum()})",
+   .query = "default.group(by:={}, aggs:={total:=sum()})",
    .expected_error_message =
       "aggregate 'total': sum expects exactly one column argument, e.g. sum(age)"
 };
 
 const QueryTestScenario SUM_OF_TWO_COLUMNS = {
    .name = "SUM_OF_TWO_COLUMNS",
-   .query = "default.groupBy({total:=sum(age, reads)})",
+   .query = "default.group(by:={}, aggs:={total:=sum(age, reads)})",
    .expected_error_message =
       "aggregate 'total': sum expects exactly one column argument, e.g. sum(age)"
 };
 
 const QueryTestScenario SUM_OF_UNKNOWN_COLUMN = {
    .name = "SUM_OF_UNKNOWN_COLUMN",
-   .query = "default.groupBy({total:=sum(weight)})",
+   .query = "default.group(by:={}, aggs:={total:=sum(weight)})",
    .expected_error_message = "source column weight is not present in the input's output schema"
 };
 
 const QueryTestScenario COUNT_STAR_WITH_CUSTOM_NAME = {
    .name = "COUNT_STAR_WITH_CUSTOM_NAME",
-   .query = "default.groupBy({n := count()})",
+   .query = "default.group(by:={}, aggs:={n := count()})",
    .expected_query_result = nlohmann::json::parse(R"([{"n": 6}])")
 };
 
 const QueryTestScenario COUNT_PER_GROUP_WITH_CUSTOM_NAME = {
    .name = "COUNT_PER_GROUP_WITH_CUSTOM_NAME",
-   .query = "default.groupBy({n := count()}, {country}).orderBy({country})",
+   .query = "default.group(by:={country}, aggs:={n := count()}).orderBy({country})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"country": null, "n": 1},
       {"country": "France", "n": 1},

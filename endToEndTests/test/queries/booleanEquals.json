@@ -1,6 +1,6 @@
 {
   "testCaseName": "BooleanEquals for test_boolean_column",
-  "query": "default.filter(test_boolean_column = true).groupBy({count:=count()})",
+  "query": "default.filter(test_boolean_column = true).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 41

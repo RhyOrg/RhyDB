@@ -81,13 +81,13 @@ const QueryTestScenario UNION_ALL_DUPLICATES_SCENARIO = {
    )
 };
 
-// UnionAll with downstream operations (groupBy on the result)
+// UnionAll with downstream operations (group on the result)
 const QueryTestScenario UNION_ALL_WITH_GROUPBY_SCENARIO = {
    .name = "UNION_ALL_WITH_GROUPBY",
    .query = R"(unionAll(
       default.filter(country='CH').project({country}),
       default.filter(country='DE').project({country})
-   ).groupBy({count := count()}, {country}).orderBy({asc(country)}))",
+   ).group(by:={country}, aggs:={count := count()}).orderBy({asc(country)}))",
    .expected_query_result =
       nlohmann::json({{{"country", "CH"}, {"count", 2}}, {{"country", "DE"}, {"count", 2}}})
 };

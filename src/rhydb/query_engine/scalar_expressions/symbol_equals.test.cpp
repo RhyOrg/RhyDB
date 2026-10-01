@@ -77,7 +77,7 @@ const QueryTestData TEST_DATA{
 std::string createNucleotideSymbolEqualsQuery(const std::string& symbol, int position) {
    return fmt::format(
       "default.filter(nucleotideEquals(position:={}, symbol:='{}', "
-      "sequenceName:='segment1')).groupBy({{count:=count()}})",
+      "sequenceName:='segment1')).group(by:={{}}, aggs:={{count:=count()}})",
       position,
       symbol
    );
@@ -232,7 +232,7 @@ const QueryTestScenario AMINO_ACID_EQUALS_MISSING_SYMBOL_WITHOUT_SEQUENCES = {
    .name = "AMINO_ACID_EQUALS_MISSING_SYMBOL_WITHOUT_SEQUENCES",
    .query =
       "default.filter(aminoAcidEquals(position:=1, symbol:='X', sequenceName:='gene1'))"
-      ".groupBy({count:=count()})",
+      ".group(by:={}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([{"count": 0}])")
 };
 
@@ -252,7 +252,9 @@ const QueryTestScenario NUCLEOTIDE_EQUALS_OUT_OF_RANGE_EDGE_LOW = {
 // has only a single nucleotide sequence.
 const QueryTestScenario NUCLEOTIDE_EQUALS_WITHOUT_SEQUENCE_NAME = {
    .name = "NUCLEOTIDE_EQUALS_WITHOUT_SEQUENCE_NAME",
-   .query = "default.filter(nucleotideEquals(position:=1, symbol:='A')).groupBy({count:=count()})",
+   .query =
+      "default.filter(nucleotideEquals(position:=1, symbol:='A')).group(by:={}, "
+      "aggs:={count:=count()})",
    .expected_error_message = "nucleotideEquals() requires argument 'sequenceName'"
 };
 
@@ -302,7 +304,7 @@ const QueryTestScenario AMINO_ACID_EQUALS_D = {
    .name = "AMINO_ACID_EQUALS_D",
    .query =
       "default.filter(aminoAcidEquals(position:=1, symbol:='D', sequenceName:='gene1'))"
-      ".groupBy({count:=count()})",
+      ".group(by:={}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])")
 };
 
@@ -310,14 +312,16 @@ const QueryTestScenario AMINO_ACID_EQUALS_WITH_DOT_RETURNS_AS_IF_REFERENCE = {
    .name = "AMINO_ACID_EQUALS_WITH_DOT_RETURNS_AS_IF_REFERENCE",
    .query =
       "default.filter(aminoAcidEquals(position:=1, symbol:='.', sequenceName:='gene1'))"
-      ".groupBy({count:=count()})",
+      ".group(by:={}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([{"count": 2}])")
 };
 
 // Amino acid filters always require a sequence name.
 const QueryTestScenario AMINO_ACID_EQUALS_WITHOUT_SEQUENCE_NAME = {
    .name = "AMINO_ACID_EQUALS_WITHOUT_SEQUENCE_NAME",
-   .query = "default.filter(aminoAcidEquals(position:=1, symbol:='D')).groupBy({count:=count()})",
+   .query =
+      "default.filter(aminoAcidEquals(position:=1, symbol:='D')).group(by:={}, "
+      "aggs:={count:=count()})",
    .expected_error_message = "aminoAcidEquals() requires argument 'sequenceName'"
 };
 

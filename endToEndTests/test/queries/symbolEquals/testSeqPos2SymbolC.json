@@ -1,6 +1,6 @@
 {
   "testCaseName": "Test sequence has symbol C at position 2",
-  "query": "default.filter(nucleotideEquals(position:=2, symbol:='C', sequenceName:='testSecondSequence')).groupBy({count:=count()})",
+  "query": "default.filter(nucleotideEquals(position:=2, symbol:='C', sequenceName:='testSecondSequence')).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 88

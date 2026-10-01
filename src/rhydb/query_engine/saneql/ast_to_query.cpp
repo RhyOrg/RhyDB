@@ -893,7 +893,7 @@ std::vector<schema::ColumnIdentifier> parseGroupByFields(
          std::ranges::find_if(schema, [&](const auto& col) { return col.name == group_by_name; });
       CHECK_RHYDB_QUERY(
          found != schema.end(),
-         "groupBy field '{}' is not present in the input's output schema",
+         "group field '{}' is not present in the input's output schema",
          group_by_name
       );
       group_by_fields.push_back(*found);
@@ -907,20 +907,25 @@ GroupByArgs parseGroupBySpecs(
 ) {
    GroupByArgs result;
 
-   // Parse aggregates (required) — a RecordLiteral like {count:=count()}
-   const auto& agg_expr = args.at("aggregates");
+   // Parse by — a SetLiteral like {pango_lineage, division}, or {} for a single global group
+   const auto& by_expr = args.at("by");
+   CHECK_RHYDB_QUERY(
+      !std::holds_alternative<ast::RecordLiteral>(by_expr.value),
+      "group by must be a set of columns like {{pango_lineage}} (or {{}} for no grouping), "
+      "aggregates go into aggs, e.g. group(by:={{}}, aggs:={{count:=count()}})"
+   );
+   const auto& set = extractSetLiteral(by_expr);
+   result.group_by_fields = parseGroupByFields(set, child_schema);
+
+   // Parse aggs — a RecordLiteral like {count:=count()}
+   const auto& agg_expr = args.at("aggs");
    CHECK_RHYDB_QUERY(
       std::holds_alternative<ast::RecordLiteral>(agg_expr.value),
-      "groupBy aggregates must be a record literal like {{count:=count()}}"
+      "group aggs must be a record literal like {{count:=count()}}"
    );
    const auto& record = std::get<ast::RecordLiteral>(agg_expr.value);
    for (const auto& field : record.fields) {
       result.aggregates.push_back(parseAggregateDefinition(field, child_schema));
-   }
-   // Parse columns (optional) — a SetLiteral like {pango_lineage, division}
-   if (const auto* columns_expr = args.get("columns")) {
-      const auto& set = extractSetLiteral(*columns_expr);
-      result.group_by_fields = parseGroupByFields(set, child_schema);
    }
 
    return result;
@@ -1742,9 +1747,7 @@ FunctionRegistry::FunctionRegistry() {
 
    registerFunction("tables", {{}}, handleTables);
 
-   registerFunction(
-      "groupBy", {{pos("input"), pos("aggregates"), pos("columns", false)}}, handleGroupBy
-   );
+   registerFunction("group", {{pos("input"), pos("by"), pos("aggs")}}, handleGroupBy);
 
    registerFunction("project", {{pos("input"), pos("fields")}}, handleProject);
 

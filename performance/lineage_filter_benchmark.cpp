@@ -12,10 +12,9 @@
 
 #include <fmt/format.h>
 #include <gtest/gtest.h>
-#include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
+#include <nlohmann/json.hpp>
 
-#include "sequence_generator.h"
 #include "rhydb/common/lineage_tree.h"
 #include "rhydb/common/phylo_tree.h"
 #include "rhydb/config/database_config.h"
@@ -27,10 +26,12 @@
 #include "rhydb/query_engine/planner.h"
 #include "rhydb/query_engine/query_plan.h"
 #include "rhydb/storage/reference_genomes.h"
+#include "sequence_generator.h"
 
-// Measures `lineage(..., includeSublineages:=true)` as it is resolved today, over lineage targets of
-// varying descendant-set size and growing row counts. The column is configured the way a user would
-// configure it, so the numbers always describe whichever resolution strategy is the current default.
+// Measures `lineage(..., includeSublineages:=true)` as it is resolved today, over lineage targets
+// of varying descendant-set size and growing row counts. The column is configured the way a user
+// would configure it, so the numbers always describe whichever resolution strategy is the current
+// default.
 
 namespace {
 
@@ -46,7 +47,8 @@ using rhydb::schema::TableName;
 
 const std::filesystem::path LINEAGE_DEFINITION_PATH =
    "testBaseData/exampleDataset/lineage_definition.yaml";
-// The `generateLineageIndex` value; must match the key of the lineage tree passed to the initializer.
+// The `generateLineageIndex` value; must match the key of the lineage tree passed to the
+// initializer.
 const std::string LINEAGE_TREE_NAME = "lineage_definition.yaml";
 
 std::string config() {
@@ -114,7 +116,7 @@ std::shared_ptr<Database> buildDatabase(
 std::string countQuery(const std::string& lineage, std::string_view recombinant_mode) {
    return fmt::format(
       "default.filter(pango_lineage.lineage('{}', includeSublineages:=true, "
-      "recombinantFollowingMode:='{}')).groupBy({{count := count()}})",
+      "recombinantFollowingMode:='{}')).group(by:={{}}, aggs:={{count := count()}})",
       lineage,
       recombinant_mode
    );
@@ -139,7 +141,11 @@ struct Timing {
    double min_ms;
 };
 
-Timing timeQuery(const std::shared_ptr<Database>& database, const std::string& query, int iterations) {
+Timing timeQuery(
+   const std::shared_ptr<Database>& database,
+   const std::string& query,
+   int iterations
+) {
    double sum_ms = 0;
    double min_ms = std::numeric_limits<double>::max();
    for (int i = 0; i < iterations; ++i) {
@@ -182,11 +188,10 @@ void run() {
 
       const auto start_build = std::chrono::high_resolution_clock::now();
       const auto database = buildDatabase(ndjson, lineage_trees);
-      const auto build_ms =
-         std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::high_resolution_clock::now() - start_build
-         )
-            .count();
+      const auto build_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                               std::chrono::high_resolution_clock::now() - start_build
+      )
+                               .count();
 
       SPDLOG_INFO("build: {} ms", build_ms);
 

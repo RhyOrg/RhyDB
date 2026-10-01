@@ -446,14 +446,16 @@ TEST(AstToQueryBinaryExpr, unhandledBinaryOpThrows) {
    );
 }
 
-// --- groupBy ---
+// --- group ---
 
 TEST(AstToQueryGroupBy, aggregatesNotRecordLiteralThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
-      [&]() { (void)parseAndConvertToQueryTree("default.groupBy('not_a_record')", tables); },
+      [&]() {
+         (void)parseAndConvertToQueryTree("default.group(by:={}, aggs:='not_a_record')", tables);
+      },
       ThrowsMessage<IllegalQueryException>(
-         ::testing::HasSubstr("groupBy aggregates must be a record literal")
+         ::testing::HasSubstr("group aggs must be a record literal")
       )
    );
 }
@@ -461,7 +463,7 @@ TEST(AstToQueryGroupBy, aggregatesNotRecordLiteralThrows) {
 TEST(AstToQueryGroupBy, aggregateDefNotFunctionCallThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
-      [&]() { (void)parseAndConvertToQueryTree("default.groupBy({n:=42})", tables); },
+      [&]() { (void)parseAndConvertToQueryTree("default.group(by:={}, aggs:={n:=42})", tables); },
       ThrowsMessage<IllegalQueryException>(
          ::testing::HasSubstr("aggregate definition 'n' must be a function call")
       )
@@ -471,7 +473,9 @@ TEST(AstToQueryGroupBy, aggregateDefNotFunctionCallThrows) {
 TEST(AstToQueryGroupBy, unknownAggregateFunctionThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
-      [&]() { (void)parseAndConvertToQueryTree("default.groupBy({n:=avg()})", tables); },
+      [&]() {
+         (void)parseAndConvertToQueryTree("default.group(by:={}, aggs:={n:=avg()})", tables);
+      },
       ThrowsMessage<IllegalQueryException>(
          ::testing::HasSubstr("unknown aggregate function 'avg'. Valid functions: count, sum")
       )
@@ -482,11 +486,52 @@ TEST(AstToQueryGroupBy, fieldNotInSchemaThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
       [&tables]() {
-         (void)parseAndConvertToQueryTree("default.groupBy({n:=count()}, {nonexistent})", tables);
+         (void)parseAndConvertToQueryTree(
+            "default.group(by:={nonexistent}, aggs:={n:=count()})", tables
+         );
       },
       ThrowsMessage<IllegalQueryException>(::testing::HasSubstr(
-         "groupBy field 'nonexistent' is not present in the input's output schema"
+         "group field 'nonexistent' is not present in the input's output schema"
       ))
+   );
+}
+
+TEST(AstToQueryGroupBy, acceptsNamedByAndAggs) {
+   auto tables = makeTablesWithDefault();
+   const auto query_tree =
+      parseAndConvertToQueryTree("default.group(aggs:={n:=count()}, by:={date})", tables);
+   std::vector<std::string> column_names;
+   for (const auto& col : query_tree->getOutputSchema()) {
+      column_names.push_back(col.name);
+   }
+   EXPECT_THAT(column_names, ::testing::UnorderedElementsAre("date", "n"));
+}
+
+TEST(AstToQueryGroupBy, acceptsPositionalByAndAggs) {
+   auto tables = makeTablesWithDefault();
+   const auto query_tree =
+      parseAndConvertToQueryTree("default.group({date}, {n:=count()})", tables);
+   std::vector<std::string> column_names;
+   for (const auto& col : query_tree->getOutputSchema()) {
+      column_names.push_back(col.name);
+   }
+   EXPECT_THAT(column_names, ::testing::UnorderedElementsAre("date", "n"));
+}
+
+TEST(AstToQueryGroupBy, missingAggsThrows) {
+   auto tables = makeTablesWithDefault();
+   EXPECT_THAT(
+      [&]() { (void)parseAndConvertToQueryTree("default.group(by:={date})", tables); },
+      ThrowsMessage<IllegalQueryException>(::testing::HasSubstr("group() requires argument 'aggs'"))
+   );
+}
+
+TEST(AstToQueryGroupBy, aggregatesInByPositionThrows) {
+   auto tables = makeTablesWithDefault();
+   EXPECT_THAT(
+      [&]() { (void)parseAndConvertToQueryTree("default.group({n:=count()}, {date})", tables); },
+      ThrowsMessage<IllegalQueryException>(::testing::HasSubstr("group by must be a set of columns")
+      )
    );
 }
 

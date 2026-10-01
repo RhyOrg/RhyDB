@@ -1,6 +1,6 @@
 {
   "testCaseName": "BooleanEquals with And",
-  "query": "default.filter((test_boolean_column = false) && (pango_lineage.lineage('B.1', includeSublineages:=true))).groupBy({count:=count()})",
+  "query": "default.filter((test_boolean_column = false) && (pango_lineage.lineage('B.1', includeSublineages:=true))).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 37

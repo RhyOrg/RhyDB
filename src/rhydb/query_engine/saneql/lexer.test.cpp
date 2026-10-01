@@ -174,9 +174,9 @@ TEST(SaneQLLexer, tokenizesBracketIndexing) {
 }
 
 TEST(SaneQLLexer, tokenizesMethodCallChain) {
-   Lexer lexer("default.filter(country = 'USA').groupBy({count:=count()})");
+   Lexer lexer("default.filter(country = 'USA').group(by:={}, aggs:={count:=count()})");
    auto tokens = lexer.tokenizeAll();
-   ASSERT_EQ(tokens.size(), 20);
+   ASSERT_EQ(tokens.size(), 27);
    EXPECT_EQ(tokens[0].type, TokenType::IDENTIFIER);
    EXPECT_EQ(tokens[0].getStringValue(), "default");
    EXPECT_EQ(tokens[1].type, TokenType::DOT);
@@ -191,17 +191,26 @@ TEST(SaneQLLexer, tokenizesMethodCallChain) {
    EXPECT_EQ(tokens[7].type, TokenType::RIGHT_PAREN);
    EXPECT_EQ(tokens[8].type, TokenType::DOT);
    EXPECT_EQ(tokens[9].type, TokenType::IDENTIFIER);
-   EXPECT_EQ(tokens[9].getStringValue(), "groupBy");
+   EXPECT_EQ(tokens[9].getStringValue(), "group");
    EXPECT_EQ(tokens[10].type, TokenType::LEFT_PAREN);
-   EXPECT_EQ(tokens[11].type, TokenType::LEFT_BRACE);
-   EXPECT_EQ(tokens[12].type, TokenType::IDENTIFIER);
-   EXPECT_EQ(tokens[13].type, TokenType::COLON_EQUALS);
-   EXPECT_EQ(tokens[14].type, TokenType::IDENTIFIER);
-   EXPECT_EQ(tokens[15].type, TokenType::LEFT_PAREN);
-   EXPECT_EQ(tokens[16].type, TokenType::RIGHT_PAREN);
-   EXPECT_EQ(tokens[17].type, TokenType::RIGHT_BRACE);
-   EXPECT_EQ(tokens[18].type, TokenType::RIGHT_PAREN);
-   EXPECT_EQ(tokens[19].type, TokenType::END_OF_FILE);
+   EXPECT_EQ(tokens[11].type, TokenType::IDENTIFIER);
+   EXPECT_EQ(tokens[11].getStringValue(), "by");
+   EXPECT_EQ(tokens[12].type, TokenType::COLON_EQUALS);
+   EXPECT_EQ(tokens[13].type, TokenType::LEFT_BRACE);
+   EXPECT_EQ(tokens[14].type, TokenType::RIGHT_BRACE);
+   EXPECT_EQ(tokens[15].type, TokenType::COMMA);
+   EXPECT_EQ(tokens[16].type, TokenType::IDENTIFIER);
+   EXPECT_EQ(tokens[16].getStringValue(), "aggs");
+   EXPECT_EQ(tokens[17].type, TokenType::COLON_EQUALS);
+   EXPECT_EQ(tokens[18].type, TokenType::LEFT_BRACE);
+   EXPECT_EQ(tokens[19].type, TokenType::IDENTIFIER);
+   EXPECT_EQ(tokens[20].type, TokenType::COLON_EQUALS);
+   EXPECT_EQ(tokens[21].type, TokenType::IDENTIFIER);
+   EXPECT_EQ(tokens[22].type, TokenType::LEFT_PAREN);
+   EXPECT_EQ(tokens[23].type, TokenType::RIGHT_PAREN);
+   EXPECT_EQ(tokens[24].type, TokenType::RIGHT_BRACE);
+   EXPECT_EQ(tokens[25].type, TokenType::RIGHT_PAREN);
+   EXPECT_EQ(tokens[26].type, TokenType::END_OF_FILE);
 }
 
 TEST(SaneQLLexer, tokenizesNamedParameters) {
