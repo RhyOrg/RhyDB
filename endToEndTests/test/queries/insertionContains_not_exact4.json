@@ -1,6 +1,6 @@
 {
   "testCaseName": "Insertion Contains with non-exact match CC.*",
-  "query": "default.filter(insertionContains(position:=25701, value:='CC.*', sequenceName:='main')).groupBy({count:=count()})",
+  "query": "default.filter(insertionContains(position:=25701, value:='CC.*', sequenceName:='main')).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 17

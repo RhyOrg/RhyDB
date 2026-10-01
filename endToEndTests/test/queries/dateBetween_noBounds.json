@@ -1,6 +1,6 @@
 {
   "testCaseName": "DateBetween Query without bounds",
-  "query": "default.filter(date.isNotNull()).groupBy({count:=count()})",
+  "query": "default.filter(date.isNotNull()).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 99

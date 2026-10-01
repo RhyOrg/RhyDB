@@ -1,6 +1,6 @@
 {
   "testCaseName": "PhyloSubtree query returns correct nwk with only missing nodes",
-  "query": "default.filter((primary_key = 'key_1') || (primary_key = 'key_35') || (primary_key = 'key_29')).phyloSubtree('usherTree', printNodesNotInTree:=true).orderBy({subtreeNewick})",
+  "query": "default.filter((primary_key = 'key_1') || (primary_key = 'key_35') || (primary_key = 'key_29')).phyloSubtree('usherTree', printNodesNotInTree:=true).order({subtreeNewick})",
   "expectedQueryResult": [
     {
       "subtreeNewick": "",

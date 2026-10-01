@@ -75,7 +75,7 @@ std::string buildMutationProfileQuery(const std::string& query_sequence, uint32_
    return fmt::format(
       "default.filter(nucleotideMutationProfile(distance:={}, sequenceName:='main', "
       "querySequence:='{}'))"
-      ".groupBy({{count:=count()}})",
+      ".group({{count:=count()}})",
       distance,
       query_sequence
    );

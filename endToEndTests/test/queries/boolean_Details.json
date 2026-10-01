@@ -1,6 +1,6 @@
 {
   "testCaseName": "boolean Details",
-  "query": "default.project({test_boolean_column, primary_key}).orderBy({primary_key}).limit(10)",
+  "query": "default.project({test_boolean_column, primary_key}).order({primary_key}).limit(10)",
   "expectedQueryResult": [
     {
       "test_boolean_column": true,

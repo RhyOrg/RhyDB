@@ -151,7 +151,7 @@ const handle = rhydb.preprocess("preprocessing_config.yaml");
 Query an in-memory database:
 
 ```js
-const ndjson = rhydb.query(handle, "default.groupBy({count:=count()})");
+const ndjson = rhydb.query(handle, "default.group({count:=count()})");
 console.log(ndjson);
 ```
 

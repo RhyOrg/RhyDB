@@ -1,6 +1,6 @@
 {
   "testCaseName": "Sum the age of all sequences per division",
-  "query": "default.groupBy({count:=count(), totalAge:=sum(age)},{division}).orderBy({division, count})",
+  "query": "default.group({count:=count(), totalAge:=sum(age)},{division}).order({division, count})",
   "expectedQueryResult": [
     {
       "count": 2,

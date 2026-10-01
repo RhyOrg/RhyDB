@@ -1,6 +1,6 @@
 {
   "testCaseName": "Test sequence has maybe symbol R at position 2",
-  "query": "default.filter(maybe(nucleotideEquals(position:=2, symbol:='R', sequenceName:='testSecondSequence'))).groupBy({count:=count()})",
+  "query": "default.filter(maybe(nucleotideEquals(position:=2, symbol:='R', sequenceName:='testSecondSequence'))).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 4

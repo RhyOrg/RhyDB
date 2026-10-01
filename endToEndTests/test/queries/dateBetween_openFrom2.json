@@ -1,6 +1,6 @@
 {
   "testCaseName": "DateBetween Query with open 'from' range 2",
-  "query": "default.filter(date <= '2021-03-18'::date).groupBy({count:=count()})",
+  "query": "default.filter(date <= '2021-03-18'::date).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 52

@@ -1,6 +1,6 @@
 {
   "testCaseName": "MostRecentCommonAncestor query returns correct node",
-  "query": "default.filter((primary_key = 'key_11') || (primary_key = 'key_22')).mostRecentCommonAncestor('usherTree').orderBy({mrcaNode})",
+  "query": "default.filter((primary_key = 'key_11') || (primary_key = 'key_22')).mostRecentCommonAncestor('usherTree').order({mrcaNode})",
   "expectedQueryResult": [
     {
       "mrcaNode": "NODE_0000072",

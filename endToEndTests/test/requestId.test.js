@@ -12,7 +12,7 @@ describe('The request id', () => {
       .post('/query')
       .set(X_REQUEST_ID, requestID)
       .set('Content-Type', 'text/plain')
-      .send('default.groupBy({count:=count()})')
+      .send('default.group({count:=count()})')
       .expect(200)
       .expect(X_REQUEST_ID, requestID);
   });
@@ -21,7 +21,7 @@ describe('The request id', () => {
     await server
       .post('/query')
       .set('Content-Type', 'text/plain')
-      .send('default.groupBy({count:=count()})')
+      .send('default.group({count:=count()})')
       .expect(200)
       .expect(response => {
         const headers = response.headers;

@@ -1,6 +1,6 @@
 {
   "testCaseName": "Order By QC float column ascending",
-  "query": "default.groupBy({count:=count()},{qc_value}).orderBy({qc_value})",
+  "query": "default.group({count:=count()},{qc_value}).order({qc_value})",
   "expectedQueryResult": [
     {
       "count": 2,

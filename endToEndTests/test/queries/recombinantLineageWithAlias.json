@@ -1,6 +1,6 @@
 {
   "testCaseName": "Recombinant lineage GD with unaliasing",
-  "query": "default.filter(pango_lineage.lineage('GD', includeSublineages:=true)).groupBy({count:=count()})",
+  "query": "default.filter(pango_lineage.lineage('GD', includeSublineages:=true)).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 1

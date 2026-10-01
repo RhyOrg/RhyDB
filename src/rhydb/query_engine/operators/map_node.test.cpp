@@ -137,7 +137,7 @@ const QueryTestScenario MAP_DUPLICATE_OUTPUT_NAME_SCENARIO = {
 // MapNode::addToExecPlan end-to-end.
 const QueryTestScenario DECOMPRESS_SEQUENCE_SCENARIO = {
    .name = "DECOMPRESS_SEQUENCE",
-   .query = "default.project({primaryKey, unaligned_segment1}).orderBy({primaryKey})",
+   .query = "default.project({primaryKey, unaligned_segment1}).order({primaryKey})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"unaligned_segment1", "ACGT"}},
        {{"primaryKey", "id_1"}, {"unaligned_segment1", nullptr}}}
@@ -150,7 +150,7 @@ const QueryTestScenario DECOMPRESS_WITH_USER_MAP_SCENARIO = {
    .name = "DECOMPRESS_WITH_USER_MAP",
    .query =
       "default.map({tag := 7}).project({primaryKey, unaligned_segment1, "
-      "tag}).orderBy({primaryKey})",
+      "tag}).order({primaryKey})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"unaligned_segment1", "ACGT"}, {"tag", 7}},
        {{"primaryKey", "id_1"}, {"unaligned_segment1", nullptr}, {"tag", 7}}}
@@ -178,7 +178,7 @@ const QueryTestScenario FILTER_NUCLEOTIDE_EQUALS_OVER_DECOMPRESS_MAP_SCENARIO = 
 // `limit` must still return the correct, order-stable result.
 const QueryTestScenario DECOMPRESS_SEQUENCE_WITH_LIMIT_SCENARIO = {
    .name = "DECOMPRESS_SEQUENCE_WITH_LIMIT",
-   .query = "default.project({primaryKey, unaligned_segment1}).orderBy({primaryKey}).limit(1)",
+   .query = "default.project({primaryKey, unaligned_segment1}).order({primaryKey}).limit(1)",
    .expected_query_result =
       nlohmann::json({{{"primaryKey", "id_0"}, {"unaligned_segment1", "ACGT"}}})
 };
@@ -190,7 +190,7 @@ const QueryTestScenario DECOMPRESS_SEQUENCE_WITH_LIMIT_SCENARIO = {
 // rewrite - when it happens - does not change the result.
 const QueryTestScenario MAP_WITH_LIMIT_TRIGGERS_PULLUP_SCENARIO = {
    .name = "MAP_WITH_LIMIT_TRIGGERS_PULLUP",
-   .query = "default.map({a := 3}).orderBy({primaryKey}).map({b := 7}).limit(1).project({a, b})",
+   .query = "default.map({a := 3}).order({primaryKey}).map({b := 7}).limit(1).project({a, b})",
    .expected_query_result = nlohmann::json({{{"a", 3}, {"b", 7}}})
 };
 
@@ -242,7 +242,7 @@ const QueryTestScenario FILTER_MAP_DECOMPRESS_LIMIT_SCENARIO = {
    .name = "FILTER_MAP_DECOMPRESS_LIMIT",
    .query =
       "default.filter(int_value >= 1).map({tag := 7}).project({primaryKey, unaligned_segment1, "
-      "tag}).orderBy({primaryKey}).limit(1)",
+      "tag}).order({primaryKey}).limit(1)",
    .expected_query_result =
       nlohmann::json({{{"primaryKey", "id_0"}, {"unaligned_segment1", "ACGT"}, {"tag", 7}}})
 };

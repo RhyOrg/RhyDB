@@ -1,6 +1,6 @@
 {
   "testCaseName": "FloatEquals for column",
-  "query": "default.filter(qc_value = 0.9).groupBy({count:=count()})",
+  "query": "default.filter(qc_value = 0.9).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 10

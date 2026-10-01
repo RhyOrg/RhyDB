@@ -36,10 +36,10 @@ Simple example — count all sequences from Switzerland:
 ```
 default
   .filter(country = 'Switzerland')
-  .groupBy({count:=count()})
+  .group({count:=count()})
 ```
 
-`filter` is schema-preserving; `groupBy` is last and schema-defining, so the response is `{"count": <integer>}`.
+`filter` is schema-preserving; `group` is last and schema-defining, so the response is `{"count": <integer>}`.
 
 ## Language Basics
 
@@ -119,7 +119,7 @@ default.filter(country = 'USA' && age > 30)
 
 A boolean column can be used directly as a predicate: `default.filter(isHuman)` is equivalent to `default.filter(isHuman = true)`, and `default.filter(!isHuman)` negates it (a set complement that also keeps rows where `isHuman` is null, matching `!(isHuman = true)`). Only boolean columns may be used this way; a bare reference to a non-boolean column is rejected.
 
-### `groupBy(aggregates [, columns])`
+### `group(aggregates [, columns])`
 
 Aggregates rows, producing counts or other aggregate values. `aggregates` is a record literal; `columns` is an optional set of column names to group by.
 
@@ -128,16 +128,16 @@ Currently supported aggregate functions:
 | Function | Result |
 |----------|--------|
 | `count()` | The number of rows in the group (an `int64`). |
-| `sum(column)` | The sum of a numeric column over the rows in the group. Sums of `int` and `int64` columns are `int64`, sums of `float` columns are `float`. Null values are skipped; a group with no non-null value (or no rows at all, when there are no groupBy columns) sums to null. |
+| `sum(column)` | The sum of a numeric column over the rows in the group. Sums of `int` and `int64` columns are `int64`, sums of `float` columns are `float`. Null values are skipped; a group with no non-null value (or no rows at all, when there are no group columns) sums to null. |
 
 ```
-default.groupBy(aggregates:={count:=count()})
-default.groupBy(aggregates:={count:=count()}, columns:={pango_lineage})
-default.groupBy({count:=count()}, {country, pango_lineage})
-default.groupBy({count:=count(), total_age:=sum(age)}, {country})
+default.group(aggregates:={count:=count()})
+default.group(aggregates:={count:=count()}, columns:={pango_lineage})
+default.group({count:=count()}, {country, pango_lineage})
+default.group({count:=count(), total_age:=sum(age)}, {country})
 ```
 
-**Output:** one row per group, containing the named aggregation fields and the groupBy columns. Rows where a groupBy column is null form their own group with a null value for that column.
+**Output:** one row per group, containing the named aggregation fields and the group columns. Rows where a group column is null form their own group with a null value for that column.
 
 ```json
 {"count": 48, "pango_lineage": "B.1.1.7"}
@@ -190,14 +190,14 @@ Integer literals become `INT64`, floats become `FLOAT`, single-quoted literals b
 {"primary_key": "key_31", "x": 3, "label": "cohort A", "active": true, "copy": "Switzerland"}
 ```
 
-### `orderBy(fields)`
+### `order(fields)`
 
 Sorts results. Each field is either a bare name (ascending) or a `asc(name)` / `desc(name)` call. Passes all input columns through unchanged.
 
 ```
-default.orderBy({primary_key})
-default.orderBy({count.desc(), pango_lineage})
-default.orderBy({asc(date), desc(age)})
+default.order({primary_key})
+default.order({count.desc(), pango_lineage})
+default.order({asc(date), desc(age)})
 ```
 
 ### `limit(count)`
@@ -213,7 +213,7 @@ default.limit(100)
 Skips the first `count` rows. Passes all input columns through unchanged.
 
 ```
-default.orderBy({primary_key}).offset(10).limit(10)
+default.order({primary_key}).offset(10).limit(10)
 ```
 
 ### `randomize([seed:=n])`
@@ -406,18 +406,18 @@ join(
 )
 ```
 
-**Output:** the joined rows. The order of rows is not guaranteed; use `orderBy(...)` for a deterministic order.
+**Output:** the joined rows. The order of rows is not guaranteed; use `order(...)` for a deterministic order.
 
-### `unionAll(left, right)`
+### `unionall(left, right)`
 
-Concatenates the output of two pipelines. `unionAll` can be called as a standalone function or with piped syntax:
+Concatenates the output of two pipelines. `unionall` can be called as a standalone function or with piped syntax:
 
 Both inputs must have the same schema (same column names, types, and order).
 
 All rows from both inputs are included — duplicates are preserved (UNION ALL, not UNION).
 
 ```
-unionAll(
+unionall(
   default.filter(division='Aargau').project({division}),
   default.filter(division='Bern').project({division})
 )
@@ -427,42 +427,42 @@ Or equivalently using piped syntax:
 
 ```
 default.filter(division='Aargau').project({division})
-  .unionAll(default.filter(division='Bern').project({division}))
+  .unionall(default.filter(division='Bern').project({division}))
 ```
 
 Named arguments are also supported:
 
 ```
-unionAll(left := <pipeline1>, right := <pipeline2>)
+unionall(left := <pipeline1>, right := <pipeline2>)
 ```
 
 The result can be piped into downstream operators:
 
 ```
-unionAll(
+unionall(
   default.filter(division='Aargau').project({division}),
   default.filter(division='Bern').project({division})
-).groupBy({count:=count()}, {division})
- .orderBy({asc(division)})
+).group({count:=count()}, {division})
+ .order({asc(division)})
 ```
 
-`unionAll` calls can be nested:
+`unionall` calls can be nested:
 
 ```
-unionAll(
-  unionAll(pipelineA, pipelineB),
-  unionAll(pipelineC, pipelineD)
+unionall(
+  unionall(pipelineA, pipelineB),
+  unionall(pipelineC, pipelineD)
 )
 ```
 
 **Restrictions:**
 
-- `mutations()`, `aminoAcidMutations()`, `insertions()`, and similar operators that require a table scan cannot be applied to the result of a `unionAll`. They can however be used inside each child.
+- `mutations()`, `aminoAcidMutations()`, `insertions()`, and similar operators that require a table scan cannot be applied to the result of a `unionall`. They can however be used inside each child.
 
-Filters above a `unionAll` are automatically pushed into both children:
+Filters above a `unionall` are automatically pushed into both children:
 
 ```
-unionAll(
+unionall(
   default.project({primaryKey, country}),
   default.project({primaryKey, country})
 ).filter(country='CH')
@@ -471,7 +471,7 @@ unionAll(
 is equivalent to:
 
 ```
-unionAll(
+unionall(
   default.filter(country='CH').project({primaryKey, country}),
   default.filter(country='CH').project({primaryKey, country})
 )
@@ -486,7 +486,7 @@ It does not read or return any data; it only reports the fields that the input w
 
 ```
 default.schema()
-default.filter(country='CH').groupBy({count:=count()}, {age}).schema()
+default.filter(country='CH').group({count:=count()}, {age}).schema()
 default.mutations(minProportion:=0.1).schema()
 ```
 
@@ -503,9 +503,9 @@ default.mutations(minProportion:=0.1).schema()
 ```
 
 `schema()` produces an ordinary two-column relation,
-so operators such as `project`, `map`, `orderBy` and `limit` can be chained after it.
+so operators such as `project`, `map`, `order` and `limit` can be chained after it.
 
-`schema()` is a *pipeline breaker*: like `groupBy`, `mutations` and `insertions`, it produces a new result relation instead of forwarding its child's rows.
+`schema()` is a *pipeline breaker*: like `group`, `mutations` and `insertions`, it produces a new result relation instead of forwarding its child's rows.
 
 **Limitation:** sequence columns are reported with type `STRING`.
 When a sequence column is read into a pipeline it is decompressed to a string before `schema()` observes it,
@@ -552,7 +552,7 @@ its direct parent in a `parent` column (null for roots). Its closure pairs every
 each of its descendants:
 
 ```
-pango_lineage.transitiveClosure(parent, lineage).orderBy({from, to})
+pango_lineage.transitiveClosure(parent, lineage).order({from, to})
 ```
 
 **Counting a lineage together with all of its sublineages.** Joining the reflexive closure's
@@ -563,8 +563,8 @@ sequences):
 ```
 pango_lineage.transitiveClosure(parent, lineage, includeVertices:=true)
   .join(default, to = lineage_column)
-  .groupBy({count := count()}, {from})
-  .orderBy({from})
+  .group({count := count()}, {from})
+  .order({from})
 ```
 
 Here `lineage_column` is a `STRING` column of `default` holding each sequence's lineage. Because
@@ -580,7 +580,7 @@ instead of one per vertex in the relation:
 ```
 pango_lineage.transitiveClosure(parent, lineage, includeVertices:=true, startingFrom:={'B.1.1.7'})
   .join(default, to = lineage_column)
-  .groupBy({count := count()}, {from})
+  .group({count := count()}, {from})
 ```
 
 A vertex named in `startingFrom` that does not occur in the relation contributes no rows, not even
@@ -592,7 +592,7 @@ its reflexive pair.
 - `startingFrom` must be a set literal of string literals, e.g. `{'A', 'B'}`.
 
 **Output:** the reachable `{from, to}` pairs. The order of rows is not guaranteed; use
-`orderBy(...)` for a deterministic order.
+`order(...)` for a deterministic order.
 
 ---
 
@@ -867,8 +867,8 @@ aminoAcidMutationProfile(distance:=2, sequenceName:='S', mutations:={
 
 ```
 default
-  .groupBy({count:=count()}, {country})
-  .orderBy({count.desc()})
+  .group({count:=count()}, {country})
+  .order({count.desc()})
 ```
 
 ### Sequences with a specific mutation, showing details
@@ -877,7 +877,7 @@ default
 default
   .filter(hasMutation(position:=23403))
   .project({primary_key, country, date, pango_lineage})
-  .orderBy({date})
+  .order({date})
   .limit(100)
 ```
 
@@ -894,8 +894,8 @@ default
 ```
 default
   .filter(date.between('2021-01-01'::date, '2021-06-30'::date))
-  .groupBy({count:=count()}, {pango_lineage})
-  .orderBy({pango_lineage})
+  .group({count:=count()}, {pango_lineage})
+  .order({pango_lineage})
 ```
 
 ### Complex filter combining multiple conditions
@@ -912,14 +912,14 @@ default
          nucleotideEquals(position:=23403, symbol:='G')
        })
   )
-  .groupBy({count:=count()})
+  .group({count:=count()})
 ```
 
 ### Paginated results
 
 ```
 default
-  .orderBy({primary_key})
+  .order({primary_key})
   .offset(50)
   .limit(25)
   .project({primary_key, country, date})
@@ -931,15 +931,15 @@ default
 default
   .filter(aminoAcidInsertionContains(position:=214, value:='.*PE', sequenceName:='S'))
   .aminoAcidInsertions()
-  .orderBy({insertedSymbols, position})
+  .order({insertedSymbols, position})
 ```
 
-### Combine two filtered groups with unionAll
+### Combine two filtered groups with unionall
 
 ```
-unionAll(
+unionall(
   default.filter(division='Aargau').project({division}),
   default.filter(division='Bern').project({division})
-).groupBy({count:=count()}, {division})
- .orderBy({asc(division)})
+).group({count:=count()}, {division})
+ .order({asc(division)})
 ```

@@ -114,7 +114,7 @@ std::shared_ptr<Database> buildDatabase(
 std::string countQuery(const std::string& lineage, std::string_view recombinant_mode) {
    return fmt::format(
       "default.filter(pango_lineage.lineage('{}', includeSublineages:=true, "
-      "recombinantFollowingMode:='{}')).groupBy({{count := count()}})",
+      "recombinantFollowingMode:='{}')).group({{count := count()}})",
       lineage,
       recombinant_mode
    );

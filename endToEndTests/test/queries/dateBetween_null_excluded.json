@@ -1,6 +1,6 @@
 {
   "testCaseName": "DateBetween Query from an early date with unbounded 'to'",
-  "query": "default.filter(date >= '2012-03-18'::date).groupBy({count:=count()})",
+  "query": "default.filter(date >= '2012-03-18'::date).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 99

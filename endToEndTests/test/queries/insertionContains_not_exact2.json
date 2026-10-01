@@ -1,6 +1,6 @@
 {
   "testCaseName": "Insertion Contains with non-exact match CAG.*AA",
-  "query": "default.filter(insertionContains(position:=22204, value:='CAG.*AA', sequenceName:='main')).groupBy({count:=count()})",
+  "query": "default.filter(insertionContains(position:=22204, value:='CAG.*AA', sequenceName:='main')).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 1

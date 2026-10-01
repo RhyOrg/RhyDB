@@ -1,6 +1,6 @@
 {
   "testCaseName": "Details action ordered by division descending with limit 15",
-  "query": "default.project(division).orderBy({division.desc()}).limit(15)",
+  "query": "default.project(division).order({division.desc()}).limit(15)",
   "expectedQueryResult": [
     {
       "division": "Zürich"
