@@ -254,8 +254,8 @@ std::shared_ptr<storage::column::ColumnMetadata> createColumnMetadata(
 std::vector<ColumnDefinition> parseColumnDefinitions(const saneql::ast::Expression& columns) {
    const auto* record = std::get_if<saneql::ast::RecordLiteral>(&columns.value);
    CHECK_RHYDB_QUERY(
-      record != nullptr,
-      "createTable(): the columns must be a non-empty record of column types, e.g. "
+       record != nullptr && !record->fields.empty(),
+       "createTable(): the columns must be a non-empty record of column types, e.g. "
       "`{{key := string, age := int}}`, but got '{}'",
       columns.toString()
    );
