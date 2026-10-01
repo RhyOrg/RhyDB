@@ -56,16 +56,20 @@ const std::map<std::string, ColumnType, std::less<>> SEQUENCE_TYPES{
    {"aminoAcidSequence", ColumnType::AMINO_ACID_SEQUENCE},
 };
 
+const std::string GENERATE_INDEX_OPTION = "generateIndex";
+const std::string REFERENCE_OPTION = "reference";
+const std::string DICTIONARY_OPTION = "dictionary";
+
 const FunctionSignature STRING_TYPE_SIGNATURE{
-   {ParameterDefinition{.name = "generateIndex", .required = false, .positional = false}}
+   {ParameterDefinition{.name = GENERATE_INDEX_OPTION, .required = false, .positional = false}}
 };
 
 const FunctionSignature SEQUENCE_TYPE_SIGNATURE{
-   {ParameterDefinition{.name = "reference", .required = true, .positional = false}}
+   {ParameterDefinition{.name = REFERENCE_OPTION, .required = true, .positional = false}}
 };
 
 const FunctionSignature ZSTD_COMPRESSED_STRING_TYPE_SIGNATURE{
-   {ParameterDefinition{.name = "dictionary", .required = true, .positional = false}}
+   {ParameterDefinition{.name = DICTIONARY_OPTION, .required = true, .positional = false}}
 };
 
 const FunctionSignature NO_OPTIONS_SIGNATURE{};
@@ -109,7 +113,7 @@ ColumnDefinition parseColumnDefinition(
 
    if (type_name == "string") {
       auto options = saneql::bindArguments(type_name, STRING_TYPE_SIGNATURE, *positional, *named);
-      const auto* generate_index = options.get("generateIndex");
+      const auto* generate_index = options.get(GENERATE_INDEX_OPTION);
       const bool is_indexed = generate_index != nullptr && extractBoolLiteral(*generate_index);
       return ColumnDefinition{
          .name = column_name,
@@ -135,7 +139,7 @@ ColumnDefinition parseColumnDefinition(
       return ColumnDefinition{
          .name = column_name,
          .type = sequence_type->second,
-         .reference_name = extractIdentifierName(options.at("reference")),
+         .reference_name = extractIdentifierName(options.at(REFERENCE_OPTION)),
          .dictionary_query = std::nullopt
       };
    }
@@ -148,7 +152,7 @@ ColumnDefinition parseColumnDefinition(
          .name = column_name,
          .type = ColumnType::ZSTD_COMPRESSED_STRING,
          .reference_name = std::nullopt,
-         .dictionary_query = convert_child(options.at("dictionary"), tables)
+         .dictionary_query = convert_child(options.at(DICTIONARY_OPTION), tables)
       };
    }
 
