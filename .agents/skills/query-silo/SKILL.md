@@ -34,7 +34,7 @@ default.group(by:={col}, aggs:={count:=count()})         -- aggregate
 default.map({new_col := expression})             -- add computed column
 default.order(by:={asc(col)})                      -- sort
 default.mutations(minProportion:=0.5)            -- nucleotide mutations
-unionAll(pipeline1, pipeline2)                   -- concatenate two pipelines
+unionall(pipeline1, pipeline2)                   -- concatenate two pipelines
 ```
 
 Chaining: `default.filter(...).project({...}).group(by:={}, aggs:={...}).order(by:={...})`

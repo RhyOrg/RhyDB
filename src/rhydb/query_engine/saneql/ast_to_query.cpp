@@ -1630,7 +1630,7 @@ operators::QueryNodePtr handleUnionAll(
    auto right_schema = right->getOutputSchema();
    CHECK_RHYDB_QUERY(
       left_schema == right_schema,
-      "unionAll requires both inputs to have the same schema "
+      "unionall requires both inputs to have the same schema "
       "(same column names, types, and order). "
       "Left schema: [{}], right schema: [{}].",
       fmt::join(namesWithTypes(left_schema), ", "),
@@ -1796,7 +1796,7 @@ FunctionRegistry::FunctionRegistry() {
       handlePhyloSubtree
    );
 
-   registerFunction("unionAll", {{pos("left"), pos("right")}}, handleUnionAll);
+   registerFunction("unionall", {{pos("left"), pos("right")}}, handleUnionAll);
 
    registerFunction(
       "join", {{pos("left"), pos("right"), pos("on"), named("type", false)}}, handleJoin
