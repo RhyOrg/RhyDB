@@ -47,10 +47,10 @@ const QueryTestData TEST_DATA{
    .reference_genomes = REFERENCE_GENOMES
 };
 
-// Basic unionAll of two filtered pipelines from the same table
+// Basic unionall of two filtered pipelines from the same table
 const QueryTestScenario UNION_ALL_BASIC_SCENARIO = {
    .name = "UNION_ALL_BASIC",
-   .query = R"(unionAll(
+   .query = R"(unionall(
       default.filter(country='CH').project({primaryKey, country}),
       default.filter(country='DE').project({primaryKey, country})
    ).order(by:={asc(primaryKey)}))",
@@ -65,7 +65,7 @@ const QueryTestScenario UNION_ALL_BASIC_SCENARIO = {
 // UnionAll produces duplicates (all rows from both sides)
 const QueryTestScenario UNION_ALL_DUPLICATES_SCENARIO = {
    .name = "UNION_ALL_DUPLICATES",
-   .query = R"(unionAll(
+   .query = R"(unionall(
       default.project({primaryKey}),
       default.project({primaryKey})
    ).order(by:={asc(primaryKey)}))",
@@ -84,7 +84,7 @@ const QueryTestScenario UNION_ALL_DUPLICATES_SCENARIO = {
 // UnionAll with downstream operations (group on the result)
 const QueryTestScenario UNION_ALL_WITH_GROUPBY_SCENARIO = {
    .name = "UNION_ALL_WITH_GROUPBY",
-   .query = R"(unionAll(
+   .query = R"(unionall(
       default.filter(country='CH').project({country}),
       default.filter(country='DE').project({country})
    ).group(by:={country}, aggs:={count := count()}).order(by:={asc(country)}))",
@@ -95,7 +95,7 @@ const QueryTestScenario UNION_ALL_WITH_GROUPBY_SCENARIO = {
 // UnionAll where one child produces empty results
 const QueryTestScenario UNION_ALL_EMPTY_CHILD_SCENARIO = {
    .name = "UNION_ALL_EMPTY_CHILD",
-   .query = R"(unionAll(
+   .query = R"(unionall(
       default.filter(country='CH').project({primaryKey, country}),
       default.filter(country='XX').project({primaryKey, country})
    ).order(by:={asc(primaryKey)}))",
@@ -107,13 +107,13 @@ const QueryTestScenario UNION_ALL_EMPTY_CHILD_SCENARIO = {
 // UnionAll with schema mismatch should error
 const QueryTestScenario UNION_ALL_SCHEMA_MISMATCH_SCENARIO = {
    .name = "UNION_ALL_SCHEMA_MISMATCH",
-   .query = R"(unionAll(
+   .query = R"(unionall(
       default.project({primaryKey}),
       default.project({country})
    ))",
    .expected_query_result = {},
    .expected_error_message =
-      "unionAll requires both inputs to have the same schema "
+      "unionall requires both inputs to have the same schema "
       "(same column names, types, and order). "
       "Left schema: [primaryKey:STRING], right schema: [country:STRING]."
 };
@@ -121,40 +121,40 @@ const QueryTestScenario UNION_ALL_SCHEMA_MISMATCH_SCENARIO = {
 // Same column name but different types from map
 const QueryTestScenario UNION_ALL_TYPE_MISMATCH_SCENARIO = {
    .name = "UNION_ALL_TYPE_MISMATCH",
-   .query = R"(unionAll(
+   .query = R"(unionall(
       default.map({x := 42}).project({primaryKey, x}),
       default.map({x := 'hello'}).project({primaryKey, x})
    ))",
    .expected_query_result = {},
    .expected_error_message =
-      "unionAll requires both inputs to have the same schema "
+      "unionall requires both inputs to have the same schema "
       "(same column names, types, and order). "
       "Left schema: [primaryKey:STRING, x:INT64], right schema: [primaryKey:STRING, x:STRING]."
 };
 
 const QueryTestScenario UNION_ALL_DIFFERENT_COLUMN_ORDER_SCENARIO = {
    .name = "UNION_ALL_DIFFERENT_COLUMN_ORDER",
-   .query = R"(unionAll(
+   .query = R"(unionall(
       default.project({primaryKey, country}),
       default.project({country, primaryKey})
    ))",
    .expected_query_result = {},
    .expected_error_message =
-      "unionAll requires both inputs to have the same schema "
+      "unionall requires both inputs to have the same schema "
       "(same column names, types, and order). "
       "Left schema: [primaryKey:STRING, country:STRING], "
       "right schema: [country:STRING, primaryKey:STRING]."
 };
 
-// Nested unionAll: unionAll of two unionAlls
+// Nested unionall: unionall of two unionalls
 const QueryTestScenario UNION_ALL_NESTED_SCENARIO = {
    .name = "UNION_ALL_NESTED",
-   .query = R"(unionAll(
-      unionAll(
+   .query = R"(unionall(
+      unionall(
          default.filter(country='CH').project({primaryKey}),
          default.filter(country='DE').project({primaryKey})
       ),
-      unionAll(
+      unionall(
          default.filter(country='CH').project({primaryKey}),
          default.filter(country='DE').project({primaryKey})
       )
@@ -173,7 +173,7 @@ const QueryTestScenario UNION_ALL_NESTED_SCENARIO = {
 
 const QueryTestScenario UNION_ALL_MUTATIONS_ON_UNION_SCENARIO = {
    .name = "UNION_ALL_MUTATIONS_ON_UNION",
-   .query = R"(unionAll(
+   .query = R"(unionall(
       default.project({primaryKey}),
       default.project({primaryKey})
    ).mutations(minProportion:=0.0))",
@@ -183,7 +183,7 @@ const QueryTestScenario UNION_ALL_MUTATIONS_ON_UNION_SCENARIO = {
 
 const QueryTestScenario UNION_ALL_OF_MUTATIONS_SCENARIO = {
    .name = "UNION_ALL_OF_MUTATIONS",
-   .query = R"(unionAll(
+   .query = R"(unionall(
       default.filter(country='CH').mutations(minProportion:=0.0, fields:={mutationTo, proportion}),
       default.filter(country='DE').mutations(minProportion:=0.0, fields:={mutationTo, proportion})
    ).order(by:={asc(mutationTo)}))",
@@ -192,12 +192,12 @@ const QueryTestScenario UNION_ALL_OF_MUTATIONS_SCENARIO = {
    )
 };
 
-// Piped syntax: left.unionAll(right) instead of unionAll(left, right)
+// Piped syntax: left.unionall(right) instead of unionall(left, right)
 const QueryTestScenario UNION_ALL_PIPED_SYNTAX_SCENARIO = {
    .name = "UNION_ALL_PIPED_SYNTAX",
    .query = R"(
       default.filter(country='CH').project({primaryKey, country})
-         .unionAll(default.filter(country='DE').project({primaryKey, country}))
+         .unionall(default.filter(country='DE').project({primaryKey, country}))
          .order(by:={asc(primaryKey)})
    )",
    .expected_query_result = nlohmann::json(
@@ -208,10 +208,10 @@ const QueryTestScenario UNION_ALL_PIPED_SYNTAX_SCENARIO = {
    )
 };
 
-// Named arguments: unionAll(left:=..., right:=...)
+// Named arguments: unionall(left:=..., right:=...)
 const QueryTestScenario UNION_ALL_NAMED_ARGS_SCENARIO = {
    .name = "UNION_ALL_NAMED_ARGS",
-   .query = R"(unionAll(
+   .query = R"(unionall(
       left:=default.filter(country='CH').project({primaryKey, country}),
       right:=default.filter(country='DE').project({primaryKey, country})
    ).order(by:={asc(primaryKey)}))",
@@ -223,10 +223,10 @@ const QueryTestScenario UNION_ALL_NAMED_ARGS_SCENARIO = {
    )
 };
 
-// Filter above unionAll is pushed into both children
+// Filter above unionall is pushed into both children
 const QueryTestScenario UNION_ALL_DOWNSTREAM_FILTER_SCENARIO = {
    .name = "UNION_ALL_DOWNSTREAM_FILTER",
-   .query = R"(unionAll(
+   .query = R"(unionall(
       default.project({primaryKey, country}),
       default.project({primaryKey, country})
    ).filter(country='CH').order(by:={asc(primaryKey)}))",
@@ -237,10 +237,10 @@ const QueryTestScenario UNION_ALL_DOWNSTREAM_FILTER_SCENARIO = {
        {{"primaryKey", "id_2"}, {"country", "CH"}}}
    )
 };
-// Filter on child AND filter above unionAll both apply
+// Filter on child AND filter above unionall both apply
 const QueryTestScenario UNION_ALL_COMBINED_FILTERS_SCENARIO = {
    .name = "UNION_ALL_COMBINED_FILTERS",
-   .query = R"(unionAll(
+   .query = R"(unionall(
       default.filter(country='CH').project({primaryKey, country}),
       default.filter(country='DE').project({primaryKey, country})
    ).filter(primaryKey='id_0'))",

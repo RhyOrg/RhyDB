@@ -408,16 +408,16 @@ join(
 
 **Output:** the joined rows. The order of rows is not guaranteed; use `order(...)` for a deterministic order.
 
-### `unionAll(left, right)`
+### `unionall(left, right)`
 
-Concatenates the output of two pipelines. `unionAll` can be called as a standalone function or with piped syntax:
+Concatenates the output of two pipelines. `unionall` can be called as a standalone function or with piped syntax:
 
 Both inputs must have the same schema (same column names, types, and order).
 
 All rows from both inputs are included — duplicates are preserved (UNION ALL, not UNION).
 
 ```
-unionAll(
+unionall(
   default.filter(division='Aargau').project({division}),
   default.filter(division='Bern').project({division})
 )
@@ -427,42 +427,42 @@ Or equivalently using piped syntax:
 
 ```
 default.filter(division='Aargau').project({division})
-  .unionAll(default.filter(division='Bern').project({division}))
+  .unionall(default.filter(division='Bern').project({division}))
 ```
 
 Named arguments are also supported:
 
 ```
-unionAll(left := <pipeline1>, right := <pipeline2>)
+unionall(left := <pipeline1>, right := <pipeline2>)
 ```
 
 The result can be piped into downstream operators:
 
 ```
-unionAll(
+unionall(
   default.filter(division='Aargau').project({division}),
   default.filter(division='Bern').project({division})
 ).group(by:={division}, aggs:={count:=count()})
  .order(by:={asc(division)})
 ```
 
-`unionAll` calls can be nested:
+`unionall` calls can be nested:
 
 ```
-unionAll(
-  unionAll(pipelineA, pipelineB),
-  unionAll(pipelineC, pipelineD)
+unionall(
+  unionall(pipelineA, pipelineB),
+  unionall(pipelineC, pipelineD)
 )
 ```
 
 **Restrictions:**
 
-- `mutations()`, `aminoAcidMutations()`, `insertions()`, and similar operators that require a table scan cannot be applied to the result of a `unionAll`. They can however be used inside each child.
+- `mutations()`, `aminoAcidMutations()`, `insertions()`, and similar operators that require a table scan cannot be applied to the result of a `unionall`. They can however be used inside each child.
 
-Filters above a `unionAll` are automatically pushed into both children:
+Filters above a `unionall` are automatically pushed into both children:
 
 ```
-unionAll(
+unionall(
   default.project({primaryKey, country}),
   default.project({primaryKey, country})
 ).filter(country='CH')
@@ -471,7 +471,7 @@ unionAll(
 is equivalent to:
 
 ```
-unionAll(
+unionall(
   default.filter(country='CH').project({primaryKey, country}),
   default.filter(country='CH').project({primaryKey, country})
 )
@@ -934,10 +934,10 @@ default
   .order(by:={insertedSymbols, position})
 ```
 
-### Combine two filtered groups with unionAll
+### Combine two filtered groups with unionall
 
 ```
-unionAll(
+unionall(
   default.filter(division='Aargau').project({division}),
   default.filter(division='Bern').project({division})
 ).group(by:={division}, aggs:={count:=count()})
