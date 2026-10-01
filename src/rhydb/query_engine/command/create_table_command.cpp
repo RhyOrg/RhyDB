@@ -282,6 +282,30 @@ std::vector<ColumnDefinition> parseColumnDefinitions(const Expression& columns) 
    return result;
 }
 
+/// The primary key must name a column of type `string` without `generateIndex`.
+void checkPrimaryKey(
+   const std::vector<ColumnDefinition>& columns,
+   const std::optional<std::string>& primary_key
+) {
+   if (!primary_key.has_value()) {
+      return;
+   }
+   auto primary_key_column = std::ranges::find_if(columns, [&](const auto& column) {
+      return column.name == *primary_key;
+   });
+   CHECK_RHYDB_QUERY(
+      primary_key_column != columns.end(),
+      "createTable(): the primary key '{}' is not one of the table's columns",
+      *primary_key
+   );
+   CHECK_RHYDB_QUERY(
+      primary_key_column->type == ColumnType::STRING,
+      "createTable(): the primary key '{}' must be a column of type `string` without "
+      "`generateIndex`",
+      *primary_key
+   );
+}
+
 }  // namespace
 
 WriteCommandPtr buildCreateTable(
@@ -295,6 +319,7 @@ WriteCommandPtr buildCreateTable(
    if (const auto* primary_key_expr = args.get("primaryKey")) {
       primary_key = extractIdentifierName(*primary_key_expr);
    }
+   checkPrimaryKey(columns, primary_key);
    return std::make_unique<CreateTableCommand>(
       schema::TableName{std::move(table_name)}, std::move(columns), std::move(primary_key)
    );
@@ -307,25 +332,7 @@ CreateTableCommand::CreateTableCommand(
 )
     : table_name_(std::move(table_name)),
       columns_(std::move(columns)),
-      primary_key_(std::move(primary_key)) {
-   if (!primary_key_.has_value()) {
-      return;
-   }
-   auto primary_key_column = std::ranges::find_if(columns_, [this](const auto& column) {
-      return column.name == *primary_key_;
-   });
-   CHECK_RHYDB_QUERY(
-      primary_key_column != columns_.end(),
-      "createTable(): the primary key '{}' is not one of the table's columns",
-      *primary_key_
-   );
-   CHECK_RHYDB_QUERY(
-      primary_key_column->type == ColumnType::STRING,
-      "createTable(): the primary key '{}' must be a column of type `string` without "
-      "`generateIndex`",
-      *primary_key_
-   );
-}
+      primary_key_(std::move(primary_key)) {}
 
 nlohmann::json CreateTableCommand::execute(
    Database& database,

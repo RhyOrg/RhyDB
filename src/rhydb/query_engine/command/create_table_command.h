@@ -46,8 +46,8 @@ class CreateTableCommand : public WriteCommand {
    std::optional<std::string> primary_key_;
 
   public:
-   /// Validates the definition against itself (the primary key must name a `string` column); the
-   /// references of sequence columns are only resolved in `execute`.
+   /// Expects `primary_key`, if set, to name a `string` column of `columns` (checked by
+   /// `buildCreateTable`); the references of sequence columns are only resolved in `execute`.
    CreateTableCommand(
       schema::TableName table_name,
       std::vector<ColumnDefinition> columns,
