@@ -68,18 +68,19 @@ std::unique_ptr<filter::operators::Operator> StringSearch::compile(const storage
       column.name
    );
    CHECK_RHYDB_QUERY(
-      table.columns.string_columns.contains(column.name) ||
-         table.columns.dictionary_encoded_columns.contains(column.name),
+      table.hasColumn<storage::column::StringColumn>(column.name) ||
+         table.hasColumn<storage::column::DictionaryEncodedColumn>(column.name),
       "The column '{}' is not of type string",
       column.name
    );
 
-   if (table.columns.dictionary_encoded_columns.contains(column.name)) {
-      const auto& string_column = table.columns.dictionary_encoded_columns.at(column.name);
+   if (table.hasColumn<storage::column::DictionaryEncodedColumn>(column.name)) {
+      const auto& string_column =
+         table.getColumn<storage::column::DictionaryEncodedColumn>(column.name);
       return createMatchingBitmap(string_column, *search_expression, table.row_layout);
    }
-   RHYDB_ASSERT(table.columns.string_columns.contains(column.name));
-   const auto& string_column = table.columns.string_columns.at(column.name);
+   RHYDB_ASSERT(table.hasColumn<storage::column::StringColumn>(column.name));
+   const auto& string_column = table.getColumn<storage::column::StringColumn>(column.name);
    return createMatchingBitmap(string_column, *search_expression, table.row_layout);
 }
 

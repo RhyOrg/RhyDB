@@ -65,12 +65,10 @@ std::unique_ptr<Operator> DateBetween::compile(const storage::Table& table) cons
       column.name
    );
    CHECK_RHYDB_QUERY(
-      table.columns.date32_columns.contains(column.name),
-      "The column '{}' is not of type date",
-      column.name
+      table.hasColumn<Date32Column>(column.name), "The column '{}' is not of type date", column.name
    );
 
-   const auto& date_column = table.columns.date32_columns.at(column.name);
+   const auto& date_column = table.getColumn<Date32Column>(column.name);
 
    if (date_column.isSorted()) {
       return std::make_unique<RangeSelection>(

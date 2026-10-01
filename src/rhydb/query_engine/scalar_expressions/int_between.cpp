@@ -114,18 +114,17 @@ std::unique_ptr<filter::operators::Operator> IntBetween::compile(const storage::
       column.name
    );
    CHECK_RHYDB_QUERY(
-      table.columns.int32_columns.contains(column.name) ||
-         table.columns.int64_columns.contains(column.name),
+      table.hasColumn<Int32Column>(column.name) || table.hasColumn<Int64Column>(column.name),
       "The column '{}' is not of type int32 or int64",
       column.name
    );
 
-   if (table.columns.int64_columns.contains(column.name)) {
-      return compileFor<Int64Column>(table.columns.int64_columns.at(column.name), table);
+   if (table.hasColumn<Int64Column>(column.name)) {
+      return compileFor<Int64Column>(table.getColumn<Int64Column>(column.name), table);
    }
    checkBoundFitsInt32(from);
    checkBoundFitsInt32(to);
-   return compileFor<Int32Column>(table.columns.int32_columns.at(column.name), table);
+   return compileFor<Int32Column>(table.getColumn<Int32Column>(column.name), table);
 }
 
 }  // namespace rhydb::query_engine::scalar_expressions

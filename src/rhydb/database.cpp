@@ -319,7 +319,7 @@ void Database::updateColumn(
    }
 
    const roaring::Roaring row_ids = getFilteredBitmap(table_name, filter_expression);
-   query_engine::assignScalarLiteralToColumn(table.columns, *column, value, row_ids);
+   query_engine::assignScalarLiteralToColumn(table, *column, value, row_ids);
 
    // The update mutates persisted table data, so bump the data version like appendData does; this
    // keeps getDataVersionTimestamp() and versioned save directories consistent with the change.

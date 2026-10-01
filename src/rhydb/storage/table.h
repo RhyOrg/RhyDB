@@ -41,6 +41,21 @@ class Table {
       // clang-format on
    }
 
+   template <column::Column ColumnType>
+   [[nodiscard]] bool hasColumn(const std::string& name) const {
+      return columns.getColumns<ColumnType>().contains(name);
+   }
+
+   template <column::Column ColumnType>
+   ColumnType& getColumn(const std::string& name) {
+      return columns.getColumns<ColumnType>().at(name);
+   }
+
+   template <column::Column ColumnType>
+   [[nodiscard]] const ColumnType& getColumn(const std::string& name) const {
+      return columns.getColumns<ColumnType>().at(name);
+   }
+
    [[nodiscard]] nlohmann::json logTable() const;
 
    void validate() const;

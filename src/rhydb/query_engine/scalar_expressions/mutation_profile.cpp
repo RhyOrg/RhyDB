@@ -135,13 +135,13 @@ std::vector<typename SymbolType::Symbol> MutationProfile<SymbolType>::buildProfi
    const auto& primary_key_name = table.schema->primary_key->name;
    const auto primary_key_type = table.schema->primary_key->type;
 
-   const auto& seq_col =
-      table.columns.getColumns<typename SymbolType::Column>().at(valid_sequence_name);
+   const auto& seq_col = table.getColumn<typename SymbolType::Column>(valid_sequence_name);
 
    std::optional<RowId> found_row_id;
 
    if (primary_key_type == schema::ColumnType::STRING) {
-      const auto& primary_key_column = table.columns.string_columns.at(primary_key_name);
+      const auto& primary_key_column =
+         table.getColumn<storage::column::StringColumn>(primary_key_name);
       for (const RowId row_id : table.row_layout) {
          if (primary_key_column.getValueString(row_id) == seq_id) {
             found_row_id = row_id;
@@ -150,7 +150,7 @@ std::vector<typename SymbolType::Symbol> MutationProfile<SymbolType>::buildProfi
       }
    } else if (primary_key_type == schema::ColumnType::DICTIONARY_ENCODED) {
       const auto& primary_key_column =
-         table.columns.dictionary_encoded_columns.at(primary_key_name);
+         table.getColumn<storage::column::DictionaryEncodedColumn>(primary_key_name);
       const auto bitmap_opt = primary_key_column.filter(std::optional<std::string>(seq_id));
       if (bitmap_opt.has_value() && !bitmap_opt.value()->isEmpty()) {
          found_row_id = RowId::fromGlobal(bitmap_opt.value()->minimum());
@@ -208,8 +208,7 @@ std::unique_ptr<ScalarExpression> MutationProfile<SymbolType>::rewrite(
 ) const {
    const auto valid_sequence_name = validateSequenceName<SymbolType>(column.name, *table.schema);
 
-   const auto& sequence_column =
-      table.columns.getColumns<typename SymbolType::Column>().at(valid_sequence_name);
+   const auto& sequence_column = table.getColumn<typename SymbolType::Column>(valid_sequence_name);
 
    // Build the profile sequence
    std::vector<typename SymbolType::Symbol> profile;

@@ -46,11 +46,11 @@ std::unique_ptr<ScalarExpression> FloatBetween::rewrite(
 std::unique_ptr<filter::operators::Operator> FloatBetween::compile(const storage::Table& table
 ) const {
    CHECK_RHYDB_QUERY(
-      table.columns.float_columns.contains(column.name),
+      table.hasColumn<FloatColumn>(column.name),
       "The database does not contain the float column '{}'",
       column.name
    );
-   const auto& float_column = table.columns.float_columns.at(column.name);
+   const auto& float_column = table.getColumn<FloatColumn>(column.name);
 
    filter::operators::PredicateVector predicates;
    if (from.has_value()) {
