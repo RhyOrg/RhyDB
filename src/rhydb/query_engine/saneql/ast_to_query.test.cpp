@@ -537,6 +537,25 @@ TEST(AstToQueryGroupBy, aggregatesInByPositionThrows) {
 
 // --- project ---
 
+TEST(AstToQueryProject, acceptsNamedExpressions) {
+   auto tables = makeTablesWithDefault();
+   const auto query_tree =
+      parseAndConvertToQueryTree("default.project(expressions:={date})", tables);
+   const auto output_schema = query_tree->getOutputSchema();
+   ASSERT_EQ(output_schema.size(), 1);
+   EXPECT_EQ(output_schema[0].name, "date");
+}
+
+TEST(AstToQueryProject, oldFieldsParameterNameThrows) {
+   auto tables = makeTablesWithDefault();
+   EXPECT_THAT(
+      [&tables]() { (void)parseAndConvertToQueryTree("default.project(fields:={date})", tables); },
+      ThrowsMessage<IllegalQueryException>(
+         ::testing::HasSubstr("project() received unknown argument 'fields'")
+      )
+   );
+}
+
 TEST(AstToQueryProject, fieldNotInSchemaThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(

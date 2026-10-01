@@ -144,9 +144,9 @@ default.group(by:={country}, aggs:={count:=count(), total_age:=sum(age)})
 {"count": 1,  "pango_lineage": null}
 ```
 
-### `project(fields)`
+### `project(expressions)`
 
-Returns only the specified columns. `fields` is a set of column names (or a single name without braces). At least one column must be kept (an empty projection is rejected).
+Returns only the specified columns. `expressions` is a set of column names (or a single name without braces). At least one column must be kept (an empty projection is rejected).
 
 ```
 default.project({primary_key, country, date, pango_lineage, qc_value})
@@ -163,7 +163,7 @@ Sequence data columns use the naming convention `<sequenceName>` for aligned seq
 
 ### `projectout(fields)`
 
-The complement of [`project`](#projectfields): returns all columns except the specified ones. `fields` is a set of column names (or a single name without braces). All named columns must exist in the input's output schema, and at least one column must remain.
+The complement of [`project`](#projectexpressions): returns all columns except the specified ones. `fields` is a set of column names (or a single name without braces). All named columns must exist in the input's output schema, and at least one column must remain.
 
 ```
 default.projectout({date, qc_value})

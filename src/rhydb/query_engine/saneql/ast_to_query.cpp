@@ -1158,7 +1158,7 @@ operators::QueryNodePtr handleProject(
    const Tables& tables,
    const ChildConverter& convert_child
 ) {
-   const auto& field_argument = args.at("fields");
+   const auto& field_argument = args.at("expressions");
    const std::vector<std::string> field_names =
       holds_alternative<ast::Identifier>(field_argument.value)
          ? std::vector{extractIdentifierName(field_argument)}
@@ -1749,7 +1749,7 @@ FunctionRegistry::FunctionRegistry() {
 
    registerFunction("group", {{pos("input"), pos("by"), pos("aggs")}}, handleGroupBy);
 
-   registerFunction("project", {{pos("input"), pos("fields")}}, handleProject);
+   registerFunction("project", {{pos("input"), pos("expressions")}}, handleProject);
 
    registerFunction("projectout", {{pos("input"), pos("fields")}}, handleProjectout);
 
