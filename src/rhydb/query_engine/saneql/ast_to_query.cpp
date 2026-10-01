@@ -1114,7 +1114,7 @@ operators::QueryNodePtr handleFilter(
    const ChildConverter& convert_child
 ) {
    auto child = convert_child(args.at("input"), tables);
-   auto filter_expr = convertToFilter(args.at("predicate"), child->getOutputSchema(), tables);
+   auto filter_expr = convertToFilter(args.at("condition"), child->getOutputSchema(), tables);
    return std::make_unique<operators::FilterNode>(std::move(child), std::move(filter_expr));
 }
 
@@ -1741,7 +1741,7 @@ ParameterDefinition named(std::string name, bool required = true) {
 }  // namespace
 
 FunctionRegistry::FunctionRegistry() {
-   registerFunction("filter", {{pos("input"), pos("predicate")}}, handleFilter);
+   registerFunction("filter", {{pos("input"), pos("condition")}}, handleFilter);
 
    registerFunction("schema", {{pos("input")}}, handleSchema);
 

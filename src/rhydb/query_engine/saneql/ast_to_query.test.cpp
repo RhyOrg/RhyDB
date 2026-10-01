@@ -651,6 +651,25 @@ TEST(AstToQueryMap, isoWeekOnNonDateColumnThrows) {
    );
 }
 
+TEST(AstToQueryFilter, acceptsNamedCondition) {
+   auto tables = makeTablesWithDefault();
+   const auto query_tree =
+      parseAndConvertToQueryTree("default.filter(condition:=id = 'some_id')", tables);
+   EXPECT_EQ(query_tree->getOutputSchema().size(), 2);
+}
+
+TEST(AstToQueryFilter, oldPredicateParameterNameThrows) {
+   auto tables = makeTablesWithDefault();
+   EXPECT_THAT(
+      [&tables]() {
+         (void)parseAndConvertToQueryTree("default.filter(predicate:=id = 'some_id')", tables);
+      },
+      ThrowsMessage<IllegalQueryException>(
+         ::testing::HasSubstr("filter() received unknown argument 'predicate'")
+      )
+   );
+}
+
 TEST(AstToQueryFilter, nonBooleanScalarFunctionRejected) {
    EXPECT_THAT(
       []() {
