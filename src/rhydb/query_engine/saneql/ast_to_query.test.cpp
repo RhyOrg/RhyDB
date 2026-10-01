@@ -535,6 +535,28 @@ TEST(AstToQueryGroupBy, aggregatesInByPositionThrows) {
    );
 }
 
+// --- projectout ---
+
+TEST(AstToQueryProjectout, acceptsNamedRemove) {
+   auto tables = makeTablesWithDefault();
+   const auto query_tree = parseAndConvertToQueryTree("default.projectout(remove:={date})", tables);
+   const auto output_schema = query_tree->getOutputSchema();
+   ASSERT_EQ(output_schema.size(), 1);
+   EXPECT_EQ(output_schema[0].name, "id");
+}
+
+TEST(AstToQueryProjectout, oldFieldsParameterNameThrows) {
+   auto tables = makeTablesWithDefault();
+   EXPECT_THAT(
+      [&tables]() {
+         (void)parseAndConvertToQueryTree("default.projectout(fields:={date})", tables);
+      },
+      ThrowsMessage<IllegalQueryException>(
+         ::testing::HasSubstr("projectout() received unknown argument 'fields'")
+      )
+   );
+}
+
 // --- project ---
 
 TEST(AstToQueryProject, acceptsNamedExpressions) {

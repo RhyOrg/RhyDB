@@ -161,9 +161,9 @@ Sequence data columns use the naming convention `<sequenceName>` for aligned seq
 {"primary_key": "key_31", "country": "Switzerland", "date": "2021-03-21", "pango_lineage": "B.1.1.7", "qc_value": 0.96}
 ```
 
-### `projectout(fields)`
+### `projectout(remove)`
 
-The complement of [`project`](#projectexpressions): returns all columns except the specified ones. `fields` is a set of column names (or a single name without braces). All named columns must exist in the input's output schema, and at least one column must remain.
+The complement of [`project`](#projectexpressions): returns all columns except the specified ones. `remove` is a set of column names (or a single name without braces). All named columns must exist in the input's output schema, and at least one column must remain.
 
 ```
 default.projectout({date, qc_value})
