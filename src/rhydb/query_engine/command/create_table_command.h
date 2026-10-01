@@ -1,9 +1,7 @@
 #pragma once
 
-#include <optional>
-#include <string>
+#include <memory>
 #include <string_view>
-#include <vector>
 
 #include <nlohmann/json_fwd.hpp>
 
@@ -18,20 +16,9 @@ class Database;
 
 namespace rhydb::query_engine::command {
 
-/// One column of a `createTable` statement as written in the query. Sequence columns only name the
-/// row of the built-in `reference_genomes` table that holds their reference; its sequence is looked
-/// up when the command executes.
-struct ColumnDefinition {
-   std::string name;
-   schema::ColumnType type;
-   /// The `name` of the `reference_genomes` row whose sequence is the column's reference sequence
-   /// (for aligned sequence columns) or compression dictionary (for unaligned sequence columns).
-   /// Unset for value columns.
-   std::optional<std::string> reference_name;
-};
-
 /// Builds the command of a `createTable` statement from its bound `table`, `columns` and
-/// `primaryKey` arguments.
+/// `primaryKey` arguments. Validates the primary key and resolves the references of sequence
+/// columns against the `reference_genomes` table in `tables`.
 [[nodiscard]] WriteCommandPtr buildCreateTable(
    const saneql::BoundArguments& args,
    const saneql::Tables& tables,
@@ -42,16 +29,12 @@ struct ColumnDefinition {
 /// table with the given schema.
 class CreateTableCommand : public WriteCommand {
    schema::TableName table_name_;
-   std::vector<ColumnDefinition> columns_;
-   std::optional<std::string> primary_key_;
+   std::shared_ptr<schema::TableSchema> table_schema_;
 
   public:
-   /// Expects `primary_key`, if set, to name a `string` column of `columns` (checked by
-   /// `buildCreateTable`); the references of sequence columns are only resolved in `execute`.
    CreateTableCommand(
       schema::TableName table_name,
-      std::vector<ColumnDefinition> columns,
-      std::optional<std::string> primary_key
+      std::shared_ptr<schema::TableSchema> table_schema
    );
 
    [[nodiscard]] nlohmann::json execute(

@@ -3,10 +3,13 @@
 #include <algorithm>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
+#include <string>
 #include <tuple>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include <fmt/ranges.h>
 #include <nlohmann/json.hpp>
@@ -31,6 +34,16 @@ using saneql::ParameterDefinition;
 using schema::ColumnType;
 
 namespace {
+
+/// One column of a `createTable` statement as written in the query.
+struct ColumnDefinition {
+   std::string name;
+   schema::ColumnType type;
+   /// The `name` of the `reference_genomes` row whose sequence is the column's reference sequence
+   /// (for aligned sequence columns) or compression dictionary (for unaligned sequence columns).
+   /// Unset for value columns.
+   std::optional<std::string> reference_name;
+};
 
 // TODO(#741) unaligned sequence columns are conventionally named after their aligned counterpart
 // with this prefix, which is also how preprocessing names them.
@@ -310,7 +323,7 @@ void checkPrimaryKey(
 
 WriteCommandPtr buildCreateTable(
    const saneql::BoundArguments& args,
-   const saneql::Tables& /*tables*/,
+   const saneql::Tables& tables,
    const saneql::ChildConverter& /*convert_child*/
 ) {
    auto table_name = extractIdentifierName(args.at("table"));
@@ -320,19 +333,35 @@ WriteCommandPtr buildCreateTable(
       primary_key = extractIdentifierName(*primary_key_expr);
    }
    checkPrimaryKey(columns, primary_key);
+
+   const auto& reference_genomes =
+      *tables.at(schema::TableName{std::string{schema::REFERENCE_GENOMES_TABLE_NAME}});
+   std::map<schema::ColumnIdentifier, std::shared_ptr<storage::column::ColumnMetadata>>
+      column_metadata;
+   for (const auto& column : columns) {
+      column_metadata.emplace(
+         schema::ColumnIdentifier{.name = column.name, .type = column.type},
+         createColumnMetadata(column, reference_genomes)
+      );
+   }
+   auto primary_key_identifier = primary_key.transform([](std::string name) {
+      return schema::ColumnIdentifier{.name = std::move(name), .type = ColumnType::STRING};
+   });
+
    return std::make_unique<CreateTableCommand>(
-      schema::TableName{std::move(table_name)}, std::move(columns), std::move(primary_key)
+      schema::TableName{std::move(table_name)},
+      std::make_shared<schema::TableSchema>(
+         std::move(column_metadata), std::move(primary_key_identifier)
+      )
    );
 }
 
 CreateTableCommand::CreateTableCommand(
    schema::TableName table_name,
-   std::vector<ColumnDefinition> columns,
-   std::optional<std::string> primary_key
+   std::shared_ptr<schema::TableSchema> table_schema
 )
     : table_name_(std::move(table_name)),
-      columns_(std::move(columns)),
-      primary_key_(std::move(primary_key)) {}
+      table_schema_(std::move(table_schema)) {}
 
 nlohmann::json CreateTableCommand::execute(
    Database& database,
@@ -346,25 +375,7 @@ nlohmann::json CreateTableCommand::execute(
       "createTable(): a table named '{}' already exists",
       table_name_.getName()
    );
-   const auto& reference_genomes =
-      *database.tables.at(schema::TableName{std::string{schema::REFERENCE_GENOMES_TABLE_NAME}});
-
-   std::map<schema::ColumnIdentifier, std::shared_ptr<storage::column::ColumnMetadata>>
-      column_metadata;
-   for (const auto& column : columns_) {
-      column_metadata.emplace(
-         schema::ColumnIdentifier{.name = column.name, .type = column.type},
-         createColumnMetadata(column, reference_genomes)
-      );
-   }
-   auto primary_key = primary_key_.transform([](const std::string& name) {
-      return schema::ColumnIdentifier{.name = name, .type = ColumnType::STRING};
-   });
-
-   database.createTable(
-      table_name_,
-      std::make_shared<schema::TableSchema>(std::move(column_metadata), std::move(primary_key))
-   );
+   database.createTable(table_name_, table_schema_);
    database.updateDataVersion();
 
    return {{"createdTable", table_name_.getName()}};
