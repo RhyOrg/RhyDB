@@ -72,21 +72,29 @@ std::string defaultReferenceName(const std::string& column_name, ColumnType type
    return column_name;
 }
 
+using saneql::ast::Expression;
+using saneql::ast::extractBoolLiteral;
+using saneql::ast::extractIdentifierName;
+using saneql::ast::FunctionCall;
+using saneql::ast::Identifier;
+using saneql::ast::NamedArgument;
+using saneql::ast::PositionalArgument;
+
 // A type is written either as a bare name (`int`) or as a call with named options
 // (`string(generateIndex := true)`).
 ColumnDefinition parseColumnDefinition(
    const std::string& column_name,
-   const saneql::ast::Expression& type_expression
+   const Expression& type_expression
 ) {
-   static const std::vector<saneql::ast::PositionalArgument> no_positional;
-   static const std::vector<saneql::ast::NamedArgument> no_named;
+   static const std::vector<PositionalArgument> no_positional;
+   static const std::vector<NamedArgument> no_named;
 
    std::string type_name;
-   const std::vector<saneql::ast::PositionalArgument>* positional = &no_positional;
-   const std::vector<saneql::ast::NamedArgument>* named = &no_named;
-   if (const auto* identifier = std::get_if<saneql::ast::Identifier>(&type_expression.value)) {
+   const std::vector<PositionalArgument>* positional = &no_positional;
+   const std::vector<NamedArgument>* named = &no_named;
+   if (const auto* identifier = std::get_if<Identifier>(&type_expression.value)) {
       type_name = identifier->name;
-   } else if (const auto* call = std::get_if<saneql::ast::FunctionCall>(&type_expression.value)) {
+   } else if (const auto* call = std::get_if<FunctionCall>(&type_expression.value)) {
       type_name = call->function_name;
       positional = &call->positional_arguments;
       named = &call->named_arguments;
@@ -102,8 +110,7 @@ ColumnDefinition parseColumnDefinition(
    if (type_name == "string") {
       auto options = saneql::bindArguments(type_name, STRING_TYPE_SIGNATURE, *positional, *named);
       const auto* generate_index = options.get("generateIndex");
-      const bool is_indexed =
-         generate_index != nullptr && saneql::ast::extractBoolLiteral(*generate_index);
+      const bool is_indexed = generate_index != nullptr && extractBoolLiteral(*generate_index);
       return ColumnDefinition{
          .name = column_name,
          .type = is_indexed ? ColumnType::DICTIONARY_ENCODED : ColumnType::STRING,
@@ -126,7 +133,7 @@ ColumnDefinition parseColumnDefinition(
          .name = column_name,
          .type = sequence_type->second,
          .reference_name = reference != nullptr
-                              ? saneql::ast::extractIdentifierName(*reference)
+                              ? extractIdentifierName(*reference)
                               : defaultReferenceName(column_name, sequence_type->second)
       };
    }
@@ -251,11 +258,13 @@ std::shared_ptr<storage::column::ColumnMetadata> createColumnMetadata(
    RHYDB_UNREACHABLE();
 }
 
-std::vector<ColumnDefinition> parseColumnDefinitions(const saneql::ast::Expression& columns) {
-   const auto* record = std::get_if<saneql::ast::RecordLiteral>(&columns.value);
+using saneql::ast::RecordLiteral;
+
+std::vector<ColumnDefinition> parseColumnDefinitions(const Expression& columns) {
+   const auto* record = std::get_if<RecordLiteral>(&columns.value);
    CHECK_RHYDB_QUERY(
-       record != nullptr && !record->fields.empty(),
-       "createTable(): the columns must be a non-empty record of column types, e.g. "
+      record != nullptr && !record->fields.empty(),
+      "createTable(): the columns must be a non-empty record of column types, e.g. "
       "`{{key := string, age := int}}`, but got '{}'",
       columns.toString()
    );
@@ -280,11 +289,11 @@ WriteCommandPtr buildCreateTable(
    const saneql::Tables& /*tables*/,
    const saneql::ChildConverter& /*convert_child*/
 ) {
-   auto table_name = saneql::ast::extractIdentifierName(args.at("table"));
+   auto table_name = extractIdentifierName(args.at("table"));
    auto columns = parseColumnDefinitions(args.at("columns"));
    std::optional<std::string> primary_key;
    if (const auto* primary_key_expr = args.get("primaryKey")) {
-      primary_key = saneql::ast::extractIdentifierName(*primary_key_expr);
+      primary_key = extractIdentifierName(*primary_key_expr);
    }
    return std::make_unique<CreateTableCommand>(
       schema::TableName{std::move(table_name)}, std::move(columns), std::move(primary_key)
