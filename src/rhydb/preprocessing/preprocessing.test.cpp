@@ -228,7 +228,7 @@ schema:
 })",
    .assertion{
       .expected_row_count = 2,
-      .query = "default.groupBy({count:=count()},{group}).orderBy({group})",
+      .query = "default.group(by:={group},aggs:={count:=count()}).orderBy({group})",
       .expected_query_result = nlohmann::json::parse(
          R"([
          {"count": 1, "group": null},
@@ -301,7 +301,7 @@ schema:
 })",
    .assertion{
       .expected_row_count = 2,
-      .query = R"(default.groupBy({count:=count()},{"2"}).orderBy({"2"}))",
+      .query = R"(default.group(by:={"2"},aggs:={count:=count()}).orderBy({"2"}))",
       .expected_query_result = nlohmann::json::parse(
          R"([
          {"count": 1, "2": null},
@@ -443,7 +443,7 @@ schema:
 })",
    .assertion{
       .expected_row_count = 100,
-      .query = "default.groupBy({count:=count()})",
+      .query = "default.group(by:={}, aggs:={count:=count()})",
       .expected_query_result = nlohmann::json::parse(R"(
 [{"count":100}])")
    }
@@ -487,7 +487,7 @@ schema:
 })",
    .assertion{
       .expected_row_count = 100,
-      .query = "default.groupBy({count:=count()})",
+      .query = "default.group(by:={}, aggs:={count:=count()})",
       .expected_query_result = nlohmann::json::parse(R"(
 [{"count":100}])")
    }
@@ -526,7 +526,7 @@ schema:
 )",
    .assertion{
       .expected_row_count = 100,
-      .query = "default.groupBy({count:=count()})",
+      .query = "default.group(by:={}, aggs:={count:=count()})",
       .expected_query_result = nlohmann::json::parse(R"(
 [{"count":100}])")
    }
@@ -651,7 +651,7 @@ schema:
 })",
    .assertion{
       .expected_row_count = 2,
-      .query = "default.groupBy({count:=count()})",
+      .query = "default.group(by:={}, aggs:={count:=count()})",
       .expected_query_result = nlohmann::json::parse(R"(
 [{"count":2}])")
    }
@@ -818,7 +818,8 @@ schema:
 })",
    .assertion{
       .expected_row_count = 4,
-      .query = "default.groupBy({count:=count()},{accessionVersion}).orderBy({accessionVersion})",
+      .query =
+         "default.group(by:={accessionVersion},aggs:={count:=count()}).orderBy({accessionVersion})",
       .expected_query_result = nlohmann::json::parse(R"([
          {"count": 2, "accessionVersion": "id_1"},
          {"count": 2, "accessionVersion": "id_2"}

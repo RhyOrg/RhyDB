@@ -124,9 +124,11 @@ TEST(SaneQLParser, parsesMethodCall) {
 }
 
 TEST(SaneQLParser, parsesMethodCallChain) {
-   Parser parser("default.filter(country = 'USA').groupBy({count:=count()})");
+   Parser parser("default.filter(country = 'USA').group(by:={}, aggs:={count:=count()})");
    auto expr = parser.parse();
-   EXPECT_EQ(expr->toString(), "groupBy(filter(default, (country = 'USA')), {count:=count()})");
+   EXPECT_EQ(
+      expr->toString(), "group(filter(default, (country = 'USA')), by:={}, aggs:={count:=count()})"
+   );
 }
 
 TEST(SaneQLParser, parsesTypeCast) {
@@ -154,11 +156,12 @@ TEST(SaneQLParser, parsesMethodCallOnSetLiteral) {
 }
 
 TEST(SaneQLParser, parsesComplexFilterQuery) {
-   Parser parser("default.filter(country = 'USA' && age > 30).groupBy({count:=count()})");
+   Parser parser("default.filter(country = 'USA' && age > 30).group(by:={}, aggs:={count:=count()})"
+   );
    auto expr = parser.parse();
    ASSERT_TRUE(std::holds_alternative<ast::FunctionCall>(expr->value));
    auto& outer = std::get<ast::FunctionCall>(expr->value);
-   EXPECT_EQ(outer.function_name, "groupBy");
+   EXPECT_EQ(outer.function_name, "group");
    // First positional arg is the child pipeline (filter call)
    ASSERT_TRUE(std::holds_alternative<ast::FunctionCall>(outer.positional_arguments[0].value->value)
    );
@@ -199,12 +202,12 @@ TEST(SaneQLParser, parsesFullExampleQuery) {
       "metadata\n"
       "  .filter(country = 'USA' && date_submitted.between('2020-01-01'::date, "
       "'2023-12-31'::date))\n"
-      "  .groupBy({count:=count()})"
+      "  .group(by:={}, aggs:={count:=count()})"
    );
    auto expr = parser.parse();
    ASSERT_TRUE(std::holds_alternative<ast::FunctionCall>(expr->value));
    auto& agg = std::get<ast::FunctionCall>(expr->value);
-   EXPECT_EQ(agg.function_name, "groupBy");
+   EXPECT_EQ(agg.function_name, "group");
 }
 
 TEST(SaneQLParser, throwsOnUnexpectedToken) {

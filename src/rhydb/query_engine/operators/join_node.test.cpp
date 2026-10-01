@@ -241,7 +241,7 @@ const QueryTestScenario JOIN_WITH_GROUPBY_SCENARIO = {
       default.project({primaryKey, country}),
       default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk
-   ).groupBy({count := count()}, {country}).orderBy({asc(country)}))",
+   ).group(by:={country}, aggs:={count := count()}).orderBy({asc(country)}))",
    .expected_query_result =
       nlohmann::json({{{"country", "CH"}, {"count", 2}}, {{"country", "DE"}, {"count", 2}}})
 };

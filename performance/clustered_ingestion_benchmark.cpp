@@ -12,14 +12,14 @@
 #include <vector>
 
 #include <arrow/compute/initialize.h>
+#include <fmt/format.h>
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
-#include <fmt/format.h>
 
-#include "sequence_generator.h"
 #include "rhydb/append/table_inserter.h"
 #include "rhydb/query_engine/exec_node/ndjson_sink.h"
 #include "rhydb/query_engine/planner.h"
+#include "sequence_generator.h"
 
 // Demonstrates what N-way clustered ingestion buffering buys on amplicon-coverage short reads.
 //
@@ -106,7 +106,7 @@ class QueryGenerator {
             "nucleotideEquals(position:={0}, symbol:='T', sequenceName:='main') || "
             "nucleotideEquals(position:={0}, symbol:='-', sequenceName:='main')) && "
             "samplingDate.between('2024-01-01'::date, '2024-01-07'::date)"
-            ").groupBy({{count:=count()}})",
+            ").group(by:={{}}, aggs:={{count:=count()}})",
             position
          );
       }
@@ -118,7 +118,7 @@ class QueryGenerator {
          "samplingDate.between('2024-01-01'::date, '2024-01-07'::date) && "
          "nucleotideEquals(position:={}, symbol:='{}', sequenceName:='main') && "
          "samplingDate.between('2024-01-01'::date, '2024-01-07'::date)"
-         ").groupBy({{count:=count()}})",
+         ").group(by:={{}}, aggs:={{count:=count()}})",
          position,
          symbol
       );

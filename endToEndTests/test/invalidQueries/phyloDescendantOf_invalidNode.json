@@ -1,6 +1,6 @@
 {
   "testCaseName": "PhyloDescendantOf called on aa node that does not exist in the tree",
-  "query": "default.filter(usherTree.phyloDescendantOf('NON_EXISTING_NODE')).groupBy({count:=count()})",
+  "query": "default.filter(usherTree.phyloDescendantOf('NON_EXISTING_NODE')).group(by:={}, aggs:={count:=count()})",
   "expectedError": {
     "error": "Bad request",
     "message": "The node 'NON_EXISTING_NODE' does not exist in the phylogenetic tree of column 'usherTree'"

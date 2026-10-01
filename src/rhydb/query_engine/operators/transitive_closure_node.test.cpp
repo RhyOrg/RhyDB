@@ -129,7 +129,7 @@ const QueryTestScenario TRANSITIVE_CLOSURE_INCLUDE_VERTICES_SCENARIO = {
 };
 
 // The motivating use case: count every lineage together with all of its sublineages.
-// transitiveClosure (reflexive) -> join default on `to` = pango_lineage -> groupBy `from`.
+// transitiveClosure (reflexive) -> join default on `to` = pango_lineage -> group by `from`.
 //   BASE.1     : id_0, id_1, id_2, id_3, id_4 -> 5
 //   CHILD      : id_1, id_2, id_4             -> 3
 //   CHILD.2    : id_3                         -> 1
@@ -139,7 +139,7 @@ const QueryTestScenario COUNT_LINEAGE_INCLUDING_SUBLINEAGES_SCENARIO = {
    .query =
       "pango_lineage_indexed.transitiveClosure(parent, lineage, includeVertices:=true)"
       ".join(default, to = pango_lineage)"
-      ".groupBy({count := count()}, {from})"
+      ".group(by:={from}, aggs:={count := count()})"
       ".orderBy({from})",
    .expected_query_result = nlohmann::json(
       {{{"from", "BASE.1"}, {"count", 5}},
@@ -241,7 +241,7 @@ const QueryTestScenario COUNT_ONE_LINEAGE_INCLUDING_SUBLINEAGES_SCENARIO = {
       "pango_lineage_indexed.transitiveClosure(parent, lineage, includeVertices:=true, "
       "startingFrom:={'CHILD'})"
       ".join(default, to = pango_lineage)"
-      ".groupBy({count := count()}, {from})"
+      ".group(by:={from}, aggs:={count := count()})"
       ".orderBy({from})",
    .expected_query_result = nlohmann::json({{{"from", "CHILD"}, {"count", 3}}})
 };
@@ -270,7 +270,7 @@ const QueryTestScenario COUNT_LINEAGE_WITH_DUPLICATE_SOURCE_SCENARIO = {
       "pango_lineage_indexed.transitiveClosure(parent, lineage, includeVertices:=true, "
       "startingFrom:={'CHILD', 'CHILD'})"
       ".join(default, to = pango_lineage)"
-      ".groupBy({count := count()}, {from})"
+      ".group(by:={from}, aggs:={count := count()})"
       ".orderBy({from})",
    .expected_query_result = nlohmann::json({{{"from", "CHILD"}, {"count", 6}}})
 };
@@ -510,7 +510,7 @@ const QueryTestScenario COUNT_SUBLINEAGES_ON_DICTIONARY_ENCODED_COLUMN_SCENARIO 
    .query =
       "pango_lineage.transitiveClosure(parent, lineage, includeVertices:=true)"
       ".join(default, to = pango_lineage)"
-      ".groupBy({count := count()}, {from})"
+      ".group(by:={from}, aggs:={count := count()})"
       ".orderBy({from})",
    .expected_query_result = nlohmann::json(
       {{{"from", "BASE.1"}, {"count", 5}},

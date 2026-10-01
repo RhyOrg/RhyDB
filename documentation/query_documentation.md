@@ -36,10 +36,10 @@ Simple example — count all sequences from Switzerland:
 ```
 default
   .filter(country = 'Switzerland')
-  .groupBy({count:=count()})
+  .group(by:={}, aggs:={count:=count()})
 ```
 
-`filter` is schema-preserving; `groupBy` is last and schema-defining, so the response is `{"count": <integer>}`.
+`filter` is schema-preserving; `group` is last and schema-defining, so the response is `{"count": <integer>}`.
 
 ## Language Basics
 
@@ -119,25 +119,25 @@ default.filter(country = 'USA' && age > 30)
 
 A boolean column can be used directly as a predicate: `default.filter(isHuman)` is equivalent to `default.filter(isHuman = true)`, and `default.filter(!isHuman)` negates it (a set complement that also keeps rows where `isHuman` is null, matching `!(isHuman = true)`). Only boolean columns may be used this way; a bare reference to a non-boolean column is rejected.
 
-### `groupBy(aggregates [, columns])`
+### `group(by, aggs)`
 
-Aggregates rows, producing counts or other aggregate values. `aggregates` is a record literal; `columns` is an optional set of column names to group by.
+Aggregates rows, producing counts or other aggregate values. `by` is a set of column names to group by (`{}` aggregates all rows into a single group); `aggs` is a record literal of named aggregates.
 
 Currently supported aggregate functions:
 
 | Function | Result |
 |----------|--------|
 | `count()` | The number of rows in the group (an `int64`). |
-| `sum(column)` | The sum of a numeric column over the rows in the group. Sums of `int` and `int64` columns are `int64`, sums of `float` columns are `float`. Null values are skipped; a group with no non-null value (or no rows at all, when there are no groupBy columns) sums to null. |
+| `sum(column)` | The sum of a numeric column over the rows in the group. Sums of `int` and `int64` columns are `int64`, sums of `float` columns are `float`. Null values are skipped; a group with no non-null value (or no rows at all, when there are no `by` columns) sums to null. |
 
 ```
-default.groupBy(aggregates:={count:=count()})
-default.groupBy(aggregates:={count:=count()}, columns:={pango_lineage})
-default.groupBy({count:=count()}, {country, pango_lineage})
-default.groupBy({count:=count(), total_age:=sum(age)}, {country})
+default.group(by:={}, aggs:={count:=count()})
+default.group(by:={pango_lineage}, aggs:={count:=count()})
+default.group(by:={country, pango_lineage}, aggs:={count:=count()})
+default.group(by:={country}, aggs:={count:=count(), total_age:=sum(age)})
 ```
 
-**Output:** one row per group, containing the named aggregation fields and the groupBy columns. Rows where a groupBy column is null form their own group with a null value for that column.
+**Output:** one row per group, containing the named aggregation fields and the `by` columns. Rows where a `by` column is null form their own group with a null value for that column.
 
 ```json
 {"count": 48, "pango_lineage": "B.1.1.7"}
@@ -442,7 +442,7 @@ The result can be piped into downstream operators:
 unionAll(
   default.filter(division='Aargau').project({division}),
   default.filter(division='Bern').project({division})
-).groupBy({count:=count()}, {division})
+).group(by:={division}, aggs:={count:=count()})
  .orderBy({asc(division)})
 ```
 
@@ -486,7 +486,7 @@ It does not read or return any data; it only reports the fields that the input w
 
 ```
 default.schema()
-default.filter(country='CH').groupBy({count:=count()}, {age}).schema()
+default.filter(country='CH').group(by:={age}, aggs:={count:=count()}).schema()
 default.mutations(minProportion:=0.1).schema()
 ```
 
@@ -505,7 +505,7 @@ default.mutations(minProportion:=0.1).schema()
 `schema()` produces an ordinary two-column relation,
 so operators such as `project`, `map`, `orderBy` and `limit` can be chained after it.
 
-`schema()` is a *pipeline breaker*: like `groupBy`, `mutations` and `insertions`, it produces a new result relation instead of forwarding its child's rows.
+`schema()` is a *pipeline breaker*: like `group`, `mutations` and `insertions`, it produces a new result relation instead of forwarding its child's rows.
 
 **Limitation:** sequence columns are reported with type `STRING`.
 When a sequence column is read into a pipeline it is decompressed to a string before `schema()` observes it,
@@ -563,7 +563,7 @@ sequences):
 ```
 pango_lineage.transitiveClosure(parent, lineage, includeVertices:=true)
   .join(default, to = lineage_column)
-  .groupBy({count := count()}, {from})
+  .group(by:={from}, aggs:={count := count()})
   .orderBy({from})
 ```
 
@@ -580,7 +580,7 @@ instead of one per vertex in the relation:
 ```
 pango_lineage.transitiveClosure(parent, lineage, includeVertices:=true, startingFrom:={'B.1.1.7'})
   .join(default, to = lineage_column)
-  .groupBy({count := count()}, {from})
+  .group(by:={from}, aggs:={count := count()})
 ```
 
 A vertex named in `startingFrom` that does not occur in the relation contributes no rows, not even
@@ -867,7 +867,7 @@ aminoAcidMutationProfile(distance:=2, sequenceName:='S', mutations:={
 
 ```
 default
-  .groupBy({count:=count()}, {country})
+  .group(by:={country}, aggs:={count:=count()})
   .orderBy({count.desc()})
 ```
 
@@ -894,7 +894,7 @@ default
 ```
 default
   .filter(date.between('2021-01-01'::date, '2021-06-30'::date))
-  .groupBy({count:=count()}, {pango_lineage})
+  .group(by:={pango_lineage}, aggs:={count:=count()})
   .orderBy({pango_lineage})
 ```
 
@@ -912,7 +912,7 @@ default
          nucleotideEquals(position:=23403, symbol:='G')
        })
   )
-  .groupBy({count:=count()})
+  .group(by:={}, aggs:={count:=count()})
 ```
 
 ### Paginated results
@@ -940,6 +940,6 @@ default
 unionAll(
   default.filter(division='Aargau').project({division}),
   default.filter(division='Bern').project({division})
-).groupBy({count:=count()}, {division})
+).group(by:={division}, aggs:={count:=count()})
  .orderBy({asc(division)})
 ```

@@ -144,7 +144,7 @@ const QueryTestScenario EXPLICIT_DO_NOT_RANDOMIZE = {
 
 const QueryTestScenario AGGREGATE_RANDOMIZE = {
    .name = "AGGREGATE_RANDOMIZE",
-   .query = "default.groupBy({count:=count()},{key}).randomize(seed:=12321)",
+   .query = "default.group(by:={key},aggs:={count:=count()}).randomize(seed:=12321)",
    .expected_query_result = json::parse(
       R"([
 {"count": 1, "key": "id4"},
@@ -172,7 +172,7 @@ const QueryTestScenario ORDER_BY_PRECEDENCE = {
 
 const QueryTestScenario ORDER_BY_AGGREGATE_RANDOMIZE = {
    .name = "ORDER_BY_AGGREGATE_RANDOMIZE",
-   .query = "default.groupBy({count:=count()},{col}).randomize().orderBy({count})",
+   .query = "default.group(by:={col},aggs:={count:=count()}).randomize().orderBy({count})",
    .expected_query_result = json::parse(
       R"([{"count": 2, "col": "B"},
           {"count": 3, "col": "A"}])"
@@ -215,7 +215,8 @@ const QueryTestScenario RANDOMIZE_WITH_LIMIT = {
 
 const QueryTestScenario AGGREGATE_LIMIT_RANDOMIZE = {
    .name = "AGGREGATE_LIMIT_RANDOMIZE",
-   .query = "default.groupBy({count:=count()},{key}).randomize(seed:=12321).offset(1).limit(2)",
+   .query =
+      "default.group(by:={key},aggs:={count:=count()}).randomize(seed:=12321).offset(1).limit(2)",
    .expected_query_result = json::parse(
       R"([{"count": 1, "key": "id5"},
           {"count": 1, "key": "id1"}])"

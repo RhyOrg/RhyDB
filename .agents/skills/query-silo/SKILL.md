@@ -11,7 +11,7 @@ description: >
 Use `queryLocalSilo.sh` (in this skill's directory) to send SaneQL queries to the local RhyDB API (port 8081):
 
 ```bash
-.agents/skills/query-silo/queryLocalSilo.sh "default.groupBy({count:=count()})"
+.agents/skills/query-silo/queryLocalSilo.sh "default.group(by:={}, aggs:={count:=count()})"
 ```
 
 The script sends a `POST /query` with `Content-Type: text/plain` and prints the NDJSON response followed by the HTTP status code.
@@ -30,14 +30,14 @@ Queries use **SaneQL**. Common patterns:
 default                                          -- full table scan
 default.filter(column='value')                   -- filter rows
 default.project({col1, col2})                    -- select columns
-default.groupBy({count:=count()}, {col})         -- aggregate
+default.group(by:={col}, aggs:={count:=count()})         -- aggregate
 default.map({new_col := expression})             -- add computed column
 default.orderBy({asc(col)})                      -- sort
 default.mutations(minProportion:=0.5)            -- nucleotide mutations
 unionAll(pipeline1, pipeline2)                   -- concatenate two pipelines
 ```
 
-Chaining: `default.filter(...).project({...}).groupBy({...}).orderBy({...})`
+Chaining: `default.filter(...).project({...}).group(by:={}, aggs:={...}).orderBy({...})`
 
 ### Error responses
 

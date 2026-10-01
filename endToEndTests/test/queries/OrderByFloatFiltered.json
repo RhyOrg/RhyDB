@@ -1,6 +1,6 @@
 {
   "testCaseName": "Order By QC float column ascending after filtering",
-  "query": "default.filter(qc_value.between(0.1, 2121.1)).groupBy({count:=count()},{qc_value}).orderBy({qc_value})",
+  "query": "default.filter(qc_value.between(0.1, 2121.1)).group(by:={qc_value},aggs:={count:=count()}).orderBy({qc_value})",
   "expectedQueryResult": [
     {
       "count": 10,

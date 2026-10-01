@@ -64,7 +64,9 @@ const QueryTestScenario PROJECTOUT_MULTIPLE_SCENARIO = {
 
 const QueryTestScenario PROJECTOUT_OVER_GROUP_BY_SCENARIO = {
    .name = "PROJECTOUT_OVER_GROUP_BY",
-   .query = "default.groupBy({count := count()}, {country}).orderBy({country}).projectout({count})",
+   .query =
+      "default.group(by:={country}, aggs:={count := "
+      "count()}).orderBy({country}).projectout({count})",
    .expected_query_result =
       nlohmann::json({{{"country", "Germany"}}, {{"country", "Switzerland"}}}),
 };
