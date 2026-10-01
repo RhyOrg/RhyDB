@@ -109,9 +109,9 @@ After the first named argument is given, no more positional arguments are accept
 
 ## Pipeline Operations
 
-### `filter(predicate)`
+### `filter(condition)`
 
-Keeps only rows where the boolean predicate is true. Passes all input columns through unchanged.
+Keeps only rows where the boolean `condition` is true. Passes all input columns through unchanged.
 
 ```
 default.filter(country = 'USA' && age > 30)
