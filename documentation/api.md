@@ -201,7 +201,8 @@ Executes a SaneQL **write statement** against the database:
 `table` — see [`insertInto`](query_documentation.md) for semantics and
 limitations.
 - `createTable(table: symbol, columns: record, primaryKey?: symbol)`. Creates a new, empty table with
-the given schema, taking the reference sequences of sequence columns from `reference_genomes` —
+the given schema, taking the reference sequences of sequence columns from `reference_genomes` and
+the dictionaries of compressed string columns from queries —
 see [`query docs`](query_documentation.md) for the column types.
 
 The write goes through the [data directory](#runtime-configuration): the most recent state there is

@@ -651,7 +651,9 @@ createTable(covid, {
    date := date,
    main := nucleotideSequence(reference := main),
    "S" := aminoAcidSequence(reference := "S"),
-   unaligned_main := unalignedNucleotideSequence(reference := main)
+   unaligned_main := zstdCompressedString(
+      dictionary := reference_genomes.filter(name = 'main').project({sequence})
+   )
 }, primaryKey := primaryKey)
 ```
 
@@ -672,16 +674,22 @@ identifiers can be written as quoted identifiers, e.g. `"S:ORF1a" := aminoAcidSe
 | `date`                        |                                   | date                                                          |
 | `nucleotideSequence`          | `reference := <name>` (required)  | aligned nucleotide sequence                                   |
 | `aminoAcidSequence`           | `reference := <name>` (required)  | aligned amino acid sequence                                   |
-| `unalignedNucleotideSequence` | `reference := <name>` (required)  | unaligned nucleotide sequence, zstd compressed                |
+| `zstdCompressedString`        | `dictionary := <query>` (required) | string, zstd compressed with a dictionary (e.g. unaligned sequences) |
 
 **References.** Sequence columns require the `reference := <name>` option, which names the row of
 the built-in `reference_genomes` table to take their reference sequence from: the row with that
-`name` whose `type` matches the column (`nucleotide` for `nucleotideSequence` and
-`unalignedNucleotideSequence`, `amino_acid` for `aminoAcidSequence`), e.g.
-`segment := nucleotideSequence(reference := main)`. An unaligned column uses that sequence as its
-compression dictionary. The reference is never derived from the column name. The reference is copied into the table's
-schema when it is created, so later changes to `reference_genomes` do not affect existing tables.
-Creating a sequence column fails if there is no matching reference.
+`name` whose `type` matches the column (`nucleotide` for `nucleotideSequence`, `amino_acid` for
+`aminoAcidSequence`), e.g. `segment := nucleotideSequence(reference := main)`. The reference is never
+derived from the column name.
+
+**Dictionaries.** A `zstdCompressedString` column requires the `dictionary := <query>` option, a
+query that must produce exactly one row with exactly one `string` column; its value is the
+column's compression dictionary. For unaligned sequences this is usually the reference, e.g.
+`reference_genomes.filter(name = 'main' && type = 'nucleotide').project({sequence})`.
+
+References and dictionaries are copied into the table's schema when it is created, so later
+changes to the tables they come from do not affect existing tables. Creating a sequence column
+fails if there is no matching reference.
 
 **Primary key.** The optional `primaryKey` names one of the columns, which must be a `string`
 column without `generateIndex`.

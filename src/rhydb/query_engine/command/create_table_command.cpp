@@ -4,6 +4,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <set>
 #include <string>
 #include <tuple>
@@ -11,13 +12,19 @@
 #include <variant>
 #include <vector>
 
+#include <arrow/array/array_binary.h>
+#include <arrow/array/util.h>
+#include <arrow/compute/exec.h>
 #include <fmt/ranges.h>
 #include <nlohmann/json.hpp>
 
 #include "rhydb/common/aa_symbols.h"
 #include "rhydb/common/nucleotide_symbols.h"
 #include "rhydb/database.h"
+#include "rhydb/query_engine/exec_node/arrow_batch_sink.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
+#include "rhydb/query_engine/planner.h"
+#include "rhydb/query_engine/query_plan.h"
 #include "rhydb/query_engine/saneql/function_registry.h"
 #include "rhydb/schema/builtin_tables.h"
 #include "rhydb/storage/column/column_metadata.h"
@@ -35,16 +42,6 @@ using schema::ColumnType;
 
 namespace {
 
-/// One column of a `createTable` statement as written in the query.
-struct ColumnDefinition {
-   std::string name;
-   schema::ColumnType type;
-   /// The `name` of the `reference_genomes` row whose sequence is the column's reference sequence
-   /// (for aligned sequence columns) or compression dictionary (for unaligned sequence columns).
-   /// Unset for value columns.
-   std::optional<std::string> reference_name;
-};
-
 const std::map<std::string, ColumnType, std::less<>> VALUE_TYPES_WITHOUT_OPTIONS{
    {"int", ColumnType::INT32},
    {"int32", ColumnType::INT32},
@@ -57,7 +54,6 @@ const std::map<std::string, ColumnType, std::less<>> VALUE_TYPES_WITHOUT_OPTIONS
 const std::map<std::string, ColumnType, std::less<>> SEQUENCE_TYPES{
    {"nucleotideSequence", ColumnType::NUCLEOTIDE_SEQUENCE},
    {"aminoAcidSequence", ColumnType::AMINO_ACID_SEQUENCE},
-   {"unalignedNucleotideSequence", ColumnType::ZSTD_COMPRESSED_STRING},
 };
 
 const FunctionSignature STRING_TYPE_SIGNATURE{
@@ -66,6 +62,10 @@ const FunctionSignature STRING_TYPE_SIGNATURE{
 
 const FunctionSignature SEQUENCE_TYPE_SIGNATURE{
    {ParameterDefinition{.name = "reference", .required = true, .positional = false}}
+};
+
+const FunctionSignature ZSTD_COMPRESSED_STRING_TYPE_SIGNATURE{
+   {ParameterDefinition{.name = "dictionary", .required = true, .positional = false}}
 };
 
 const FunctionSignature NO_OPTIONS_SIGNATURE{};
@@ -82,7 +82,9 @@ using saneql::ast::PositionalArgument;
 // (`string(generateIndex := true)`).
 ColumnDefinition parseColumnDefinition(
    const std::string& column_name,
-   const Expression& type_expression
+   const Expression& type_expression,
+   const saneql::Tables& tables,
+   const saneql::ChildConverter& convert_child
 ) {
    static const std::vector<PositionalArgument> no_positional;
    static const std::vector<NamedArgument> no_named;
@@ -112,7 +114,8 @@ ColumnDefinition parseColumnDefinition(
       return ColumnDefinition{
          .name = column_name,
          .type = is_indexed ? ColumnType::DICTIONARY_ENCODED : ColumnType::STRING,
-         .reference_name = std::nullopt
+         .reference_name = std::nullopt,
+         .dictionary_query = std::nullopt
       };
    }
 
@@ -120,7 +123,10 @@ ColumnDefinition parseColumnDefinition(
        value_type != VALUE_TYPES_WITHOUT_OPTIONS.end()) {
       std::ignore = saneql::bindArguments(type_name, NO_OPTIONS_SIGNATURE, *positional, *named);
       return ColumnDefinition{
-         .name = column_name, .type = value_type->second, .reference_name = std::nullopt
+         .name = column_name,
+         .type = value_type->second,
+         .reference_name = std::nullopt,
+         .dictionary_query = std::nullopt
       };
    }
 
@@ -129,13 +135,26 @@ ColumnDefinition parseColumnDefinition(
       return ColumnDefinition{
          .name = column_name,
          .type = sequence_type->second,
-         .reference_name = extractIdentifierName(options.at("reference"))
+         .reference_name = extractIdentifierName(options.at("reference")),
+         .dictionary_query = std::nullopt
+      };
+   }
+
+   if (type_name == "zstdCompressedString") {
+      auto options = saneql::bindArguments(
+         type_name, ZSTD_COMPRESSED_STRING_TYPE_SIGNATURE, *positional, *named
+      );
+      return ColumnDefinition{
+         .name = column_name,
+         .type = ColumnType::ZSTD_COMPRESSED_STRING,
+         .reference_name = std::nullopt,
+         .dictionary_query = convert_child(options.at("dictionary"), tables)
       };
    }
 
    throw IllegalQueryException(
       "createTable(): unknown type '{}' of column '{}', expected one of string, int, int32, int64, "
-      "float, boolean, date, nucleotideSequence, aminoAcidSequence, unalignedNucleotideSequence",
+      "float, boolean, date, nucleotideSequence, aminoAcidSequence, zstdCompressedString",
       type_name,
       column_name
    );
@@ -210,9 +229,87 @@ std::vector<typename SymbolType::Symbol> toReferenceSymbols(
    return symbols;
 }
 
+/// Collects the values of a result with a single `string` column.
+class StringValuesSink : public exec_node::ArrowBatchSink {
+  public:
+   std::vector<std::optional<std::string>> values;
+
+   arrow::Status writeBatch(const arrow::compute::ExecBatch& batch) override {
+      RHYDB_ASSERT_EQ(batch.values.size(), 1);
+      const auto& datum = batch.values.front();
+      std::shared_ptr<arrow::Array> array;
+      if (datum.is_array()) {
+         array = datum.make_array();
+      } else {
+         ARROW_ASSIGN_OR_RAISE(array, arrow::MakeArrayFromScalar(*datum.scalar(), batch.length));
+      }
+      const auto& string_array = dynamic_cast<const arrow::StringArray&>(*array);
+      for (int64_t row = 0; row < string_array.length(); ++row) {
+         if (string_array.IsNull(row)) {
+            values.emplace_back(std::nullopt);
+         } else {
+            values.emplace_back(std::string{string_array.GetView(row)});
+         }
+      }
+      return arrow::Status::OK();
+   }
+
+   arrow::Status finish() override { return arrow::Status::OK(); }
+};
+
+/// Runs the `dictionary` query of a `zstdCompressedString` column, which must produce exactly one
+/// row with exactly one non-null `string` column.
+std::string computeDictionary(
+   const std::string& column_name,
+   operators::QueryNodePtr dictionary_query,
+   const Database& database,
+   const config::QueryOptions& query_options,
+   std::string_view request_id
+) {
+   const auto output_schema = dictionary_query->getOutputSchema();
+   CHECK_RHYDB_QUERY(
+      output_schema.size() == 1 && (output_schema.front().type == ColumnType::STRING ||
+                                    output_schema.front().type == ColumnType::DICTIONARY_ENCODED),
+      "createTable(): the dictionary of column '{}' must be a query with exactly one column of "
+      "type "
+      "`string`, e.g. `reference_genomes.filter(name = 'main' && type = 'nucleotide')"
+      ".project({{sequence}})`, but it has the columns [{}]",
+      column_name,
+      fmt::join(
+         output_schema | std::views::transform([](const auto& column) {
+            return fmt::format("{}: {}", column.name, schema::columnTypeToString(column.type));
+         }),
+         ", "
+      )
+   );
+
+   auto query_plan =
+      Planner::planQuery(std::move(dictionary_query), database.tables, query_options, request_id);
+   StringValuesSink sink;
+   constexpr uint64_t DEFAULT_TIMEOUT_SECONDS = 120;
+   query_plan.executeAndWrite(sink, DEFAULT_TIMEOUT_SECONDS);
+
+   CHECK_RHYDB_QUERY(
+      sink.values.size() == 1,
+      "createTable(): the dictionary query of column '{}' must produce exactly one row, but "
+      "produced {}",
+      column_name,
+      sink.values.size()
+   );
+   CHECK_RHYDB_QUERY(
+      sink.values.front().has_value(),
+      "createTable(): the dictionary query of column '{}' produced null",
+      column_name
+   );
+   return std::move(sink.values.front()).value();
+}
+
 std::shared_ptr<storage::column::ColumnMetadata> createColumnMetadata(
-   const ColumnDefinition& column,
-   const storage::Table& reference_genomes
+   ColumnDefinition& column,
+   const storage::Table& reference_genomes,
+   const Database& database,
+   const config::QueryOptions& query_options,
+   std::string_view request_id
 ) {
    switch (column.type) {
       case ColumnType::STRING:
@@ -242,8 +339,12 @@ std::shared_ptr<storage::column::ColumnMetadata> createColumnMetadata(
          );
       }
       case ColumnType::ZSTD_COMPRESSED_STRING: {
-         auto dictionary = getReferenceSequence(
-            reference_genomes, column, schema::REFERENCE_GENOMES_NUCLEOTIDE_TYPE
+         auto dictionary = computeDictionary(
+            column.name,
+            std::move(column.dictionary_query).value(),
+            database,
+            query_options,
+            request_id
          );
          return std::make_shared<storage::column::ZstdCompressedStringColumnMetadata>(
             column.name, std::move(dictionary)
@@ -255,7 +356,11 @@ std::shared_ptr<storage::column::ColumnMetadata> createColumnMetadata(
 
 using saneql::ast::RecordLiteral;
 
-std::vector<ColumnDefinition> parseColumnDefinitions(const Expression& columns) {
+std::vector<ColumnDefinition> parseColumnDefinitions(
+   const Expression& columns,
+   const saneql::Tables& tables,
+   const saneql::ChildConverter& convert_child
+) {
    const auto* record = std::get_if<RecordLiteral>(&columns.value);
    CHECK_RHYDB_QUERY(
       record != nullptr && !record->fields.empty(),
@@ -272,7 +377,7 @@ std::vector<ColumnDefinition> parseColumnDefinitions(const Expression& columns) 
          "createTable(): the column '{}' is defined more than once",
          field.name
       );
-      result.push_back(parseColumnDefinition(field.name, *field.value));
+      result.push_back(parseColumnDefinition(field.name, *field.value, tables, convert_child));
    }
    return result;
 }
@@ -306,49 +411,32 @@ void checkPrimaryKey(
 WriteCommandPtr buildCreateTable(
    const saneql::BoundArguments& args,
    const saneql::Tables& tables,
-   const saneql::ChildConverter& /*convert_child*/
+   const saneql::ChildConverter& convert_child
 ) {
    auto table_name = extractIdentifierName(args.at("table"));
-   auto columns = parseColumnDefinitions(args.at("columns"));
+   auto columns = parseColumnDefinitions(args.at("columns"), tables, convert_child);
    std::optional<std::string> primary_key;
    if (const auto* primary_key_expr = args.get("primaryKey")) {
       primary_key = extractIdentifierName(*primary_key_expr);
    }
-   checkPrimaryKey(columns, primary_key);
-
-   const auto& reference_genomes =
-      *tables.at(schema::TableName{std::string{schema::REFERENCE_GENOMES_TABLE_NAME}});
-   std::map<schema::ColumnIdentifier, std::shared_ptr<storage::column::ColumnMetadata>>
-      column_metadata;
-   for (const auto& column : columns) {
-      column_metadata.emplace(
-         schema::ColumnIdentifier{.name = column.name, .type = column.type},
-         createColumnMetadata(column, reference_genomes)
-      );
-   }
-   auto primary_key_identifier = primary_key.transform([](std::string name) {
-      return schema::ColumnIdentifier{.name = std::move(name), .type = ColumnType::STRING};
-   });
-
    return std::make_unique<CreateTableCommand>(
-      schema::TableName{std::move(table_name)},
-      std::make_shared<schema::TableSchema>(
-         std::move(column_metadata), std::move(primary_key_identifier)
-      )
+      schema::TableName{std::move(table_name)}, std::move(columns), std::move(primary_key)
    );
 }
 
 CreateTableCommand::CreateTableCommand(
    schema::TableName table_name,
-   std::shared_ptr<schema::TableSchema> table_schema
+   std::vector<ColumnDefinition> columns,
+   std::optional<std::string> primary_key
 )
     : table_name_(std::move(table_name)),
-      table_schema_(std::move(table_schema)) {}
+      columns_(std::move(columns)),
+      primary_key_(std::move(primary_key)) {}
 
 nlohmann::json CreateTableCommand::execute(
    Database& database,
-   const config::QueryOptions& /*query_options*/,
-   std::string_view /*request_id*/
+   const config::QueryOptions& query_options,
+   std::string_view request_id
 ) {
    const auto valid_table_name = Database::validateTableName(table_name_.getName());
    CHECK_RHYDB_QUERY(valid_table_name.has_value(), "createTable(): {}", valid_table_name.error());
@@ -357,7 +445,26 @@ nlohmann::json CreateTableCommand::execute(
       "createTable(): a table named '{}' already exists",
       table_name_.getName()
    );
-   database.createTable(table_name_, table_schema_);
+   checkPrimaryKey(columns_, primary_key_);
+
+   const auto& reference_genomes =
+      *database.tables.at(schema::TableName{std::string{schema::REFERENCE_GENOMES_TABLE_NAME}});
+   std::map<schema::ColumnIdentifier, std::shared_ptr<storage::column::ColumnMetadata>>
+      column_metadata;
+   for (auto& column : columns_) {
+      column_metadata.emplace(
+         schema::ColumnIdentifier{.name = column.name, .type = column.type},
+         createColumnMetadata(column, reference_genomes, database, query_options, request_id)
+      );
+   }
+
+   auto primary_key = primary_key_.transform([](const std::string& name) {
+      return schema::ColumnIdentifier{.name = name, .type = ColumnType::STRING};
+   });
+   database.createTable(
+      table_name_,
+      std::make_shared<schema::TableSchema>(std::move(column_metadata), std::move(primary_key))
+   );
    database.updateDataVersion();
 
    return {{"createdTable", table_name_.getName()}};

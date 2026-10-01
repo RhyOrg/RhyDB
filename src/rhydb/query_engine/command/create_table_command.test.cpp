@@ -73,7 +73,9 @@ createTable(covid, {
    main := nucleotideSequence(reference := main),
    segment := nucleotideSequence(reference := other),
    "S" := aminoAcidSequence(reference := "S"),
-   unaligned_main := unalignedNucleotideSequence(reference := main)
+   unaligned_main := zstdCompressedString(
+      dictionary := reference_genomes.filter(name = 'main' && type = 'nucleotide').project({sequence})
+   )
 }, primaryKey := key)
 )";
 
@@ -213,8 +215,12 @@ TEST(CreateTableCommand, rejectsInvalidColumnDefinitions) {
       "aminoAcidSequence() requires argument 'reference'"
    );
    expectCreateTableError(
-      "createTable(t, {unaligned_main := unalignedNucleotideSequence})",
-      "unalignedNucleotideSequence() requires argument 'reference'"
+      "createTable(t, {unaligned_main := zstdCompressedString})",
+      "zstdCompressedString() requires argument 'dictionary'"
+   );
+   expectCreateTableError(
+      "createTable(t, {a := unalignedNucleotideSequence(reference := main)})",
+      "unknown type 'unalignedNucleotideSequence' of column 'a'"
    );
    expectCreateTableError("createTable(t, {a := int(generateIndex := true)})", "int()");
    expectCreateTableError("createTable(t, {a := string(indexed := true)})", "indexed");
@@ -246,12 +252,50 @@ TEST(CreateTableCommand, rejectsMissingOrInvalidReference) {
       "column 'a' requires a reference named 'main' of type 'amino_acid'"
    );
    expectCreateTableError(
-      "createTable(t, {x := unalignedNucleotideSequence(reference := S)})",
-      "column 'x' requires a reference named 'S' of type 'nucleotide'"
-   );
-   expectCreateTableError(
       "createTable(t, {a := nucleotideSequence(reference := broken)})",
       "the reference 'broken' of column 'a' contains the illegal nucleotide symbol '?'"
+   );
+}
+
+TEST(CreateTableCommand, zstdCompressedStringTakesDictionaryFromAnyQuery) {
+   auto database = makeDatabaseWithReferenceGenomes();
+   std::ignore = executeWrite(
+      database,
+      "createTable(t, {a := zstdCompressedString(dictionary := "
+      "reference_genomes.filter(name = 'S').project({sequence}))})"
+   );
+
+   auto metadata =
+      database.tables.at(TableName{"t"})
+         ->schema->getColumnMetadata<rhydb::storage::column::ZstdCompressedStringColumn>("a");
+   ASSERT_TRUE(metadata.has_value());
+   EXPECT_EQ(metadata.value()->dictionary_string, "MYK*");
+}
+
+TEST(CreateTableCommand, rejectsInvalidDictionary) {
+   expectCreateTableError(
+      "createTable(t, {a := zstdCompressedString(dictionary := main)})",
+      "'main' not found in database"
+   );
+   expectCreateTableError(
+      "createTable(t, {a := zstdCompressedString(dictionary := "
+      "reference_genomes.filter(name = 'main'))})",
+      "the dictionary of column 'a' must be a query with exactly one column of type `string`"
+   );
+   expectCreateTableError(
+      "createTable(t, {a := zstdCompressedString(dictionary := "
+      "reference_genomes.map({n := 1}).project({n}))})",
+      "but it has the columns [n: INT64]"
+   );
+   expectCreateTableError(
+      "createTable(t, {a := zstdCompressedString(dictionary := "
+      "reference_genomes.filter(name = 'unknown').project({sequence}))})",
+      "the dictionary query of column 'a' must produce exactly one row, but produced 0"
+   );
+   expectCreateTableError(
+      "createTable(t, {a := zstdCompressedString(dictionary := "
+      "reference_genomes.filter(type = 'nucleotide').project({sequence}))})",
+      "the dictionary query of column 'a' must produce exactly one row, but produced 3"
    );
 }
 
