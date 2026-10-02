@@ -11,7 +11,7 @@
 
 namespace rhydb::storage {
 
-class ColumnGroupBuilder;
+class TableChunkBuilder;
 
 class Table {
   public:
@@ -62,7 +62,7 @@ class Table {
 
    /// Apply a finalized ingestion chunk (one buffer per column) to the columns'
    /// global structures. Consumes (clears) the builder's buffers.
-   std::expected<void, std::string> bulkInsert(ColumnGroupBuilder& block);
+   std::expected<void, std::string> bulkInsert(TableChunkBuilder& block);
 
    void finalize();
 

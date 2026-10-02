@@ -1,4 +1,4 @@
-#include "rhydb/storage/column_group_builder.h"
+#include "rhydb/storage/table_chunk_builder.h"
 
 #include <string>
 #include <type_traits>
@@ -18,61 +18,61 @@
 namespace rhydb::storage {
 
 template <>
-std::map<std::string, column::DictionaryEncodedColumn::Builder>& ColumnGroupBuilder::
+std::map<std::string, column::DictionaryEncodedColumn::Builder>& TableChunkBuilder::
    getColumnBuilders<column::DictionaryEncodedColumn>() {
    return dictionary_encoded_column_builders;
 }
 
 template <>
-std::map<std::string, column::StringColumn::Builder>& ColumnGroupBuilder::getColumnBuilders<
+std::map<std::string, column::StringColumn::Builder>& TableChunkBuilder::getColumnBuilders<
    column::StringColumn>() {
    return string_column_builders;
 }
 
 template <>
-std::map<std::string, column::Int32Column::Builder>& ColumnGroupBuilder::getColumnBuilders<
+std::map<std::string, column::Int32Column::Builder>& TableChunkBuilder::getColumnBuilders<
    column::Int32Column>() {
    return int32_column_builders;
 }
 
 template <>
-std::map<std::string, column::Int64Column::Builder>& ColumnGroupBuilder::getColumnBuilders<
+std::map<std::string, column::Int64Column::Builder>& TableChunkBuilder::getColumnBuilders<
    column::Int64Column>() {
    return int64_column_builders;
 }
 
 template <>
-std::map<std::string, column::BoolColumn::Builder>& ColumnGroupBuilder::getColumnBuilders<
+std::map<std::string, column::BoolColumn::Builder>& TableChunkBuilder::getColumnBuilders<
    column::BoolColumn>() {
    return bool_column_builders;
 }
 
 template <>
-std::map<std::string, column::FloatColumn::Builder>& ColumnGroupBuilder::getColumnBuilders<
+std::map<std::string, column::FloatColumn::Builder>& TableChunkBuilder::getColumnBuilders<
    column::FloatColumn>() {
    return float_column_builders;
 }
 
 template <>
-std::map<std::string, column::Date32Column::Builder>& ColumnGroupBuilder::getColumnBuilders<
+std::map<std::string, column::Date32Column::Builder>& TableChunkBuilder::getColumnBuilders<
    column::Date32Column>() {
    return date32_column_builders;
 }
 
 template <>
-std::map<std::string, column::SequenceColumn<Nucleotide>::Builder>& ColumnGroupBuilder::
+std::map<std::string, column::SequenceColumn<Nucleotide>::Builder>& TableChunkBuilder::
    getColumnBuilders<column::SequenceColumn<Nucleotide>>() {
    return nuc_column_builders;
 }
 
 template <>
-std::map<std::string, column::SequenceColumn<AminoAcid>::Builder>& ColumnGroupBuilder::
+std::map<std::string, column::SequenceColumn<AminoAcid>::Builder>& TableChunkBuilder::
    getColumnBuilders<column::SequenceColumn<AminoAcid>>() {
    return aa_column_builders;
 }
 
 template <>
-std::map<std::string, column::ZstdCompressedStringColumn::Builder>& ColumnGroupBuilder::
+std::map<std::string, column::ZstdCompressedStringColumn::Builder>& TableChunkBuilder::
    getColumnBuilders<column::ZstdCompressedStringColumn>() {
    return zstd_compressed_string_column_builders;
 }
@@ -150,7 +150,7 @@ std::expected<InputSequence, std::string> getSequenceFromJsonLine(
 
 template <typename SymbolType>
 std::expected<void, std::string> insertToSequenceBuilder(
-   ColumnGroupBuilder& builders,
+   TableChunkBuilder& builders,
    const schema::ColumnIdentifier& column,
    simdjson::ondemand::value& value
 ) {
@@ -203,7 +203,7 @@ class ColumnValueExtractor {
   public:
    template <column::Column ColumnType>
    std::expected<void, std::string> operator()(
-      ColumnGroupBuilder& builders,
+      TableChunkBuilder& builders,
       const schema::ColumnIdentifier& column,
       simdjson::ondemand::value& value
    ) {
@@ -230,7 +230,7 @@ class ColumnValueExtractor {
 
 template <>
 std::expected<void, std::string> ColumnValueExtractor::operator()<column::Date32Column>(
-   ColumnGroupBuilder& builders,
+   TableChunkBuilder& builders,
    const schema::ColumnIdentifier& column,
    simdjson::ondemand::value& value
 ) {
@@ -259,7 +259,7 @@ std::expected<void, std::string> ColumnValueExtractor::operator()<column::Date32
 template <>
 std::expected<void, std::string> ColumnValueExtractor::operator(
 )<column::SequenceColumn<AminoAcid>>(
-   ColumnGroupBuilder& builders,
+   TableChunkBuilder& builders,
    const schema::ColumnIdentifier& column,
    simdjson::ondemand::value& value
 ) {
@@ -269,7 +269,7 @@ std::expected<void, std::string> ColumnValueExtractor::operator(
 template <>
 std::expected<void, std::string> ColumnValueExtractor::operator(
 )<column::SequenceColumn<Nucleotide>>(
-   ColumnGroupBuilder& builders,
+   TableChunkBuilder& builders,
    const schema::ColumnIdentifier& column,
    simdjson::ondemand::value& value
 ) {
@@ -278,7 +278,7 @@ std::expected<void, std::string> ColumnValueExtractor::operator(
 
 }  // namespace
 
-ColumnGroupBuilder::ColumnGroupBuilder(
+TableChunkBuilder::TableChunkBuilder(
    const schema::TableSchema& schema,
    const ColumnGroup& columns
 ) {
@@ -319,25 +319,25 @@ namespace {
 class NumValuesVisitor {
   public:
    template <column::Column ColumnType>
-   size_t operator()(ColumnGroupBuilder& builders, const std::string& name) {
+   size_t operator()(TableChunkBuilder& builders, const std::string& name) {
       return builders.getColumnBuilders<ColumnType>().at(name).numValues();
    }
 };
 }  // namespace
 
-size_t ColumnGroupBuilder::numBufferedRows() const {
+size_t TableChunkBuilder::numBufferedRows() const {
    if (metadata.empty()) {
       return 0;
    }
    const auto& [name, type] = metadata.front();
-   return column::visit(type, NumValuesVisitor{}, const_cast<ColumnGroupBuilder&>(*this), name);
+   return column::visit(type, NumValuesVisitor{}, const_cast<TableChunkBuilder&>(*this), name);
 }
 
-std::expected<void, std::string> ColumnGroupBuilder::addJsonValueToColumn(
+std::expected<void, std::string> TableChunkBuilder::addJsonValueToColumn(
    const schema::ColumnIdentifier& column,
    simdjson::ondemand::value& value
 ) {
-   EVOBENCH_SCOPE_EVERY(1000, "ColumnGroupBuilder", "addJsonValueToColumn");
+   EVOBENCH_SCOPE_EVERY(1000, "TableChunkBuilder", "addJsonValueToColumn");
    auto success = column::visit(column.type, ColumnValueExtractor{}, *this, column, value);
    if (!success.has_value()) {
       return std::unexpected(
@@ -352,8 +352,8 @@ class MoveRowVisitor {
   public:
    template <column::Column ColumnType>
    void operator()(
-      ColumnGroupBuilder& source,
-      ColumnGroupBuilder& destination,
+      TableChunkBuilder& source,
+      TableChunkBuilder& destination,
       const std::string& name,
       size_t index
    ) {
@@ -366,26 +366,26 @@ class MoveRowVisitor {
 class ClearVisitor {
   public:
    template <column::Column ColumnType>
-   void operator()(ColumnGroupBuilder& builders, const std::string& name) {
+   void operator()(TableChunkBuilder& builders, const std::string& name) {
       // finalize() moves the buffer out and clears it; discarding the result drops the rows.
       static_cast<void>(builders.getColumnBuilders<ColumnType>().at(name).finalize());
    }
 };
 }  // namespace
 
-void ColumnGroupBuilder::moveRowTo(size_t index, ColumnGroupBuilder& destination) {
+void TableChunkBuilder::moveRowTo(size_t index, TableChunkBuilder& destination) {
    for (const auto& column : metadata) {
       column::visit(column.type, MoveRowVisitor{}, *this, destination, column.name, index);
    }
 }
 
-void ColumnGroupBuilder::clear() {
+void TableChunkBuilder::clear() {
    for (const auto& column : metadata) {
       column::visit(column.type, ClearVisitor{}, *this, column.name);
    }
 }
 
-std::optional<std::pair<uint32_t, uint32_t>> ColumnGroupBuilder::coverageRangeAt(
+std::optional<std::pair<uint32_t, uint32_t>> TableChunkBuilder::coverageRangeAt(
    const schema::ColumnIdentifier& sequence_column,
    size_t index
 ) const {
