@@ -7,10 +7,23 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import test from "node:test";
+import { describe, test } from "node:test";
 
-import createRhydbModule from "../dist/rhydb_wasm.js";
-import { type MainModule } from "../dist/rhydb_wasm.js";
+import createRhydbModule32 from "../dist/rhydb_wasm.js";
+import createRhydbModule64 from "../dist/wasm64/rhydb_wasm.js";
+
+type CreateModule32 = typeof createRhydbModule32;
+type MainModule32 = Awaited<ReturnType<CreateModule32>>;
+
+type CreateModule64 = typeof createRhydbModule64;
+type MainModule64 = Awaited<ReturnType<CreateModule64>>;
+
+type MainModule = MainModule32 | MainModule64;
+
+const variants: { label: string; create: CreateModule32 | CreateModule64 }[] = [
+    { label: "wasm32", create: createRhydbModule32 },
+    { label: "wasm64", create: createRhydbModule64 },
+];
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, "..", "..");
@@ -104,119 +117,123 @@ referenceGenomeFilename: "reference_genomes.json"
     module.FS.writeFile(`${inputDir}/preprocessing_config.yaml`, preprocessingConfig);
 }
 
-test("preprocess, query, save, and load a database end-to-end", async () => {
-    const module = await createRhydbModule();
+for (const variant of variants) {
+    describe(variant.label, () => {
+        const loadModule = (): Promise<MainModule> => variant.create();
 
-    writeFixture(module, "/input");
-    module.FS.chdir("/input");
+        test("preprocess, query, save, and load a database end-to-end", async () => {
+            const module = await loadModule();
 
-    const handle = module.preprocess("preprocessing_config.yaml");
-    assert.notEqual(handle, undefined);
+            writeFixture(module, "/input");
+            module.FS.chdir("/input");
 
-    const info = JSON.parse(module.info(handle));
-    assert.equal(info.sequenceCount, EXPECTED_SEQUENCE_COUNT);
+            const handle = module.preprocess("preprocessing_config.yaml");
+            assert.notEqual(handle, undefined);
 
-    const ndjson = module.query(handle, "default.groupBy({count:=count()})");
-    const rows = ndjson
-        .trim()
-        .split("\n")
-        .filter((line) => line.length > 0)
-        .map((line) => JSON.parse(line));
-    assert.equal(rows.length, 1);
-    assert.equal(rows[0].count, EXPECTED_SEQUENCE_COUNT);
+            const info = JSON.parse(module.info(handle));
+            assert.equal(info.sequenceCount, EXPECTED_SEQUENCE_COUNT);
 
-    mkdirp(module, "/output");
-    module.save(handle, "/output");
-    // save() creates a versioned data directory under /output (e.g. /output/<version>/),
-    // matching the native on-disk layout that load() also expects.
-    const savedEntries = readDirectoryEntries(module, "/output");
-    assert.ok(savedEntries.length > 0, "save() should create a versioned state directory");
+            const ndjson = module.query(handle, "default.groupBy({count:=count()})");
+            const rows = ndjson
+                .trim()
+                .split("\n")
+                .filter((line) => line.length > 0)
+                .map((line) => JSON.parse(line));
+            assert.equal(rows.length, 1);
+            assert.equal(rows[0].count, EXPECTED_SEQUENCE_COUNT);
 
-    const loadedHandle = module.load("/output");
-    const loadedInfo = JSON.parse(module.info(loadedHandle));
-    assert.equal(loadedInfo.sequenceCount, EXPECTED_SEQUENCE_COUNT);
+            mkdirp(module, "/output");
+            module.save(handle, "/output");
+            // save() creates a versioned data directory under /output (e.g. /output/<version>/),
+            // matching the native on-disk layout that load() also expects.
+            const savedEntries = readDirectoryEntries(module, "/output");
+            assert.ok(savedEntries.length > 0, "save() should create a versioned state directory");
 
-    module.dispose(handle);
-    module.dispose(loadedHandle);
-});
+            const loadedHandle = module.load("/output");
+            const loadedInfo = JSON.parse(module.info(loadedHandle));
+            assert.equal(loadedInfo.sequenceCount, EXPECTED_SEQUENCE_COUNT);
 
-test("save/query/info reject an unknown database handle", async () => {
-    const module = await createRhydbModule();
+            module.dispose(handle);
+            module.dispose(loadedHandle);
+        });
 
-    const unknownHandle = 999999;
-    for (const call of [
-        () => module.save(unknownHandle, "/unused"),
-        () => module.query(unknownHandle, "default.groupBy({count:=count()})"),
-        () => module.info(unknownHandle),
-    ]) {
-        const message = expectThrows(module, call, "call with unknown handle");
-        assert.match(message, /Unknown RhyDB database handle/);
-    }
-});
+        test("save/query/info reject an unknown database handle", async () => {
+            const module = await loadModule();
 
-test("load rejects a directory without a compatible RhyDB state", async () => {
-    const module = await createRhydbModule();
+            const unknownHandle = 999999;
+            for (const call of [
+                () => module.save(unknownHandle, "/unused"),
+                () => module.query(unknownHandle, "default.groupBy({count:=count()})"),
+                () => module.info(unknownHandle),
+            ]) {
+                const message = expectThrows(module, call, "call with unknown handle");
+                assert.match(message, /Unknown RhyDB database handle/);
+            }
+        });
 
-    mkdirp(module, "/empty-state");
-    const message = expectThrows(
-        module,
-        () => module.load("/empty-state"),
-        "load of an empty directory"
-    );
-    assert.match(message, /No compatible RhyDB state/);
-});
+        test("load rejects a directory without a compatible RhyDB state", async () => {
+            const module = await loadModule();
 
-test("dispose invalidates the handle and is idempotent", async () => {
-    const module = await createRhydbModule();
+            mkdirp(module, "/empty-state");
+            const message = expectThrows(
+                module,
+                () => module.load("/empty-state"),
+                "load of an empty directory"
+            );
+            assert.match(message, /No compatible RhyDB state/);
+        });
 
-    writeFixture(module, "/dispose-input");
-    module.FS.chdir("/dispose-input");
-    const handle = module.preprocess("preprocessing_config.yaml");
+        test("dispose invalidates the handle and is idempotent", async () => {
+            const module = await loadModule();
 
-    // The handle works before disposal.
-    assert.equal(JSON.parse(module.info(handle)).sequenceCount, EXPECTED_SEQUENCE_COUNT);
+            writeFixture(module, "/dispose-input");
+            module.FS.chdir("/dispose-input");
+            const handle = module.preprocess("preprocessing_config.yaml");
 
-    module.dispose(handle);
+            // The handle works before disposal.
+            assert.equal(JSON.parse(module.info(handle)).sequenceCount, EXPECTED_SEQUENCE_COUNT);
 
-    // After disposal the handle is unknown.
-    const message = expectThrows(
-        module,
-        () => module.info(handle),
-        "info on a disposed handle"
-    );
-    assert.match(message, /Unknown RhyDB database handle/);
+            module.dispose(handle);
 
-    // Disposing an already-disposed (or never-known) handle is a no-op.
-    assert.doesNotThrow(() => module.dispose(handle));
-    assert.doesNotThrow(() => module.dispose(123456));
-});
+            // After disposal the handle is unknown.
+            const message = expectThrows(
+                module,
+                () => module.info(handle),
+                "info on a disposed handle"
+            );
+            assert.match(message, /Unknown RhyDB database handle/);
 
-test("preprocess reads a .zst-compressed NDJSON input", async () => {
-    const module = await createRhydbModule();
+            // Disposing an already-disposed (or never-known) handle is a no-op.
+            assert.doesNotThrow(() => module.dispose(handle));
+            assert.doesNotThrow(() => module.dispose(123456));
+        });
 
-    const inputDir = "/zst-input";
-    mkdirp(module, inputDir);
-    for (const filename of [
-        "database_config.yaml",
-        "reference_genomes.json",
-        "test_lineage_definition.yaml",
-        "phylogenetic_tree.nwk",
-    ]) {
-        module.FS.writeFile(
-            `${inputDir}/${filename}`,
-            readFileSync(join(fixtureDir, filename), "utf8")
-        );
-    }
+        test("preprocess reads a .zst-compressed NDJSON input", async () => {
+            const module = await loadModule();
 
-    // Provide the NDJSON input in zstd-compressed form only. The WASM build
-    // detects the `.zst` ending and decompresses it (the `.xz` path is not
-    // compiled into the browser target).
-    module.FS.writeFile(
-        `${inputDir}/input.ndjson.zst`,
-        zstdCompress(readFileSync(join(fixtureDir, "input.ndjson")))
-    );
+            const inputDir = "/zst-input";
+            mkdirp(module, inputDir);
+            for (const filename of [
+                "database_config.yaml",
+                "reference_genomes.json",
+                "test_lineage_definition.yaml",
+                "phylogenetic_tree.nwk",
+            ]) {
+                module.FS.writeFile(
+                    `${inputDir}/${filename}`,
+                    readFileSync(join(fixtureDir, filename), "utf8")
+                );
+            }
 
-    const preprocessingConfig = `
+            // Provide the NDJSON input in zstd-compressed form only. The WASM build
+            // detects the `.zst` ending and decompresses it (the `.xz` path is not
+            // compiled into the browser target).
+            module.FS.writeFile(
+                `${inputDir}/input.ndjson.zst`,
+                zstdCompress(readFileSync(join(fixtureDir, "input.ndjson")))
+            );
+
+            const preprocessingConfig = `
 inputDirectory: "."
 outputDirectory: "./output/"
 ndjsonInputFilename: "input.ndjson.zst"
@@ -225,11 +242,13 @@ lineageDefinitionFilenames:
 phyloTreeFilename: "phylogenetic_tree.nwk"
 referenceGenomeFilename: "reference_genomes.json"
 `;
-    module.FS.writeFile(`${inputDir}/preprocessing_config.yaml`, preprocessingConfig);
+            module.FS.writeFile(`${inputDir}/preprocessing_config.yaml`, preprocessingConfig);
 
-    module.FS.chdir(inputDir);
-    const handle = module.preprocess("preprocessing_config.yaml");
-    assert.equal(JSON.parse(module.info(handle)).sequenceCount, EXPECTED_SEQUENCE_COUNT);
+            module.FS.chdir(inputDir);
+            const handle = module.preprocess("preprocessing_config.yaml");
+            assert.equal(JSON.parse(module.info(handle)).sequenceCount, EXPECTED_SEQUENCE_COUNT);
 
-    module.dispose(handle);
-});
+            module.dispose(handle);
+        });
+    });
+}

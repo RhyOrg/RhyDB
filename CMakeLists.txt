@@ -91,6 +91,14 @@ target_compile_definitions(rhydblib_deps INTERFACE
 if(EMSCRIPTEN)
     target_compile_definitions(rhydblib_deps INTERFACE NO_EVOBENCH)
     target_compile_options(rhydblib_deps INTERFACE -fexceptions -pthread)
+    # 64-bit WebAssembly (wasm64). When enabled, rhydblib objects must be compiled
+    # with --target=wasm64 so their pointer size (8 bytes) matches the Emscripten
+    # dependencies and the final rhydb_wasm link. See wasm/CMakeLists.txt for the
+    # matching link option. Driven by the Makefile's wasm64 target.
+    option(RHYDB_WASM_MEMORY64 "Build the WebAssembly target with 64-bit linear memory (wasm64)" OFF)
+    if(RHYDB_WASM_MEMORY64)
+        target_compile_options(rhydblib_deps INTERFACE --target=wasm64)
+    endif()
 endif()
 
 file(GLOB_RECURSE RHYDBLIB_SOURCES CONFIGURE_DEPENDS "src/*.cpp")

@@ -4,6 +4,16 @@ set -euo pipefail
 
 ./buildScripts/ensure-uv
 
+# WASM_ARCH selects the WebAssembly variant: "wasm" (32-bit, default) or
+# "wasm64" (64-bit / MEMORY64). Each variant has its own dependency tree so the
+# two can coexist (build/wasm vs build/wasm64).
+WASM_ARCH="${WASM_ARCH:-wasm}"
+case "${WASM_ARCH}" in
+  wasm) BUILD_DIR="build/wasm" ;;
+  wasm64) BUILD_DIR="build/wasm64" ;;
+  *) echo "Unsupported WASM_ARCH='${WASM_ARCH}' (expected 'wasm' or 'wasm64')" >&2; exit 1 ;;
+esac
+
 # TODO(#986) remove setting 'arrow/*:compiler.cppstd=20' when arrow compilation for C++23 is fixed
 uv run --project buildScripts conan install . --update \
   -o '&:wasm=True' \
@@ -21,7 +31,7 @@ uv run --project buildScripts conan install . --update \
   '--build=yaml-cpp/*' \
   '--build=zlib/*' \
   '--build=zstd/*' \
-  --profile:host build/wasm/conanprofile-emscripten \
+  --profile:host "${BUILD_DIR}/conanprofile-emscripten" \
   --profile:build ./conanprofile \
   --settings 'arrow/*:compiler.cppstd=20' \
-  --output-folder=build/wasm/generators
+  --output-folder="${BUILD_DIR}/generators"

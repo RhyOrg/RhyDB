@@ -2,7 +2,27 @@
 
 set -euo pipefail
 
-mkdir -p build/wasm
+# WASM_ARCH selects the WebAssembly variant: "wasm" (32-bit, default) or
+# "wasm64" (64-bit / MEMORY64). The 64-bit variant addresses >4 GB of linear
+# memory in the browser at the cost of larger/slower code, so it is a separate
+# build tree (build/wasm64) that coexists with the 32-bit one (build/wasm).
+WASM_ARCH="${WASM_ARCH:-wasm}"
+case "${WASM_ARCH}" in
+  wasm) BUILD_DIR="build/wasm" ;;
+  wasm64) BUILD_DIR="build/wasm64" ;;
+  *) echo "Unsupported WASM_ARCH='${WASM_ARCH}' (expected 'wasm' or 'wasm64')" >&2; exit 1 ;;
+esac
+
+mkdir -p "${BUILD_DIR}"
+
+# For wasm64, the flag must reach the compile step: Emscripten's CMake toolchain
+# scans the compiler flags for "--target=wasm64" and only then sets
+# CMAKE_SIZEOF_VOID_P=8, so dependency configure steps detect 64-bit pointers.
+# Link-only placement would leave dependencies mis-detected as 32-bit.
+EXTRA_FLAGS='"-pthread"'
+if [ "${WASM_ARCH}" = "wasm64" ]; then
+   EXTRA_FLAGS='"-pthread", "--target=wasm64"'
+fi
 
 # The Emscripten CMake toolchain file teaches CMake about the Emscripten
 # platform (e.g. byte order, type sizes). Without it, dependency builds that
@@ -16,10 +36,10 @@ if [ ! -f "${EMSCRIPTEN_TOOLCHAIN}" ]; then
    exit 1
 fi
 
-cat > build/wasm/conanprofile-emscripten <<PROFILE
+cat > "${BUILD_DIR}/conanprofile-emscripten" <<PROFILE
 [settings]
 os=Emscripten
-arch=wasm
+arch=${WASM_ARCH}
 compiler=emcc
 compiler.version=$(emcc -dumpversion)
 compiler.libcxx=libc++
@@ -28,10 +48,10 @@ build_type=Release
 
 [conf]
 tools.build:compiler_executables={"c":"emcc","cpp":"em++"}
-tools.build:cflags=["-pthread"]
-tools.build:cxxflags=["-pthread"]
-tools.build:exelinkflags=["-pthread"]
-tools.build:sharedlinkflags=["-pthread"]
+tools.build:cflags=[${EXTRA_FLAGS}]
+tools.build:cxxflags=[${EXTRA_FLAGS}]
+tools.build:exelinkflags=[${EXTRA_FLAGS}]
+tools.build:sharedlinkflags=[${EXTRA_FLAGS}]
 tools.cmake.cmaketoolchain:generator=Ninja
 tools.cmake.cmaketoolchain:user_toolchain=["${EMSCRIPTEN_TOOLCHAIN}"]
 PROFILE

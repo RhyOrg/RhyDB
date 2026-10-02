@@ -12,7 +12,13 @@
       "import": "./dist/rhydb_wasm.js",
       "default": "./dist/rhydb_wasm.js"
     },
+    "./wasm64": {
+      "types": "./dist/wasm64/rhydb_wasm.d.ts",
+      "import": "./dist/wasm64/rhydb_wasm.js",
+      "default": "./dist/wasm64/rhydb_wasm.js"
+    },
     "./rhydb_wasm.wasm": "./dist/rhydb_wasm.wasm",
+    "./wasm64/rhydb_wasm.wasm": "./dist/wasm64/rhydb_wasm.wasm",
     "./package.json": "./package.json"
   },
   "files": [

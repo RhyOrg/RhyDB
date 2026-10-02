@@ -59,26 +59,29 @@ RhyDB can be compiled to WebAssembly to run preprocessing and SaneQL queries in 
 - The Emscripten SDK, activated so that `emcc`, `em++`, and `emcmake` are on your `PATH`.
   Install it: https://emscripten.org/docs/getting_started/downloads.html
 - cmake, ninja, and uv (same as the native build).
+- Node 24+ to run `make wasm-test` (the 64-bit variant needs a memory64-capable runtime).
 
 ### Build
 
 From the repository root:
 
 ```shell
-make wasm
+make wasm     # 32-bit build (memory capped at 2 GiB)
+make wasm64   # 64-bit (wasm64) build, for datasets larger than the 32-bit 2 GiB memory limit
 ```
 
 ### Test
 
 `wasm/test` contains a Node.js smoke test that runs the built module end-to-end (preprocess,
-query, save, load) against the `testBaseData/unitTestDummyDataset` fixture:
+query, save, load) against the `testBaseData/unitTestDummyDataset` fixture. It runs against both
+the 32-bit and 64-bit builds, so it builds both and requires Node 24+ (for the 64-bit variant):
 
 ```shell
 make wasm-test
 ```
 
-See [`wasm/README.md`](../../wasm/README.md) for the exposed API, the example app, and the
-cross-origin isolation headers required to serve the pthread-enabled build.
+See [`wasm/README.md`](../../wasm/README.md) for the exposed API, the two published variants, the
+example app, and the cross-origin isolation headers required to serve the pthread-enabled build.
 
 ## Building Python Bindings
 

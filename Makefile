@@ -8,11 +8,13 @@ RHYDB_RELEASE_EXECUTABLE=./build/Release/rhydb
 RHYDB_RELEASE_TEST_EXECUTABLE=./build/Release/rhydb_test
 RHYDB_RELEASE_APP_TEST_EXECUTABLE=./build/Release/rhydb_app_test
 RHYDB_WASM_EXECUTABLE=./build/wasm/rhydb_wasm.js
+RHYDB_WASM64_EXECUTABLE=./build/wasm64/rhydb_wasm.js
 RHYDB_WASM_DIST_DIR=wasm/dist
 RHYDB_BENCHMARK_EXECUTABLE=./build/Release/performance/rhydb_benchmark
 RUNNING_RHYDB_FLAG=running_rhydb.flag
 DEPENDENCIES_FLAG=dependencies
 WASM_DEPENDENCIES_FLAG=build/wasm/dependencies
+WASM64_DEPENDENCIES_FLAG=build/wasm64/dependencies
 CLANG_FORMAT=$(shell command -v clang-format-19 2>/dev/null || command -v clang-format 2>/dev/null || echo clang-format)
 CMAKE_BUILD_PARALLEL_LEVEL ?= 16
 # Route cmake through `env` so recipe lines survive an emsdk-activated PATH.
@@ -41,6 +43,17 @@ ${WASM_DEPENDENCIES_FLAG}: conanfile.py conanprofile build/wasm/conanprofile-ems
 	buildScripts/install-wasm-dependencies
 	touch ${WASM_DEPENDENCIES_FLAG}
 
+build/wasm64/conanprofile-emscripten:
+	WASM_ARCH=wasm64 buildScripts/create-wasm-conanprofile
+
+# The wasm and wasm64 Conan installs write to the same shared cache (~/.conan2).
+# Running them concurrently (e.g. `make -j wasm-test`) can corrupt it, so the
+# wasm64 install is ordered after the wasm one via an order-only prerequisite
+# (|).
+${WASM64_DEPENDENCIES_FLAG}: conanfile.py conanprofile build/wasm64/conanprofile-emscripten | ${WASM_DEPENDENCIES_FLAG}
+	WASM_ARCH=wasm64 buildScripts/install-wasm-dependencies
+	touch ${WASM64_DEPENDENCIES_FLAG}
+
 SRC_FILE_LIST=.src_file_list
 $(SRC_FILE_LIST): FORCE
 	@find src app/src wasm/src -type f | sort > $@.tmp
@@ -55,6 +68,15 @@ build/Release/build.ninja: ${DEPENDENCIES_FLAG} $(SRC_FILE_LIST)
 
 build/wasm/build.ninja: ${WASM_DEPENDENCIES_FLAG} $(SRC_FILE_LIST) CMakeLists.txt wasm/CMakeLists.txt
 	emcmake cmake -G Ninja -S . -B build/wasm -D CMAKE_BUILD_TYPE=Release -D BUILD_UNIT_TESTS=OFF
+
+# --target=wasm64 must be in the initial C/C++ flags (not only in target compile
+# options) so it is present while CMake configures: Emscripten's toolchain reads
+# CMAKE_C_FLAGS to set CMAKE_SIZEOF_VOID_P=8 and the wasm64 library architecture.
+# Without it, configure-time checks and find_package would assume a 32-bit ABI
+# even though the actual compile/link is 64-bit. This mirrors the flag placement
+# in the wasm64 Conan profile (see buildScripts/create-wasm-conanprofile).
+build/wasm64/build.ninja: ${WASM64_DEPENDENCIES_FLAG} $(SRC_FILE_LIST) CMakeLists.txt wasm/CMakeLists.txt
+	emcmake cmake -G Ninja -S . -B build/wasm64 -D CMAKE_BUILD_TYPE=Release -D BUILD_UNIT_TESTS=OFF -D RHYDB_WASM_MEMORY64=ON -D CMAKE_C_FLAGS=--target=wasm64 -D CMAKE_CXX_FLAGS=--target=wasm64
 
 ${RHYDB_DEBUG_EXECUTABLE}: build/Debug/build.ninja $(shell find src app/src -type f)
 	$(CMAKE) --build build/Debug --parallel $(CMAKE_BUILD_PARALLEL_LEVEL) --target rhydb
@@ -91,13 +113,24 @@ ${RHYDB_WASM_EXECUTABLE}: build/wasm/build.ninja $(shell find src wasm/src -type
 	# repo-local TypeScript (devDependency) discoverable on PATH for the link step.
 	PATH="$(CURDIR)/node_modules/.bin:$$PATH" $(CMAKE) --build build/wasm --parallel $(CMAKE_BUILD_PARALLEL_LEVEL) --target rhydb_wasm
 
+${RHYDB_WASM64_EXECUTABLE}: build/wasm64/build.ninja $(shell find src wasm/src -type f)
+	# See the 32-bit rule above for why node_modules/.bin is put on PATH.
+	PATH="$(CURDIR)/node_modules/.bin:$$PATH" $(CMAKE) --build build/wasm64 --parallel $(CMAKE_BUILD_PARALLEL_LEVEL) --target rhydb_wasm
+
 .PHONY: wasm
 wasm: ${RHYDB_WASM_EXECUTABLE}
 	mkdir -p ${RHYDB_WASM_DIST_DIR}
 	cp build/wasm/rhydb_wasm.js build/wasm/rhydb_wasm.wasm build/wasm/rhydb_wasm.d.ts ${RHYDB_WASM_DIST_DIR}/
 
+# 64-bit (MEMORY64) variant. Requires a memory64-capable runtime (recent
+# Chrome/Firefox and Node 24+; Safari does not yet support it).
+.PHONY: wasm64
+wasm64: ${RHYDB_WASM64_EXECUTABLE}
+	mkdir -p ${RHYDB_WASM_DIST_DIR}/wasm64
+	cp build/wasm64/rhydb_wasm.js build/wasm64/rhydb_wasm.wasm build/wasm64/rhydb_wasm.d.ts ${RHYDB_WASM_DIST_DIR}/wasm64/
+
 .PHONY: wasm-test
-wasm-test: wasm
+wasm-test: wasm wasm64
 	node --test wasm/test/*.test.mts
 
 .PHONY: output
