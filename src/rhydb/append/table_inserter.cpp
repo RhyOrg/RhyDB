@@ -158,7 +158,7 @@ TableInserter::TableInserter(
       ),
       input_buffer{*this->table->schema, this->table->columns},
       null_buffer{
-         storage::ColumnGroupBuilder{*this->table->schema, this->table->columns},
+         storage::TableChunkBuilder{*this->table->schema, this->table->columns},
          std::nullopt
       } {
    if (driver_column.has_value()) {
@@ -170,7 +170,7 @@ TableInserter::TableInserter(
       output_buffers.reserve(num_buffers);
       for (size_t i = 0; i < num_buffers; ++i) {
          output_buffers.push_back(ClusterBuffer{
-            storage::ColumnGroupBuilder{*this->table->schema, this->table->columns}, std::nullopt
+            storage::TableChunkBuilder{*this->table->schema, this->table->columns}, std::nullopt
          });
       }
    }

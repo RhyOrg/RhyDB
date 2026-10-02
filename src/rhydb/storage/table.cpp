@@ -22,7 +22,7 @@
 #include "rhydb/roaring_util/roaring_serialize.h"
 #include "rhydb/schema/duplicate_primary_key_exception.h"
 #include "rhydb/storage/column/column_type_visitor.h"
-#include "rhydb/storage/column_group_builder.h"
+#include "rhydb/storage/table_chunk_builder.h"
 
 namespace rhydb::storage {
 
@@ -35,7 +35,7 @@ class BulkInsertVisitor {
    template <column::Column ColumnType>
    std::expected<void, std::string> operator()(
       ColumnGroup& columns,
-      ColumnGroupBuilder& block,
+      TableChunkBuilder& block,
       const std::string& name
    ) {
       return columns.getColumns<ColumnType>().at(name).appendChunk(
@@ -77,7 +77,7 @@ void Table::validate() const {
    validateMetadataColumns();
 }
 
-std::expected<void, std::string> Table::bulkInsert(ColumnGroupBuilder& block) {
+std::expected<void, std::string> Table::bulkInsert(TableChunkBuilder& block) {
    row_layout.appendChunk(static_cast<uint32_t>(block.numBufferedRows()));
    row_count += block.numBufferedRows();
    for (const auto& column : columns.metadata) {

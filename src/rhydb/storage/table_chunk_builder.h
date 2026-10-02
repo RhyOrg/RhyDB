@@ -29,7 +29,7 @@ class ColumnGroup;
 /// buffering the extracted value of each row into a per-column builder. The
 /// finalized chunks are handed to Table::bulkInsert, which applies them to the
 /// columns' global structures.
-class ColumnGroupBuilder {
+class TableChunkBuilder {
   public:
    std::vector<schema::ColumnIdentifier> metadata;
 
@@ -49,7 +49,7 @@ class ColumnGroupBuilder {
    /// The sequence column builders are seeded with each column's current
    /// (possibly adapted) local reference, so sequences buffered into a chunk are
    /// diffed against the same reference basis as the already-stored rows.
-   ColumnGroupBuilder(const schema::TableSchema& schema, const ColumnGroup& columns);
+   TableChunkBuilder(const schema::TableSchema& schema, const ColumnGroup& columns);
 
    /// Extract the value of one column for the current row from the json line and
    /// buffer it into the matching column builder.
@@ -61,7 +61,7 @@ class ColumnGroupBuilder {
    /// Move buffered row `index` (all columns) from this builder into `destination`, appending it
    /// there. Used by the repartitioning step to distribute a full input buffer across the
    /// per-cluster output buffers. The moved-from slots remain in this builder; call clear() after.
-   void moveRowTo(size_t index, ColumnGroupBuilder& destination);
+   void moveRowTo(size_t index, TableChunkBuilder& destination);
 
    /// Drop all buffered rows (resets the input buffer once its rows have been moved out).
    void clear();
@@ -82,34 +82,34 @@ class ColumnGroupBuilder {
 };
 
 template <>
-std::map<std::string, column::StringColumn::Builder>& ColumnGroupBuilder::getColumnBuilders<
+std::map<std::string, column::StringColumn::Builder>& TableChunkBuilder::getColumnBuilders<
    column::StringColumn>();
 template <>
-std::map<std::string, column::DictionaryEncodedColumn::Builder>& ColumnGroupBuilder::
+std::map<std::string, column::DictionaryEncodedColumn::Builder>& TableChunkBuilder::
    getColumnBuilders<column::DictionaryEncodedColumn>();
 template <>
-std::map<std::string, column::BoolColumn::Builder>& ColumnGroupBuilder::getColumnBuilders<
+std::map<std::string, column::BoolColumn::Builder>& TableChunkBuilder::getColumnBuilders<
    column::BoolColumn>();
 template <>
-std::map<std::string, column::Int32Column::Builder>& ColumnGroupBuilder::getColumnBuilders<
+std::map<std::string, column::Int32Column::Builder>& TableChunkBuilder::getColumnBuilders<
    column::Int32Column>();
 template <>
-std::map<std::string, column::Int64Column::Builder>& ColumnGroupBuilder::getColumnBuilders<
+std::map<std::string, column::Int64Column::Builder>& TableChunkBuilder::getColumnBuilders<
    column::Int64Column>();
 template <>
-std::map<std::string, column::FloatColumn::Builder>& ColumnGroupBuilder::getColumnBuilders<
+std::map<std::string, column::FloatColumn::Builder>& TableChunkBuilder::getColumnBuilders<
    column::FloatColumn>();
 template <>
-std::map<std::string, column::Date32Column::Builder>& ColumnGroupBuilder::getColumnBuilders<
+std::map<std::string, column::Date32Column::Builder>& TableChunkBuilder::getColumnBuilders<
    column::Date32Column>();
 template <>
-std::map<std::string, column::SequenceColumn<Nucleotide>::Builder>& ColumnGroupBuilder::
+std::map<std::string, column::SequenceColumn<Nucleotide>::Builder>& TableChunkBuilder::
    getColumnBuilders<column::SequenceColumn<Nucleotide>>();
 template <>
-std::map<std::string, column::SequenceColumn<AminoAcid>::Builder>& ColumnGroupBuilder::
+std::map<std::string, column::SequenceColumn<AminoAcid>::Builder>& TableChunkBuilder::
    getColumnBuilders<column::SequenceColumn<AminoAcid>>();
 template <>
-std::map<std::string, column::ZstdCompressedStringColumn::Builder>& ColumnGroupBuilder::
+std::map<std::string, column::ZstdCompressedStringColumn::Builder>& TableChunkBuilder::
    getColumnBuilders<column::ZstdCompressedStringColumn>();
 
 }  // namespace rhydb::storage
