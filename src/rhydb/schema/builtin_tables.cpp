@@ -12,7 +12,7 @@ std::shared_ptr<TableSchema> createReferenceGenomesTableSchema() {
    // No primary key: a nucleotide and an amino acid sequence may share a name, so only (name, type)
    // identifies a row.
    const ColumnIdentifier name_column{.name = "name", .type = ColumnType::STRING};
-   // Either "nucleotide" or "amino_acid".
+   // Either REFERENCE_GENOMES_NUCLEOTIDE_TYPE or REFERENCE_GENOMES_AMINO_ACID_TYPE.
    const ColumnIdentifier type_column{.name = "type", .type = ColumnType::STRING};
    const ColumnIdentifier sequence_column{.name = "sequence", .type = ColumnType::STRING};
    auto table_schema = std::make_shared<TableSchema>();
