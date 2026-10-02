@@ -381,10 +381,13 @@ void NdjsonInsertStream::insertAll(NdjsonLineReader& input_data) {
       }
 
       line_count++;
-      if (line_count % 10000 == 0) {
+      if (line_count % 1'000'000 == 0) {
          SPDLOG_INFO("Processed {} json objects from the input file", line_count);
+      } else if (line_count % 10'000 == 0) {
+         SPDLOG_DEBUG("Processed {} json objects from the input file", line_count);
       }
    }
+   SPDLOG_INFO("Processed {} json objects from the input file", line_count);
 }
 
 TableInserter::Commit appendDataToTable(

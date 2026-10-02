@@ -11,6 +11,7 @@
 
 #include "rhydb/query_engine/operators/aggregate_node.h"
 #include "rhydb/query_engine/operators/bitmap_aggregation_node.h"
+#include "rhydb/query_engine/operators/count_filter_node.h"
 #include "rhydb/query_engine/operators/map_node.h"
 #include "rhydb/query_engine/operators/table_scan_node.h"
 #include "rhydb/query_engine/scalar_expressions/at.h"
@@ -29,12 +30,9 @@ bool isSequenceColumn(const schema::ColumnIdentifier& column) {
           column.type == schema::ColumnType::AMINO_ACID_SEQUENCE;
 }
 
-/// The bare `count()` group-by (a single count aggregate, no source column, at least one grouping
-/// key) is the only shape this rewrite recognizes.
-bool isBareCountGroupBy(const operators::AggregateNode& node) {
-   if (node.group_by_fields.empty()) {
-      return false;
-   }
+/// The bare `count()` aggregate (a single count aggregate with no source column) is the only shape
+/// this rewrite recognizes.
+bool isBareCount(const operators::AggregateNode& node) {
    return node.aggregates.size() == 1 &&
           node.aggregates[0].function == operators::AggregateFunction::COUNT &&
           !node.aggregates[0].source_column.has_value();
@@ -275,7 +273,7 @@ bool isBitmapBacked(const operators::GroupingDimension& dimension) {
 operators::QueryNodePtr BitmapAggregationRewritePass::operator()(operators::AggregateNode& node) {
    propagateToNode(node.child);
 
-   if (!isBareCountGroupBy(node)) {
+   if (!isBareCount(node)) {
       return nullptr;
    }
 
@@ -284,6 +282,18 @@ operators::QueryNodePtr BitmapAggregationRewritePass::operator()(operators::Aggr
    auto source = groupBySource(*node.child);
    if (!source.has_value()) {
       return nullptr;
+   }
+
+   // A full `count(*)` with no grouping keys is the filter's cardinality: read it straight off the
+   // scan's filter bitmap. The map (if any) only decompresses columns nobody reads here and does
+   // not change the row count, so it is dropped. This is the fast path for `default.count()` /
+   // `default.groupBy({n := count()})`.
+   if (node.group_by_fields.empty()) {
+      return std::make_unique<operators::CountFilterNode>(
+         std::move(source->scan.table),
+         std::move(source->scan.filter),
+         node.aggregates[0].output_name
+      );
    }
 
    std::vector<operators::GroupingDimension> dimensions;

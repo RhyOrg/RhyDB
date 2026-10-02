@@ -490,7 +490,7 @@ arrow::Result<std::shared_ptr<arrow::Array>> evaluateExpressionForRows(
    ARROW_RETURN_NOT_OK(
       batch_builder.appendEntries(table, Bitmap::fromContainerViews({{chunk_id, chunk_rows}}))
    );
-   ARROW_ASSIGN_OR_RAISE(auto batch, batch_builder.finishBatch());
+   ARROW_ASSIGN_OR_RAISE(auto batch, batch_builder.finishBatch(row_count));
 
    ARROW_ASSIGN_OR_RAISE(
       auto datum, arrow::compute::ExecuteScalarExpression(bound_expression, batch, &exec_context)

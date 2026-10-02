@@ -9,6 +9,13 @@ namespace rhydb::query_engine {
 
 class Planner {
   public:
+   /// Runs all optimization passes on the query tree and returns the optimized root. Exposed
+   /// separately from planQuery so tests can assert on the optimized tree without executing it.
+   static operators::QueryNodePtr optimize(
+      operators::QueryNodePtr node,
+      std::string_view request_id
+   );
+
    static QueryPlan planQuery(
       operators::QueryNodePtr node,
       const std::map<schema::TableName, std::shared_ptr<storage::Table>>& tables,

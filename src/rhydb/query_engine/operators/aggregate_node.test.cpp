@@ -57,7 +57,8 @@ schema:
 const QueryTestData TEST_DATA{
    .ndjson_input_data = DATA,
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = ReferenceGenomes{{}, {}},
+   .reference_genomes = ReferenceGenomes{
+      {{"main", "ATCG"}}, {}},
 };
 
 const QueryTestScenario SUM_WITHOUT_GROUPS = {
@@ -163,6 +164,15 @@ const QueryTestScenario SUM_OF_UNKNOWN_COLUMN = {
    .expected_error_message = "source column weight is not present in the input's output schema"
 };
 
+// executes a full count(*) on a non-collapsible table scan (unionAll of two identical tables)
+// makes sure that an "empty" table scan executes correctly
+// (since the group by requires no columns, no columns should be read by the table scan)
+const QueryTestScenario COUNT_NON_COLLAPSIBLE_TABLE_SCAN = {
+   .name = "COUNT_NON_COLLAPSIBLE_TABLE_SCAN",
+   .query = "unionAll(reference_genomes, reference_genomes).groupBy({count := count()})",
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 2}])"),
+};
+
 const QueryTestScenario COUNT_STAR_WITH_CUSTOM_NAME = {
    .name = "COUNT_STAR_WITH_CUSTOM_NAME",
    .query = "default.groupBy({n := count()})",
@@ -178,6 +188,15 @@ const QueryTestScenario COUNT_PER_GROUP_WITH_CUSTOM_NAME = {
       {"country": "Germany", "n": 2},
       {"country": "Switzerland", "n": 2}
    ])")
+};
+
+// count(<column>) is not yet implemented. Without grouping keys this used to be silently rewritten
+// into a full count(*) (returning the wrong result); it must surface the same error the grouped
+// case already gives.
+const QueryTestScenario COUNT_OF_COLUMN_WITHOUT_GROUPS = {
+   .name = "COUNT_OF_COLUMN_WITHOUT_GROUPS",
+   .query = "default.groupBy({n := count(country)})",
+   .expected_error_message = "count(<column_ref>) not yet implemented"
 };
 
 }  // namespace
@@ -197,12 +216,17 @@ QUERY_TEST(
       SUM_OF_STRING_COLUMN,
       SUM_WITHOUT_COLUMN,
       SUM_OF_TWO_COLUMNS,
-      SUM_OF_UNKNOWN_COLUMN
+      SUM_OF_UNKNOWN_COLUMN,
+      COUNT_NON_COLLAPSIBLE_TABLE_SCAN
    )
 );
 
 QUERY_TEST(
    AggregateCount,
    TEST_DATA,
-   ::testing::Values(COUNT_STAR_WITH_CUSTOM_NAME, COUNT_PER_GROUP_WITH_CUSTOM_NAME)
+   ::testing::Values(
+      COUNT_STAR_WITH_CUSTOM_NAME,
+      COUNT_PER_GROUP_WITH_CUSTOM_NAME,
+      COUNT_OF_COLUMN_WITHOUT_GROUPS
+   )
 );
