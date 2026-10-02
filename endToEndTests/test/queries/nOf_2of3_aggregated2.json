@@ -1,6 +1,6 @@
 {
   "testCaseName": "2nd N-Of query requesting 2 of 3 mutations with aggregated action",
-  "query": "default.filter(nOf(2, {nucleotideEquals(position:=1, symbol:='-', sequenceName:='main'), nucleotideEquals(position:=2, symbol:='T', sequenceName:='main'), nucleotideEquals(position:=27542, symbol:='N', sequenceName:='main')})).groupBy({count:=count()})",
+  "query": "default.filter(nOf(2, {nucleotideEquals(position:=1, symbol:='-', sequenceName:='main'), nucleotideEquals(position:=2, symbol:='T', sequenceName:='main'), nucleotideEquals(position:=27542, symbol:='N', sequenceName:='main')})).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 4

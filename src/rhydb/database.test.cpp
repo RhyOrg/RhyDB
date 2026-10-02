@@ -161,7 +161,7 @@ namespace {
 // Counts the rows of the default table matching `filter` by running a SaneQL count aggregation.
 int64_t countWhere(rhydb::Database& database, const std::string& filter) {
    auto query_plan = rhydb::query_engine::Planner::planSaneqlQuery(
-      fmt::format("default.filter({}).groupBy({{count:=count()}})", filter),
+      fmt::format("default.filter({}).group({{count:=count()}})", filter),
       database.tables,
       rhydb::config::QueryOptions{},
       "count_query"
@@ -304,7 +304,7 @@ TEST(DatabaseTest, canCreateMultipleTablesAndAddData) {
    database.appendData(first_table_name, first_table_data);
 
    auto query_plan_1 = rhydb::query_engine::Planner::planSaneqlQuery(
-      "first.groupBy({count:=count()})",
+      "first.group({count:=count()})",
       database.tables,
       rhydb::config::QueryOptions{},
       "test_query_1"
@@ -319,7 +319,7 @@ TEST(DatabaseTest, canCreateMultipleTablesAndAddData) {
    database.appendData(second_table_name, second_table_data);
 
    auto query_plan_2 = rhydb::query_engine::Planner::planSaneqlQuery(
-      "second.groupBy({count:=count()})",
+      "second.group({count:=count()})",
       database.tables,
       rhydb::config::QueryOptions{},
       "test_query_2"
@@ -362,7 +362,7 @@ int64_t countInTableWhere(
    const std::string& filter
 ) {
    auto query_plan = rhydb::query_engine::Planner::planSaneqlQuery(
-      fmt::format("{}.filter({}).groupBy({{count:=count()}})", table_name, filter),
+      fmt::format("{}.filter({}).group({{count:=count()}})", table_name, filter),
       database.tables,
       rhydb::config::QueryOptions{},
       "count_query"

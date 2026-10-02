@@ -1,6 +1,6 @@
 {
   "testCaseName": "StringEquals for unindexed column primary_key",
-  "query": "default.filter(primary_key = 'key_41').groupBy({count:=count()})",
+  "query": "default.filter(primary_key = 'key_41').group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 1

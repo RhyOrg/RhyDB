@@ -1,6 +1,6 @@
 {
   "testCaseName": "Pango lineage should return only aliased",
-  "query": "default.groupBy({count:=count()},{pango_lineage}).orderBy({pango_lineage})",
+  "query": "default.group({count:=count()},{pango_lineage}).order({pango_lineage})",
   "expectedQueryResult": [
     {
       "count": 1,

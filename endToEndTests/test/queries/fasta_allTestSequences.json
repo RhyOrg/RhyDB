@@ -1,6 +1,6 @@
 {
   "testCaseName": "Get the unaligned fasta for all test sequences",
-  "query": "default.project({primary_key, unaligned_testSecondSequence}).orderBy({primary_key})",
+  "query": "default.project({primary_key, unaligned_testSecondSequence}).order({primary_key})",
   "expectedQueryResult": [
     {
       "primary_key": "key_1",

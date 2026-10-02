@@ -1,6 +1,6 @@
 {
   "testCaseName": "MRCA query returns correct node with missingNode",
-  "query": "default.filter((primary_key = 'key_1') || (primary_key = 'key_12') || (primary_key = 'key_7') || (primary_key = 'key_35') || (primary_key = 'key_29')).mostRecentCommonAncestor('usherTree', printNodesNotInTree:=true).orderBy({mrcaNode})",
+  "query": "default.filter((primary_key = 'key_1') || (primary_key = 'key_12') || (primary_key = 'key_7') || (primary_key = 'key_35') || (primary_key = 'key_29')).mostRecentCommonAncestor('usherTree', printNodesNotInTree:=true).order({mrcaNode})",
   "expectedQueryResult": [
     {
       "mrcaNode": "NODE_0000096",

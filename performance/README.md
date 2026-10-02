@@ -75,7 +75,7 @@ needed to switch between them.
 
 ## Mutation-coverage query (`real_data_mutations_benchmark`)
 
-`real_data_mutations_benchmark` times a co-occurrence `groupBy` over the ~141 real SARS-CoV-2 mutation
+`real_data_mutations_benchmark` times a co-occurrence `group` over the ~141 real SARS-CoV-2 mutation
 positions in `performance/mutations.csv`. It exercises the coverage-scan / per-chunk bitmap-aggregation
 path over **short reads with partial coverage** (each read covers a small genome window, so most
 grouped positions are not-covered for any given read) — the path that whole-genome-sequence datasets

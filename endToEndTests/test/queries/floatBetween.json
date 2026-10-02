@@ -1,6 +1,6 @@
 {
   "testCaseName": "FloatBetween for column",
-  "query": "default.filter(qc_value.between(0.905, 0.935)).groupBy({count:=count()})",
+  "query": "default.filter(qc_value.between(0.905, 0.935)).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 30

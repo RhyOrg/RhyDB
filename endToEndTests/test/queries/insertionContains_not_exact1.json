@@ -1,6 +1,6 @@
 {
   "testCaseName": "Insertion Contains with non-exact match .*GCT.*GGT.*",
-  "query": "default.filter(insertionContains(position:=22339, value:='.*GCT.*GGT.*', sequenceName:='main')).groupBy({count:=count()})",
+  "query": "default.filter(insertionContains(position:=22339, value:='.*GCT.*GGT.*', sequenceName:='main')).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 1

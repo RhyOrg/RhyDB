@@ -1,6 +1,6 @@
 {
   "testCaseName": "Access on second sequence - NucleotideEquals",
-  "query": "default.filter(nucleotideEquals(position:=1, symbol:='A', sequenceName:='testSecondSequence')).groupBy({count:=count()})",
+  "query": "default.filter(nucleotideEquals(position:=1, symbol:='A', sequenceName:='testSecondSequence')).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 96

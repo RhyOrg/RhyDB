@@ -1,6 +1,6 @@
 {
   "testCaseName": "Details action ordered by division ascending with limit 5",
-  "query": "default.project(division).orderBy({division}).limit(5)",
+  "query": "default.project(division).order({division}).limit(5)",
   "expectedQueryResult": [
     {
       "division": null

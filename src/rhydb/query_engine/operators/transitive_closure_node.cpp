@@ -273,7 +273,7 @@ arrow::Result<arrow::acero::ExecNode*> TransitiveClosureNode::addToExecPlan(
 
    // The child runs within this same plan. A sink drains its batches into `child_generator`;
    // the source node below collects them, computes the closure, and emits the result
-   // downstream. This is the same sink -> generator -> source shape that orderBy() uses.
+   // downstream. This is the same sink -> generator -> source shape that order() uses.
    arrow::AsyncGenerator<std::optional<arrow::ExecBatch>> child_generator;
    ARROW_RETURN_NOT_OK(
       arrow::acero::MakeExecNode(

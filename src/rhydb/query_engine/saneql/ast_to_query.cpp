@@ -893,7 +893,7 @@ std::vector<schema::ColumnIdentifier> parseGroupByFields(
          std::ranges::find_if(schema, [&](const auto& col) { return col.name == group_by_name; });
       CHECK_RHYDB_QUERY(
          found != schema.end(),
-         "groupBy field '{}' is not present in the input's output schema",
+         "group field '{}' is not present in the input's output schema",
          group_by_name
       );
       group_by_fields.push_back(*found);
@@ -911,7 +911,7 @@ GroupByArgs parseGroupBySpecs(
    const auto& agg_expr = args.at("aggregates");
    CHECK_RHYDB_QUERY(
       std::holds_alternative<ast::RecordLiteral>(agg_expr.value),
-      "groupBy aggregates must be a record literal like {{count:=count()}}"
+      "group aggregates must be a record literal like {{count:=count()}}"
    );
    const auto& record = std::get<ast::RecordLiteral>(agg_expr.value);
    for (const auto& field : record.fields) {
@@ -956,7 +956,7 @@ OrderByField parseOrderByField(
          });
       CHECK_RHYDB_QUERY(
          found != child_schema.end(),
-         "OrderByField {} is not contained in the result of this operation. "
+         "order field {} is not contained in the result of this operation. "
          "Allowed values are {}.",
          identifier_name,
          fmt::join(names(child_schema), ", ")
@@ -967,7 +967,7 @@ OrderByField parseOrderByField(
       const auto& call = std::get<ast::FunctionCall>(expression.value);
       CHECK_RHYDB_QUERY(
          call.function_name == "asc" || call.function_name == "desc",
-         "orderBy field must be an identifier or asc()/desc() call, got '{}' at {}:{}",
+         "order field must be an identifier or asc()/desc() call, got '{}' at {}:{}",
          call.function_name,
          expression.location.line,
          expression.location.column
@@ -984,7 +984,7 @@ OrderByField parseOrderByField(
          });
       CHECK_RHYDB_QUERY(
          found != child_schema.end(),
-         "OrderByField {} is not contained in the result of this operation. "
+         "order field {} is not contained in the result of this operation. "
          "Allowed values are {}.",
          identifier_name,
          fmt::join(names(child_schema), ", ")
@@ -992,7 +992,7 @@ OrderByField parseOrderByField(
       return {.field = *found, .ascending = call.function_name == "asc"};
    }
    throw IllegalQueryException(
-      "orderBy field must be an identifier or asc()/desc() call at {}:{}",
+      "order field must be an identifier or asc()/desc() call at {}:{}",
       expression.location.line,
       expression.location.column
    );
@@ -1625,7 +1625,7 @@ operators::QueryNodePtr handleUnionAll(
    auto right_schema = right->getOutputSchema();
    CHECK_RHYDB_QUERY(
       left_schema == right_schema,
-      "unionAll requires both inputs to have the same schema "
+      "unionall requires both inputs to have the same schema "
       "(same column names, types, and order). "
       "Left schema: [{}], right schema: [{}].",
       fmt::join(namesWithTypes(left_schema), ", "),
@@ -1743,7 +1743,7 @@ FunctionRegistry::FunctionRegistry() {
    registerFunction("tables", {{}}, handleTables);
 
    registerFunction(
-      "groupBy", {{pos("input"), pos("aggregates"), pos("columns", false)}}, handleGroupBy
+      "group", {{pos("input"), pos("aggregates"), pos("columns", false)}}, handleGroupBy
    );
 
    registerFunction("project", {{pos("input"), pos("fields")}}, handleProject);
@@ -1776,7 +1776,7 @@ FunctionRegistry::FunctionRegistry() {
 
    registerFunction("offset", {{pos("input"), pos("count")}}, handleOffset);
 
-   registerFunction("orderBy", {{pos("input"), pos("fields")}}, handleOrderBy);
+   registerFunction("order", {{pos("input"), pos("fields")}}, handleOrderBy);
 
    registerFunction(
       "mostRecentCommonAncestor",
@@ -1793,7 +1793,7 @@ FunctionRegistry::FunctionRegistry() {
       handlePhyloSubtree
    );
 
-   registerFunction("unionAll", {{pos("left"), pos("right")}}, handleUnionAll);
+   registerFunction("unionall", {{pos("left"), pos("right")}}, handleUnionAll);
 
    registerFunction(
       "join", {{pos("left"), pos("right"), pos("on"), named("type", false)}}, handleJoin

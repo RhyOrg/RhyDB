@@ -1,6 +1,6 @@
 {
   "testCaseName": "MostRecentCommonAncestor query returns correct node with only missing nodes",
-  "query": "default.filter((primary_key = 'key_1') || (primary_key = 'key_35')).mostRecentCommonAncestor('usherTree', printNodesNotInTree:=true).orderBy({mrcaNode})",
+  "query": "default.filter((primary_key = 'key_1') || (primary_key = 'key_35')).mostRecentCommonAncestor('usherTree', printNodesNotInTree:=true).order({mrcaNode})",
   "expectedQueryResult": [
     {
       "mrcaNode": null,

@@ -1,6 +1,6 @@
 {
   "testCaseName": "IntBetween Query open 'to' value",
-  "query": "default.filter(age >= 55).groupBy({count:=count()})",
+  "query": "default.filter(age >= 55).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 45

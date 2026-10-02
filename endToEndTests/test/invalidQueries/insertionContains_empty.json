@@ -1,6 +1,6 @@
 {
   "testCaseName": "Insertion Contains empty",
-  "query": "default.filter(insertionContains(position:=25701, value:='', sequenceName:='main')).groupBy({count:=count()})",
+  "query": "default.filter(insertionContains(position:=25701, value:='', sequenceName:='main')).group({count:=count()})",
   "expectedError": {
     "error": "Bad request",
     "message": "The field 'value' in an InsertionContains expression must not be an empty string"

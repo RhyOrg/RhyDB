@@ -1,6 +1,6 @@
 {
   "testCaseName": "StringSearch that matches exactly a string",
-  "query": "default.filter(division.like('^Aargau$')).groupBy({count:=count()})",
+  "query": "default.filter(division.like('^Aargau$')).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 6

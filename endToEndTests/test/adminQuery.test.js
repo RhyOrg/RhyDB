@@ -8,7 +8,7 @@ async function countRows() {
   const response = await server
     .post('/query')
     .set('Content-Type', 'text/plain')
-    .send('default.groupBy({count:=count()})');
+    .send('default.group({count:=count()})');
 
   expect(response.status).to.equal(200);
   const rows = response.text

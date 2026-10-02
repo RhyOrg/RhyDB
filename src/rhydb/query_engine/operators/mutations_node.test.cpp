@@ -51,7 +51,7 @@ const QueryTestData TEST_DATA{
 
 const QueryTestScenario MUTATIONS_ALL_FIELDS = {
    .name = "MUTATIONS_ALL_FIELDS",
-   .query = "default.mutations(minProportion:=0.0).orderBy({sequenceName, position, mutationTo})",
+   .query = "default.mutations(minProportion:=0.0).order({sequenceName, position, mutationTo})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"mutationFrom":"A","mutationTo":"C","sequenceName":"segment1","position":1,
        "proportion":0.5,"coverage":4,"count":2},
@@ -77,16 +77,16 @@ const QueryTestScenario MUTATIONS_MIN_PROPORTION_EXCLUDES_ALL = {
    .expected_query_result = nlohmann::json::array(),
 };
 
-// Regression for #1530: orderBy on an empty mutations result must return empty, not crash.
+// Regression for #1530: order on an empty mutations result must return empty, not crash.
 const QueryTestScenario MUTATIONS_EMPTY_ORDER_BY_PROPORTION = {
    .name = "MUTATIONS_EMPTY_ORDER_BY_PROPORTION",
-   .query = "default.mutations(minProportion:=0.6).orderBy({proportion})",
+   .query = "default.mutations(minProportion:=0.6).order({proportion})",
    .expected_query_result = nlohmann::json::array(),
 };
 
 const QueryTestScenario MUTATIONS_EMPTY_ORDER_BY_PROPORTION_WITH_LIMIT = {
    .name = "MUTATIONS_EMPTY_ORDER_BY_PROPORTION_WITH_LIMIT",
-   .query = "default.mutations(minProportion:=0.6).orderBy({proportion}).limit(5)",
+   .query = "default.mutations(minProportion:=0.6).order({proportion}).limit(5)",
    .expected_query_result = nlohmann::json::array(),
 };
 
@@ -94,7 +94,7 @@ const QueryTestScenario MUTATIONS_SEQUENCE_NAMES_SELECTS = {
    .name = "MUTATIONS_SEQUENCE_NAMES_SELECTS",
    .query =
       "default.mutations(minProportion:=0.0, sequenceNames:={segment1})"
-      ".orderBy({position, mutationTo})",
+      ".order({position, mutationTo})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"mutationFrom":"A","mutationTo":"C","sequenceName":"segment1","position":1,
        "proportion":0.5,"coverage":4,"count":2},
@@ -107,7 +107,7 @@ const QueryTestScenario MUTATIONS_WITH_INPUT_FILTER = {
    .name = "MUTATIONS_WITH_INPUT_FILTER",
    .query =
       "default.filter(primaryKey = 's2' || primaryKey = 's3')"
-      ".mutations(minProportion:=0.0).orderBy({sequenceName, position, mutationTo})",
+      ".mutations(minProportion:=0.0).order({sequenceName, position, mutationTo})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"mutationFrom":"A","mutationTo":"C","sequenceName":"segment1","position":1,
        "proportion":1.0,"coverage":2,"count":2},

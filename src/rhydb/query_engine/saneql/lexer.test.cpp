@@ -174,7 +174,7 @@ TEST(SaneQLLexer, tokenizesBracketIndexing) {
 }
 
 TEST(SaneQLLexer, tokenizesMethodCallChain) {
-   Lexer lexer("default.filter(country = 'USA').groupBy({count:=count()})");
+   Lexer lexer("default.filter(country = 'USA').group({count:=count()})");
    auto tokens = lexer.tokenizeAll();
    ASSERT_EQ(tokens.size(), 20);
    EXPECT_EQ(tokens[0].type, TokenType::IDENTIFIER);
@@ -191,7 +191,7 @@ TEST(SaneQLLexer, tokenizesMethodCallChain) {
    EXPECT_EQ(tokens[7].type, TokenType::RIGHT_PAREN);
    EXPECT_EQ(tokens[8].type, TokenType::DOT);
    EXPECT_EQ(tokens[9].type, TokenType::IDENTIFIER);
-   EXPECT_EQ(tokens[9].getStringValue(), "groupBy");
+   EXPECT_EQ(tokens[9].getStringValue(), "group");
    EXPECT_EQ(tokens[10].type, TokenType::LEFT_PAREN);
    EXPECT_EQ(tokens[11].type, TokenType::LEFT_BRACE);
    EXPECT_EQ(tokens[12].type, TokenType::IDENTIFIER);

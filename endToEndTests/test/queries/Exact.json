@@ -1,6 +1,6 @@
 {
   "testCaseName": "Exact Query",
-  "query": "default.filter(exact(nucleotideEquals(position:=122, symbol:='A', sequenceName:='main'))).groupBy({count:=count()})",
+  "query": "default.filter(exact(nucleotideEquals(position:=122, symbol:='A', sequenceName:='main'))).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 93

@@ -118,7 +118,7 @@
 
 ### Bug Fixes
 
-* **silo:** allow `limit` on `groupBy` ([035e244](https://github.com/GenSpectrum/LAPIS-SILO/commit/035e2442d6944936a9f3a73c8aee39c4c24f32e6))
+* **silo:** allow `limit` on `group` ([035e244](https://github.com/GenSpectrum/LAPIS-SILO/commit/035e2442d6944936a9f3a73c8aee39c4c24f32e6))
 
 ## [0.13.0](https://github.com/GenSpectrum/LAPIS-SILO/compare/v0.12.1...v0.13.0) (2026-07-29)
 
@@ -169,7 +169,7 @@
 
 ### Features
 
-* add `unionAll` operator to SaneQL queries ([#1305](https://github.com/GenSpectrum/LAPIS-SILO/issues/1305)) ([53da65f](https://github.com/GenSpectrum/LAPIS-SILO/commit/53da65fa816e3c58029c98dff4b2ad8ccf0f1c35))
+* add `unionall` operator to SaneQL queries ([#1305](https://github.com/GenSpectrum/LAPIS-SILO/issues/1305)) ([53da65f](https://github.com/GenSpectrum/LAPIS-SILO/commit/53da65fa816e3c58029c98dff4b2ad8ccf0f1c35))
 * **preprocessing:** remove deprecated preprocessing config and database config values ([#1287](https://github.com/GenSpectrum/LAPIS-SILO/issues/1287)) ([fbe4014](https://github.com/GenSpectrum/LAPIS-SILO/commit/fbe4014000651f67f86cb42dd462fb59c40f4b4d))
 * **SaneQL:** add `schema` operator to get query result schema ([#1333](https://github.com/GenSpectrum/LAPIS-SILO/issues/1333)) ([f61955e](https://github.com/GenSpectrum/LAPIS-SILO/commit/f61955efc0e583ed263886be01b5c231538807e2))
 * **silo:** add a dedicated filter-pushdown-pass and move node resolution to own file ([2da2f48](https://github.com/GenSpectrum/LAPIS-SILO/commit/2da2f483f2fdb18f881f968c7ee61aca2019f855))
@@ -1042,7 +1042,7 @@
 
 * AAMutations with multiple sequences ([0def8b2](https://github.com/GenSpectrum/LAPIS-SILO/commit/0def8b21e27cbc25973fb64ac9e56670c09cc023))
 * Action for amino acid distribution ([a0a4cf1](https://github.com/GenSpectrum/LAPIS-SILO/commit/a0a4cf1e7422ef536c6e40863f27fdd85151cc65))
-* add limit orderBy and offset to all query actions ([13b7e01](https://github.com/GenSpectrum/LAPIS-SILO/commit/13b7e01cbd4396e8e4cbb6357baec4514ad2eb6c))
+* add limit order and offset to all query actions ([13b7e01](https://github.com/GenSpectrum/LAPIS-SILO/commit/13b7e01cbd4396e8e4cbb6357baec4514ad2eb6c))
 * add log statements to loadDatabaseState ([46a0421](https://github.com/GenSpectrum/LAPIS-SILO/commit/46a04214244ba4ff799bcb2b9bf4c2cd1ad4e006))
 * add more tests, make less flaky and viable with large dataset ([7772ae3](https://github.com/GenSpectrum/LAPIS-SILO/commit/7772ae345d44a2feb32126f87026f011e7e49a59))
 * add unit test for findIllegalNucleotideChar, unique test case name for insertion contains invalid pattern tests ([99c9c4b](https://github.com/GenSpectrum/LAPIS-SILO/commit/99c9c4b3cd8935c2b2ba9998cf2e0847107edd4f))
@@ -1162,7 +1162,7 @@
 * add bash dependency which is required by conan build of pkgconf and is not installed on alpine by default ([1b3f51c](https://github.com/GenSpectrum/LAPIS-SILO/commit/1b3f51c5e7e6a88c5b7500f3fd832eead62fff3b))
 * add insertion to database_config test ([aec40d0](https://github.com/GenSpectrum/LAPIS-SILO/commit/aec40d0f8366c8f15906c6edbed35439b5a794a0))
 * add missing file for test ([262bedc](https://github.com/GenSpectrum/LAPIS-SILO/commit/262bedc35fc3704854b2f321c8cab49e08d803a3))
-* add missing sequenceName field to mutation action "orderBy" ([06c8c86](https://github.com/GenSpectrum/LAPIS-SILO/commit/06c8c86ebeb822d03f46342faafcf1f7d29a7d51))
+* add missing sequenceName field to mutation action "order" ([06c8c86](https://github.com/GenSpectrum/LAPIS-SILO/commit/06c8c86ebeb822d03f46342faafcf1f7d29a7d51))
 * add sleep statement before row call ([8fa8efb](https://github.com/GenSpectrum/LAPIS-SILO/commit/8fa8efb5f7634e9eb91ad71d0d5d3af47c0fcf30))
 * add workaround so insertions are read correctly ([8a2bfa8](https://github.com/GenSpectrum/LAPIS-SILO/commit/8a2bfa8ee211a8e8ec6c2e83671eab8abe69fc87))
 * allow sql keywords for metadata field names [#259](https://github.com/GenSpectrum/LAPIS-SILO/issues/259) ([6fbeee5](https://github.com/GenSpectrum/LAPIS-SILO/commit/6fbeee56732d2d3934ff5769cc07ded2cbf2caa4))
@@ -1200,7 +1200,7 @@
 * nodiscard (silence warnings) ([69421c1](https://github.com/GenSpectrum/LAPIS-SILO/commit/69421c158424dd75fba9c3804ebf6d0d89262aea)), closes [#390](https://github.com/GenSpectrum/LAPIS-SILO/issues/390)
 * non default unaligned nucleotide sequence prefix ([93b4829](https://github.com/GenSpectrum/LAPIS-SILO/commit/93b4829d834269cfbbc86fb1eb53a29bb0659190))
 * nucleotide symbol equals with dot ([6ad623e](https://github.com/GenSpectrum/LAPIS-SILO/commit/6ad623eeaf9089808bdfc29c9b30d1486f2f9782))
-* only apply order-by if the field is set, validate orderBy fields for all operations ([405a7f1](https://github.com/GenSpectrum/LAPIS-SILO/commit/405a7f1657c94c327fc667eabcef14e07e858779))
+* only apply order-by if the field is set, validate order fields for all operations ([405a7f1](https://github.com/GenSpectrum/LAPIS-SILO/commit/405a7f1657c94c327fc667eabcef14e07e858779))
 * pango lineage filter with null values ([b7238a8](https://github.com/GenSpectrum/LAPIS-SILO/commit/b7238a8ddced5c2661d8778b838c3a5aa0bd860c))
 * parse error messages for mutation filter expressions ([9e4612d](https://github.com/GenSpectrum/LAPIS-SILO/commit/9e4612d34b3e4b50909d3759b1dfc5050783fa6d))
 * put compressors into sql function to avoid static variables ([c1a11c8](https://github.com/GenSpectrum/LAPIS-SILO/commit/c1a11c88676d597d4ed66f7611a42a8b726c3753))

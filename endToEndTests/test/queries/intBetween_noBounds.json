@@ -1,6 +1,6 @@
 {
   "testCaseName": "IntBetween Query without bounds",
-  "query": "default.filter(age.isNotNull()).groupBy({count:=count()})",
+  "query": "default.filter(age.isNotNull()).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 98

@@ -1,7 +1,7 @@
 // Measurement-only benchmark for a co-occurrence query, expressed on the SaneQL interface.
 //
 // It builds a database of random sequences and times the end-to-end planning + execution of a
-// `map({s := main.at(p)}) | groupBy({count()}, {...})` query through the regular Planner. There is
+// `map({s := main.at(p)}) | group({count()}, {...})` query through the regular Planner. There is
 // deliberately no before/after comparison in here: run this benchmark on a branch WITHOUT the
 // co-occurrence optimization to get the baseline number, and again WITH it to get the optimized
 // number. Because the query is unchanged, the two runs are directly comparable.
@@ -83,7 +83,7 @@ std::string buildQuery() {
       group_keys += fmt::format("s{}", i);
    }
    return fmt::format(
-      "default.map({{{}}}).groupBy({{count:=count()}}, {{{}}})", assignments, group_keys
+      "default.map({{{}}}).group({{count:=count()}}, {{{}}})", assignments, group_keys
    );
 }
 

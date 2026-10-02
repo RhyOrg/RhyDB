@@ -106,7 +106,7 @@ class QueryGenerator {
             "nucleotideEquals(position:={0}, symbol:='T', sequenceName:='main') || "
             "nucleotideEquals(position:={0}, symbol:='-', sequenceName:='main')) && "
             "samplingDate.between('2024-01-01'::date, '2024-01-07'::date)"
-            ").groupBy({{count:=count()}})",
+            ").group({{count:=count()}})",
             position
          );
       }
@@ -118,7 +118,7 @@ class QueryGenerator {
          "samplingDate.between('2024-01-01'::date, '2024-01-07'::date) && "
          "nucleotideEquals(position:={}, symbol:='{}', sequenceName:='main') && "
          "samplingDate.between('2024-01-01'::date, '2024-01-07'::date)"
-         ").groupBy({{count:=count()}})",
+         ").group({{count:=count()}})",
          position,
          symbol
       );

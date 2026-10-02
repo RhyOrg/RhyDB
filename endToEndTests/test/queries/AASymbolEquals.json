@@ -1,6 +1,6 @@
 {
   "testCaseName": "Amino acid equals gene E",
-  "query": "default.filter(aminoAcidEquals(position:=2, symbol:='Y', sequenceName:='E')).groupBy({count:=count()})",
+  "query": "default.filter(aminoAcidEquals(position:=2, symbol:='Y', sequenceName:='E')).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 99

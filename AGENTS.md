@@ -82,7 +82,7 @@ Runtime level controlled by `SPDLOG_LEVEL` env var (`trace`, `debug`, `info`, `w
 [Conventional Commits](https://www.conventionalcommits.org/). Should reference an issue or PR when possible.
 
 ```
-feat: add unionAll operator
+feat: add unionall operator
 
 resolves #1221
 ```

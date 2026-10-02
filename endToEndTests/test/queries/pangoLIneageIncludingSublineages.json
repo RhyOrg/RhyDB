@@ -1,6 +1,6 @@
 {
   "testCaseName": "pango lineage B.1.1.7 including sublineages",
-  "query": "default.filter(pango_lineage.lineage('B.1.1.7', includeSublineages:=true)).groupBy({count:=count()})",
+  "query": "default.filter(pango_lineage.lineage('B.1.1.7', includeSublineages:=true)).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 51

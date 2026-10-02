@@ -1,6 +1,6 @@
 {
   "testCaseName": "Test sequence has exactly symbol GAP at position 2",
-  "query": "default.filter(exact(nucleotideEquals(position:=2, symbol:='-', sequenceName:='testSecondSequence'))).groupBy({count:=count()})",
+  "query": "default.filter(exact(nucleotideEquals(position:=2, symbol:='-', sequenceName:='testSecondSequence'))).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 1

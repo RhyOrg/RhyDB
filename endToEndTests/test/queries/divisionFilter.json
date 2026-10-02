@@ -1,6 +1,6 @@
 {
   "testCaseName": "Filter by division then aggregate",
-  "query": "default.filter((division = 'Aargau')).groupBy({count:=count()})",
+  "query": "default.filter((division = 'Aargau')).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 6

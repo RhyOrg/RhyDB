@@ -1,6 +1,6 @@
 {
   "testCaseName": "Insertion Contains with non-exact match TCAG.*AA",
-  "query": "default.filter(insertionContains(position:=25701, value:='TCAG.*AA', sequenceName:='main')).groupBy({count:=count()})",
+  "query": "default.filter(insertionContains(position:=25701, value:='TCAG.*AA', sequenceName:='main')).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 0

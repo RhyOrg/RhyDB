@@ -1,6 +1,6 @@
 {
   "testCaseName": "FloatBetween for column with open upper bound",
-  "query": "default.filter(qc_value >= 0.905).groupBy({count:=count()})",
+  "query": "default.filter(qc_value >= 0.905).group({count:=count()})",
   "expectedQueryResult": [
     {
       "count": 78

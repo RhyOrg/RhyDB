@@ -49,7 +49,7 @@ const QueryTestData TEST_DATA{
 
 const QueryTestScenario INSERTIONS_ALL_FIELDS = {
    .name = "INSERTIONS_ALL_FIELDS",
-   .query = "default.insertions().orderBy({sequenceName, position})",
+   .query = "default.insertions().order({sequenceName, position})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"position":2,"insertedSymbols":"TT","sequenceName":"segment1","count":3},
       {"position":3,"insertedSymbols":"G","sequenceName":"segment1","count":1},
@@ -59,7 +59,7 @@ const QueryTestScenario INSERTIONS_ALL_FIELDS = {
 
 const QueryTestScenario INSERTIONS_SEQUENCE_NAMES_SELECTS = {
    .name = "INSERTIONS_SEQUENCE_NAMES_SELECTS",
-   .query = "default.insertions(sequenceNames:={segment1}).orderBy({position})",
+   .query = "default.insertions(sequenceNames:={segment1}).order({position})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"position":2,"insertedSymbols":"TT","sequenceName":"segment1","count":3},
       {"position":3,"insertedSymbols":"G","sequenceName":"segment1","count":1}
@@ -70,7 +70,7 @@ const QueryTestScenario INSERTIONS_WITH_INPUT_FILTER = {
    .name = "INSERTIONS_WITH_INPUT_FILTER",
    .query =
       "default.filter(primaryKey = 's1' || primaryKey = 's2')"
-      ".insertions().orderBy({sequenceName, position})",
+      ".insertions().order({sequenceName, position})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"position":2,"insertedSymbols":"TT","sequenceName":"segment1","count":2}
    ])")

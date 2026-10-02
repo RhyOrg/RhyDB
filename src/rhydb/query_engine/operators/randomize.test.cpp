@@ -144,7 +144,7 @@ const QueryTestScenario EXPLICIT_DO_NOT_RANDOMIZE = {
 
 const QueryTestScenario AGGREGATE_RANDOMIZE = {
    .name = "AGGREGATE_RANDOMIZE",
-   .query = "default.groupBy({count:=count()},{key}).randomize(seed:=12321)",
+   .query = "default.group({count:=count()},{key}).randomize(seed:=12321)",
    .expected_query_result = json::parse(
       R"([
 {"count": 1, "key": "id4"},
@@ -158,7 +158,7 @@ const QueryTestScenario AGGREGATE_RANDOMIZE = {
 
 const QueryTestScenario ORDER_BY_PRECEDENCE = {
    .name = "ORDER_BY_PRECEDENCE",
-   .query = "default.project({key, col}).randomize(seed:=12321).orderBy({col})",
+   .query = "default.project({key, col}).randomize(seed:=12321).order({col})",
    .expected_query_result = json::parse(
       R"([
 {"key": "id5", "col": "A"},
@@ -172,7 +172,7 @@ const QueryTestScenario ORDER_BY_PRECEDENCE = {
 
 const QueryTestScenario ORDER_BY_AGGREGATE_RANDOMIZE = {
    .name = "ORDER_BY_AGGREGATE_RANDOMIZE",
-   .query = "default.groupBy({count:=count()},{col}).randomize().orderBy({count})",
+   .query = "default.group({count:=count()},{col}).randomize().order({count})",
    .expected_query_result = json::parse(
       R"([{"count": 2, "col": "B"},
           {"count": 3, "col": "A"}])"
@@ -181,8 +181,7 @@ const QueryTestScenario ORDER_BY_AGGREGATE_RANDOMIZE = {
 
 const QueryTestScenario LIMIT_2_RANDOMIZE = {
    .name = "LIMIT_2_RANDOMIZE",
-   .query =
-      "default.project({key, col}).randomize(seed:=42).offset(2).limit(2).orderBy({col, key})",
+   .query = "default.project({key, col}).randomize(seed:=42).offset(2).limit(2).order({col, key})",
    .expected_query_result = json::parse(
       R"([{"key": "id1", "col": "A"},
           {"key": "id5", "col": "A"}])"
@@ -191,8 +190,7 @@ const QueryTestScenario LIMIT_2_RANDOMIZE = {
 
 const QueryTestScenario LIMIT_3_RANDOMIZE = {
    .name = "LIMIT_3_RANDOMIZE",
-   .query =
-      "default.project({key, col}).randomize(seed:=42).offset(2).limit(3).orderBy({col, key})",
+   .query = "default.project({key, col}).randomize(seed:=42).offset(2).limit(3).order({col, key})",
    .expected_query_result = json::parse(
       R"([{"key": "id1", "col": "A"},
           {"key": "id5", "col": "A"},
@@ -215,7 +213,7 @@ const QueryTestScenario RANDOMIZE_WITH_LIMIT = {
 
 const QueryTestScenario AGGREGATE_LIMIT_RANDOMIZE = {
    .name = "AGGREGATE_LIMIT_RANDOMIZE",
-   .query = "default.groupBy({count:=count()},{key}).randomize(seed:=12321).offset(1).limit(2)",
+   .query = "default.group({count:=count()},{key}).randomize(seed:=12321).offset(1).limit(2)",
    .expected_query_result = json::parse(
       R"([{"count": 1, "key": "id5"},
           {"count": 1, "key": "id1"}])"
