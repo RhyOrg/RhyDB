@@ -70,7 +70,7 @@ const QueryTestScenario SUM_WITHOUT_GROUPS = {
 // country forms its own group, which the ascending order lists first.
 const QueryTestScenario SUM_INT32_PER_GROUP = {
    .name = "SUM_INT32_PER_GROUP",
-   .query = "default.group(by:={country}, aggs:={total:=sum(age)}).orderBy({country})",
+   .query = "default.group(by:={country}, aggs:={total:=sum(age)}).order(by:={country})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"country": null, "total": 1},
       {"country": "France", "total": null},
@@ -81,7 +81,7 @@ const QueryTestScenario SUM_INT32_PER_GROUP = {
 
 const QueryTestScenario SUM_INT64_PER_GROUP = {
    .name = "SUM_INT64_PER_GROUP",
-   .query = "default.group(by:={country}, aggs:={total:=sum(reads)}).orderBy({country})",
+   .query = "default.group(by:={country}, aggs:={total:=sum(reads)}).order(by:={country})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"country": null, "total": 2},
       {"country": "France", "total": null},
@@ -92,7 +92,7 @@ const QueryTestScenario SUM_INT64_PER_GROUP = {
 
 const QueryTestScenario SUM_FLOAT_PER_GROUP = {
    .name = "SUM_FLOAT_PER_GROUP",
-   .query = "default.group(by:={country}, aggs:={total:=sum(coverage)}).orderBy({country})",
+   .query = "default.group(by:={country}, aggs:={total:=sum(coverage)}).order(by:={country})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"country": null, "total": 0.25},
       {"country": "France", "total": null},
@@ -107,7 +107,7 @@ const QueryTestScenario SUM_AND_COUNT_TOGETHER = {
    .query =
       "default.group(by:={country}, aggs:={count:=count(), age_total:=sum(age), "
       "reads_total:=sum(reads)})"
-      ".orderBy({country})",
+      ".order(by:={country})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"country": null, "count": 1, "age_total": 1, "reads_total": 2},
       {"country": "France", "count": 1, "age_total": null, "reads_total": null},
@@ -173,7 +173,7 @@ const QueryTestScenario COUNT_STAR_WITH_CUSTOM_NAME = {
 
 const QueryTestScenario COUNT_PER_GROUP_WITH_CUSTOM_NAME = {
    .name = "COUNT_PER_GROUP_WITH_CUSTOM_NAME",
-   .query = "default.group(by:={country}, aggs:={n := count()}).orderBy({country})",
+   .query = "default.group(by:={country}, aggs:={n := count()}).order(by:={country})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"country": null, "n": 1},
       {"country": "France", "n": 1},

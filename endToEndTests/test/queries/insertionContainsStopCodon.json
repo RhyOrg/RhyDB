@@ -1,6 +1,6 @@
 {
   "testCaseName": "insertionContains with a StopCodon",
-  "query": "default.filter(aminoAcidInsertionContains(position:=214, value:='\\*EPE', sequenceName:='S')).group(by:={date},aggs:={count:=count()}).orderBy({date})",
+  "query": "default.filter(aminoAcidInsertionContains(position:=214, value:='\\*EPE', sequenceName:='S')).group(by:={date},aggs:={count:=count()}).order(by:={date})",
   "expectedQueryResult": [
     {
       "count": 1,

@@ -1,5 +1,5 @@
 {
   "testCaseName": "Offset by exactly table size",
-  "query": "default.orderBy({primary_key}).offset(100).limit(90)",
+  "query": "default.order(by:={primary_key}).offset(100).limit(90)",
   "expectedQueryResult": []
 }

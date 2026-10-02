@@ -32,12 +32,12 @@ default.filter(column='value')                   -- filter rows
 default.project({col1, col2})                    -- select columns
 default.group(by:={col}, aggs:={count:=count()})         -- aggregate
 default.map({new_col := expression})             -- add computed column
-default.orderBy({asc(col)})                      -- sort
+default.order(by:={asc(col)})                      -- sort
 default.mutations(minProportion:=0.5)            -- nucleotide mutations
 unionAll(pipeline1, pipeline2)                   -- concatenate two pipelines
 ```
 
-Chaining: `default.filter(...).project({...}).group(by:={}, aggs:={...}).orderBy({...})`
+Chaining: `default.filter(...).project({...}).group(by:={}, aggs:={...}).order(by:={...})`
 
 ### Error responses
 

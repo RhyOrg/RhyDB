@@ -55,7 +55,7 @@ const QueryTestScenario JOIN_INNER_ON_KEY_SCENARIO = {
       default.project({primaryKey, country}),
       default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk
-   ).orderBy({asc(primaryKey)}))",
+   ).order(by:={asc(primaryKey)}))",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
        {{"primaryKey", "id_1"}, {"country", "DE"}, {"pk", "id_1"}, {"ctry", "DE"}},
@@ -70,7 +70,7 @@ const QueryTestScenario JOIN_PIPED_SYNTAX_SCENARIO = {
    .query = R"(
       default.project({primaryKey, country})
          .join(default.map({pk := primaryKey, ctry := country}).project({pk, ctry}), primaryKey = pk)
-         .orderBy({asc(primaryKey)})
+         .order(by:={asc(primaryKey)})
    )",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
@@ -88,7 +88,7 @@ const QueryTestScenario JOIN_EXPLICIT_INNER_SCENARIO = {
       default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk,
       type := inner
-   ).orderBy({asc(primaryKey)}))",
+   ).order(by:={asc(primaryKey)}))",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
        {{"primaryKey", "id_2"}, {"country", "CH"}, {"pk", "id_2"}, {"ctry", "CH"}}}
@@ -102,7 +102,7 @@ const QueryTestScenario JOIN_MANY_TO_MANY_SCENARIO = {
       default.filter(country='DE').project({primaryKey, country}),
       default.filter(country='DE').map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       country = ctry
-   ).orderBy({asc(primaryKey), asc(pk)}))",
+   ).order(by:={asc(primaryKey), asc(pk)}))",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_1"}, {"country", "DE"}, {"pk", "id_1"}, {"ctry", "DE"}},
        {{"primaryKey", "id_1"}, {"country", "DE"}, {"pk", "id_3"}, {"ctry", "DE"}},
@@ -119,7 +119,7 @@ const QueryTestScenario JOIN_LEFT_OUTER_SCENARIO = {
       default.filter(country='CH').map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk,
       type := left
-   ).orderBy({asc(primaryKey)}))",
+   ).order(by:={asc(primaryKey)}))",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
        {{"primaryKey", "id_1"}, {"country", "DE"}, {"pk", nullptr}, {"ctry", nullptr}},
@@ -136,7 +136,7 @@ const QueryTestScenario JOIN_LEFT_SEMI_SCENARIO = {
       default.filter(country='CH').map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk,
       type := leftSemi
-   ).orderBy({asc(primaryKey)}))",
+   ).order(by:={asc(primaryKey)}))",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"country", "CH"}}, {{"primaryKey", "id_2"}, {"country", "CH"}}}
    )
@@ -150,7 +150,7 @@ const QueryTestScenario JOIN_LEFT_ANTI_SCENARIO = {
       default.filter(country='CH').map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk,
       type := leftAnti
-   ).orderBy({asc(primaryKey)}))",
+   ).order(by:={asc(primaryKey)}))",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_1"}, {"country", "DE"}}, {{"primaryKey", "id_3"}, {"country", "DE"}}}
    )
@@ -164,7 +164,7 @@ const QueryTestScenario JOIN_RIGHT_OUTER_SCENARIO = {
       default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk,
       type := right
-   ).orderBy({asc(pk)}))",
+   ).order(by:={asc(pk)}))",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
        {{"primaryKey", nullptr}, {"country", nullptr}, {"pk", "id_1"}, {"ctry", "DE"}},
@@ -182,7 +182,7 @@ const QueryTestScenario JOIN_FULL_OUTER_SCENARIO = {
       default.filter(country='DE').map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk,
       type := full
-   ).orderBy({asc(primaryKey), asc(pk)}))",
+   ).order(by:={asc(primaryKey), asc(pk)}))",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", nullptr}, {"country", nullptr}, {"pk", "id_1"}, {"ctry", "DE"}},
        {{"primaryKey", nullptr}, {"country", nullptr}, {"pk", "id_3"}, {"ctry", "DE"}},
@@ -199,7 +199,7 @@ const QueryTestScenario JOIN_RIGHT_SEMI_SCENARIO = {
       default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk,
       type := rightSemi
-   ).orderBy({asc(pk)}))",
+   ).order(by:={asc(pk)}))",
    .expected_query_result =
       nlohmann::json({{{"pk", "id_0"}, {"ctry", "CH"}}, {{"pk", "id_2"}, {"ctry", "CH"}}})
 };
@@ -212,7 +212,7 @@ const QueryTestScenario JOIN_RIGHT_ANTI_SCENARIO = {
       default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk,
       type := rightAnti
-   ).orderBy({asc(pk)}))",
+   ).order(by:={asc(pk)}))",
    .expected_query_result =
       nlohmann::json({{{"pk", "id_1"}, {"ctry", "DE"}}, {{"pk", "id_3"}, {"ctry", "DE"}}})
 };
@@ -227,7 +227,7 @@ const QueryTestScenario JOIN_DOWNSTREAM_FILTER_SCENARIO = {
       default.project({primaryKey, country}),
       default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk
-   ).filter(country='CH').orderBy({asc(primaryKey)}))",
+   ).filter(country='CH').order(by:={asc(primaryKey)}))",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
        {{"primaryKey", "id_2"}, {"country", "CH"}, {"pk", "id_2"}, {"ctry", "CH"}}}
@@ -241,7 +241,7 @@ const QueryTestScenario JOIN_WITH_GROUPBY_SCENARIO = {
       default.project({primaryKey, country}),
       default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk
-   ).group(by:={country}, aggs:={count := count()}).orderBy({asc(country)}))",
+   ).group(by:={country}, aggs:={count := count()}).order(by:={asc(country)}))",
    .expected_query_result =
       nlohmann::json({{{"country", "CH"}, {"count", 2}}, {{"country", "DE"}, {"count", 2}}})
 };
@@ -253,7 +253,7 @@ const QueryTestScenario JOIN_MULTI_KEY_SCENARIO = {
       default.project({primaryKey, country}),
       default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk && country = ctry
-   ).orderBy({asc(primaryKey)}))",
+   ).order(by:={asc(primaryKey)}))",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
        {{"primaryKey", "id_1"}, {"country", "DE"}, {"pk", "id_1"}, {"ctry", "DE"}},

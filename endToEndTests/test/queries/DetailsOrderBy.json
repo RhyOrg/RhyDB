@@ -1,6 +1,6 @@
 {
   "testCaseName": "Details action with order by field EPI_ISL",
-  "query": "default.filter((country = 'Switzerland') && (pango_lineage.lineage('B.1.1.7', includeSublineages:=true))).orderBy({primary_key}).project({age, country, date, division, primary_key, pango_lineage, qc_value, region, test_boolean_column, unsorted_date, usherTree})",
+  "query": "default.filter((country = 'Switzerland') && (pango_lineage.lineage('B.1.1.7', includeSublineages:=true))).order(by:={primary_key}).project({age, country, date, division, primary_key, pango_lineage, qc_value, region, test_boolean_column, unsorted_date, usherTree})",
   "expectedQueryResult": [
     {
       "age": 57,

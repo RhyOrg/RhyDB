@@ -1,6 +1,6 @@
 {
   "testCaseName": "The insertions action",
-  "query": "default.insertions().orderBy({sequenceName, position, insertedSymbols})",
+  "query": "default.insertions().order(by:={sequenceName, position, insertedSymbols})",
   "expectedQueryResult": [
     {
       "count": 1,

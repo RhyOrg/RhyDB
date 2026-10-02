@@ -662,14 +662,36 @@ TEST(AstToQueryFilter, nonBooleanScalarFunctionRejected) {
    );
 }
 
-// --- orderBy ---
+// --- order ---
+
+TEST(AstToQueryOrderBy, acceptsNamedBy) {
+   auto tables = makeTablesWithDefault();
+   const auto query_tree = parseAndConvertToQueryTree("default.order(by:={date.desc()})", tables);
+   EXPECT_EQ(query_tree->getOutputSchema().size(), 2);
+}
+
+TEST(AstToQueryOrderBy, acceptsPositionalBy) {
+   auto tables = makeTablesWithDefault();
+   const auto query_tree = parseAndConvertToQueryTree("default.order({date.desc()})", tables);
+   EXPECT_EQ(query_tree->getOutputSchema().size(), 2);
+}
+
+TEST(AstToQueryOrderBy, oldFieldsParameterNameThrows) {
+   auto tables = makeTablesWithDefault();
+   EXPECT_THAT(
+      [&tables]() { (void)parseAndConvertToQueryTree("default.order(fields:={date})", tables); },
+      ThrowsMessage<IllegalQueryException>(
+         ::testing::HasSubstr("order() received unknown argument 'fields'")
+      )
+   );
+}
 
 TEST(AstToQueryOrderBy, fieldUnsupportedTypeThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
-      [&tables]() { (void)parseAndConvertToQueryTree("default.orderBy({'value'})", tables); },
+      [&tables]() { (void)parseAndConvertToQueryTree("default.order(by:={'value'})", tables); },
       ThrowsMessage<IllegalQueryException>(
-         ::testing::HasSubstr("orderBy field must be an identifier or asc()/desc() call")
+         ::testing::HasSubstr("order field must be an identifier or asc()/desc() call")
       )
    );
 }
@@ -677,9 +699,9 @@ TEST(AstToQueryOrderBy, fieldUnsupportedTypeThrows) {
 TEST(AstToQueryOrderBy, unsupportedFunctionNameThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
-      [&tables]() { (void)parseAndConvertToQueryTree("default.orderBy({foo(bar)})", tables); },
+      [&tables]() { (void)parseAndConvertToQueryTree("default.order(by:={foo(bar)})", tables); },
       ThrowsMessage<IllegalQueryException>(
-         ::testing::HasSubstr("orderBy field must be an identifier or asc()/desc() call, got 'foo'")
+         ::testing::HasSubstr("order field must be an identifier or asc()/desc() call, got 'foo'")
       )
    );
 }
@@ -687,7 +709,7 @@ TEST(AstToQueryOrderBy, unsupportedFunctionNameThrows) {
 TEST(AstToQueryOrderBy, ascWrongArgCountThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
-      [&]() { (void)parseAndConvertToQueryTree("default.orderBy({asc()})", tables); },
+      [&]() { (void)parseAndConvertToQueryTree("default.order(by:={asc()})", tables); },
       ThrowsMessage<IllegalQueryException>(::testing::HasSubstr("asc() expects exactly one argument"
       ))
    );
@@ -696,7 +718,7 @@ TEST(AstToQueryOrderBy, ascWrongArgCountThrows) {
 TEST(AstToQueryOrderBy, unknownFieldThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
-      [&tables]() { (void)parseAndConvertToQueryTree("default.orderBy({nonexistent})", tables); },
+      [&tables]() { (void)parseAndConvertToQueryTree("default.order(by:={nonexistent})", tables); },
       ThrowsMessage<IllegalQueryException>(
          ::testing::HasSubstr("OrderByField nonexistent is not contained in the result")
       )
@@ -707,7 +729,7 @@ TEST(AstToQueryOrderBy, unknownFieldInAscThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
       [&tables]() {
-         (void)parseAndConvertToQueryTree("default.orderBy({asc(nonexistent)})", tables);
+         (void)parseAndConvertToQueryTree("default.order(by:={asc(nonexistent)})", tables);
       },
       ThrowsMessage<IllegalQueryException>(
          ::testing::HasSubstr("OrderByField nonexistent is not contained in the result")

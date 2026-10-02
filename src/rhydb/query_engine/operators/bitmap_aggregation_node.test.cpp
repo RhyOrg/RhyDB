@@ -222,12 +222,13 @@ const QueryTestScenario MAP_FIELD_REF_INDEXED_COLUMN = {
 
 // A bare field reference produced by the map over a *plain, non-indexed* string column, as the only
 // grouping key. With no existing bitmap to reuse the rewrite declines and the generic Arrow
-// aggregation handles it (its group order is unspecified, hence the orderBy); grouping it next to a
+// aggregation handles it (its group order is unspecified, hence the `order`); grouping it next to a
 // bitmap-backed key goes through the bitmap engine instead (MIXED_SEQUENCE_AND_FIELD_COLUMN).
 // Country carries Germany x2, France x1, Japan x1.
 const QueryTestScenario MAP_FIELD_REF_PLAIN_STRING_COLUMN = {
    .name = "MAP_FIELD_REF_PLAIN_STRING_COLUMN",
-   .query = "default.map({c := country}).group(by:={c}, aggs:={count:=count()}).orderBy({c.asc()})",
+   .query =
+      "default.map({c := country}).group(by:={c}, aggs:={count:=count()}).order(by:={c.asc()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"c": "France", "count": 1},
       {"c": "Germany", "count": 2},
@@ -272,14 +273,14 @@ const QueryTestScenario MIXED_SEQUENCE_AND_FIELD_COLUMN_WITH_FILTER = {
 
 // A general map-computed scalar expression, `date.isoWeek()`, as the only grouping key: like
 // MAP_FIELD_REF_PLAIN_STRING_COLUMN this is left to the generic Arrow aggregation (hence the
-// orderBy); MIXED_SEQUENCE_AND_ISO_WEEK covers it in the bitmap engine. The result is the ISO
+// `order`); MIXED_SEQUENCE_AND_ISO_WEEK covers it in the bitmap engine. The result is the ISO
 // week-date string (`<ISO-year>-W<ISO-week>`), whose zero-padded week sorts chronologically.
 //   isoWeek: 2021-W01 (ROW_AT), 2021-W10 (ROW_AT2), 2021-W02 (ROW_NN), 2021-W02 (ROW_CA)
 const QueryTestScenario MAP_ISO_WEEK_EXPRESSION = {
    .name = "MAP_ISO_WEEK_EXPRESSION",
    .query =
       "default.map({week := date.isoWeek()}).group(by:={week}, aggs:={count:=count()})"
-      ".orderBy({asc(week)})",
+      ".order(by:={asc(week)})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"week": "2021-W01", "count": 1},
       {"week": "2021-W02", "count": 2},
