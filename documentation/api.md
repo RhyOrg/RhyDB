@@ -134,9 +134,9 @@ Examples:
 
 | Query | `result-ordering` header |
 |-------|-------------------|
-| `orderBy({date})` | `[{"field":"date","order":"ascending","nullPlacement":"atStart"}]` |
-| `orderBy({country, date.desc()})` | `[{"field":"country","order":"ascending","nullPlacement":"atStart"},{"field":"date","order":"descending","nullPlacement":"atEnd"}]` |
-| no `orderBy` (e.g. an aggregation) | `[]` |
+| `order(by:={date})` | `[{"field":"date","order":"ascending","nullPlacement":"atStart"}]` |
+| `order(by:={country, date.desc()})` | `[{"field":"country","order":"ascending","nullPlacement":"atStart"},{"field":"date","order":"descending","nullPlacement":"atEnd"}]` |
+| no `order` (e.g. an aggregation) | `[]` |
 
 #### Output Format Negotiation
 

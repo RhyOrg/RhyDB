@@ -163,7 +163,7 @@ schema:
    .assertion{
       .expected_row_count = 2,
       .query = "default.project({accessionVersion, someShortGene, secondSegment, "
-               "country}).orderBy({accessionVersion})",
+               "country}).order(by:={accessionVersion})",
       .expected_query_result = nlohmann::json::parse(R"(
    [{
       "accessionVersion": "1.1",
@@ -228,7 +228,7 @@ schema:
 })",
    .assertion{
       .expected_row_count = 2,
-      .query = "default.group(by:={group},aggs:={count:=count()}).orderBy({group})",
+      .query = "default.group(by:={group},aggs:={count:=count()}).order(by:={group})",
       .expected_query_result = nlohmann::json::parse(
          R"([
          {"count": 1, "group": null},
@@ -301,7 +301,7 @@ schema:
 })",
    .assertion{
       .expected_row_count = 2,
-      .query = R"(default.group(by:={"2"},aggs:={count:=count()}).orderBy({"2"}))",
+      .query = R"(default.group(by:={"2"},aggs:={count:=count()}).order(by:={"2"}))",
       .expected_query_result = nlohmann::json::parse(
          R"([
          {"count": 1, "2": null},
@@ -689,7 +689,7 @@ schema:
 })",
    .assertion{
       .expected_row_count = 3,
-      .query = "default.orderBy({accessionVersion})",
+      .query = "default.order(by:={accessionVersion})",
       .expected_query_result = nlohmann::json::parse(R"(
 [{"accessionVersion":"0"},{"accessionVersion":"0.12"},{"accessionVersion":"text_without_quotes"}])")
    }
@@ -719,7 +719,7 @@ schema:
    .reference_genomes = R"({"nucleotideSequences": [], "genes": []})",
    .assertion{
       .expected_row_count = 3,
-      .query = "default.orderBy({accessionVersion})",
+      .query = "default.order(by:={accessionVersion})",
       .expected_query_result = nlohmann::json::parse(R"([
          {"accessionVersion": "1", "theDate": "1969-12-31"},
          {"accessionVersion": "2", "theDate": "2021-03-15"},
@@ -781,7 +781,7 @@ child_2:
    .assertion{
       .expected_row_count = 3,
       .query = "default.filter(lineage_1.lineage('root_1', includeSublineages:=true))"
-               ".orderBy({accessionVersion})",
+               ".order(by:={accessionVersion})",
       .expected_query_result = nlohmann::json::parse(R"([
 {"accessionVersion":"0","lineage_1":"root_1","lineage_2":"root_2"},
 {"accessionVersion":"1","lineage_1":"child_1","lineage_2":null}
@@ -818,8 +818,8 @@ schema:
 })",
    .assertion{
       .expected_row_count = 4,
-      .query =
-         "default.group(by:={accessionVersion},aggs:={count:=count()}).orderBy({accessionVersion})",
+      .query = "default.group(by:={accessionVersion},aggs:={count:=count()}).order(by:={"
+               "accessionVersion})",
       .expected_query_result = nlohmann::json::parse(R"([
          {"count": 2, "accessionVersion": "id_1"},
          {"count": 2, "accessionVersion": "id_2"}

@@ -147,11 +147,11 @@ const QueryTestScenario SCHEMA_AFTER_PROJECT_ORDER_SCENARIO = {
    )
 };
 
-// orderBy() after schema() is schema-preserving and needs no data source below it,
+// order() after schema() is schema-preserving and needs no data source below it,
 // so it reorders schema() rows out of the box.
 const QueryTestScenario ORDER_BY_AFTER_SCHEMA_SCENARIO = {
    .name = "ORDER_BY_AFTER_SCHEMA",
-   .query = "default.group(by:={age}, aggs:={count := count()}).schema().orderBy({fieldName})",
+   .query = "default.group(by:={age}, aggs:={count := count()}).schema().order(by:={fieldName})",
    .expected_query_result = nlohmann::json(
       {{{"fieldName", "age"}, {"type", "INT32"}}, {{"fieldName", "count"}, {"type", "INT64"}}}
    )
@@ -161,7 +161,7 @@ const QueryTestScenario ORDER_BY_AFTER_SCHEMA_SCENARIO = {
 const QueryTestScenario LIMIT_AFTER_SCHEMA_SCENARIO = {
    .name = "LIMIT_AFTER_SCHEMA",
    .query =
-      "default.group(by:={age}, aggs:={count := count()}).schema().orderBy({fieldName}).limit(1)",
+      "default.group(by:={age}, aggs:={count := count()}).schema().order(by:={fieldName}).limit(1)",
    .expected_query_result = nlohmann::json({{{"fieldName", "age"}, {"type", "INT32"}}})
 };
 

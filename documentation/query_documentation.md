@@ -190,14 +190,14 @@ Integer literals become `INT64`, floats become `FLOAT`, single-quoted literals b
 {"primary_key": "key_31", "x": 3, "label": "cohort A", "active": true, "copy": "Switzerland"}
 ```
 
-### `orderBy(fields)`
+### `order(by)`
 
-Sorts results. Each field is either a bare name (ascending) or a `asc(name)` / `desc(name)` call. Passes all input columns through unchanged.
+Sorts results. `by` is a set of sort keys; each key is either a bare name (ascending) or a `asc(name)` / `desc(name)` call. Passes all input columns through unchanged.
 
 ```
-default.orderBy({primary_key})
-default.orderBy({count.desc(), pango_lineage})
-default.orderBy({asc(date), desc(age)})
+default.order(by:={primary_key})
+default.order(by:={count.desc(), pango_lineage})
+default.order(by:={asc(date), desc(age)})
 ```
 
 ### `limit(count)`
@@ -213,7 +213,7 @@ default.limit(100)
 Skips the first `count` rows. Passes all input columns through unchanged.
 
 ```
-default.orderBy({primary_key}).offset(10).limit(10)
+default.order(by:={primary_key}).offset(10).limit(10)
 ```
 
 ### `randomize([seed:=n])`
@@ -406,7 +406,7 @@ join(
 )
 ```
 
-**Output:** the joined rows. The order of rows is not guaranteed; use `orderBy(...)` for a deterministic order.
+**Output:** the joined rows. The order of rows is not guaranteed; use `order(...)` for a deterministic order.
 
 ### `unionAll(left, right)`
 
@@ -443,7 +443,7 @@ unionAll(
   default.filter(division='Aargau').project({division}),
   default.filter(division='Bern').project({division})
 ).group(by:={division}, aggs:={count:=count()})
- .orderBy({asc(division)})
+ .order(by:={asc(division)})
 ```
 
 `unionAll` calls can be nested:
@@ -503,7 +503,7 @@ default.mutations(minProportion:=0.1).schema()
 ```
 
 `schema()` produces an ordinary two-column relation,
-so operators such as `project`, `map`, `orderBy` and `limit` can be chained after it.
+so operators such as `project`, `map`, `order` and `limit` can be chained after it.
 
 `schema()` is a *pipeline breaker*: like `group`, `mutations` and `insertions`, it produces a new result relation instead of forwarding its child's rows.
 
@@ -552,7 +552,7 @@ its direct parent in a `parent` column (null for roots). Its closure pairs every
 each of its descendants:
 
 ```
-pango_lineage.transitiveClosure(parent, lineage).orderBy({from, to})
+pango_lineage.transitiveClosure(parent, lineage).order(by:={from, to})
 ```
 
 **Counting a lineage together with all of its sublineages.** Joining the reflexive closure's
@@ -564,7 +564,7 @@ sequences):
 pango_lineage.transitiveClosure(parent, lineage, includeVertices:=true)
   .join(default, to = lineage_column)
   .group(by:={from}, aggs:={count := count()})
-  .orderBy({from})
+  .order(by:={from})
 ```
 
 Here `lineage_column` is a `STRING` column of `default` holding each sequence's lineage. Because
@@ -592,7 +592,7 @@ its reflexive pair.
 - `startingFrom` must be a set literal of string literals, e.g. `{'A', 'B'}`.
 
 **Output:** the reachable `{from, to}` pairs. The order of rows is not guaranteed; use
-`orderBy(...)` for a deterministic order.
+`order(...)` for a deterministic order.
 
 ---
 
@@ -868,7 +868,7 @@ aminoAcidMutationProfile(distance:=2, sequenceName:='S', mutations:={
 ```
 default
   .group(by:={country}, aggs:={count:=count()})
-  .orderBy({count.desc()})
+  .order(by:={count.desc()})
 ```
 
 ### Sequences with a specific mutation, showing details
@@ -877,7 +877,7 @@ default
 default
   .filter(hasMutation(position:=23403))
   .project({primary_key, country, date, pango_lineage})
-  .orderBy({date})
+  .order(by:={date})
   .limit(100)
 ```
 
@@ -895,7 +895,7 @@ default
 default
   .filter(date.between('2021-01-01'::date, '2021-06-30'::date))
   .group(by:={pango_lineage}, aggs:={count:=count()})
-  .orderBy({pango_lineage})
+  .order(by:={pango_lineage})
 ```
 
 ### Complex filter combining multiple conditions
@@ -919,7 +919,7 @@ default
 
 ```
 default
-  .orderBy({primary_key})
+  .order(by:={primary_key})
   .offset(50)
   .limit(25)
   .project({primary_key, country, date})
@@ -931,7 +931,7 @@ default
 default
   .filter(aminoAcidInsertionContains(position:=214, value:='.*PE', sequenceName:='S'))
   .aminoAcidInsertions()
-  .orderBy({insertedSymbols, position})
+  .order(by:={insertedSymbols, position})
 ```
 
 ### Combine two filtered groups with unionAll
@@ -941,5 +941,5 @@ unionAll(
   default.filter(division='Aargau').project({division}),
   default.filter(division='Bern').project({division})
 ).group(by:={division}, aggs:={count:=count()})
- .orderBy({asc(division)})
+ .order(by:={asc(division)})
 ```

@@ -18,7 +18,7 @@ namespace rhydb::query_engine::operators {
 ///
 /// This is a "pipeline breaker": it produces a fresh result relation rather than
 /// forwarding its child's rows. Schema-preserving operators that do not need to
-/// push work into an underlying data source (e.g. `orderBy`, `limit`, `map`,
+/// push work into an underlying data source (e.g. `order`, `limit`, `map`,
 /// `project`) can be chained after it. `filter()` currently cannot, because it is
 /// only realizable when pushed into a table scan, and there is none above
 /// `schema()`.

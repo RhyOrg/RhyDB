@@ -972,7 +972,7 @@ OrderByField parseOrderByField(
       const auto& call = std::get<ast::FunctionCall>(expression.value);
       CHECK_RHYDB_QUERY(
          call.function_name == "asc" || call.function_name == "desc",
-         "orderBy field must be an identifier or asc()/desc() call, got '{}' at {}:{}",
+         "order field must be an identifier or asc()/desc() call, got '{}' at {}:{}",
          call.function_name,
          expression.location.line,
          expression.location.column
@@ -997,7 +997,7 @@ OrderByField parseOrderByField(
       return {.field = *found, .ascending = call.function_name == "asc"};
    }
    throw IllegalQueryException(
-      "orderBy field must be an identifier or asc()/desc() call at {}:{}",
+      "order field must be an identifier or asc()/desc() call at {}:{}",
       expression.location.line,
       expression.location.column
    );
@@ -1377,7 +1377,7 @@ operators::QueryNodePtr handleOrderBy(
    const ChildConverter& convert_child
 ) {
    auto child = convert_child(args.at("input"), tables);
-   auto order_fields = parseOrderByFields(args.at("fields"), child->getOutputSchema());
+   auto order_fields = parseOrderByFields(args.at("by"), child->getOutputSchema());
    return std::make_unique<operators::OrderByNode>(
       std::move(child), std::move(order_fields), std::nullopt
    );
@@ -1779,7 +1779,7 @@ FunctionRegistry::FunctionRegistry() {
 
    registerFunction("offset", {{pos("input"), pos("count")}}, handleOffset);
 
-   registerFunction("orderBy", {{pos("input"), pos("fields")}}, handleOrderBy);
+   registerFunction("order", {{pos("input"), pos("by")}}, handleOrderBy);
 
    registerFunction(
       "mostRecentCommonAncestor",
