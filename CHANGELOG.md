@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.15.0](https://github.com/RhyOrg/RhyDB/compare/v0.14.5...v0.15.0) (2026-10-02)
+
+
+### ⚠ BREAKING CHANGES
+
+* **query_engine:** the `fields` parameter of `projectout` is renamed to `remove`. Positional calls are unaffected; migrate `t.projectout(fields:={...})` to `t.projectout(remove:={...})`.
+* **query_engine:** the `fields` parameter of `project` is renamed to `expressions`. Positional calls are unaffected; migrate `t.project(fields:={...})` to `t.project(expressions:={...})`.
+* **query_engine:** the `predicate` parameter of `filter` is renamed to `condition`. Positional calls are unaffected; migrate `t.filter(predicate:=...)` to `t.filter(condition:=...)`.
+* **query_engine:** `unionAll` is renamed to `unionall`. Migrate `unionAll(a, b)` / `a.unionAll(b)` to `unionall(a, b)` / `a.unionall(b)`.
+* **query_engine:** `orderBy` is renamed to `order` and its `fields` parameter is renamed to `by`. Migrate `t.orderBy({col})` to `t.order(by:={col})`.
+
+### Features
+
+* **query_engine:** only accept `to` and `from` in `transitiveClosure` as identifiers ([#1620](https://github.com/RhyOrg/RhyDB/issues/1620)) ([7e441bf](https://github.com/RhyOrg/RhyDB/commit/7e441bf303b317dcb802472615384cee662ce9d6))
+* **query_engine:** only accept an identifier as the `insertInto` target ([#1618](https://github.com/RhyOrg/RhyDB/issues/1618)) ([626814f](https://github.com/RhyOrg/RhyDB/commit/626814fc4c5ecd618a1235ddd9dea0050d34727e))
+
+
+### Bug Fixes
+
+* **query_engine:** rename filter parameter predicate to condition ([0eb5fd6](https://github.com/RhyOrg/RhyDB/commit/0eb5fd6aa1b400462f86a2ef1aae3ccfe2081a26))
+* **query_engine:** rename orderBy to order with by parameter ([f0c2951](https://github.com/RhyOrg/RhyDB/commit/f0c2951c56a6237b2ea256d50e7876a21485dca1))
+* **query_engine:** rename project parameter fields to expressions ([69ab9fe](https://github.com/RhyOrg/RhyDB/commit/69ab9fe632a388a331a0afbd947cfb6feee31f0b))
+* **query_engine:** rename projectout parameter fields to remove ([e37cc14](https://github.com/RhyOrg/RhyDB/commit/e37cc14c54da1896ebaf9b9f67844db0477ff083))
+* **query_engine:** rename unionAll to unionall ([79b7d67](https://github.com/RhyOrg/RhyDB/commit/79b7d676d2be81bac3f1ae86e559635eee394305))
+
 ## [0.14.5](https://github.com/RhyOrg/RhyDB/compare/v0.14.4...v0.14.5) (2026-09-28)
 
 
