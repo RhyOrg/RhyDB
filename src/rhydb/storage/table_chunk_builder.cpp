@@ -13,7 +13,7 @@
 #include "rhydb/common/date32.h"
 #include "rhydb/common/nucleotide_symbols.h"
 #include "rhydb/storage/column/column_type_visitor.h"
-#include "rhydb/storage/column_group.h"
+#include "rhydb/storage/table.h"
 
 namespace rhydb::storage {
 
@@ -278,11 +278,8 @@ std::expected<void, std::string> ColumnValueExtractor::operator(
 
 }  // namespace
 
-TableChunkBuilder::TableChunkBuilder(
-   const schema::TableSchema& schema,
-   const ColumnGroup& columns
-) {
-   auto builder_initializer = [this, &columns]<column::Column ColumnType>(
+TableChunkBuilder::TableChunkBuilder(const Table& table) {
+   auto builder_initializer = [this, &table]<column::Column ColumnType>(
                                  const schema::ColumnIdentifier& column_identifier,
                                  const schema::TableSchema& table_schema
                               ) {
@@ -293,7 +290,7 @@ TableChunkBuilder::TableChunkBuilder(
                     std::is_same_v<ColumnType, column::SequenceColumn<AminoAcid>>) {
          // Seed the sequence builder with the column's current (possibly adapted)
          // local reference so newly buffered rows share the stored reference basis.
-         const auto& column = columns.getColumns<ColumnType>().at(column_identifier.name);
+         const auto& column = table.getColumn<ColumnType>(column_identifier.name);
          getColumnBuilders<ColumnType>().emplace(
             column_identifier.name,
             typename ColumnType::Builder{column_metadata, column.local_reference_sequence_string}
@@ -310,8 +307,8 @@ TableChunkBuilder::TableChunkBuilder(
          );
       }
    };
-   for (const auto& col : schema.getColumnIdentifiers()) {
-      column::visit(col.type, builder_initializer, col, schema);
+   for (const auto& col : table.schema->getColumnIdentifiers()) {
+      column::visit(col.type, builder_initializer, col, *table.schema);
    }
 }
 
