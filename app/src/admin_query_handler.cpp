@@ -86,7 +86,7 @@ void AdminQueryHandler::post(
 
    try {
       // One write at a time
-      const std::lock_guard<std::mutex> write_lock{*write_mutex};
+      const std::scoped_lock<std::mutex> write_lock{*write_mutex};
 
       rhydb::Database staged_database = loadDatabaseToWriteTo();
 
