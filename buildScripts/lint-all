@@ -6,7 +6,7 @@ DOCKER_IMAGE="${1:-ghcr.io/rhyorg/rhydb-dependencies:latest}"
 
 echo "Using Docker image: $DOCKER_IMAGE"
 
-DOCKER_BUILD_CACHE_VOLUME="${LINT_DOCKER_BUILD_CACHE_VOLUME:-DockerBuildCache-$(basename "$(pwd)" | tr -c 'A-Za-z0-9_.-' '_2')}"
+DOCKER_BUILD_CACHE_VOLUME="${LINT_DOCKER_BUILD_CACHE_VOLUME:-DockerBuildCache-$(basename "$(pwd)" | tr -c 'A-Za-z0-9_.-' '_')}"
 echo "Using Docker volume for build cache: $DOCKER_BUILD_CACHE_VOLUME (clear with: docker volume rm \"$DOCKER_BUILD_CACHE_VOLUME\")"
 
 docker run --rm \
@@ -20,4 +20,4 @@ docker run --rm \
   /bin/bash --login -c '
     set -euo pipefail
     cmake -G Ninja -D BUILD_WITH_CLANG_TIDY=ON -D CMAKE_BUILD_TYPE=Debug -B build/Debug
-    cmake --build build/Debug --target rhydb -- -k 0'
+    cmake --build build/Debug --target rhydb --target rhydb_test --target rhydb_app_test --target rhydb_benchmark --target generate_test_data -- -k 0'
