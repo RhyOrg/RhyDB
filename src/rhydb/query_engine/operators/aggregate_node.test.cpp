@@ -7,6 +7,8 @@ using rhydb::ReferenceGenomes;
 using rhydb::test::QueryTestData;
 using rhydb::test::QueryTestScenario;
 
+const nlohmann::json MAIN_SEQUENCE = {{"sequence", "ATCG"}, {"insertions", nlohmann::json::array()}};
+
 // Per country: Switzerland has two complete rows, Germany one complete row and one row that is null
 // in every numeric column, France only such a null row, and one row has no country at all. `reads`
 // exceeds the int32 range, and the float values are exactly representable so their sums print
@@ -16,24 +18,38 @@ const std::vector<nlohmann::json> DATA = {
     {"country", "Switzerland"},
     {"age", 5},
     {"reads", 3000000000},
-    {"coverage", 0.5}},
+    {"coverage", 0.5},
+    {"main", MAIN_SEQUENCE}},
    {{"primaryKey", "id_1"},
     {"country", "Switzerland"},
     {"age", 7},
     {"reads", 3000000000},
-    {"coverage", 1.25}},
+    {"coverage", 1.25},
+    {"main", MAIN_SEQUENCE}},
    {{"primaryKey", "id_2"},
     {"country", "Germany"},
     {"age", nullptr},
     {"reads", nullptr},
-    {"coverage", nullptr}},
-   {{"primaryKey", "id_3"}, {"country", "Germany"}, {"age", 10}, {"reads", 1}, {"coverage", 2.0}},
-   {{"primaryKey", "id_4"}, {"country", nullptr}, {"age", 1}, {"reads", 2}, {"coverage", 0.25}},
+    {"coverage", nullptr},
+    {"main", MAIN_SEQUENCE}},
+   {{"primaryKey", "id_3"},
+    {"country", "Germany"},
+    {"age", 10},
+    {"reads", 1},
+    {"coverage", 2.0},
+    {"main", MAIN_SEQUENCE}},
+   {{"primaryKey", "id_4"},
+    {"country", nullptr},
+    {"age", 1},
+    {"reads", 2},
+    {"coverage", 0.25},
+    {"main", MAIN_SEQUENCE}},
    {{"primaryKey", "id_5"},
     {"country", "France"},
     {"age", nullptr},
     {"reads", nullptr},
-    {"coverage", nullptr}},
+    {"coverage", nullptr},
+    {"main", MAIN_SEQUENCE}},
 };
 
 const auto DATABASE_CONFIG =
@@ -59,6 +75,7 @@ const QueryTestData TEST_DATA{
    .database_config = DATABASE_CONFIG,
    .reference_genomes = ReferenceGenomes{
       {{"main", "ATCG"}}, {}},
+   .without_unaligned_sequences = true,
 };
 
 const QueryTestScenario SUM_WITHOUT_GROUPS = {
@@ -171,7 +188,7 @@ const QueryTestScenario SUM_OF_UNKNOWN_COLUMN = {
 // (since the group by requires no columns, no columns should be read by the table scan)
 const QueryTestScenario COUNT_NON_COLLAPSIBLE_TABLE_SCAN = {
    .name = "COUNT_NON_COLLAPSIBLE_TABLE_SCAN",
-   .query = "unionAll(reference_genomes, reference_genomes).groupBy({count := count()})",
+   .query = "unionall(reference_genomes, reference_genomes).group(by:={}, aggs:={count := count()})",
    .expected_query_result = nlohmann::json::parse(R"([{"count": 2}])"),
 };
 
@@ -197,7 +214,7 @@ const QueryTestScenario COUNT_PER_GROUP_WITH_CUSTOM_NAME = {
 // case already gives.
 const QueryTestScenario COUNT_OF_COLUMN_WITHOUT_GROUPS = {
    .name = "COUNT_OF_COLUMN_WITHOUT_GROUPS",
-   .query = "default.groupBy({n := count(country)})",
+   .query = "default.group(by:={}, aggs:={n := count(country)})",
    .expected_error_message = "count(<column_ref>) not yet implemented"
 };
 

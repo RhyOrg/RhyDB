@@ -87,7 +87,7 @@ tablesWithSequenceColumnFirst() {
 TEST(PlannerOptimize, bareCountOverSequenceFirstTableBecomesCountFilter) {
    auto tables = tablesWithSequenceColumnFirst();
    auto node = rhydb::query_engine::saneql::parseAndConvertToQueryTree(
-      "default.groupBy({n := count()})", tables
+      "default.group(by:={}, aggs:={n := count()})", tables
    );
 
    auto optimized = Planner::optimize(std::move(node), "test");
