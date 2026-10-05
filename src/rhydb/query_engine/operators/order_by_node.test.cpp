@@ -69,14 +69,14 @@ const QueryTestScenario ASC_THEN_ASC_SCENARIO = {
    .name = "ORDER_BY_ASC_THEN_ASC",
    .query =
       "default.project({primaryKey, int_value, date}).order(by:={int_value.asc(), date.asc()})",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
-       {{"primaryKey", "id_1"}, {"int_value", nullptr}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}},
-       {{"primaryKey", "id_3"}, {"int_value", 1}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_4"}, {"int_value", 2}, {"date", nullptr}},
-       {{"primaryKey", "id_5"}, {"int_value", 2}, {"date", "2023-01-01"}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
+      {{"primaryKey", "id_1"}, {"int_value", nullptr}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}},
+      {{"primaryKey", "id_3"}, {"int_value", 1}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_4"}, {"int_value", 2}, {"date", nullptr}},
+      {{"primaryKey", "id_5"}, {"int_value", 2}, {"date", "2023-01-01"}},
+   }),
 };
 
 // Both keys descending. Nulls (smallest) sort last everywhere: the null `int_value` group
@@ -85,14 +85,14 @@ const QueryTestScenario DESC_THEN_DESC_SCENARIO = {
    .name = "ORDER_BY_DESC_THEN_DESC",
    .query =
       "default.project({primaryKey, int_value, date}).order(by:={int_value.desc(), date.desc()})",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_5"}, {"int_value", 2}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_4"}, {"int_value", 2}, {"date", nullptr}},
-       {{"primaryKey", "id_3"}, {"int_value", 1}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}},
-       {{"primaryKey", "id_1"}, {"int_value", nullptr}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_5"}, {"int_value", 2}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_4"}, {"int_value", 2}, {"date", nullptr}},
+      {{"primaryKey", "id_3"}, {"int_value", 1}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}},
+      {{"primaryKey", "id_1"}, {"int_value", nullptr}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
+   }),
 };
 
 // Leading key descending, tie-break key ascending. Because null sorts as the smallest
@@ -104,14 +104,14 @@ const QueryTestScenario DESC_THEN_ASC_SCENARIO = {
    .name = "ORDER_BY_DESC_THEN_ASC",
    .query =
       "default.project({primaryKey, int_value, date}).order(by:={int_value.desc(), date.asc()})",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_4"}, {"int_value", 2}, {"date", nullptr}},
-       {{"primaryKey", "id_5"}, {"int_value", 2}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}},
-       {{"primaryKey", "id_3"}, {"int_value", 1}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
-       {{"primaryKey", "id_1"}, {"int_value", nullptr}, {"date", "2023-01-01"}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_4"}, {"int_value", 2}, {"date", nullptr}},
+      {{"primaryKey", "id_5"}, {"int_value", 2}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}},
+      {{"primaryKey", "id_3"}, {"int_value", 1}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
+      {{"primaryKey", "id_1"}, {"int_value", nullptr}, {"date", "2023-01-01"}},
+   }),
 };
 
 // Mirror of the above: leading key ascending, tie-break key descending. The descending
@@ -121,14 +121,14 @@ const QueryTestScenario ASC_THEN_DESC_SCENARIO = {
    .name = "ORDER_BY_ASC_THEN_DESC",
    .query =
       "default.project({primaryKey, int_value, date}).order(by:={int_value.asc(), date.desc()})",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_1"}, {"int_value", nullptr}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
-       {{"primaryKey", "id_3"}, {"int_value", 1}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}},
-       {{"primaryKey", "id_5"}, {"int_value", 2}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_4"}, {"int_value", 2}, {"date", nullptr}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_1"}, {"int_value", nullptr}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
+      {{"primaryKey", "id_3"}, {"int_value", 1}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}},
+      {{"primaryKey", "id_5"}, {"int_value", 2}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_4"}, {"int_value", 2}, {"date", nullptr}},
+   }),
 };
 
 // Primary sort key ascending (`date`), with `primaryKey` as deterministic tie-breaker: null
@@ -136,28 +136,28 @@ const QueryTestScenario ASC_THEN_DESC_SCENARIO = {
 const QueryTestScenario SINGLE_ASC_SCENARIO = {
    .name = "ORDER_BY_SINGLE_ASC",
    .query = "default.project({primaryKey, date}).order(by:={date.asc(), primaryKey.asc()})",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"date", nullptr}},
-       {{"primaryKey", "id_2"}, {"date", nullptr}},
-       {{"primaryKey", "id_4"}, {"date", nullptr}},
-       {{"primaryKey", "id_1"}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_3"}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_5"}, {"date", "2023-01-01"}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"date", nullptr}},
+      {{"primaryKey", "id_2"}, {"date", nullptr}},
+      {{"primaryKey", "id_4"}, {"date", nullptr}},
+      {{"primaryKey", "id_1"}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_3"}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_5"}, {"date", "2023-01-01"}},
+   }),
 };
 
 // Single descending key: null (smallest) sorts last.
 const QueryTestScenario SINGLE_DESC_SCENARIO = {
    .name = "ORDER_BY_SINGLE_DESC",
    .query = "default.project({primaryKey, date}).order(by:={date.desc(), primaryKey.asc()})",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_1"}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_3"}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_5"}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_0"}, {"date", nullptr}},
-       {{"primaryKey", "id_2"}, {"date", nullptr}},
-       {{"primaryKey", "id_4"}, {"date", nullptr}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_1"}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_3"}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_5"}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_0"}, {"date", nullptr}},
+      {{"primaryKey", "id_2"}, {"date", nullptr}},
+      {{"primaryKey", "id_4"}, {"date", nullptr}},
+   }),
 };
 
 }  // namespace

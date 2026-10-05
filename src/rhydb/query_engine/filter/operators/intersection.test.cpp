@@ -93,12 +93,14 @@ TEST(OperatorIntersection, evaluateShouldReturnCorrectValues) {
 
 TEST(OperatorIntersection, evaluateShouldReturnCorrectValuesManyNegated) {
    const std::vector<roaring::Roaring> test_bitmaps({{roaring::Roaring({1, 2, 3})}});
-   const std::vector<roaring::Roaring> test_negated_bitmaps({{
-      roaring::Roaring(),
-      roaring::Roaring({3}),
-      roaring::Roaring({4}),
-      roaring::Roaring({2, 4}),
-   },});
+   const std::vector<roaring::Roaring> test_negated_bitmaps({
+      {
+         roaring::Roaring(),
+         roaring::Roaring({3}),
+         roaring::Roaring({4}),
+         roaring::Roaring({2, 4}),
+      },
+   });
    const auto row_layout = RowLayout::of(5);
 
    OperatorVector non_negated = generateTestInput(test_bitmaps, row_layout);
@@ -109,11 +111,13 @@ TEST(OperatorIntersection, evaluateShouldReturnCorrectValuesManyNegated) {
 
 TEST(OperatorIntersection, evaluateShouldReturnCorrectValuesEmptyInput) {
    const std::vector<roaring::Roaring> test_bitmaps({{roaring::Roaring()}});
-   const std::vector<roaring::Roaring> test_negated_bitmaps({{
-      roaring::Roaring({3}),
-      roaring::Roaring({4}),
-      roaring::Roaring({2, 4}),
-   },});
+   const std::vector<roaring::Roaring> test_negated_bitmaps({
+      {
+         roaring::Roaring({3}),
+         roaring::Roaring({4}),
+         roaring::Roaring({2, 4}),
+      },
+   });
    const auto row_layout = RowLayout::of(5);
 
    OperatorVector non_negated = generateTestInput(test_bitmaps, row_layout);

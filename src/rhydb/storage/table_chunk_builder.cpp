@@ -86,11 +86,13 @@ namespace {
       if (error_when_getting_line_context) {                                                \
          return std::unexpected{fmt::format(__VA_ARGS__, simdjson::error_message(error))};  \
       }                                                                                     \
-      return std::unexpected{fmt::format(                                                   \
-         "{}. Current line: {}",                                                            \
-         fmt::format(__VA_ARGS__, simdjson::error_message(error)),                          \
-         line_context.raw()                                                                 \
-      ),};                                                                                   \
+      return std::unexpected{                                                               \
+         fmt::format(                                                                       \
+            "{}. Current line: {}",                                                         \
+            fmt::format(__VA_ARGS__, simdjson::error_message(error)),                       \
+            line_context.raw()                                                              \
+         ),                                                                                 \
+      };                                                                                    \
    }
 
 struct InputSequence {
@@ -122,13 +124,15 @@ std::expected<InputSequence, std::string> getSequenceFromJsonLine(
       );
       auto decoded = decodeBase64(compressed_base64);
       if (!decoded.has_value()) {
-         return std::unexpected{fmt::format(
-            "invalid base64 in 'sequenceCompressed' for column '{}': {}. base64 encoded data "
-            "length: {}",
-            column_name,
-            decoded.error(),
-            compressed_base64.size()
-         ),};
+         return std::unexpected{
+            fmt::format(
+               "invalid base64 in 'sequenceCompressed' for column '{}': {}. base64 encoded data "
+               "length: {}",
+               column_name,
+               decoded.error(),
+               compressed_base64.size()
+            ),
+         };
       }
       try {
          std::string buffer;

@@ -61,20 +61,20 @@ const QueryTestData TEST_DATA{
 const QueryTestScenario FLOAT_EQUALS_VALUE_SCENARIO = {
    .name = "FLOAT_EQUALS_VALUE_SCENARIO",
    .query = "default.filter(float_value = 1.23).project({primaryKey, float_value})",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"float_value", 1.23}},
-       {{"primaryKey", "id_1"}, {"float_value", 1.23}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"float_value", 1.23}},
+      {{"primaryKey", "id_1"}, {"float_value", 1.23}},
+   }),
 };
 
 const QueryTestScenario NEGATED_FLOAT_EQUALS_VALUE_SCENARIO = {
    .name = "NEGATED_FLOAT_EQUALS_VALUE_SCENARIO",
    .query = "default.filter(!(float_value = 1.23)).project({primaryKey, float_value})",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_2"}, {"float_value", 0.345}},
-       {{"primaryKey", "id_3"}, {"float_value", 2.345}},
-       {{"primaryKey", "id_4"}, {"float_value", nullptr}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_2"}, {"float_value", 0.345}},
+      {{"primaryKey", "id_3"}, {"float_value", 2.345}},
+      {{"primaryKey", "id_4"}, {"float_value", nullptr}},
+   }),
 };
 
 const QueryTestScenario FLOAT_EQUALS_NULL_REJECTED_SCENARIO = {

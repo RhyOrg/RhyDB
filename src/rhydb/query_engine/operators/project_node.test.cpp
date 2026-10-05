@@ -43,10 +43,10 @@ const QueryTestScenario PROJECT_EMPTY_SCENARIO = {
 const QueryTestScenario PROJECTOUT_SET_SCENARIO = {
    .name = "PROJECTOUT_SET",
    .query = "default.projectout({age})",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"country", "Switzerland"}},
-       {{"primaryKey", "id_1"}, {"country", "Germany"}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"country", "Switzerland"}},
+      {{"primaryKey", "id_1"}, {"country", "Germany"}},
+   }),
 };
 
 const QueryTestScenario PROJECTOUT_SINGLE_SCENARIO = {

@@ -16,12 +16,20 @@ nlohmann::json createDataWithNucleotideInsertions(
 ) {
    return {
       {"primaryKey", primaryKey},
-      {"segment1",
-       {{"sequence", "AAAACCCCGGGGTTTTAAAACCCCGGGGTTTT"},
-        {"insertions", nucleotideInsertionsSegment1},},},
-      {"segment2",
-       {{"sequence", "CCCCGGGGTTTTAAAACCCCGGGGTTTTAAAA"},
-        {"insertions", nucleotideInsertionsSegment2},},},
+      {
+         "segment1",
+         {
+            {"sequence", "AAAACCCCGGGGTTTTAAAACCCCGGGGTTTT"},
+            {"insertions", nucleotideInsertionsSegment1},
+         },
+      },
+      {
+         "segment2",
+         {
+            {"sequence", "CCCCGGGGTTTTAAAACCCCGGGGTTTTAAAA"},
+            {"insertions", nucleotideInsertionsSegment2},
+         },
+      },
       {"unaligned_segment1", nullptr},
       {"unaligned_segment2", nullptr},
       {"gene1", nullptr},
@@ -47,8 +55,10 @@ schema:
 )";
 
 const auto REFERENCE_GENOMES = ReferenceGenomes{
-   {{"segment1", "AAAACCCCGGGGTTTTAAAACCCCGGGGTTTT"},
-    {"segment2", "CCCCGGGGTTTTAAAACCCCGGGGTTTTAAAA"},},
+   {
+      {"segment1", "AAAACCCCGGGGTTTTAAAACCCCGGGGTTTT"},
+      {"segment2", "CCCCGGGGTTTTAAAACCCCGGGGTTTTAAAA"},
+   },
    {{"gene1", "*"}},
 };
 
@@ -120,9 +130,12 @@ nlohmann::json createDataWithAminoAcidInsertions(
       {"segment2", nullptr},
       {"unaligned_segment1", nullptr},
       {"unaligned_segment2", nullptr},
-      {"gene1", {{"sequence", "ABCDEFGHIKLMNPQRSTVWYZ*"}, {"insertions", aminoAcidInsertionsGene1}},
+      {
+         "gene1",
+         {{"sequence", "ABCDEFGHIKLMNPQRSTVWYZ*"}, {"insertions", aminoAcidInsertionsGene1}},
       },
-      {"gene2", {{"sequence", "ABCDEFGHIKLMNPQRSTVWYZ*"}, {"insertions", aminoAcidInsertionsGene2}}},
+      {"gene2", {{"sequence", "ABCDEFGHIKLMNPQRSTVWYZ*"}, {"insertions", aminoAcidInsertionsGene2}}
+      },
    };
 }
 

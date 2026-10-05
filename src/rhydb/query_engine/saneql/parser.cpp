@@ -67,7 +67,9 @@ ast::ExpressionPtr Parser::parseOrExpr() {
       auto right = parseAndExpr();
       left = ast::makeExpr(
          ast::BinaryExpr{
-            .op = ast::BinaryOp::OR, .left = std::move(left), .right = std::move(right),
+            .op = ast::BinaryOp::OR,
+            .left = std::move(left),
+            .right = std::move(right),
          },
          loc
       );
@@ -86,7 +88,9 @@ ast::ExpressionPtr Parser::parseAndExpr() {
       auto right = parseNotExpr();
       left = ast::makeExpr(
          ast::BinaryExpr{
-            .op = ast::BinaryOp::AND, .left = std::move(left), .right = std::move(right),
+            .op = ast::BinaryOp::AND,
+            .left = std::move(left),
+            .right = std::move(right),
          },
          loc
       );
@@ -143,7 +147,9 @@ ast::ExpressionPtr Parser::parseComparisonExpr() {
       auto right = parsePostfixExpr();
       left = ast::makeExpr(
          ast::BinaryExpr{
-            .op = comparator.value(), .left = std::move(left), .right = std::move(right),
+            .op = comparator.value(),
+            .left = std::move(left),
+            .right = std::move(right),
          },
          loc
       );

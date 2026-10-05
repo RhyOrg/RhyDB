@@ -93,12 +93,18 @@ auto bar_key = YamlFile::stringToConfigKeyPath("bar");
 ConfigSpecification specification{
    .program_name = "test",
    .attribute_specifications =
-      {ConfigAttributeSpecification::createWithDefault(
-          foo_key,
-          ConfigValue::fromBool(false),
-          "help"
-       ),
-       ConfigAttributeSpecification::createWithoutDefault(bar_key, ConfigValueType::INT32, "help"),},
+      {
+         ConfigAttributeSpecification::createWithDefault(
+            foo_key,
+            ConfigValue::fromBool(false),
+            "help"
+         ),
+         ConfigAttributeSpecification::createWithoutDefault(
+            bar_key,
+            ConfigValueType::INT32,
+            "help"
+         ),
+      },
 };
 
 }  // namespace

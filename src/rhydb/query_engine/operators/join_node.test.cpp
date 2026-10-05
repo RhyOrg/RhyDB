@@ -56,12 +56,12 @@ const QueryTestScenario JOIN_INNER_ON_KEY_SCENARIO = {
       default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk
    ).order(by:={asc(primaryKey)}))",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
-       {{"primaryKey", "id_1"}, {"country", "DE"}, {"pk", "id_1"}, {"ctry", "DE"}},
-       {{"primaryKey", "id_2"}, {"country", "CH"}, {"pk", "id_2"}, {"ctry", "CH"}},
-       {{"primaryKey", "id_3"}, {"country", "DE"}, {"pk", "id_3"}, {"ctry", "DE"}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
+      {{"primaryKey", "id_1"}, {"country", "DE"}, {"pk", "id_1"}, {"ctry", "DE"}},
+      {{"primaryKey", "id_2"}, {"country", "CH"}, {"pk", "id_2"}, {"ctry", "CH"}},
+      {{"primaryKey", "id_3"}, {"country", "DE"}, {"pk", "id_3"}, {"ctry", "DE"}},
+   }),
 };
 
 // Piped syntax: left.join(right, on) instead of join(left, right, on).
@@ -72,12 +72,12 @@ const QueryTestScenario JOIN_PIPED_SYNTAX_SCENARIO = {
          .join(default.map({pk := primaryKey, ctry := country}).project({pk, ctry}), primaryKey = pk)
          .order(by:={asc(primaryKey)})
    )",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
-       {{"primaryKey", "id_1"}, {"country", "DE"}, {"pk", "id_1"}, {"ctry", "DE"}},
-       {{"primaryKey", "id_2"}, {"country", "CH"}, {"pk", "id_2"}, {"ctry", "CH"}},
-       {{"primaryKey", "id_3"}, {"country", "DE"}, {"pk", "id_3"}, {"ctry", "DE"}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
+      {{"primaryKey", "id_1"}, {"country", "DE"}, {"pk", "id_1"}, {"ctry", "DE"}},
+      {{"primaryKey", "id_2"}, {"country", "CH"}, {"pk", "id_2"}, {"ctry", "CH"}},
+      {{"primaryKey", "id_3"}, {"country", "DE"}, {"pk", "id_3"}, {"ctry", "DE"}},
+   }),
 };
 
 // Explicit `type := inner` with a filter on the left input.
@@ -89,10 +89,10 @@ const QueryTestScenario JOIN_EXPLICIT_INNER_SCENARIO = {
       primaryKey = pk,
       type := inner
    ).order(by:={asc(primaryKey)}))",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
-       {{"primaryKey", "id_2"}, {"country", "CH"}, {"pk", "id_2"}, {"ctry", "CH"}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
+      {{"primaryKey", "id_2"}, {"country", "CH"}, {"pk", "id_2"}, {"ctry", "CH"}},
+   }),
 };
 
 // Join on a non-key column yields the cross product of matching groups.
@@ -103,12 +103,12 @@ const QueryTestScenario JOIN_MANY_TO_MANY_SCENARIO = {
       default.filter(country='DE').map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       country = ctry
    ).order(by:={asc(primaryKey), asc(pk)}))",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_1"}, {"country", "DE"}, {"pk", "id_1"}, {"ctry", "DE"}},
-       {{"primaryKey", "id_1"}, {"country", "DE"}, {"pk", "id_3"}, {"ctry", "DE"}},
-       {{"primaryKey", "id_3"}, {"country", "DE"}, {"pk", "id_1"}, {"ctry", "DE"}},
-       {{"primaryKey", "id_3"}, {"country", "DE"}, {"pk", "id_3"}, {"ctry", "DE"}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_1"}, {"country", "DE"}, {"pk", "id_1"}, {"ctry", "DE"}},
+      {{"primaryKey", "id_1"}, {"country", "DE"}, {"pk", "id_3"}, {"ctry", "DE"}},
+      {{"primaryKey", "id_3"}, {"country", "DE"}, {"pk", "id_1"}, {"ctry", "DE"}},
+      {{"primaryKey", "id_3"}, {"country", "DE"}, {"pk", "id_3"}, {"ctry", "DE"}},
+   }),
 };
 
 // Left outer join: unmatched left rows keep null values for the right columns.
@@ -120,12 +120,12 @@ const QueryTestScenario JOIN_LEFT_OUTER_SCENARIO = {
       primaryKey = pk,
       type := left
    ).order(by:={asc(primaryKey)}))",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
-       {{"primaryKey", "id_1"}, {"country", "DE"}, {"pk", nullptr}, {"ctry", nullptr}},
-       {{"primaryKey", "id_2"}, {"country", "CH"}, {"pk", "id_2"}, {"ctry", "CH"}},
-       {{"primaryKey", "id_3"}, {"country", "DE"}, {"pk", nullptr}, {"ctry", nullptr}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
+      {{"primaryKey", "id_1"}, {"country", "DE"}, {"pk", nullptr}, {"ctry", nullptr}},
+      {{"primaryKey", "id_2"}, {"country", "CH"}, {"pk", "id_2"}, {"ctry", "CH"}},
+      {{"primaryKey", "id_3"}, {"country", "DE"}, {"pk", nullptr}, {"ctry", nullptr}},
+   }),
 };
 
 // Left semi join: keeps left rows that have a match, outputs only left columns.
@@ -165,12 +165,12 @@ const QueryTestScenario JOIN_RIGHT_OUTER_SCENARIO = {
       primaryKey = pk,
       type := right
    ).order(by:={asc(pk)}))",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
-       {{"primaryKey", nullptr}, {"country", nullptr}, {"pk", "id_1"}, {"ctry", "DE"}},
-       {{"primaryKey", "id_2"}, {"country", "CH"}, {"pk", "id_2"}, {"ctry", "CH"}},
-       {{"primaryKey", nullptr}, {"country", nullptr}, {"pk", "id_3"}, {"ctry", "DE"}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
+      {{"primaryKey", nullptr}, {"country", nullptr}, {"pk", "id_1"}, {"ctry", "DE"}},
+      {{"primaryKey", "id_2"}, {"country", "CH"}, {"pk", "id_2"}, {"ctry", "CH"}},
+      {{"primaryKey", nullptr}, {"country", nullptr}, {"pk", "id_3"}, {"ctry", "DE"}},
+   }),
 };
 
 // Full outer join with disjoint keys on the two inputs: every left row and every right row
@@ -183,12 +183,12 @@ const QueryTestScenario JOIN_FULL_OUTER_SCENARIO = {
       primaryKey = pk,
       type := full
    ).order(by:={asc(primaryKey), asc(pk)}))",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", nullptr}, {"country", nullptr}, {"pk", "id_1"}, {"ctry", "DE"}},
-       {{"primaryKey", nullptr}, {"country", nullptr}, {"pk", "id_3"}, {"ctry", "DE"}},
-       {{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", nullptr}, {"ctry", nullptr}},
-       {{"primaryKey", "id_2"}, {"country", "CH"}, {"pk", nullptr}, {"ctry", nullptr}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", nullptr}, {"country", nullptr}, {"pk", "id_1"}, {"ctry", "DE"}},
+      {{"primaryKey", nullptr}, {"country", nullptr}, {"pk", "id_3"}, {"ctry", "DE"}},
+      {{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", nullptr}, {"ctry", nullptr}},
+      {{"primaryKey", "id_2"}, {"country", "CH"}, {"pk", nullptr}, {"ctry", nullptr}},
+   }),
 };
 
 // Right semi join: keeps right rows that have a match, outputs only right columns.
@@ -228,10 +228,10 @@ const QueryTestScenario JOIN_DOWNSTREAM_FILTER_SCENARIO = {
       default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk
    ).filter(country='CH').order(by:={asc(primaryKey)}))",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
-       {{"primaryKey", "id_2"}, {"country", "CH"}, {"pk", "id_2"}, {"ctry", "CH"}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
+      {{"primaryKey", "id_2"}, {"country", "CH"}, {"pk", "id_2"}, {"ctry", "CH"}},
+   }),
 };
 
 // GroupBy applied to the join result.
@@ -254,12 +254,12 @@ const QueryTestScenario JOIN_MULTI_KEY_SCENARIO = {
       default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk && country = ctry
    ).order(by:={asc(primaryKey)}))",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
-       {{"primaryKey", "id_1"}, {"country", "DE"}, {"pk", "id_1"}, {"ctry", "DE"}},
-       {{"primaryKey", "id_2"}, {"country", "CH"}, {"pk", "id_2"}, {"ctry", "CH"}},
-       {{"primaryKey", "id_3"}, {"country", "DE"}, {"pk", "id_3"}, {"ctry", "DE"}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"country", "CH"}, {"pk", "id_0"}, {"ctry", "CH"}},
+      {{"primaryKey", "id_1"}, {"country", "DE"}, {"pk", "id_1"}, {"ctry", "DE"}},
+      {{"primaryKey", "id_2"}, {"country", "CH"}, {"pk", "id_2"}, {"ctry", "CH"}},
+      {{"primaryKey", "id_3"}, {"country", "DE"}, {"pk", "id_3"}, {"ctry", "DE"}},
+   }),
 };
 
 // Inputs sharing column names are rejected: the join output would contain duplicate names.

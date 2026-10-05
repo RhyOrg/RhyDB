@@ -42,7 +42,10 @@ const QueryTestData TEST_DATA{
 };
 
 const nlohmann::json EXPECTED_RESULT = {
-   {{"primaryKey", "id"}, {"sorted_date", SORTED_DATE_VALUE}, {"unsorted_date", UNSORTED_DATE_VALUE},
+   {
+      {"primaryKey", "id"},
+      {"sorted_date", SORTED_DATE_VALUE},
+      {"unsorted_date", UNSORTED_DATE_VALUE},
    },
 };
 

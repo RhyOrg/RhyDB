@@ -105,7 +105,10 @@ arrow::Result<std::optional<arrow::acero::ExecNode*>> insertBackpressureForDecom
          arrow::acero::SourceNodeOptions{
             schema_of_sequence_batches,
             rhydb::query_engine::exec_node::ThrottledBatchReslicer{
-               batch_generator, maximum_batch_size, TARGET_BATCH_RATE, backpressure_monitor,
+               batch_generator,
+               maximum_batch_size,
+               TARGET_BATCH_RATE,
+               backpressure_monitor,
             },
             input_ordering,
          }

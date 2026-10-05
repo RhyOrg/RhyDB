@@ -18,8 +18,10 @@ nlohmann::json createData(const std::string& primary_key, const std::optional<in
    return {
       {"primaryKey", primary_key},
       {"int_value", value.has_value() ? nlohmann::json(value.value()) : nlohmann::json(nullptr)},
-      {"int64_value",
-       value.has_value() ? nlohmann::json(value.value() * INT64_SCALE) : nlohmann::json(nullptr),},
+      {
+         "int64_value",
+         value.has_value() ? nlohmann::json(value.value() * INT64_SCALE) : nlohmann::json(nullptr),
+      },
       {"bool_value", nullptr},
    };
 }
@@ -44,10 +46,12 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{{}, {}};
 
 const QueryTestData TEST_DATA{
    .ndjson_input_data =
-      {createData("id_below", BELOW),
-       createData("id_bound", BOUND),
-       createData("id_above", ABOVE),
-       createData("id_null", std::nullopt),},
+      {
+         createData("id_below", BELOW),
+         createData("id_bound", BOUND),
+         createData("id_above", ABOVE),
+         createData("id_null", std::nullopt),
+      },
    .database_config = DATABASE_CONFIG,
    .reference_genomes = REFERENCE_GENOMES,
 };

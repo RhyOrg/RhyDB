@@ -17,13 +17,17 @@ std::string serializeResultOrdering(const arrow::compute::Ordering& ordering) {
    auto sort_keys = nlohmann::json::array();
    for (const auto& sort_key : ordering.sort_keys()) {
       const std::string* field_name = sort_key.target.name();
-      sort_keys.push_back(
-         {{"field", field_name != nullptr ? *field_name : sort_key.target.ToString()},
-          {"order",
-           sort_key.order == arrow::compute::SortOrder::Ascending ? "ascending" : "descending",},
-          {"nullPlacement",
-           sort_key.null_placement == arrow::compute::NullPlacement::AtStart ? "atStart" : "atEnd",},}
-      );
+      sort_keys.push_back({
+         {"field", field_name != nullptr ? *field_name : sort_key.target.ToString()},
+         {
+            "order",
+            sort_key.order == arrow::compute::SortOrder::Ascending ? "ascending" : "descending",
+         },
+         {
+            "nullPlacement",
+            sort_key.null_placement == arrow::compute::NullPlacement::AtStart ? "atStart" : "atEnd",
+         },
+      });
    }
    return sort_keys.dump();
 }
@@ -40,7 +44,10 @@ arrow::Result<QueryPlan> QueryPlan::makeQueryPlan(
       backpressure_monitor, createGenerator(arrow_plan.get(), root, &results_generator)
    );
    QueryPlan query_plan{
-      std::move(arrow_plan), std::move(results_generator), backpressure_monitor, request_id,
+      std::move(arrow_plan),
+      std::move(results_generator),
+      backpressure_monitor,
+      request_id,
    };
    query_plan.results_schema = root->output_schema();
    query_plan.result_ordering = std::move(result_ordering);

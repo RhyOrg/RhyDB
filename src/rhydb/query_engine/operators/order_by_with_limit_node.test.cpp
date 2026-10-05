@@ -65,11 +65,11 @@ const QueryTestScenario ASC_LIMIT_SCENARIO = {
    .query =
       "default.project({primaryKey, int_value, date}).order(by:={int_value.asc(), "
       "date.asc()}).limit(3)",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
-       {{"primaryKey", "id_1"}, {"int_value", nullptr}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
+      {{"primaryKey", "id_1"}, {"int_value", nullptr}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}},
+   }),
 };
 
 // order descending + limit: the three largest rows, nulls (smallest) sort last so they do not
@@ -79,11 +79,11 @@ const QueryTestScenario DESC_LIMIT_SCENARIO = {
    .query =
       "default.project({primaryKey, int_value, date}).order(by:={int_value.desc(), "
       "date.desc()}).limit(3)",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_5"}, {"int_value", 2}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_4"}, {"int_value", 2}, {"date", nullptr}},
-       {{"primaryKey", "id_3"}, {"int_value", 1}, {"date", "2023-01-01"}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_5"}, {"int_value", 2}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_4"}, {"int_value", 2}, {"date", nullptr}},
+      {{"primaryKey", "id_3"}, {"int_value", 1}, {"date", "2023-01-01"}},
+   }),
 };
 
 // A limit larger than the input returns every row, still fully ordered.
@@ -91,14 +91,14 @@ const QueryTestScenario LIMIT_LARGER_THAN_INPUT_SCENARIO = {
    .name = "ORDER_BY_WITH_LIMIT_LARGER_THAN_INPUT",
    .query =
       "default.project({primaryKey, date}).order(by:={date.asc(), primaryKey.asc()}).limit(100)",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"date", nullptr}},
-       {{"primaryKey", "id_2"}, {"date", nullptr}},
-       {{"primaryKey", "id_4"}, {"date", nullptr}},
-       {{"primaryKey", "id_1"}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_3"}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_5"}, {"date", "2023-01-01"}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"date", nullptr}},
+      {{"primaryKey", "id_2"}, {"date", nullptr}},
+      {{"primaryKey", "id_4"}, {"date", nullptr}},
+      {{"primaryKey", "id_1"}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_3"}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_5"}, {"date", "2023-01-01"}},
+   }),
 };
 
 // A filter applied to the *output* of a limit must run after the limit, not be pushed below it.
@@ -125,11 +125,11 @@ const QueryTestScenario MULTI_BATCH_SCENARIO = {
    .query =
       "default.project({primaryKey, int_value, date}).order(by:={int_value.asc(), "
       "date.asc()}).limit(3)",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
-       {{"primaryKey", "id_1"}, {"int_value", nullptr}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
+      {{"primaryKey", "id_1"}, {"int_value", nullptr}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}},
+   }),
    .query_options = rhydb::config::QueryOptions{.materialization_cutoff = 2},
 };
 

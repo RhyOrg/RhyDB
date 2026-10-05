@@ -34,10 +34,12 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{{}, {}};
 
 const QueryTestData TEST_DATA{
    .ndjson_input_data =
-      {createData("id_below", DATE_BELOW),
-       createData("id_bound", DATE_BOUND),
-       createData("id_above", DATE_ABOVE),
-       createData("id_null", std::nullopt),},
+      {
+         createData("id_below", DATE_BELOW),
+         createData("id_bound", DATE_BOUND),
+         createData("id_above", DATE_ABOVE),
+         createData("id_null", std::nullopt),
+      },
    .database_config = DATABASE_CONFIG,
    .reference_genomes = REFERENCE_GENOMES,
 };

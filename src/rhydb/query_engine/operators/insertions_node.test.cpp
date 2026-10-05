@@ -35,11 +35,13 @@ const auto REFERENCE_GENOMES =
 
 const QueryTestData TEST_DATA{
    .ndjson_input_data =
-      {createData("s1", {"2:TT"}, {}, {}),
-       createData("s2", {"2:TT"}, {}, {}),
-       createData("s3", {"3:G"}, {"1:CC"}, {}),
-       createData("s4", {}, {"1:CC"}, {"1:W"}),
-       createData("s5", {"2:TT"}, {}, {"1:W"}),},
+      {
+         createData("s1", {"2:TT"}, {}, {}),
+         createData("s2", {"2:TT"}, {}, {}),
+         createData("s3", {"3:G"}, {"1:CC"}, {}),
+         createData("s4", {}, {"1:CC"}, {"1:W"}),
+         createData("s5", {"2:TT"}, {}, {"1:W"}),
+      },
    .database_config = DATABASE_CONFIG,
    .reference_genomes = REFERENCE_GENOMES,
    .without_unaligned_sequences = true,

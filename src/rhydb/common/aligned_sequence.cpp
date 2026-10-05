@@ -152,8 +152,8 @@ extractCoverageAndMutationsFromSequence<AminoAcid>(
    bool
 );
 template std::expected<CoverageAndMutations<Nucleotide>, std::string>
-   extractCoverageAndMutationsFromSequence<Nucleotide>(std::string_view, size_t, std::string_view);
+extractCoverageAndMutationsFromSequence<Nucleotide>(std::string_view, size_t, std::string_view);
 template std::expected<CoverageAndMutations<AminoAcid>, std::string>
-   extractCoverageAndMutationsFromSequence<AminoAcid>(std::string_view, size_t, std::string_view);
+extractCoverageAndMutationsFromSequence<AminoAcid>(std::string_view, size_t, std::string_view);
 
 }  // namespace rhydb

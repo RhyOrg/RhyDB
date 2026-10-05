@@ -8,12 +8,14 @@ using rhydb::test::QueryTestData;
 using rhydb::test::QueryTestScenario;
 
 const std::vector<nlohmann::json> DATA = {
-   {{"primaryKey", "id_0"},
-    {"segment1", nullptr},
-    {"segment2", nullptr},
-    {"gene1", nullptr},
-    {"unaligned_segment1", nullptr},
-    {"unaligned_segment2", nullptr},},
+   {
+      {"primaryKey", "id_0"},
+      {"segment1", nullptr},
+      {"segment2", nullptr},
+      {"gene1", nullptr},
+      {"unaligned_segment1", nullptr},
+      {"unaligned_segment2", nullptr},
+   },
 };
 
 const auto DATABASE_CONFIG =

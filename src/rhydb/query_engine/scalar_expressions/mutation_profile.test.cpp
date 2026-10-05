@@ -49,11 +49,11 @@ const auto REFERENCE_GENOMES =
 const QueryTestData TEST_DATA{
    .ndjson_input_data =
       {
-         createData("seq_ref", "ATGCN", "M*"),       // 0 diffs from reference profile
-         createData("seq_1mut", "CTGCN", "C*"),      // 1 diff from reference profile (pos1)
-         createData("seq_2mut", "CTCCN", "M*"),      // 2 diffs from reference profile (pos1, pos3)
-         createData("seq_3mut", "CTCTN", "M*"),      // 3 diffs from reference profile (pos1,3,4)
-         createData("seq_all_n", "NNNNN", "M*"),     // 0 conservative diffs (N is compatible)
+         createData("seq_ref", "ATGCN", "M*"),        // 0 diffs from reference profile
+         createData("seq_1mut", "CTGCN", "C*"),       // 1 diff from reference profile (pos1)
+         createData("seq_2mut", "CTCCN", "M*"),       // 2 diffs from reference profile (pos1, pos3)
+         createData("seq_3mut", "CTCTN", "M*"),       // 3 diffs from reference profile (pos1,3,4)
+         createData("seq_all_n", "NNNNN", "M*"),      // 0 conservative diffs (N is compatible)
          createData("seq_mixed_amb", "RTGCN", "M*"),  // 0 diffs: R∈AMBIGUITY[A], conservative
       },
    .database_config = DATABASE_CONFIG,
@@ -293,8 +293,10 @@ schema:
 
 const QueryTestData TEST_DATA_WITHOUT_PRIMARY_KEY{
    .ndjson_input_data =
-      {createDataWithoutPrimaryKey("seq_ref", "ATGCN", "M*"),
-       createDataWithoutPrimaryKey("seq_1mut", "CTGCN", "C*"),},
+      {
+         createDataWithoutPrimaryKey("seq_ref", "ATGCN", "M*"),
+         createDataWithoutPrimaryKey("seq_1mut", "CTGCN", "C*"),
+      },
    .database_config = DATABASE_CONFIG_WITHOUT_PRIMARY_KEY,
    .reference_genomes = REFERENCE_GENOMES,
    .without_unaligned_sequences = true,

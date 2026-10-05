@@ -165,12 +165,14 @@ TEST(OperatorThreshold, evaluateShouldReturnCorrectValues) {
 
 TEST(OperatorThreshold, evaluateShouldReturnCorrectValuesManyNegated) {
    const std::vector<roaring::Roaring> test_bitmaps({{roaring::Roaring({1, 2, 3})}});
-   const std::vector<roaring::Roaring> test_negated_bitmaps({{
-      roaring::Roaring(),
-      roaring::Roaring({3}),
-      roaring::Roaring({4}),
-      roaring::Roaring({2, 4}),
-   },});
+   const std::vector<roaring::Roaring> test_negated_bitmaps({
+      {
+         roaring::Roaring(),
+         roaring::Roaring({3}),
+         roaring::Roaring({4}),
+         roaring::Roaring({2, 4}),
+      },
+   });
    const auto row_layout = RowLayout::of(5);
 
    const Threshold under_test_1_exact(
@@ -248,11 +250,13 @@ TEST(OperatorThreshold, evaluateShouldReturnCorrectValuesManyNegated) {
 
 TEST(OperatorThreshold, evaluateShouldReturnCorrectValuesEmptyInput) {
    const std::vector<roaring::Roaring> test_bitmaps({{roaring::Roaring()}});
-   const std::vector<roaring::Roaring> test_negated_bitmaps({{
-      roaring::Roaring({3}),
-      roaring::Roaring({4}),
-      roaring::Roaring({2, 4}),
-   },});
+   const std::vector<roaring::Roaring> test_negated_bitmaps({
+      {
+         roaring::Roaring({3}),
+         roaring::Roaring({4}),
+         roaring::Roaring({2, 4}),
+      },
+   });
    const auto row_layout = RowLayout::of(4);
 
    const Threshold under_test_1_exact(

@@ -108,11 +108,13 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{
 
 const QueryTestData NOF_TEST_DATA{
    .ndjson_input_data =
-      {createNOfData("id_0", "Switzerland", "Europe", "2020-01-01"),
-       createNOfData("id_1", "Germany", "Europe", "2021-06-15"),
-       createNOfData("id_2", "USA", "Americas", "2019-03-20"),
-       createNOfData("id_3", "Switzerland", "Europe", "2018-11-01"),
-       createNOfData("id_4", "France", "Europe", "2022-07-10"),},
+      {
+         createNOfData("id_0", "Switzerland", "Europe", "2020-01-01"),
+         createNOfData("id_1", "Germany", "Europe", "2021-06-15"),
+         createNOfData("id_2", "USA", "Americas", "2019-03-20"),
+         createNOfData("id_3", "Switzerland", "Europe", "2018-11-01"),
+         createNOfData("id_4", "France", "Europe", "2022-07-10"),
+      },
    .database_config = DATABASE_CONFIG,
    .reference_genomes = REFERENCE_GENOMES,
    .without_unaligned_sequences = true,

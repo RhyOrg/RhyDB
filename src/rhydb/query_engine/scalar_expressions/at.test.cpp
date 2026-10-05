@@ -12,11 +12,17 @@ nlohmann::json alignedSequence(const std::string& sequence) {
 }
 
 const std::vector<nlohmann::json> DATA = {
-   {{"primaryKey", "id_0"},
-    {"str_value", "short"},
-    {"segment1", alignedSequence("ACGT")},
-    {"gene1", nullptr},},
-   {{"primaryKey", "id_1"}, {"str_value", "longlonglong"}, {"segment1", nullptr}, {"gene1", nullptr},
+   {
+      {"primaryKey", "id_0"},
+      {"str_value", "short"},
+      {"segment1", alignedSequence("ACGT")},
+      {"gene1", nullptr},
+   },
+   {
+      {"primaryKey", "id_1"},
+      {"str_value", "longlonglong"},
+      {"segment1", nullptr},
+      {"gene1", nullptr},
    },
 };
 

@@ -243,7 +243,9 @@ std::optional<operators::GroupingDimension> matchScalarExpressionDimension(
       return std::nullopt;
    }
    return operators::ScalarExpressionDimension{
-      expression.clone(), expression.type(), group_by_field.name,
+      expression.clone(),
+      expression.type(),
+      group_by_field.name,
    };
 }
 

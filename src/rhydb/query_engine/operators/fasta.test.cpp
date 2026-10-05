@@ -77,29 +77,37 @@ const QueryTestScenario SEQUENCE_WITH_BOTH_SEGMENTS_SCENARIO = {
 const QueryTestScenario SEQUENCE_WITH_ONLY_FIRST_SEGMENT_SCENARIO = {
    .name = "SEQUENCE_WITH_ONLY_FIRST_SEGMENT_SCENARIO",
    .query = createFastaQuery("onlySegment1"),
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "onlySegment1"}, {"unaligned_segment1", "T"}, {"unaligned_segment2", nullptr},
-      },}
-   ),
+   .expected_query_result = nlohmann::json({
+      {
+         {"primaryKey", "onlySegment1"},
+         {"unaligned_segment1", "T"},
+         {"unaligned_segment2", nullptr},
+      },
+   }),
 };
 
 const QueryTestScenario SEQUENCE_WITH_ONLY_SECOND_SEGMENT_SCENARIO = {
    .name = "SEQUENCE_WITH_ONLY_SECOND_SEGMENT_SCENARIO",
    .query = createFastaQuery("onlySegment2"),
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "onlySegment2"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", "T"},
-      },}
-   ),
+   .expected_query_result = nlohmann::json({
+      {
+         {"primaryKey", "onlySegment2"},
+         {"unaligned_segment1", nullptr},
+         {"unaligned_segment2", "T"},
+      },
+   }),
 };
 
 const QueryTestScenario SEQUENCE_WITH_NO_SEGMENT_SCENARIO = {
    .name = "SEQUENCE_WITH_NO_SEGMENT_SCENARIO",
    .query = createFastaQuery("noSegment"),
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "noSegment"},
-        {"unaligned_segment1", nullptr},
-        {"unaligned_segment2", nullptr},},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {
+         {"primaryKey", "noSegment"},
+         {"unaligned_segment1", nullptr},
+         {"unaligned_segment2", nullptr},
+      },
+   }),
 };
 
 const QueryTestScenario DOWNLOAD_ALL_SEQUENCES_SCENARIO = {
@@ -107,19 +115,27 @@ const QueryTestScenario DOWNLOAD_ALL_SEQUENCES_SCENARIO = {
    .query =
       "default.project({primaryKey, unaligned_segment1, "
       "unaligned_segment2}).order(by:={primaryKey})",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "1"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", "A"}},
-       {{"primaryKey", "2"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", nullptr}},
-       {{"primaryKey", "3"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", "AA"}},
-       {{"primaryKey", "bothSegments"}, {"unaligned_segment1", "A"}, {"unaligned_segment2", "G"}},
-       {{"primaryKey", "noSegment"},
-        {"unaligned_segment1", nullptr},
-        {"unaligned_segment2", nullptr},},
-       {{"primaryKey", "onlySegment1"}, {"unaligned_segment1", "T"}, {"unaligned_segment2", nullptr},
-       },
-       {{"primaryKey", "onlySegment2"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", "T"},
-       },}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "1"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", "A"}},
+      {{"primaryKey", "2"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", nullptr}},
+      {{"primaryKey", "3"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", "AA"}},
+      {{"primaryKey", "bothSegments"}, {"unaligned_segment1", "A"}, {"unaligned_segment2", "G"}},
+      {
+         {"primaryKey", "noSegment"},
+         {"unaligned_segment1", nullptr},
+         {"unaligned_segment2", nullptr},
+      },
+      {
+         {"primaryKey", "onlySegment1"},
+         {"unaligned_segment1", "T"},
+         {"unaligned_segment2", nullptr},
+      },
+      {
+         {"primaryKey", "onlySegment2"},
+         {"unaligned_segment1", nullptr},
+         {"unaligned_segment2", "T"},
+      },
+   }),
    .query_options = rhydb::config::QueryOptions{.materialization_cutoff = 0},
 };
 

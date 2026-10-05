@@ -67,10 +67,10 @@ operators::QueryNodePtr makeNonScanChild() {
 
 std::vector<operators::MapNode::Assignment> makeMapAssignments() {
    std::vector<operators::MapNode::Assignment> assignments;
-   assignments.push_back(
-      {.output_column = {.name = "x", .type = rhydb::schema::ColumnType::INT64},
-       .expression = std::make_unique<rhydb::query_engine::scalar_expressions::Int64Literal>(3),}
-   );
+   assignments.push_back({
+      .output_column = {.name = "x", .type = rhydb::schema::ColumnType::INT64},
+      .expression = std::make_unique<rhydb::query_engine::scalar_expressions::Int64Literal>(3),
+   });
    return assignments;
 }
 
@@ -80,9 +80,11 @@ operators::QueryNodePtr makeCountStarAggregate(operators::QueryNodePtr child) {
       std::move(child),
       std::vector<rhydb::schema::ColumnIdentifier>{},
       std::vector<operators::AggregateDefinition>{
-         {.output_name = "count",
-          .function = operators::AggregateFunction::COUNT,
-          .source_column = std::nullopt,},
+         {
+            .output_name = "count",
+            .function = operators::AggregateFunction::COUNT,
+            .source_column = std::nullopt,
+         },
       }
    );
 }

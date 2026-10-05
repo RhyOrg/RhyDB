@@ -107,10 +107,10 @@ TEST(FilterPushdownPass, pushesFilterThroughMapIntoTableScan) {
    auto filter_node = std::make_unique<operators::FilterNode>(std::move(scan), makeDummyFilter());
 
    std::vector<operators::MapNode::Assignment> assignments;
-   assignments.push_back(
-      {.output_column = {.name = "x", .type = rhydb::schema::ColumnType::INT64},
-       .expression = std::make_unique<scalar_expressions::Int64Literal>(3),}
-   );
+   assignments.push_back({
+      .output_column = {.name = "x", .type = rhydb::schema::ColumnType::INT64},
+      .expression = std::make_unique<scalar_expressions::Int64Literal>(3),
+   });
    auto map_node =
       std::make_unique<operators::MapNode>(std::move(filter_node), std::move(assignments));
 
@@ -139,12 +139,12 @@ TEST(FilterPushdownPass, pushesFilterThroughDecompressMapIntoTableScan) {
    );
 
    std::vector<operators::MapNode::Assignment> assignments;
-   assignments.push_back(
-      {.output_column = {.name = "seq", .type = ColumnType::STRING},
-       .expression = std::make_unique<scalar_expressions::ZstdDecompressScalar>(
-          std::make_unique<scalar_expressions::FieldRef>(seq_column), "A"
-       ),}
-   );
+   assignments.push_back({
+      .output_column = {.name = "seq", .type = ColumnType::STRING},
+      .expression = std::make_unique<scalar_expressions::ZstdDecompressScalar>(
+         std::make_unique<scalar_expressions::FieldRef>(seq_column), "A"
+      ),
+   });
    auto map_node = std::make_unique<operators::MapNode>(std::move(scan), std::move(assignments));
    auto filter_node =
       std::make_unique<operators::FilterNode>(std::move(map_node), makeDummyFilter());
@@ -180,10 +180,10 @@ TEST(FilterPushdownPass, doesNotPushFilterReferencingMapProducedColumnBelowMap) 
 
    const ColumnIdentifier produced_column{.name = "x", .type = ColumnType::INT64};
    std::vector<operators::MapNode::Assignment> assignments;
-   assignments.push_back(
-      {.output_column = produced_column,
-       .expression = std::make_unique<scalar_expressions::Int64Literal>(3),}
-   );
+   assignments.push_back({
+      .output_column = produced_column,
+      .expression = std::make_unique<scalar_expressions::Int64Literal>(3),
+   });
    auto map_node = std::make_unique<operators::MapNode>(std::move(scan), std::move(assignments));
 
    // filter references the map-produced column `x`
@@ -218,10 +218,10 @@ TEST(FilterPushdownPass, pushesFilterReferencingPassThroughColumnBelowMap) {
 
    const ColumnIdentifier produced_column{.name = "x", .type = ColumnType::INT64};
    std::vector<operators::MapNode::Assignment> assignments;
-   assignments.push_back(
-      {.output_column = produced_column,
-       .expression = std::make_unique<scalar_expressions::Int64Literal>(3),}
-   );
+   assignments.push_back({
+      .output_column = produced_column,
+      .expression = std::make_unique<scalar_expressions::Int64Literal>(3),
+   });
    auto map_node = std::make_unique<operators::MapNode>(std::move(scan), std::move(assignments));
 
    // filter references `id`, a pass-through column the map does not produce
@@ -254,12 +254,12 @@ TEST(FilterPushdownPass, pushesFilterThroughTransparentDecompressMapIntoTableSca
    );
 
    std::vector<operators::MapNode::Assignment> assignments;
-   assignments.push_back(
-      {.output_column = {.name = "seq", .type = ColumnType::STRING},
-       .expression = std::make_unique<scalar_expressions::ZstdDecompressScalar>(
-          std::make_unique<scalar_expressions::FieldRef>(compressed_column), "A"
-       ),}
-   );
+   assignments.push_back({
+      .output_column = {.name = "seq", .type = ColumnType::STRING},
+      .expression = std::make_unique<scalar_expressions::ZstdDecompressScalar>(
+         std::make_unique<scalar_expressions::FieldRef>(compressed_column), "A"
+      ),
+   });
    auto map_node = std::make_unique<operators::MapNode>(std::move(scan), std::move(assignments));
 
    // filter references the decompressed column `seq` {seq, STRING} - same identifier the map
@@ -294,10 +294,10 @@ TEST(FilterPushdownPass, doesNotPushFilterThroughValueChangingReplaceInPlaceMap)
    // replace the existing pass-through column `id` with a computed value
    const ColumnIdentifier replaced_column{.name = "id", .type = ColumnType::INT64};
    std::vector<operators::MapNode::Assignment> assignments;
-   assignments.push_back(
-      {.output_column = replaced_column,
-       .expression = std::make_unique<scalar_expressions::Int64Literal>(3),}
-   );
+   assignments.push_back({
+      .output_column = replaced_column,
+      .expression = std::make_unique<scalar_expressions::Int64Literal>(3),
+   });
    auto map_node = std::make_unique<operators::MapNode>(std::move(scan), std::move(assignments));
 
    auto filter_node = std::make_unique<operators::FilterNode>(
@@ -321,10 +321,10 @@ TEST(FilterPushdownPass, pushesFilterThroughProjectAndMapIntoTableScan) {
    auto inner_filter = makeFilteredScan(false);
 
    std::vector<operators::MapNode::Assignment> assignments;
-   assignments.push_back(
-      {.output_column = {.name = "x", .type = rhydb::schema::ColumnType::INT64},
-       .expression = std::make_unique<scalar_expressions::Int64Literal>(3),}
-   );
+   assignments.push_back({
+      .output_column = {.name = "x", .type = rhydb::schema::ColumnType::INT64},
+      .expression = std::make_unique<scalar_expressions::Int64Literal>(3),
+   });
    auto map_node =
       std::make_unique<operators::MapNode>(std::move(inner_filter), std::move(assignments));
    auto project_node = std::make_unique<operators::ProjectNode>(
@@ -353,10 +353,10 @@ TEST(FilterPushdownPass, pushesFilterThroughProjectAndMapIntoTableScan) {
 // filtering preserves), so a filter above it is pushed down into the scan.
 TEST(FilterPushdownPass, pushesFilterThroughDeterministicOrderByIntoTableScan) {
    std::vector<rhydb::query_engine::OrderByField> fields;
-   fields.push_back(
-      {.field = {.name = "primaryKey", .type = rhydb::schema::ColumnType::STRING}, .ascending = true,
-      }
-   );
+   fields.push_back({
+      .field = {.name = "primaryKey", .type = rhydb::schema::ColumnType::STRING},
+      .ascending = true,
+   });
    auto order_by = std::make_unique<operators::OrderByNode>(
       makeFilteredScan(false), std::move(fields), std::nullopt
    );

@@ -691,7 +691,8 @@ schema:
       .expected_row_count = 3,
       .query = "default.order(by:={accessionVersion})",
       .expected_query_result = nlohmann::json::parse(R"(
-[{"accessionVersion":"0"},{"accessionVersion":"0.12"},{"accessionVersion":"text_without_quotes"}])"),
+[{"accessionVersion":"0"},{"accessionVersion":"0.12"},{"accessionVersion":"text_without_quotes"}])"
+      ),
    },
 };
 
@@ -767,17 +768,25 @@ schema:
   "genes": []
 })",
    .lineage_trees =
-      {{"lineage_definition_1.yaml", R"(
+      {
+         {
+            "lineage_definition_1.yaml",
+            R"(
 root_1: ~
 child_1:
   parents:
     - root_1
-  )",},
-       {"lineage_definition_2.yaml", R"(
+  )",
+         },
+         {
+            "lineage_definition_2.yaml",
+            R"(
 root_2: ~
 child_2:
   parents:
-    - root_2)",},},
+    - root_2)",
+         },
+      },
    .assertion{
       .expected_row_count = 3,
       .query = "default.filter(lineage_1.lineage('root_1', includeSublineages:=true))"
@@ -945,9 +954,11 @@ const Scenario<Error> TYPE_ERROR = {
    .test_name = "TYPE_ERROR",
    .input_data =
       []() {
-         std::vector<nlohmann::json> result{nlohmann::json::parse(R"({
+         std::vector<nlohmann::json> result{
+            nlohmann::json::parse(R"({
 "accessionVersion": 0
-})"),};
+})"),
+         };
          return result;
       },
    .database_config =
@@ -975,11 +986,13 @@ const Scenario<Error> SEQUENCE_ILLEGAL_SYMBOL = {
    .test_name = "SEQUENCE_ILLEGAL_SYMBOL",
    .input_data =
       []() {
-         std::vector<nlohmann::json> result{nlohmann::json::parse(R"({
+         std::vector<nlohmann::json> result{
+            nlohmann::json::parse(R"({
 "accessionVersion": "1.3",
 "main": {"sequence": "ACET", "insertions": []},
 "unaligned_main": "ACGT"
-})"),};
+})"),
+         };
          return result;
       },
    .database_config =

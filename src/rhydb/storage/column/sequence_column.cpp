@@ -336,7 +336,9 @@ void SequenceColumnBuilder<SymbolType>::insert(
    auto [coverage, mutations] = std::move(coverage_mutations).value();
 
    buffer.push_back(typename SequenceColumn<SymbolType>::BufferedSequence{
-      .coverage = std::move(coverage), .mutations = std::move(mutations), .insertions = {insertions},
+      .coverage = std::move(coverage),
+      .mutations = std::move(mutations),
+      .insertions = {insertions},
    });
 }
 

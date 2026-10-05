@@ -38,11 +38,13 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{{}, {}};
 
 const QueryTestData TEST_DATA{
    .ndjson_input_data =
-      {createData("id_apple", "apple"),
-       createData("id_banana", "banana"),
-       createData("id_cherry", "cherry"),
-       createData("id_null", std::nullopt),
-       createData("id_long", LONG_VALUE),},
+      {
+         createData("id_apple", "apple"),
+         createData("id_banana", "banana"),
+         createData("id_cherry", "cherry"),
+         createData("id_null", std::nullopt),
+         createData("id_long", LONG_VALUE),
+      },
    .database_config = DATABASE_CONFIG,
    .reference_genomes = REFERENCE_GENOMES,
 };

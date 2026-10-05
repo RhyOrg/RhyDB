@@ -66,156 +66,196 @@ const QueryTestScenario INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO = {
    .name = "INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO",
    .query = "default.filter(int_value.between(2, 4))",
    .expected_query_result = nlohmann::json({
-      {{"primaryKey", "id_0"},
-       {"int_value", VALUE_IN_FILTER},
-       {"segment1", nullptr},
-       {"gene1", nullptr},
-       {"unaligned_segment1", nullptr},},
-      {{"primaryKey", "id_1"},
-       {"int_value", VALUE_IN_FILTER},
-       {"segment1", nullptr},
-       {"gene1", nullptr},
-       {"unaligned_segment1", nullptr},},
+      {
+         {"primaryKey", "id_0"},
+         {"int_value", VALUE_IN_FILTER},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+      {
+         {"primaryKey", "id_1"},
+         {"int_value", VALUE_IN_FILTER},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
    }),
 };
 
 const QueryTestScenario NEGATED_INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO = {
    .name = "NEGATED_INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO",
    .query = "default.filter(!(int_value.between(2, 4)))",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_2"},
-        {"int_value", VALUE_BELOW_FILTER},
-        {"segment1", nullptr},
-        {"gene1", nullptr},
-        {"unaligned_segment1", nullptr},},
-       {{"primaryKey", "id_3"},
-        {"int_value", VALUE_ABOVE_FILTER},
-        {"segment1", nullptr},
-        {"gene1", nullptr},
-        {"unaligned_segment1", nullptr},},
-       {{"primaryKey", "id_4"},
-        {"int_value", nullptr},
-        {"segment1", nullptr},
-        {"gene1", nullptr},
-        {"unaligned_segment1", nullptr},},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {
+         {"primaryKey", "id_2"},
+         {"int_value", VALUE_BELOW_FILTER},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+      {
+         {"primaryKey", "id_3"},
+         {"int_value", VALUE_ABOVE_FILTER},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+      {
+         {"primaryKey", "id_4"},
+         {"int_value", nullptr},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+   }),
 };
 
 const QueryTestScenario INT_BETWEEN_WITH_FROM_SCENARIO = {
    .name = "INT_BETWEEN_WITH_FROM_SCENARIO",
    .query = "default.filter(int_value >= 2)",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"},
-        {"int_value", VALUE_IN_FILTER},
-        {"segment1", nullptr},
-        {"gene1", nullptr},
-        {"unaligned_segment1", nullptr},},
-       {{"primaryKey", "id_1"},
-        {"int_value", VALUE_IN_FILTER},
-        {"segment1", nullptr},
-        {"gene1", nullptr},
-        {"unaligned_segment1", nullptr},},
-       {{"primaryKey", "id_3"},
-        {"int_value", VALUE_ABOVE_FILTER},
-        {"segment1", nullptr},
-        {"gene1", nullptr},
-        {"unaligned_segment1", nullptr},},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {
+         {"primaryKey", "id_0"},
+         {"int_value", VALUE_IN_FILTER},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+      {
+         {"primaryKey", "id_1"},
+         {"int_value", VALUE_IN_FILTER},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+      {
+         {"primaryKey", "id_3"},
+         {"int_value", VALUE_ABOVE_FILTER},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+   }),
 };
 
 const QueryTestScenario NEGATED_INT_BETWEEN_WITH_FROM_SCENARIO = {
    .name = "NEGATED_INT_BETWEEN_WITH_FROM_SCENARIO",
    .query = "default.filter(!(int_value >= 2))",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_2"},
-        {"int_value", VALUE_BELOW_FILTER},
-        {"segment1", nullptr},
-        {"gene1", nullptr},
-        {"unaligned_segment1", nullptr},},
-       {{"primaryKey", "id_4"},
-        {"int_value", nullptr},
-        {"segment1", nullptr},
-        {"gene1", nullptr},
-        {"unaligned_segment1", nullptr},},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {
+         {"primaryKey", "id_2"},
+         {"int_value", VALUE_BELOW_FILTER},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+      {
+         {"primaryKey", "id_4"},
+         {"int_value", nullptr},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+   }),
 };
 
 const QueryTestScenario INT_BETWEEN_WITH_TO_SCENARIO = {
    .name = "INT_BETWEEN_WITH_TO_SCENARIO",
    .query = "default.filter(int_value <= 4)",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"},
-        {"int_value", VALUE_IN_FILTER},
-        {"segment1", nullptr},
-        {"gene1", nullptr},
-        {"unaligned_segment1", nullptr},},
-       {{"primaryKey", "id_1"},
-        {"int_value", VALUE_IN_FILTER},
-        {"segment1", nullptr},
-        {"gene1", nullptr},
-        {"unaligned_segment1", nullptr},},
-       {{"primaryKey", "id_2"},
-        {"int_value", VALUE_BELOW_FILTER},
-        {"segment1", nullptr},
-        {"gene1", nullptr},
-        {"unaligned_segment1", nullptr},},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {
+         {"primaryKey", "id_0"},
+         {"int_value", VALUE_IN_FILTER},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+      {
+         {"primaryKey", "id_1"},
+         {"int_value", VALUE_IN_FILTER},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+      {
+         {"primaryKey", "id_2"},
+         {"int_value", VALUE_BELOW_FILTER},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+   }),
 };
 
 const QueryTestScenario NEGATED_INT_BETWEEN_WITH_TO_SCENARIO = {
    .name = "NEGATED_INT_BETWEEN_WITH_TO_SCENARIO",
    .query = "default.filter(!(int_value <= 4))",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_3"},
-        {"int_value", VALUE_ABOVE_FILTER},
-        {"segment1", nullptr},
-        {"gene1", nullptr},
-        {"unaligned_segment1", nullptr},},
-       {{"primaryKey", "id_4"},
-        {"int_value", nullptr},
-        {"segment1", nullptr},
-        {"gene1", nullptr},
-        {"unaligned_segment1", nullptr},},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {
+         {"primaryKey", "id_3"},
+         {"int_value", VALUE_ABOVE_FILTER},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+      {
+         {"primaryKey", "id_4"},
+         {"int_value", nullptr},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+   }),
 };
 
 const QueryTestScenario INT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO = {
    .name = "INT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO",
    .query = "default.filter(int_value.isNotNull())",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"},
-        {"int_value", VALUE_IN_FILTER},
-        {"segment1", nullptr},
-        {"gene1", nullptr},
-        {"unaligned_segment1", nullptr},},
-       {{"primaryKey", "id_1"},
-        {"int_value", VALUE_IN_FILTER},
-        {"segment1", nullptr},
-        {"gene1", nullptr},
-        {"unaligned_segment1", nullptr},},
-       {{"primaryKey", "id_2"},
-        {"int_value", VALUE_BELOW_FILTER},
-        {"segment1", nullptr},
-        {"gene1", nullptr},
-        {"unaligned_segment1", nullptr},},
-       {{"primaryKey", "id_3"},
-        {"int_value", VALUE_ABOVE_FILTER},
-        {"segment1", nullptr},
-        {"gene1", nullptr},
-        {"unaligned_segment1", nullptr},},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {
+         {"primaryKey", "id_0"},
+         {"int_value", VALUE_IN_FILTER},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+      {
+         {"primaryKey", "id_1"},
+         {"int_value", VALUE_IN_FILTER},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+      {
+         {"primaryKey", "id_2"},
+         {"int_value", VALUE_BELOW_FILTER},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+      {
+         {"primaryKey", "id_3"},
+         {"int_value", VALUE_ABOVE_FILTER},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+   }),
 };
 
 const QueryTestScenario NEGATED_INT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO = {
    .name = "NEGATED_INT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO",
    .query = "default.filter(!(int_value.isNotNull()))",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_4"},
-        {"int_value", nullptr},
-        {"segment1", nullptr},
-        {"gene1", nullptr},
-        {"unaligned_segment1", nullptr},},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {
+         {"primaryKey", "id_4"},
+         {"int_value", nullptr},
+         {"segment1", nullptr},
+         {"gene1", nullptr},
+         {"unaligned_segment1", nullptr},
+      },
+   }),
 };
 
 const QueryTestScenario INT_COMPARE_WITH_OVERFLOW = {

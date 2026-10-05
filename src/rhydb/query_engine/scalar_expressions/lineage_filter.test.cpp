@@ -88,10 +88,10 @@ const QueryTestData TEST_DATA{
 const QueryTestScenario LINEAGE_FILTER_SCENARIO = {
    .name = "LINEAGE_FILTER_SCENARIO",
    .query = "default.filter(pango_lineage.lineage('BASE.1')).project({pango_lineage, primaryKey})",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"pango_lineage", SOME_BASE_LINEAGE}},
-       {{"primaryKey", "id_1"}, {"pango_lineage", SOME_BASE_LINEAGE}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"pango_lineage", SOME_BASE_LINEAGE}},
+      {{"primaryKey", "id_1"}, {"pango_lineage", SOME_BASE_LINEAGE}},
+   }),
 };
 
 const QueryTestScenario LINEAGE_FILTER_INCLUDING_SUBLINEAGES_SCENARIO = {
@@ -99,11 +99,11 @@ const QueryTestScenario LINEAGE_FILTER_INCLUDING_SUBLINEAGES_SCENARIO = {
    .query =
       "default.filter(pango_lineage.lineage('BASE.1', "
       "includeSublineages:=true)).project({pango_lineage, primaryKey})",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"pango_lineage", SOME_BASE_LINEAGE}},
-       {{"primaryKey", "id_1"}, {"pango_lineage", SOME_BASE_LINEAGE}},
-       {{"primaryKey", "id_2"}, {"pango_lineage", SOME_SUBLINEAGE}},}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"pango_lineage", SOME_BASE_LINEAGE}},
+      {{"primaryKey", "id_1"}, {"pango_lineage", SOME_BASE_LINEAGE}},
+      {{"primaryKey", "id_2"}, {"pango_lineage", SOME_SUBLINEAGE}},
+   }),
 };
 
 const QueryTestScenario LINEAGE_FILTER_NULL_SCENARIO = {

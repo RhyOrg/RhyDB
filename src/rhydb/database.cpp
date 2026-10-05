@@ -164,7 +164,8 @@ void Database::createNucleotideSequenceTable(
 ) {
    auto table_schema = std::make_shared<schema::TableSchema>();
    const schema::ColumnIdentifier primary_key = {
-      .name = primary_key_name, .type = schema::ColumnType::STRING,
+      .name = primary_key_name,
+      .type = schema::ColumnType::STRING,
    };
    table_schema->column_metadata.emplace(
       primary_key, std::make_shared<storage::column::StringColumnMetadata>(primary_key_name)
@@ -172,7 +173,8 @@ void Database::createNucleotideSequenceTable(
    auto reference_sequence_vector = stringToSymbolVector<Nucleotide>(reference_sequence).value();
    table_schema->column_metadata.emplace(
       schema::ColumnIdentifier{
-         .name = sequence_name, .type = schema::ColumnType::NUCLEOTIDE_SEQUENCE,
+         .name = sequence_name,
+         .type = schema::ColumnType::NUCLEOTIDE_SEQUENCE,
       },
       std::make_shared<storage::column::SequenceColumnMetadata<Nucleotide>>(
          sequence_name, std::move(reference_sequence_vector)
@@ -197,7 +199,8 @@ void Database::createGeneTable(
 ) {
    auto table_schema = std::make_shared<schema::TableSchema>();
    const schema::ColumnIdentifier primary_key = {
-      .name = primary_key_name, .type = schema::ColumnType::STRING,
+      .name = primary_key_name,
+      .type = schema::ColumnType::STRING,
    };
    table_schema->column_metadata.emplace(
       primary_key, std::make_shared<storage::column::StringColumnMetadata>(primary_key_name)
@@ -205,7 +208,8 @@ void Database::createGeneTable(
    auto reference_sequence_vector = stringToSymbolVector<AminoAcid>(reference_sequence).value();
    table_schema->column_metadata.emplace(
       schema::ColumnIdentifier{
-         .name = sequence_name, .type = schema::ColumnType::AMINO_ACID_SEQUENCE,
+         .name = sequence_name,
+         .type = schema::ColumnType::AMINO_ACID_SEQUENCE,
       },
       std::make_shared<storage::column::SequenceColumnMetadata<AminoAcid>>(
          sequence_name, std::move(reference_sequence_vector)

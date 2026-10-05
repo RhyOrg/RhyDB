@@ -450,12 +450,14 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{
 
 const QueryTestData TEST_DATA{
    .ndjson_input_data =
-      {createData("id_0", "Switzerland"),
-       createData("id_1", "Germany"),
-       createData("id_2", "USA"),
-       createData("id_3", "Switzerland"),
-       createData("id_4", "France"),
-       createData("id_5", "Germany"),},
+      {
+         createData("id_0", "Switzerland"),
+         createData("id_1", "Germany"),
+         createData("id_2", "USA"),
+         createData("id_3", "Switzerland"),
+         createData("id_4", "France"),
+         createData("id_5", "Germany"),
+      },
    .database_config = DATABASE_CONFIG,
    .reference_genomes = REFERENCE_GENOMES,
    .without_unaligned_sequences = true,

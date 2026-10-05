@@ -40,7 +40,7 @@ const QueryTestData TEST_DATA{
          createData("s2", "CTGC", "GG", "TK"),  // segment1 A->C, gene1 M->T
          createData("s3", "CTGC", "TG", "TK"),  // segment1 A->C, segment2 G->T, gene1 M->T
          createData("s4", "GTGC", "GG", "MK"),  // segment1 A->G
-         createData("s5", "NTGC", "GG", "MK"),   // segment1 position 1 is N (uncovered)
+         createData("s5", "NTGC", "GG", "MK"),  // segment1 position 1 is N (uncovered)
       },
    .database_config = DATABASE_CONFIG,
    .reference_genomes = REFERENCE_GENOMES,

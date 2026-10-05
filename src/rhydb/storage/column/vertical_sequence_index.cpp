@@ -25,7 +25,9 @@ void VerticalSequenceIndex<SymbolType>::addSymbolsToPositions(
          RHYDB_ASSERT_GT(lower_bits_vector.size(), 0ULL);
 
          const SequenceDiffKey key{
-            .position = position_idx, .v_index = upper_bits, .symbol = symbol,
+            .position = position_idx,
+            .v_index = upper_bits,
+            .symbol = symbol,
          };
          SequenceDiff& sequence_diff =
             getContainerOrCreateWithCapacity(key, lower_bits_vector.size());
