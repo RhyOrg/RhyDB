@@ -49,6 +49,10 @@ docker run --rm \
         targets+=(--target "app/CMakeFiles/rhydb.dir/${file#app/}.o")
       elif [[ $file == app/*.cpp ]]; then
         targets+=(--target "app/CMakeFiles/rhydb_app.dir/${file#app/}.o")
+      elif [[ $file == performance/generate_test_data.cpp ]]; then
+        targets+=(--target "performance/CMakeFiles/generate_test_data.dir/${file#performance/}.o")
+      elif [[ $file == performance/*.cpp ]]; then
+        targets+=(--target "performance/CMakeFiles/rhydb_benchmark.dir/${file#performance/}.o")
       fi
     done
     echo "Collected targets: ${targets[@]}"
