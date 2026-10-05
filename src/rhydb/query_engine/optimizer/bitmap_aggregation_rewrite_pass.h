@@ -14,8 +14,8 @@ namespace rhydb::query_engine::optimizer {
 ///
 ///   * With no grouping keys (a full `count(*)`) the result is just the filter's cardinality, so
 ///     the aggregate is replaced by a `CountFilterNode` that reads it straight off the scan's
-///     filter bitmap -- no rows are materialized at all. This is what `default.count()` and
-///     `default.group({n := count()})` compile to.
+///     filter bitmap -- no rows are materialized at all. This is what
+///     `default.group(aggs:={n := count()}, by:={})` compiles to.
 ///
 ///   * With grouping keys that can be computed directly from roaring bitmaps, the aggregate is
 ///     replaced by a `BitmapAggregationNode`.
