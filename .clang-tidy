@@ -25,6 +25,7 @@ Checks: >-
   -bugprone-easily-swappable-parameters,
   -bugprone-unchecked-optional-access,
   -bugprone-unused-return-value,
+  -bugprone-derived-method-shadowing-base-method,
   -readability-magic-numbers,
   -readability-trailing-comma,
   -misc-const-correctness,
@@ -40,8 +41,11 @@ Checks: >-
 # The following checks are disabled for now after the clang-tidy 23 upgrade;
 # they fire widely on existing code and should be addressed in follow-ups:
 # readability-trailing-comma, misc-const-correctness, bugprone-signed-bitwise,
-# bugprone-throwing-static-initialization, misc-multiple-inheritance
-# (misc-multiple-inheritance is a false positive on the Overloaded visitor idiom).
+# bugprone-throwing-static-initialization, misc-multiple-inheritance.
+# (misc-multiple-inheritance is a false positive on the Overloaded visitor idiom.)
+# Not using bugprone-derived-method-shadowing-base-method: the optimizer passes
+# intentionally override PipelinePassBase's operator() overloads and re-import the
+# rest via `using PipelinePassBase<...>::operator();`, so nothing is actually hidden.
 CheckOptions:
   - key: readability-identifier-length.IgnoredVariableNames
     value: '_|to|it|op'
