@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKER_DEPENDENCY_IMAGE_NAME: ghcr.io/genspectrum/lapis-silo-dependencies
+  DOCKER_DEPENDENCY_IMAGE_NAME: ghcr.io/rhyorg/rhydb-dependencies
 
 jobs:
   dependencyImage:

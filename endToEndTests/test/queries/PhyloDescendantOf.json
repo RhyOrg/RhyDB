@@ -1,6 +1,6 @@
 {
   "testCaseName": "PhyloDescendantOf should return only descendent nodes of a given node",
-  "query": "default.filter(usherTree.phyloDescendantOf('NODE_0000072')).groupBy({count:=count()},{usherTree}).orderBy({usherTree})",
+  "query": "default.filter(usherTree.phyloDescendantOf('NODE_0000072')).group(by:={usherTree},aggs:={count:=count()}).order(by:={usherTree})",
   "expectedQueryResult": [
     {
       "count": 1,

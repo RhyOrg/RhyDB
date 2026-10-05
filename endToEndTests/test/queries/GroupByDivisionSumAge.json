@@ -1,0 +1,101 @@
+{
+  "testCaseName": "Sum the age of all sequences per division",
+  "query": "default.group(by:={division},aggs:={count:=count(), totalAge:=sum(age)}).order(by:={division, count})",
+  "expectedQueryResult": [
+    {
+      "count": 2,
+      "division": null,
+      "totalAge": 100
+    },
+    {
+      "count": 6,
+      "division": "Aargau",
+      "totalAge": 281
+    },
+    {
+      "count": 8,
+      "division": "Basel-Land",
+      "totalAge": 396
+    },
+    {
+      "count": 12,
+      "division": "Basel-Stadt",
+      "totalAge": 638
+    },
+    {
+      "count": 9,
+      "division": "Bern",
+      "totalAge": 378
+    },
+    {
+      "count": 4,
+      "division": "Geneva",
+      "totalAge": 216
+    },
+    {
+      "count": 1,
+      "division": "Graubünden",
+      "totalAge": 59
+    },
+    {
+      "count": 1,
+      "division": "Jura",
+      "totalAge": 57
+    },
+    {
+      "count": 1,
+      "division": "Neuchâtel",
+      "totalAge": 55
+    },
+    {
+      "count": 1,
+      "division": "Obwalden",
+      "totalAge": 59
+    },
+    {
+      "count": 3,
+      "division": "Sankt Gallen",
+      "totalAge": 167
+    },
+    {
+      "count": 3,
+      "division": "Schwyz",
+      "totalAge": 161
+    },
+    {
+      "count": 15,
+      "division": "Solothurn",
+      "totalAge": 750
+    },
+    {
+      "count": 1,
+      "division": "Thurgau",
+      "totalAge": 52
+    },
+    {
+      "count": 6,
+      "division": "Ticino",
+      "totalAge": 333
+    },
+    {
+      "count": 1,
+      "division": "Uri",
+      "totalAge": 55
+    },
+    {
+      "count": 6,
+      "division": "Valais",
+      "totalAge": 272
+    },
+    {
+      "count": 7,
+      "division": "Vaud",
+      "totalAge": 386
+    },
+    {
+      "count": 13,
+      "division": "Zürich",
+      "totalAge": 704
+    }
+  ]
+}

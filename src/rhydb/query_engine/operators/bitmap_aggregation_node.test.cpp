@@ -1,6 +1,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -31,7 +32,7 @@ nlohmann::json createDataWithSequences(
       {"date", date},
       {"unaligned_segment1", {}},
       {"segment1", {{"sequence", nucleotideSequence}, {"insertions", nlohmann::json::array()}}},
-      {"gene1", {{"sequence", aminoAcidSequence}, {"insertions", nlohmann::json::array()}}},
+      {"gene1", {{"sequence", aminoAcidSequence}, {"insertions", nlohmann::json::array()}}}
    };
 }
 
@@ -77,11 +78,11 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{
 const QueryTestData TEST_DATA{
    .ndjson_input_data = {ROW_AT, ROW_AT2, ROW_NN, ROW_CA},
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES,
+   .reference_genomes = REFERENCE_GENOMES
 };
 
 // Mutation co-occurrence is an optimizer-only feature: it is expressed with the generic `at` scalar
-// function (a `map` assigns the per-position symbols and `groupBy` groups on them), and the
+// function (a `map` assigns the per-position symbols and `group` groups on them), and the
 // BitmapAggregationRewritePass recognizes that shape and routes it through the dedicated
 // bitmap-based engine. Combinations are emitted depth-first in nucleotide SYMBOLS order (A before C
 // before N).
@@ -89,12 +90,12 @@ const QueryTestScenario CO_OCCURRENCE_VIA_MAP_TWO_POSITIONS = {
    .name = "CO_OCCURRENCE_VIA_MAP_TWO_POSITIONS",
    .query =
       "default.map({s1 := segment1.at(1), s2 := segment1.at(2)})"
-      ".groupBy({count:=count()}, {s1, s2})",
+      ".group(by:={s1, s2}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "A", "s2": "T", "count": 2},
       {"s1": "C", "s2": "A", "count": 1},
       {"s1": "N", "s2": "N", "count": 1}
-   ])"),
+   ])")
 };
 
 const QueryTestScenario CO_OCCURRENCE_VIA_MAP_WITH_FILTER = {
@@ -102,18 +103,18 @@ const QueryTestScenario CO_OCCURRENCE_VIA_MAP_WITH_FILTER = {
    .query =
       "default.filter(hasMutation(position:=1, sequenceName:='segment1'))"
       ".map({s1 := segment1.at(1), s2 := segment1.at(2)})"
-      ".groupBy({count:=count()}, {s1, s2})",
+      ".group(by:={s1, s2}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "C", "s2": "A", "count": 1}
-   ])"),
+   ])")
 };
 
 const QueryTestScenario CO_OCCURRENCE_VIA_MAP_AMINO_ACID = {
    .name = "CO_OCCURRENCE_VIA_MAP_AMINO_ACID",
-   .query = "default.map({stop := gene1.at(2)}).groupBy({count:=count()}, {stop})",
+   .query = "default.map({stop := gene1.at(2)}).group(by:={stop}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"stop": "*", "count": 4}
-   ])"),
+   ])")
 };
 
 // `at` on a non-sequence string column is not a sequence-position lookup, but it is still a general
@@ -122,10 +123,10 @@ const QueryTestScenario CO_OCCURRENCE_VIA_MAP_AMINO_ACID = {
 // character is 'i' for all four rows -- a single group.
 const QueryTestScenario CO_OCCURRENCE_VIA_MAP_NON_SEQUENCE_STRING_AT = {
    .name = "CO_OCCURRENCE_VIA_MAP_NON_SEQUENCE_STRING_AT",
-   .query = "default.map({first := primaryKey.at(1)}).groupBy({count:=count()}, {first})",
+   .query = "default.map({first := primaryKey.at(1)}).group(by:={first}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"first": "i", "count": 4}
-   ])"),
+   ])")
 };
 
 // A limit applied to an (unordered) aggregation used to be rejected outright because the group-by
@@ -134,30 +135,31 @@ const QueryTestScenario CO_OCCURRENCE_VIA_MAP_NON_SEQUENCE_STRING_AT = {
 // primaryKey.at(1) yields a single group, keeping the truncated result deterministic here.
 const QueryTestScenario LIMIT_ON_UNORDERED_AGGREGATION = {
    .name = "LIMIT_ON_UNORDERED_AGGREGATION",
-   .query = "default.map({first := primaryKey.at(1)}).groupBy({count:=count()}, {first}).limit(1)",
+   .query =
+      "default.map({first := primaryKey.at(1)}).group(by:={first}, "
+      "aggs:={count:=count()}).limit(1)",
    .expected_query_result = nlohmann::json::parse(R"([
       {"first": "i", "count": 4}
-   ])"),
+   ])")
 };
 
 // The reference at segment1[5] is N, i.e. the local reference symbol is itself the missing symbol.
 // The rows carry N, N, N, T there: the N group is every filtered row minus the explicit T mutation.
 const QueryTestScenario CO_OCCURRENCE_VIA_MAP_REFERENCE_IS_MISSING = {
    .name = "CO_OCCURRENCE_VIA_MAP_REFERENCE_IS_MISSING",
-   .query = "default.map({s5 := segment1.at(5)}).groupBy({count:=count()}, {s5})",
+   .query = "default.map({s5 := segment1.at(5)}).group(by:={s5}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s5": "T", "count": 1},
       {"s5": "N", "count": 3}
-   ])"),
+   ])")
 };
 
 // The reference is only 5 symbols long, so position 6 is out of range. The rewritten bitmap
 // aggregation node reports this when it builds the per-symbol bitmaps.
 const QueryTestScenario CO_OCCURRENCE_VIA_MAP_POSITION_OUT_OF_RANGE = {
    .name = "CO_OCCURRENCE_VIA_MAP_POSITION_OUT_OF_RANGE",
-   .query = "default.map({s := segment1.at(6)}).groupBy({count:=count()}, {s})",
-   .expected_error_message =
-      "segment1.at(6) is out of bounds: the nucleotide sequence has length 5",
+   .query = "default.map({s := segment1.at(6)}).group(by:={s}, aggs:={count:=count()})",
+   .expected_error_message = "segment1.at(6) is out of bounds: the nucleotide sequence has length 5"
 };
 
 // Grouping directly on an indexed string column is now routed through the bitmap engine too: the
@@ -166,18 +168,18 @@ const QueryTestScenario CO_OCCURRENCE_VIA_MAP_POSITION_OUT_OF_RANGE = {
 // (the NNNNN row).
 const QueryTestScenario INDEXED_COLUMN_SINGLE = {
    .name = "INDEXED_COLUMN_SINGLE",
-   .query = "default.groupBy({count:=count()}, {region})",
+   .query = "default.group(by:={region}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"region": "Asia", "count": 1},
       {"region": "Europe", "count": 3}
-   ])"),
+   ])")
 };
 
-// A filter on an aggregate output column (`count`) must run above the groupBy, not be pushed into
+// A filter on an aggregate output column (`count`) must run above the group, not be pushed into
 // the scan where `count` does not exist.
 const QueryTestScenario FILTER_ON_AGGREGATE_COUNT = {
    .name = "FILTER_ON_AGGREGATE_COUNT",
-   .query = "default.groupBy({count:=count()}, {region}).filter(count > 1)",
+   .query = "default.group(by:={region}, aggs:={count:=count()}).filter(count > 1)",
    .expected_query_result = nlohmann::json::parse(R"([
       {"region": "Europe", "count": 3}
    ])"),
@@ -185,7 +187,7 @@ const QueryTestScenario FILTER_ON_AGGREGATE_COUNT = {
 
 const QueryTestScenario FILTER_NOT_BY_COUNT_ON_AGGREGATE = {
    .name = "FILTER_NOT_BY_COUNT_ON_AGGREGATE",
-   .query = "default.groupBy({count:=count()}, {region}).filter(region = 'Europe')",
+   .query = "default.group(by:={region}, aggs:={count:=count()}).filter(region = 'Europe')",
    .expected_query_result = nlohmann::json::parse(R"([
       {"region": "Europe", "count": 3}
    ])"),
@@ -198,12 +200,12 @@ const QueryTestScenario FILTER_NOT_BY_COUNT_ON_AGGREGATE = {
 //   N -> Asia   x1   (the NNNNN row)
 const QueryTestScenario MIXED_SEQUENCE_AND_INDEXED_COLUMN = {
    .name = "MIXED_SEQUENCE_AND_INDEXED_COLUMN",
-   .query = "default.map({s1 := segment1.at(1)}).groupBy({count:=count()}, {s1, region})",
+   .query = "default.map({s1 := segment1.at(1)}).group(by:={s1, region}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "A", "region": "Europe", "count": 2},
       {"s1": "C", "region": "Europe", "count": 1},
       {"s1": "N", "region": "Asia", "count": 1}
-   ])"),
+   ])")
 };
 
 // A bare field reference produced by the map (`r := region`, no `at`) over an *indexed* column is
@@ -211,26 +213,27 @@ const QueryTestScenario MIXED_SEQUENCE_AND_INDEXED_COLUMN = {
 // scan column directly -- only the output name differs (here `r`).
 const QueryTestScenario MAP_FIELD_REF_INDEXED_COLUMN = {
    .name = "MAP_FIELD_REF_INDEXED_COLUMN",
-   .query = "default.map({r := region}).groupBy({count:=count()}, {r})",
+   .query = "default.map({r := region}).group(by:={r}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"r": "Asia", "count": 1},
       {"r": "Europe", "count": 3}
-   ])"),
+   ])")
 };
 
 // A bare field reference produced by the map over a *plain, non-indexed* string column, as the only
 // grouping key. With no existing bitmap to reuse the rewrite declines and the generic Arrow
-// aggregation handles it (its group order is unspecified, hence the orderBy); grouping it next to a
+// aggregation handles it (its group order is unspecified, hence the `order`); grouping it next to a
 // bitmap-backed key goes through the bitmap engine instead (MIXED_SEQUENCE_AND_FIELD_COLUMN).
 // Country carries Germany x2, France x1, Japan x1.
 const QueryTestScenario MAP_FIELD_REF_PLAIN_STRING_COLUMN = {
    .name = "MAP_FIELD_REF_PLAIN_STRING_COLUMN",
-   .query = "default.map({c := country}).groupBy({count:=count()}, {c}).orderBy({c.asc()})",
+   .query =
+      "default.map({c := country}).group(by:={c}, aggs:={count:=count()}).order(by:={c.asc()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"c": "France", "count": 1},
       {"c": "Germany", "count": 2},
       {"c": "Japan", "count": 1}
-   ])"),
+   ])")
 };
 
 // A sequence position and a plain (scanned) string column grouped together in one node. Depth-first
@@ -240,13 +243,15 @@ const QueryTestScenario MAP_FIELD_REF_PLAIN_STRING_COLUMN = {
 //   N -> Japan   x1 (ROW_NN)
 const QueryTestScenario MIXED_SEQUENCE_AND_FIELD_COLUMN = {
    .name = "MIXED_SEQUENCE_AND_FIELD_COLUMN",
-   .query = "default.map({s1 := segment1.at(1), c := country}).groupBy({count:=count()}, {s1, c})",
+   .query =
+      "default.map({s1 := segment1.at(1), c := country}).group(by:={s1, c}, "
+      "aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "A", "c": "France", "count": 1},
       {"s1": "A", "c": "Germany", "count": 1},
       {"s1": "C", "c": "Germany", "count": 1},
       {"s1": "N", "c": "Japan", "count": 1}
-   ])"),
+   ])")
 };
 
 // A scalar-expression key under a filter: the grouper evaluates `country` only over the filtered
@@ -258,29 +263,29 @@ const QueryTestScenario MIXED_SEQUENCE_AND_FIELD_COLUMN_WITH_FILTER = {
    .query =
       "default.filter(region = 'Europe')"
       ".map({s1 := segment1.at(1), c := country})"
-      ".groupBy({count:=count()}, {s1, c})",
+      ".group(by:={s1, c}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "A", "c": "France", "count": 1},
       {"s1": "A", "c": "Germany", "count": 1},
       {"s1": "C", "c": "Germany", "count": 1}
-   ])"),
+   ])")
 };
 
 // A general map-computed scalar expression, `date.isoWeek()`, as the only grouping key: like
 // MAP_FIELD_REF_PLAIN_STRING_COLUMN this is left to the generic Arrow aggregation (hence the
-// orderBy); MIXED_SEQUENCE_AND_ISO_WEEK covers it in the bitmap engine. The result is the ISO
+// `order`); MIXED_SEQUENCE_AND_ISO_WEEK covers it in the bitmap engine. The result is the ISO
 // week-date string (`<ISO-year>-W<ISO-week>`), whose zero-padded week sorts chronologically.
 //   isoWeek: 2021-W01 (ROW_AT), 2021-W10 (ROW_AT2), 2021-W02 (ROW_NN), 2021-W02 (ROW_CA)
 const QueryTestScenario MAP_ISO_WEEK_EXPRESSION = {
    .name = "MAP_ISO_WEEK_EXPRESSION",
    .query =
-      "default.map({week := date.isoWeek()}).groupBy({count:=count()}, {week})"
-      ".orderBy({asc(week)})",
+      "default.map({week := date.isoWeek()}).group(by:={week}, aggs:={count:=count()})"
+      ".order(by:={asc(week)})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"week": "2021-W01", "count": 1},
       {"week": "2021-W02", "count": 2},
       {"week": "2021-W10", "count": 1}
-   ])"),
+   ])")
 };
 
 // A sequence position and an isoWeek expression grouped together in one node, mixing the sequence
@@ -293,16 +298,16 @@ const QueryTestScenario MIXED_SEQUENCE_AND_ISO_WEEK = {
    .name = "MIXED_SEQUENCE_AND_ISO_WEEK",
    .query =
       "default.map({s1 := segment1.at(1), week := date.isoWeek()})"
-      ".groupBy({count:=count()}, {s1, week})",
+      ".group(by:={s1, week}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "A", "week": "2021-W01", "count": 1},
       {"s1": "A", "week": "2021-W10", "count": 1},
       {"s1": "C", "week": "2021-W02", "count": 1},
       {"s1": "N", "week": "2021-W02", "count": 1}
-   ])"),
+   ])")
 };
 
-// A sequence-less row carries no symbol at any position. The generic `at()`/groupBy path emits a
+// A sequence-less row carries no symbol at any position. The generic `at()`/group path emits a
 // null group key for such a row, so the rewritten bitmap aggregation node must do the same instead
 // of dropping the row or folding it into the missing symbol N/X. These scenarios pin that
 // behaviour. segment1 reference is "ATGCN", gene1 reference is "M*".
@@ -329,7 +334,7 @@ nlohmann::json createDataWithOptionalSequences(
       {"date", "2021-01-04"},
       {"unaligned_segment1", {}},
       {"segment1", sequence_field(nucleotideSequence)},
-      {"gene1", sequence_field(aminoAcidSequence)},
+      {"gene1", sequence_field(aminoAcidSequence)}
    };
 }
 
@@ -342,7 +347,7 @@ const nlohmann::json NULL_ROW_NO_AA =
 const QueryTestData NULL_TEST_DATA{
    .ndjson_input_data = {NULL_ROW_A, NULL_ROW_B, NULL_ROW_NO_NUC, NULL_ROW_NO_AA},
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES,
+   .reference_genomes = REFERENCE_GENOMES
 };
 
 // segment1[1], segment1[2]: (A,T) for the two full rows, (C,A) for the row without an amino acid
@@ -351,12 +356,12 @@ const QueryTestScenario CO_OCCURRENCE_NULL_TWO_NUCLEOTIDE_POSITIONS = {
    .name = "CO_OCCURRENCE_NULL_TWO_NUCLEOTIDE_POSITIONS",
    .query =
       "default.map({s1 := segment1.at(1), s2 := segment1.at(2)})"
-      ".groupBy({count:=count()}, {s1, s2})",
+      ".group(by:={s1, s2}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "A", "s2": "T", "count": 2},
       {"s1": "C", "s2": "A", "count": 1},
       {"s1": null, "s2": null, "count": 1}
-   ])"),
+   ])")
 };
 
 // segment1[5] has the missing symbol N as its reference: the two full rows carry N, the row without
@@ -364,23 +369,23 @@ const QueryTestScenario CO_OCCURRENCE_NULL_TWO_NUCLEOTIDE_POSITIONS = {
 // group rather than the (reference) N group.
 const QueryTestScenario CO_OCCURRENCE_NULL_REFERENCE_IS_MISSING = {
    .name = "CO_OCCURRENCE_NULL_REFERENCE_IS_MISSING",
-   .query = "default.map({s5 := segment1.at(5)}).groupBy({count:=count()}, {s5})",
+   .query = "default.map({s5 := segment1.at(5)}).group(by:={s5}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s5": "T", "count": 1},
       {"s5": "N", "count": 2},
       {"s5": null, "count": 1}
-   ])"),
+   ])")
 };
 
 // gene1[1] is the reference symbol M for the three rows that have an amino acid sequence, and null
 // for the one that does not.
 const QueryTestScenario CO_OCCURRENCE_NULL_AMINO_ACID = {
    .name = "CO_OCCURRENCE_NULL_AMINO_ACID",
-   .query = "default.map({aa := gene1.at(1)}).groupBy({count:=count()}, {aa})",
+   .query = "default.map({aa := gene1.at(1)}).group(by:={aa}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"aa": "M", "count": 3},
       {"aa": null, "count": 1}
-   ])"),
+   ])")
 };
 
 // A combination across a nucleotide and an amino acid position: the null falls in different
@@ -392,23 +397,23 @@ const QueryTestScenario CO_OCCURRENCE_NULL_MIXED_POSITIONS = {
    .name = "CO_OCCURRENCE_NULL_MIXED_POSITIONS",
    .query =
       "default.map({s1 := segment1.at(1), aa := gene1.at(1)})"
-      ".groupBy({count:=count()}, {s1, aa})",
+      ".group(by:={s1, aa}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "A", "aa": "M", "count": 2},
       {"s1": "C", "aa": null, "count": 1},
       {"s1": null, "aa": "M", "count": 1}
-   ])"),
+   ])")
 };
 
 // The indexed `region` column is Europe for three rows and null for NULL_ROW_NO_AA. The null rows
 // form a trailing group after every value group, emitted as a null key.
 const QueryTestScenario INDEXED_COLUMN_NULL_GROUP = {
    .name = "INDEXED_COLUMN_NULL_GROUP",
-   .query = "default.groupBy({count:=count()}, {region})",
+   .query = "default.group(by:={region}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"region": "Europe", "count": 3},
       {"region": null, "count": 1}
-   ])"),
+   ])")
 };
 
 // The bitmap aggregation node emits its combinations in pipeline-sized batches
@@ -419,13 +424,13 @@ const QueryTestScenario CO_OCCURRENCE_NULL_CHUNKED_OUTPUT = {
    .name = "CO_OCCURRENCE_NULL_CHUNKED_OUTPUT",
    .query =
       "default.map({s1 := segment1.at(1), s2 := segment1.at(2)})"
-      ".groupBy({count:=count()}, {s1, s2})",
+      ".group(by:={s1, s2}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "A", "s2": "T", "count": 2},
       {"s1": "C", "s2": "A", "count": 1},
       {"s1": null, "s2": null, "count": 1}
    ])"),
-   .query_options = rhydb::config::QueryOptions{.materialization_cutoff = 0},
+   .query_options = rhydb::config::QueryOptions{.materialization_cutoff = 0}
 };
 
 const nlohmann::json AMBIGUITY_ROW_A = createDataWithSequences("ATGCN", "M*", "Europe");
@@ -436,17 +441,17 @@ const nlohmann::json AMBIGUITY_ROW_Y = createDataWithSequences("YTGCN", "M*", "E
 const QueryTestData AMBIGUITY_TEST_DATA{
    .ndjson_input_data = {AMBIGUITY_ROW_A, AMBIGUITY_ROW_R1, AMBIGUITY_ROW_R2, AMBIGUITY_ROW_Y},
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES,
+   .reference_genomes = REFERENCE_GENOMES
 };
 
 const QueryTestScenario CO_OCCURRENCE_AMBIGUOUS_CODES = {
    .name = "CO_OCCURRENCE_AMBIGUOUS_CODES",
-   .query = "default.map({s1 := segment1.at(1)}).groupBy({count:=count()}, {s1})",
+   .query = "default.map({s1 := segment1.at(1)}).group(by:={s1}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "A", "count": 1},
       {"s1": "R", "count": 2},
       {"s1": "Y", "count": 1}
-   ])"),
+   ])")
 };
 
 // Every row's segment1 is fully missing (all N), so no row covers any position -- an all-N sequence
@@ -459,15 +464,43 @@ const nlohmann::json ALL_MISSING_ROW_C = createDataWithSequences("NNNNN", "M*", 
 const QueryTestData ALL_MISSING_TEST_DATA{
    .ndjson_input_data = {ALL_MISSING_ROW_A, ALL_MISSING_ROW_B, ALL_MISSING_ROW_C},
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES,
+   .reference_genomes = REFERENCE_GENOMES
 };
 
 const QueryTestScenario ALL_ROWS_MISSING_AT_POSITION = {
    .name = "ALL_ROWS_MISSING_AT_POSITION",
-   .query = "default.map({s1 := segment1.at(1)}).groupBy({count:=count()}, {s1})",
+   .query = "default.map({s1 := segment1.at(1)}).group(by:={s1}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "N", "count": 3}
-   ])"),
+   ])")
+};
+
+// Row 0 carries the reference A at segment1[1]; rows 1..49 all carry a deletion there, which the
+// vertical index stores as one run container. The first union of that run into the (empty)
+// accumulator of non-reference rows used to read the empty array's stale first slot -- usually 0 --
+// and add row 0 to it, dropping row 0 from every group. Whether that fires depends on the
+// allocator's leftover memory, so the deterministic regression tests live in
+// roaring_container.test.cpp.
+const QueryTestData DELETION_RUN_TEST_DATA{
+   .ndjson_input_data =
+      [] {
+         std::vector<nlohmann::json> rows{createDataWithSequences("ATGCN", "M*", "Europe")};
+         for (int i = 0; i < 49; ++i) {
+            rows.push_back(createDataWithSequences("-TGCN", "M*", "Europe"));
+         }
+         return rows;
+      }(),
+   .database_config = DATABASE_CONFIG,
+   .reference_genomes = REFERENCE_GENOMES
+};
+
+const QueryTestScenario REFERENCE_ROW_BEFORE_DELETION_RUN = {
+   .name = "REFERENCE_ROW_BEFORE_DELETION_RUN",
+   .query = "default.map({s1 := segment1.at(1)}).group(by:={s1}, aggs:={count:=count()})",
+   .expected_query_result = nlohmann::json::parse(R"([
+      {"s1": "-", "count": 49},
+      {"s1": "A", "count": 1}
+   ])")
 };
 
 // ---------------------------------------------------------------------------
@@ -497,7 +530,7 @@ nlohmann::json createRowWithScalarTypes(
       {"passed", passed.has_value() ? nlohmann::json(*passed) : nlohmann::json()},
       {"unaligned_segment1", {}},
       {"segment1", {{"sequence", "ATGCN"}, {"insertions", nlohmann::json::array()}}},
-      {"gene1", {{"sequence", "M*"}, {"insertions", nlohmann::json::array()}}},
+      {"gene1", {{"sequence", "M*"}, {"insertions", nlohmann::json::array()}}}
    };
 }
 
@@ -525,57 +558,59 @@ schema:
 // ambiguity in the expected output.
 const QueryTestData SCALAR_TYPE_TEST_DATA{
    .ndjson_input_data =
-      {
-         createRowWithScalarTypes(30, 1000000000000, 1.5, true),
-         createRowWithScalarTypes(30, 1000000000000, 1.5, false),
-         createRowWithScalarTypes(41, 2000000000000, 2.5, true),
-         createRowWithScalarTypes(std::nullopt, std::nullopt, std::nullopt, std::nullopt),
-      },
+      {createRowWithScalarTypes(30, 1000000000000, 1.5, true),
+       createRowWithScalarTypes(30, 1000000000000, 1.5, false),
+       createRowWithScalarTypes(41, 2000000000000, 2.5, true),
+       createRowWithScalarTypes(std::nullopt, std::nullopt, std::nullopt, std::nullopt)},
    .database_config = SCALAR_TYPE_DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES,
+   .reference_genomes = REFERENCE_GENOMES
 };
 
 // Groups come out in ascending value order with the null group last, so the expected rows are
 // written that way throughout.
 const QueryTestScenario GROUP_BY_MAPPED_INT32_COLUMN = {
    .name = "GROUP_BY_MAPPED_INT32_COLUMN",
-   .query = "default.map({s := segment1.at(1), a := age}).groupBy({count:=count()}, {s, a})",
+   .query =
+      "default.map({s := segment1.at(1), a := age}).group(by:={s, a}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s": "A", "a": 30, "count": 2},
       {"s": "A", "a": 41, "count": 1},
       {"s": "A", "a": null, "count": 1}
-   ])"),
+   ])")
 };
 
 const QueryTestScenario GROUP_BY_MAPPED_INT64_COLUMN = {
    .name = "GROUP_BY_MAPPED_INT64_COLUMN",
-   .query = "default.map({s := segment1.at(1), r := reads}).groupBy({count:=count()}, {s, r})",
+   .query =
+      "default.map({s := segment1.at(1), r := reads}).group(by:={s, r}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s": "A", "r": 1000000000000, "count": 2},
       {"s": "A", "r": 2000000000000, "count": 1},
       {"s": "A", "r": null, "count": 1}
-   ])"),
+   ])")
 };
 
 const QueryTestScenario GROUP_BY_MAPPED_FLOAT_COLUMN = {
    .name = "GROUP_BY_MAPPED_FLOAT_COLUMN",
-   .query = "default.map({s := segment1.at(1), c := coverage}).groupBy({count:=count()}, {s, c})",
+   .query =
+      "default.map({s := segment1.at(1), c := coverage}).group(by:={s, c}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s": "A", "c": 1.5, "count": 2},
       {"s": "A", "c": 2.5, "count": 1},
       {"s": "A", "c": null, "count": 1}
-   ])"),
+   ])")
 };
 
 // false sorts before true, so the two boolean groups come out in that order.
 const QueryTestScenario GROUP_BY_MAPPED_BOOL_COLUMN = {
    .name = "GROUP_BY_MAPPED_BOOL_COLUMN",
-   .query = "default.map({s := segment1.at(1), p := passed}).groupBy({count:=count()}, {s, p})",
+   .query =
+      "default.map({s := segment1.at(1), p := passed}).group(by:={s, p}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s": "A", "p": false, "count": 1},
       {"s": "A", "p": true, "count": 2},
       {"s": "A", "p": null, "count": 1}
-   ])"),
+   ])")
 };
 
 }  // namespace
@@ -638,4 +673,10 @@ QUERY_TEST(
    BitmapAggregationAllMissing,
    ALL_MISSING_TEST_DATA,
    ::testing::Values(ALL_ROWS_MISSING_AT_POSITION)
+);
+
+QUERY_TEST(
+   BitmapAggregationDeletionRun,
+   DELETION_RUN_TEST_DATA,
+   ::testing::Values(REFERENCE_ROW_BEFORE_DELETION_RUN)
 );

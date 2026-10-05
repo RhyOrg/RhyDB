@@ -290,7 +290,7 @@ void VerticalSequenceIndex<SymbolType>::overwriteSymbolsInSequences(
          current_v_index_sequences[id_in_reconstructed_sequences].at(sequence_diff_key.position) =
             SymbolType::symbolToChar(sequence_diff_key.symbol);
       }
-   },
+   }
 };
 
 template class VerticalSequenceIndex<Nucleotide>;

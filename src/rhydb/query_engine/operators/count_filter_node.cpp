@@ -20,14 +20,16 @@ namespace rhydb::query_engine::operators {
 
 CountFilterNode::CountFilterNode(
    std::shared_ptr<storage::Table> table,
-   std::unique_ptr<scalar_expressions::ScalarExpression> filter
+   std::unique_ptr<scalar_expressions::ScalarExpression> filter,
+   std::string output_name
 )
     : table(std::move(table)),
-      filter(std::move(filter)) {}
+      filter(std::move(filter)),
+      output_name(std::move(output_name)) {}
 
 std::vector<schema::ColumnIdentifier> CountFilterNode::getOutputSchema() const {
    std::vector<schema::ColumnIdentifier> output_fields;
-   output_fields.emplace_back("count", schema::ColumnType::INT64);
+   output_fields.emplace_back(output_name, schema::ColumnType::INT64);
    return output_fields;
 }
 
@@ -75,6 +77,7 @@ nlohmann::json CountFilterNode::toJson() const {
       {"type", nodeKindToString(kind())},
       {"table", table->logTable()},
       {"filter", filter->toString()},
+      {"output_name", output_name},
    };
 }
 

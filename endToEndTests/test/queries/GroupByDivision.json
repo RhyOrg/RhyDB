@@ -1,6 +1,6 @@
 {
   "testCaseName": "Group all sequences by division",
-  "query": "default.groupBy({count:=count()},{division}).orderBy({division, count})",
+  "query": "default.group(by:={division},aggs:={count:=count()}).order(by:={division, count})",
   "expectedQueryResult": [
     {
       "count": 2,

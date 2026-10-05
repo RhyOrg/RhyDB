@@ -13,10 +13,10 @@
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
 
-#include "sequence_generator.h"
 #include "rhydb/config/runtime_config.h"
 #include "rhydb/query_engine/exec_node/ndjson_sink.h"
 #include "rhydb/query_engine/planner.h"
+#include "sequence_generator.h"
 
 using rhydb::Database;
 using rhydb::query_engine::Planner;
@@ -75,7 +75,7 @@ std::string buildMutationProfileQuery(const std::string& query_sequence, uint32_
    return fmt::format(
       "default.filter(nucleotideMutationProfile(distance:={}, sequenceName:='main', "
       "querySequence:='{}'))"
-      ".groupBy({{count:=count()}})",
+      ".group(by:={{}}, aggs:={{count:=count()}})",
       distance,
       query_sequence
    );

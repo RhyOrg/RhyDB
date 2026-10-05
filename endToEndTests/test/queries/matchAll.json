@@ -1,6 +1,6 @@
 {
   "testCaseName": "MatchAll query requesting all entries",
-  "query": "default.groupBy({count:=count()})",
+  "query": "default.group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 100

@@ -3,6 +3,7 @@
 #include <utility>
 #include <variant>
 
+#include "rhydb/query_engine/command/create_table_command.h"
 #include "rhydb/query_engine/command/insert_command.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/query_engine/saneql/ast.h"
@@ -24,11 +25,7 @@ WriteCommandPtr buildInsertInto(
    const Tables& tables,
    const ChildConverter& convert_child
 ) {
-   const auto& target_expr = args.at("target");
-   // The target may be a bare identifier (`archive`) or a string literal (`'archive'`).
-   const std::string target_name = saneql::ast::isStringLiteral(target_expr)
-                                      ? saneql::ast::extractStringLiteral(target_expr)
-                                      : saneql::ast::extractIdentifierName(target_expr);
+   const std::string target_name = saneql::ast::extractIdentifierName(args.at("target"));
    auto target_table = schema::TableName(target_name);
    CHECK_RHYDB_QUERY(
       tables.contains(target_table),
@@ -48,6 +45,15 @@ WriteStatementRegistry::WriteStatementRegistry() {
          {ParameterDefinition{.name = "input"}, ParameterDefinition{.name = "target"}},
       },
       buildInsertInto
+   );
+   registerStatement(
+      "createTable",
+      FunctionSignature{
+         {ParameterDefinition{.name = "table"},
+          ParameterDefinition{.name = "columns"},
+          ParameterDefinition{.name = "primaryKey", .required = false, .positional = false},}
+      },
+      buildCreateTable
    );
 }
 

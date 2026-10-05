@@ -4,7 +4,7 @@
 set -euo pipefail
 
 # Check if the image argument is provided, otherwise use :latest
-DOCKER_IMAGE="${1:-ghcr.io/genspectrum/lapis-silo-dependencies:latest}"
+DOCKER_IMAGE="${1:-ghcr.io/rhyorg/rhydb-dependencies:latest}"
 
 echo "Using Docker image: $DOCKER_IMAGE"
 

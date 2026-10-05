@@ -21,6 +21,8 @@ std::string arrowFunctionName(AggregateFunction func, bool has_groups) {
    switch (func) {
       case AggregateFunction::COUNT:
          return has_groups ? "hash_count_all" : "count_all";
+      case AggregateFunction::SUM:
+         return has_groups ? "hash_sum" : "sum";
    }
    RHYDB_UNREACHABLE();
 }
@@ -48,6 +50,12 @@ arrow::acero::AggregateNodeOptions buildAggregateOptions(
             options = std::make_shared<arrow::compute::CountOptions>(
                arrow::compute::CountOptions::CountMode::ALL
             );
+            break;
+         }
+         case AggregateFunction::SUM: {
+            RHYDB_ASSERT(agg.source_column.has_value());
+            source_refs.emplace_back(agg.source_column->name);
+            options = std::make_shared<arrow::compute::ScalarAggregateOptions>();
             break;
          }
       }
@@ -79,6 +87,21 @@ ColumnType getType(const AggregateDefinition& aggregate_definition) {
    switch (aggregate_definition.function) {
       case AggregateFunction::COUNT:
          return ColumnType::INT64;
+      case AggregateFunction::SUM:
+         // Arrow widens integer sums to int64 and keeps floating point sums as double
+         RHYDB_ASSERT(aggregate_definition.source_column.has_value());
+         switch (aggregate_definition.source_column->type) {
+            case ColumnType::INT32:
+            case ColumnType::INT64:
+               return ColumnType::INT64;
+            case ColumnType::FLOAT:
+               return ColumnType::FLOAT;
+            default:
+               throw rhydb::query_engine::IllegalQueryException(
+                  "sum is only supported on numeric columns, not on '{}'",
+                  aggregate_definition.source_column->name
+               );
+         }
    }
    RHYDB_UNREACHABLE();
 }
@@ -91,6 +114,8 @@ std::string_view displayName(AggregateFunction aggregate) {
    switch (aggregate) {
       case AggregateFunction::COUNT:
          return "COUNT";
+      case AggregateFunction::SUM:
+         return "SUM";
    }
    RHYDB_UNREACHABLE();
 }

@@ -53,7 +53,7 @@ TEST(CommandLineArguments, shouldFailAppropriatelyOnInvalidOptions) {
       "--",
       "&",
       "\n",
-      "--wrong_delimiter"
+      "--wrong_delimiter",
    };
    for (const auto& invalid_option : invalid_options) {
       EXPECT_THAT(

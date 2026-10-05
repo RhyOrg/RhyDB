@@ -173,6 +173,37 @@ TEST(AdminQueryHandler, insertsQueryResultAndReportsRowCount) {
    EXPECT_EQ(written.tables.at(TableName{"source"})->row_layout.numRows(), 3U);
 }
 
+TEST(AdminQueryHandler, createsTableAndPersistsItsSchema) {
+   const TemporaryDataDirectory data_directory;
+   auto handle = makeActiveDatabaseWithSourceData(data_directory.path());
+
+   rhydb_app::test::MockResponse response;
+   postAdminQuery(
+      handle,
+      data_directory.path(),
+      "createTable(countries, {name := string, population := int64}, primaryKey := name)",
+      response
+   );
+
+   EXPECT_EQ(response.getStatus(), Poco::Net::HTTPResponse::HTTP_OK);
+   EXPECT_EQ(
+      nlohmann::json::parse(response.out_stream.str()),
+      nlohmann::json({{"createdTable", "countries"}})
+   );
+
+   auto written = reloadFromDataDirectory(data_directory.path());
+   ASSERT_TRUE(written.tables.contains(TableName{"countries"}));
+   const auto& schema = *written.tables.at(TableName{"countries"})->schema;
+   EXPECT_EQ(
+      schema.getColumnIdentifiers(),
+      (std::vector<ColumnIdentifier>{
+         {.name = "name", .type = ColumnType::STRING},
+         {.name = "population", .type = ColumnType::INT64},
+      })
+   );
+   EXPECT_EQ(schema.primary_key, (ColumnIdentifier{.name = "name", .type = ColumnType::STRING}));
+}
+
 // The write is not only applied in memory: it is saved to the data directory as a new data version
 // before it is published, so it is still there after a restart.
 TEST(AdminQueryHandler, persistsTheWriteToTheDataDirectory) {

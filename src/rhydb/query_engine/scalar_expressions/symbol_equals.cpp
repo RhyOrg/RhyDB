@@ -68,8 +68,7 @@ std::unique_ptr<ScalarExpression> SymbolEquals<SymbolType>::rewrite(
 ) const {
    const auto valid_sequence_name = validateSequenceName<SymbolType>(column.name, *table.schema);
 
-   const auto& sequence_column =
-      table.columns.getColumns<typename SymbolType::Column>().at(valid_sequence_name);
+   const auto& sequence_column = table.getColumn<typename SymbolType::Column>(valid_sequence_name);
 
    CHECK_RHYDB_QUERY(
       position_idx < sequence_column.metadata->reference_sequence.size(),

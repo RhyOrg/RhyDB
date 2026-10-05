@@ -63,9 +63,10 @@ arrow::Status QueryPlan::executeAndWriteImpl(
    );
 
    // Ensure plan is stopped on any exit path (timeout/error/exception).
-   const struct PlanStopGuard {
+   struct PlanStopGuard {
       std::string_view request_id;
       std::shared_ptr<arrow::acero::ExecPlan> plan;
+      bool reached_end_of_stream = false;
 
       ~PlanStopGuard() {
          constexpr double GRACE_SHUTDOWN_SECONDS = 5.0;  // avoid hanging on teardown
@@ -75,6 +76,10 @@ arrow::Status QueryPlan::executeAndWriteImpl(
                   "Request Id [{}] - QueryPlan - Stopping arrow execution plan", request_id
                );
                auto finished_future = plan->finished();
+               // After end of stream the plan finishes on its own; aborting now races Arrow (#1035)
+               if (reached_end_of_stream) {
+                  finished_future.Wait(GRACE_SHUTDOWN_SECONDS);
+               }
                // Guard against the case, where the plan was not properly started, only call
                // StopProducing when the plan is still FutureState::PENDING (== not finished)
                if (!finished_future.is_finished()) {
@@ -131,6 +136,7 @@ arrow::Status QueryPlan::executeAndWriteImpl(
       );
 
       if (!optional_batch.has_value()) {
+         guard.reached_end_of_stream = true;
          break;  // end of input
       }
       SPDLOG_DEBUG(

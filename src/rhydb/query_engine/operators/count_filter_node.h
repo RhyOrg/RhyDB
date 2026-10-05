@@ -2,6 +2,7 @@
 
 #include <map>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -18,10 +19,12 @@ class CountFilterNode final : public QueryNode {
   public:
    std::shared_ptr<storage::Table> table;
    std::unique_ptr<scalar_expressions::ScalarExpression> filter;
+   std::string output_name;
 
    CountFilterNode(
       std::shared_ptr<storage::Table> table,
-      std::unique_ptr<scalar_expressions::ScalarExpression> filter
+      std::unique_ptr<scalar_expressions::ScalarExpression> filter,
+      std::string output_name
    );
 
    [[nodiscard]] std::vector<schema::ColumnIdentifier> getOutputSchema() const override;

@@ -1,4 +1,4 @@
-# AGENTS.md - Developer Guide for LAPIS-SILO
+# AGENTS.md - Developer Guide for RhyDB
 
 C++23 high-performance genomic sequence indexing engine. Uses Arrow Acero for query execution, roaring bitmaps for filtering, SaneQL as query language.
 

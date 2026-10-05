@@ -87,7 +87,6 @@ class TableScanGenerator {
          } catch (const std::exception& exception) {
             future.MarkFinished(arrow::Status::ExecutionError(exception.what()));
          }
-         ,
       }).detach();
 #endif
       return future;

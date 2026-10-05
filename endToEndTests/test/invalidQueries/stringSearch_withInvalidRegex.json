@@ -1,6 +1,6 @@
 {
   "testCaseName": "StringSearch that contains an invalid regex",
-  "query": "default.filter(primary_key.like('\\')).groupBy({count:=count()})",
+  "query": "default.filter(primary_key.like('\\')).group(by:={}, aggs:={count:=count()})",
   "expectedError": {
     "error": "Bad request",
     "message": "Invalid Regular Expression. The parsing of the regular expression failed with the error 'trailing \\'. See https://github.com/google/re2/wiki/Syntax for a Syntax specification."

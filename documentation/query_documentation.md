@@ -21,8 +21,11 @@ Additional tables exist if the database config declares columns with `lineageInd
 lineage tree. These are queried like any other table — see
 [lineage_definitions.md](lineage_definitions.md#lineage-relation-tables) for their schema.
 
-A `reference_genomes` table holds the reference sequences from `reference_genomes.json`, one row
-per sequence — see [input_format.md](input_format.md#reference_genomesjson) for its schema.
+Some tables are **built-in**: every database contains them, so queries can always rely on their
+presence. Otherwise they behave like any other table. The built-in tables are:
+
+- `reference_genomes`: the reference sequences from `reference_genomes.json`, one row per
+  sequence — see [input_format.md](input_format.md#reference_genomesjson) for its schema.
 
 ### Tabular data model
 
@@ -33,10 +36,10 @@ Simple example — count all sequences from Switzerland:
 ```
 default
   .filter(country = 'Switzerland')
-  .groupBy({count:=count()})
+  .group(by:={}, aggs:={count:=count()})
 ```
 
-`filter` is schema-preserving; `groupBy` is last and schema-defining, so the response is `{"count": <integer>}`.
+`filter` is schema-preserving; `group` is last and schema-defining, so the response is `{"count": <integer>}`.
 
 ## Language Basics
 
@@ -106,9 +109,9 @@ After the first named argument is given, no more positional arguments are accept
 
 ## Pipeline Operations
 
-### `filter(predicate)`
+### `filter(condition)`
 
-Keeps only rows where the boolean predicate is true. Passes all input columns through unchanged.
+Keeps only rows where the boolean `condition` is true. Passes all input columns through unchanged.
 
 ```
 default.filter(country = 'USA' && age > 30)
@@ -116,28 +119,34 @@ default.filter(country = 'USA' && age > 30)
 
 A boolean column can be used directly as a predicate: `default.filter(isHuman)` is equivalent to `default.filter(isHuman = true)`, and `default.filter(!isHuman)` negates it (a set complement that also keeps rows where `isHuman` is null, matching `!(isHuman = true)`). Only boolean columns may be used this way; a bare reference to a non-boolean column is rejected.
 
-### `groupBy(aggregates [, columns])`
+### `group(by, aggs)`
 
-Aggregates rows, producing counts or other aggregate values. `aggregates` is a record literal; `columns` is an optional set of column names to group by.
+Aggregates rows, producing counts or other aggregate values. `by` is a set of column names to group by (`{}` aggregates all rows into a single group); `aggs` is a record literal of named aggregates.
 
-Currently supported aggregate function: `count()`.
+Currently supported aggregate functions:
+
+| Function | Result |
+|----------|--------|
+| `count()` | The number of rows in the group (an `int64`). |
+| `sum(column)` | The sum of a numeric column over the rows in the group. Sums of `int` and `int64` columns are `int64`, sums of `float` columns are `float`. Null values are skipped; a group with no non-null value (or no rows at all, when there are no `by` columns) sums to null. |
 
 ```
-default.groupBy(aggregates:={count:=count()})
-default.groupBy(aggregates:={count:=count()}, columns:={pango_lineage})
-default.groupBy({count:=count()}, {country, pango_lineage})
+default.group(by:={}, aggs:={count:=count()})
+default.group(by:={pango_lineage}, aggs:={count:=count()})
+default.group(by:={country, pango_lineage}, aggs:={count:=count()})
+default.group(by:={country}, aggs:={count:=count(), total_age:=sum(age)})
 ```
 
-**Output:** one row per group, containing the named aggregation fields and the groupBy columns. Rows where a groupBy column is null form their own group with a null value for that column.
+**Output:** one row per group, containing the named aggregation fields and the `by` columns. Rows where a `by` column is null form their own group with a null value for that column.
 
 ```json
 {"count": 48, "pango_lineage": "B.1.1.7"}
 {"count": 1,  "pango_lineage": null}
 ```
 
-### `project(fields)`
+### `project(expressions)`
 
-Returns only the specified columns. `fields` is a set of column names (or a single name without braces). At least one column must be kept (an empty projection is rejected).
+Returns only the specified columns. `expressions` is a set of column names (or a single name without braces). At least one column must be kept (an empty projection is rejected).
 
 ```
 default.project({primary_key, country, date, pango_lineage, qc_value})
@@ -152,9 +161,9 @@ Sequence data columns use the naming convention `<sequenceName>` for aligned seq
 {"primary_key": "key_31", "country": "Switzerland", "date": "2021-03-21", "pango_lineage": "B.1.1.7", "qc_value": 0.96}
 ```
 
-### `projectout(fields)`
+### `projectout(remove)`
 
-The complement of [`project`](#projectfields): returns all columns except the specified ones. `fields` is a set of column names (or a single name without braces). All named columns must exist in the input's output schema, and at least one column must remain.
+The complement of [`project`](#projectexpressions): returns all columns except the specified ones. `remove` is a set of column names (or a single name without braces). All named columns must exist in the input's output schema, and at least one column must remain.
 
 ```
 default.projectout({date, qc_value})
@@ -181,14 +190,14 @@ Integer literals become `INT64`, floats become `FLOAT`, single-quoted literals b
 {"primary_key": "key_31", "x": 3, "label": "cohort A", "active": true, "copy": "Switzerland"}
 ```
 
-### `orderBy(fields)`
+### `order(by)`
 
-Sorts results. Each field is either a bare name (ascending) or a `asc(name)` / `desc(name)` call. Passes all input columns through unchanged.
+Sorts results. `by` is a set of sort keys; each key is either a bare name (ascending) or a `asc(name)` / `desc(name)` call. Passes all input columns through unchanged.
 
 ```
-default.orderBy({primary_key})
-default.orderBy({count.desc(), pango_lineage})
-default.orderBy({asc(date), desc(age)})
+default.order(by:={primary_key})
+default.order(by:={count.desc(), pango_lineage})
+default.order(by:={asc(date), desc(age)})
 ```
 
 ### `limit(count)`
@@ -204,7 +213,7 @@ default.limit(100)
 Skips the first `count` rows. Passes all input columns through unchanged.
 
 ```
-default.orderBy({primary_key}).offset(10).limit(10)
+default.order(by:={primary_key}).offset(10).limit(10)
 ```
 
 ### `randomize([seed:=n])`
@@ -397,18 +406,18 @@ join(
 )
 ```
 
-**Output:** the joined rows. The order of rows is not guaranteed; use `orderBy(...)` for a deterministic order.
+**Output:** the joined rows. The order of rows is not guaranteed; use `order(...)` for a deterministic order.
 
-### `unionAll(left, right)`
+### `unionall(left, right)`
 
-Concatenates the output of two pipelines. `unionAll` can be called as a standalone function or with piped syntax:
+Concatenates the output of two pipelines. `unionall` can be called as a standalone function or with piped syntax:
 
 Both inputs must have the same schema (same column names, types, and order).
 
 All rows from both inputs are included — duplicates are preserved (UNION ALL, not UNION).
 
 ```
-unionAll(
+unionall(
   default.filter(division='Aargau').project({division}),
   default.filter(division='Bern').project({division})
 )
@@ -418,42 +427,42 @@ Or equivalently using piped syntax:
 
 ```
 default.filter(division='Aargau').project({division})
-  .unionAll(default.filter(division='Bern').project({division}))
+  .unionall(default.filter(division='Bern').project({division}))
 ```
 
 Named arguments are also supported:
 
 ```
-unionAll(left := <pipeline1>, right := <pipeline2>)
+unionall(left := <pipeline1>, right := <pipeline2>)
 ```
 
 The result can be piped into downstream operators:
 
 ```
-unionAll(
+unionall(
   default.filter(division='Aargau').project({division}),
   default.filter(division='Bern').project({division})
-).groupBy({count:=count()}, {division})
- .orderBy({asc(division)})
+).group(by:={division}, aggs:={count:=count()})
+ .order(by:={asc(division)})
 ```
 
-`unionAll` calls can be nested:
+`unionall` calls can be nested:
 
 ```
-unionAll(
-  unionAll(pipelineA, pipelineB),
-  unionAll(pipelineC, pipelineD)
+unionall(
+  unionall(pipelineA, pipelineB),
+  unionall(pipelineC, pipelineD)
 )
 ```
 
 **Restrictions:**
 
-- `mutations()`, `aminoAcidMutations()`, `insertions()`, and similar operators that require a table scan cannot be applied to the result of a `unionAll`. They can however be used inside each child.
+- `mutations()`, `aminoAcidMutations()`, `insertions()`, and similar operators that require a table scan cannot be applied to the result of a `unionall`. They can however be used inside each child.
 
-Filters above a `unionAll` are automatically pushed into both children:
+Filters above a `unionall` are automatically pushed into both children:
 
 ```
-unionAll(
+unionall(
   default.project({primaryKey, country}),
   default.project({primaryKey, country})
 ).filter(country='CH')
@@ -462,7 +471,7 @@ unionAll(
 is equivalent to:
 
 ```
-unionAll(
+unionall(
   default.filter(country='CH').project({primaryKey, country}),
   default.filter(country='CH').project({primaryKey, country})
 )
@@ -477,7 +486,7 @@ It does not read or return any data; it only reports the fields that the input w
 
 ```
 default.schema()
-default.filter(country='CH').groupBy({count:=count()}, {age}).schema()
+default.filter(country='CH').group(by:={age}, aggs:={count:=count()}).schema()
 default.mutations(minProportion:=0.1).schema()
 ```
 
@@ -494,9 +503,9 @@ default.mutations(minProportion:=0.1).schema()
 ```
 
 `schema()` produces an ordinary two-column relation,
-so operators such as `project`, `map`, `orderBy` and `limit` can be chained after it.
+so operators such as `project`, `map`, `order` and `limit` can be chained after it.
 
-`schema()` is a *pipeline breaker*: like `groupBy`, `mutations` and `insertions`, it produces a new result relation instead of forwarding its child's rows.
+`schema()` is a *pipeline breaker*: like `group`, `mutations` and `insertions`, it produces a new result relation instead of forwarding its child's rows.
 
 **Limitation:** sequence columns are reported with type `STRING`.
 When a sequence column is read into a pipeline it is decompressed to a string before `schema()` observes it,
@@ -543,7 +552,7 @@ its direct parent in a `parent` column (null for roots). Its closure pairs every
 each of its descendants:
 
 ```
-pango_lineage.transitiveClosure('parent', 'lineage').orderBy({from, to})
+pango_lineage.transitiveClosure(parent, lineage).order(by:={from, to})
 ```
 
 **Counting a lineage together with all of its sublineages.** Joining the reflexive closure's
@@ -552,10 +561,10 @@ all sequences below it in the hierarchy (and — thanks to the reflexive pair �
 sequences):
 
 ```
-pango_lineage.transitiveClosure('parent', 'lineage', includeVertices:=true)
+pango_lineage.transitiveClosure(parent, lineage, includeVertices:=true)
   .join(default, to = lineage_column)
-  .groupBy({count := count()}, {from})
-  .orderBy({from})
+  .group(by:={from}, aggs:={count := count()})
+  .order(by:={from})
 ```
 
 Here `lineage_column` is a `STRING` column of `default` holding each sequence's lineage. Because
@@ -569,9 +578,9 @@ vertices reach is ever walked. Asking for the descendants of one lineage therefo
 instead of one per vertex in the relation:
 
 ```
-pango_lineage.transitiveClosure('parent', 'lineage', includeVertices:=true, startingFrom:={'B.1.1.7'})
+pango_lineage.transitiveClosure(parent, lineage, includeVertices:=true, startingFrom:={'B.1.1.7'})
   .join(default, to = lineage_column)
-  .groupBy({count := count()}, {from})
+  .group(by:={from}, aggs:={count := count()})
 ```
 
 A vertex named in `startingFrom` that does not occur in the relation contributes no rows, not even
@@ -579,30 +588,30 @@ its reflexive pair.
 
 **Restrictions:**
 
-- `from` and `to` must be `STRING` columns of the input.
+- `from` and `to` must be `STRING` columns of the input, written as identifiers (e.g. `parent`).
 - `startingFrom` must be a set literal of string literals, e.g. `{'A', 'B'}`.
 
 **Output:** the reachable `{from, to}` pairs. The order of rows is not guaranteed; use
-`orderBy(...)` for a deterministic order.
+`order(...)` for a deterministic order.
 
 ---
 
-## Writing query results to a table
+## Writing to tables
 
 ### `insertInto(query: expression, table: symbol)`
 
 Runs `query` and inserts the resulting rows into `table` — a query
-against table A whose result lands in table B, expressed as a single SaneQL query. It is the only
-SaneQL construct that writes: it mutates the target table rather than returning rows to the caller.
+against table A whose result lands in table B, expressed as a single SaneQL query. It is a write statement: it mutates the target table
+rather than returning rows to the caller.
 
 ```
 source.filter(country='CH').insertInto(archive)
 source.filter(country='CH').project({primaryKey, country, age}).insertInto(archive)
-source.insertInto('archive')
 ```
 
-The target may be written as a bare identifier (`archive`) or a string literal (`'archive'`). It
-must be an existing table in the database; `insertInto` never creates a table.
+The target is written as an identifier (`archive`). It must be an existing table in the database;
+`insertInto` never creates a table (use
+[`createTable`](#createtabletable-symbol-columns-record-primarykey-symbol) for that).
 
 **Column matching.** The query's output columns are matched to the target table's columns *by name*.
 Every column of the target table must be produced by the query; any extra output columns are ignored.
@@ -624,6 +633,73 @@ table in place, so it is not safe to run next to other queries against the same 
 [`POST /admin/query`](api.md#post-adminquery) endpoint - the only way to issue it over the API -
 therefore applies it to a database loaded from the data directory and saves the result back as a new
 data version, which is served once the directory watcher picks it up.
+
+### `createTable(table: symbol, columns: record, primaryKey?: symbol)`
+
+Creates a new, empty table with the given schema. Like `insertInto`, it is a write statement: it must
+be the whole query and returns a summary instead of rows:
+
+```json
+{"createdTable": "covid"}
+```
+
+```
+createTable(covid, {
+   primaryKey := string,
+   country := string(generateIndex := true),
+   age := int,
+   date := date,
+   main := nucleotideSequence(reference := main),
+   "S" := aminoAcidSequence(reference := "S"),
+   unaligned_main := zstdCompressedString(
+      dictionary := reference_genomes.filter(name = 'main').project({sequence})
+   )
+}, primaryKey := primaryKey)
+```
+
+The table name is an identifier made of letters, digits, `_` and `-`, other than `database_schema` and `data_version`.
+It must not name an existing table (built-in tables such as `reference_genomes` included).
+
+`columns` is a record mapping each column name to its type. A type is written either as a bare name
+(`int`) or with named options (`string(generateIndex := true)`). Column names that are not plain
+identifiers can be written as quoted identifiers, e.g. `"S:ORF1a" := aminoAcidSequence(reference := "S:ORF1a")`. The types mirror those of
+`database_config.yaml`:
+
+| Type                          | Options                           | Column                                                        |
+|-------------------------------|-----------------------------------|---------------------------------------------------------------|
+| `string`                      | `generateIndex := <bool>`         | string; with `generateIndex := true` dictionary encoded and indexed |
+| `int` / `int32`, `int64`      |                                   | 32 / 64 bit integer                                           |
+| `float`                       |                                   | floating point number                                         |
+| `boolean`                     |                                   | boolean                                                       |
+| `date`                        |                                   | date                                                          |
+| `nucleotideSequence`          | `reference := <name>` (required)  | aligned nucleotide sequence                                   |
+| `aminoAcidSequence`           | `reference := <name>` (required)  | aligned amino acid sequence                                   |
+| `zstdCompressedString`        | `dictionary := <query>` (required) | string, zstd compressed with a dictionary (e.g. unaligned sequences) |
+
+**References.** Sequence columns require the `reference := <name>` option, which names the row of
+the built-in `reference_genomes` table to take their reference sequence from: the row with that
+`name` whose `type` matches the column (`nucleotide` for `nucleotideSequence`, `amino_acid` for
+`aminoAcidSequence`), e.g. `segment := nucleotideSequence(reference := main)`. The reference is never
+derived from the column name.
+
+**Dictionaries.** A `zstdCompressedString` column requires the `dictionary := <query>` option, a
+query that must produce exactly one row with exactly one `string` column; its value is the
+column's compression dictionary. For unaligned sequences this is usually the reference, e.g.
+`reference_genomes.filter(name = 'main' && type = 'nucleotide').project({sequence})`.
+
+References and dictionaries are copied into the table's schema when it is created, so later
+changes to the tables they come from do not affect existing tables. Creating a sequence column
+fails if there is no matching reference.
+
+**Primary key.** The optional `primaryKey` names one of the columns, which must be a `string`
+column without `generateIndex`.
+
+**Limitation:** lineage indexes (`generateLineageIndex`) and phylogenetic tree fields
+(`isPhyloTreeField`) need their definition files and cannot be declared with `createTable`.
+
+Fill the new table with [`insertInto`](#insertintoquery-expression-table-symbol), or append to it
+through the regular append path. The statement bumps the data version and, like `insertInto`, is only
+available through [`POST /admin/query`](api.md#post-adminquery).
 
 ---
 
@@ -671,10 +747,13 @@ date >= '2021-01-01'::date && date <= '2021-12-31'::date
 
 ### `in(column, {values})`
 
-True if the column value is one of the given strings.
+True if the column value is one of the given values. Works for string, integer, float, date, and boolean columns; every value must be a literal of the column's type. An empty set `{}` matches no rows.
 
 ```
 country.in({'Germany', 'France', 'Italy'})
+year.in({2020, 2021})
+qc_value.in({0.5, 1.0})
+date.in({'2021-01-01'::date, '2021-06-01'::date})
 ```
 
 ### `isNull(column)`
@@ -856,8 +935,8 @@ aminoAcidMutationProfile(distance:=2, sequenceName:='S', mutations:={
 
 ```
 default
-  .groupBy({count:=count()}, {country})
-  .orderBy({count.desc()})
+  .group(by:={country}, aggs:={count:=count()})
+  .order(by:={count.desc()})
 ```
 
 ### Sequences with a specific mutation, showing details
@@ -866,7 +945,7 @@ default
 default
   .filter(hasMutation(position:=23403))
   .project({primary_key, country, date, pango_lineage})
-  .orderBy({date})
+  .order(by:={date})
   .limit(100)
 ```
 
@@ -883,8 +962,8 @@ default
 ```
 default
   .filter(date.between('2021-01-01'::date, '2021-06-30'::date))
-  .groupBy({count:=count()}, {pango_lineage})
-  .orderBy({pango_lineage})
+  .group(by:={pango_lineage}, aggs:={count:=count()})
+  .order(by:={pango_lineage})
 ```
 
 ### Complex filter combining multiple conditions
@@ -901,14 +980,14 @@ default
          nucleotideEquals(position:=23403, symbol:='G')
        })
   )
-  .groupBy({count:=count()})
+  .group(by:={}, aggs:={count:=count()})
 ```
 
 ### Paginated results
 
 ```
 default
-  .orderBy({primary_key})
+  .order(by:={primary_key})
   .offset(50)
   .limit(25)
   .project({primary_key, country, date})
@@ -920,15 +999,15 @@ default
 default
   .filter(aminoAcidInsertionContains(position:=214, value:='.*PE', sequenceName:='S'))
   .aminoAcidInsertions()
-  .orderBy({insertedSymbols, position})
+  .order(by:={insertedSymbols, position})
 ```
 
-### Combine two filtered groups with unionAll
+### Combine two filtered groups with unionall
 
 ```
-unionAll(
+unionall(
   default.filter(division='Aargau').project({division}),
   default.filter(division='Bern').project({division})
-).groupBy({count:=count()}, {division})
- .orderBy({asc(division)})
+).group(by:={division}, aggs:={count:=count()})
+ .order(by:={asc(division)})
 ```

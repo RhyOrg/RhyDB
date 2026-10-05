@@ -97,7 +97,9 @@ arrow::Status ColumnEntryAppender::operator()<storage::column::SequenceColumn<Nu
       table_scan_node.getColumnTypeArrayBuilders<storage::column::SequenceColumn<Nucleotide>>().at(
          column_name
       );
-   return appendSequences<Nucleotide>(table.columns.nuc_columns.at(column_name), row_ids, *array);
+   return appendSequences<Nucleotide>(
+      table.getColumn<storage::column::SequenceColumn<Nucleotide>>(column_name), row_ids, *array
+   );
 }
 
 template <>
@@ -114,7 +116,9 @@ arrow::Status ColumnEntryAppender::operator()<storage::column::SequenceColumn<Am
       table_scan_node.getColumnTypeArrayBuilders<storage::column::SequenceColumn<AminoAcid>>().at(
          column_name
       );
-   return appendSequences<AminoAcid>(table.columns.aa_columns.at(column_name), row_ids, *array);
+   return appendSequences<AminoAcid>(
+      table.getColumn<storage::column::SequenceColumn<AminoAcid>>(column_name), row_ids, *array
+   );
 }
 
 template <>
@@ -132,8 +136,7 @@ arrow::Status ColumnEntryAppender::operator()<storage::column::ZstdCompressedStr
       table_scan_node.getColumnTypeArrayBuilders<storage::column::ZstdCompressedStringColumn>().at(
          column_name
       );
-   const auto& column =
-      table.columns.getColumns<storage::column::ZstdCompressedStringColumn>().at(column_name);
+   const auto& column = table.getColumn<storage::column::ZstdCompressedStringColumn>(column_name);
    for (const auto& [chunk_key, view] : row_ids) {
       const uint32_t base = static_cast<uint32_t>(chunk_key) << 16U;
       for (const uint16_t low_bits : view) {
@@ -157,7 +160,7 @@ arrow::Status ColumnEntryAppender::operator()(
    const Bitmap& row_ids
 ) {
    EVOBENCH_SCOPE("ColumnEntryAppender", columnTypeToString(Column::TYPE));
-   auto& column = table.columns.getColumns<Column>().at(column_name);
+   auto& column = table.getColumn<Column>(column_name);
    auto array = table_scan_node.getColumnTypeArrayBuilders<Column>().at(column_name);
    for (const auto& [chunk_key, view] : row_ids) {
       const uint32_t base = static_cast<uint32_t>(chunk_key) << 16U;

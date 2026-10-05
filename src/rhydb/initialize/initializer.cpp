@@ -19,6 +19,7 @@
 #include "rhydb/database.h"
 #include "rhydb/initialize/initialize_exception.h"
 #include "rhydb/initialize/lineage_relation_table.h"
+#include "rhydb/schema/builtin_tables.h"
 #include "rhydb/storage/column/column_metadata.h"
 #include "rhydb/storage/column/column_type_visitor.h"
 #include "rhydb/storage/column/dictionary_encoded_column.h"
@@ -68,12 +69,17 @@ void Initializer::createTableInDatabase(
    bool without_unaligned_sequences,
    Database& database
 ) {
+   if (database.tables.contains(table_name)) {
+      throw InitializeException(
+         "Cannot create table '{}': a table with that name already exists.", table_name.getName()
+      );
+   }
    auto table_schema = createSchemaFromConfigFiles(
       database_config, reference_genomes, lineage_trees, phylo_tree, without_unaligned_sequences
    );
    database.createTable(std::move(table_name), std::move(table_schema));
 
-   createReferenceGenomesTable(reference_genomes, database);
+   fillReferenceGenomesTable(reference_genomes, database);
 
    // Materialize a companion lineage relation table for every column configured with
    // `lineageIndexType` 'table' or 'both'. The tree name is resolved against the loaded lineage
@@ -100,38 +106,18 @@ void Initializer::createTableInDatabase(
    }
 }
 
-void Initializer::createReferenceGenomesTable(
+void Initializer::fillReferenceGenomesTable(
    const ReferenceGenomes& reference_genomes,
    Database& database
 ) {
-   const std::string table_name_string{REFERENCE_GENOMES_TABLE_NAME};
+   const std::string table_name_string{schema::REFERENCE_GENOMES_TABLE_NAME};
    const schema::TableName table_name{table_name_string};
-   if (database.tables.contains(table_name)) {
+   RHYDB_ASSERT(database.tables.contains(table_name));
+   if (database.tables.at(table_name)->row_count > 0) {
       throw InitializeException(
-         "Cannot create reference genomes table '{}': a table with that name already exists.",
-         table_name_string
+         "Cannot fill reference genomes table '{}': it already contains rows.", table_name_string
       );
    }
-
-   // No primary key: a nucleotide and an amino acid sequence may share a name, so only (name, type)
-   // identifies a row.
-   const schema::ColumnIdentifier name_column{.name = "name", .type = schema::ColumnType::STRING};
-   // Either "nucleotide" or "amino_acid".
-   const schema::ColumnIdentifier type_column{.name = "type", .type = schema::ColumnType::STRING};
-   const schema::ColumnIdentifier sequence_column{
-      .name = "sequence", .type = schema::ColumnType::STRING,
-   };
-   auto table_schema = std::make_shared<schema::TableSchema>();
-   table_schema->column_metadata.emplace(
-      name_column, std::make_shared<storage::column::StringColumnMetadata>(name_column.name)
-   );
-   table_schema->column_metadata.emplace(
-      type_column, std::make_shared<storage::column::StringColumnMetadata>(type_column.name)
-   );
-   table_schema->column_metadata.emplace(
-      sequence_column, std::make_shared<storage::column::StringColumnMetadata>(sequence_column.name)
-   );
-   database.createTable(table_name, std::move(table_schema));
 
    std::string ndjson;
    const auto append_rows = [&ndjson](
@@ -141,7 +127,7 @@ void Initializer::createReferenceGenomesTable(
                             ) {
       for (size_t index = 0; index < names.size(); ++index) {
          const nlohmann::json line{
-            {"name", names.at(index)}, {"type", type}, {"sequence", sequences.at(index)},
+            {"name", names.at(index)}, {"type", type}, {"sequence", sequences.at(index)}
          };
          ndjson += line.dump();
          ndjson += '\n';
@@ -150,16 +136,18 @@ void Initializer::createReferenceGenomesTable(
    append_rows(
       reference_genomes.nucleotide_sequence_names,
       reference_genomes.raw_nucleotide_sequences,
-      "nucleotide"
+      schema::REFERENCE_GENOMES_NUCLEOTIDE_TYPE
    );
    append_rows(
-      reference_genomes.aa_sequence_names, reference_genomes.raw_aa_sequences, "amino_acid"
+      reference_genomes.aa_sequence_names,
+      reference_genomes.raw_aa_sequences,
+      schema::REFERENCE_GENOMES_AMINO_ACID_TYPE
    );
    std::stringstream ndjson_stream{ndjson};
    rhydb::append::NdjsonLineReader ndjson_reader{ndjson_stream};
    rhydb::append::appendDataToTable(database.tables.at(table_name), ndjson_reader);
    SPDLOG_INFO(
-      "Built reference genomes table '{}' with {} rows",
+      "Filled reference genomes table '{}' with {} rows",
       table_name_string,
       reference_genomes.nucleotide_sequence_names.size() +
          reference_genomes.aa_sequence_names.size()
@@ -182,21 +170,21 @@ void Initializer::createLineageRelationTable(
 
    const schema::ColumnIdentifier id_column{.name = "id", .type = schema::ColumnType::STRING};
    const schema::ColumnIdentifier lineage_column{
-      .name = "lineage", .type = schema::ColumnType::STRING,
+      .name = "lineage", .type = schema::ColumnType::STRING
    };
    // The direct parent of `lineage` (null for a root). The transitive ancestry is walked from
    // these edges at query time rather than materialized.
    const schema::ColumnIdentifier parent_column{
-      .name = "parent", .type = schema::ColumnType::STRING,
+      .name = "parent", .type = schema::ColumnType::STRING
    };
    // True when `lineage` has more than one direct parent (an edge into a recombinant node).
    const schema::ColumnIdentifier is_recombinant_edge_column{
-      .name = "is_recombinant_edge", .type = schema::ColumnType::BOOL,
+      .name = "is_recombinant_edge", .type = schema::ColumnType::BOOL
    };
    // For a recombinant `lineage`, the most-recent common ancestor of its parents; null
    // otherwise.
    const schema::ColumnIdentifier recombinant_clade_ancestor_column{
-      .name = "recombinant_clade_ancestor", .type = schema::ColumnType::STRING,
+      .name = "recombinant_clade_ancestor", .type = schema::ColumnType::STRING
    };
    auto table_schema = std::make_shared<schema::TableSchema>();
    table_schema->column_metadata.emplace(
@@ -232,7 +220,7 @@ void Initializer::createLineageRelationTable(
          {"recombinant_clade_ancestor",
           row.recombinant_clade_ancestor.has_value()
              ? nlohmann::json(*row.recombinant_clade_ancestor)
-             : nlohmann::json(nullptr),},
+             : nlohmann::json(nullptr)}
       };
       ndjson += line.dump();
       ndjson += '\n';
@@ -409,7 +397,7 @@ std::shared_ptr<schema::TableSchema> Initializer::createSchemaFromConfigFiles(
       column_metadata;
    for (const auto& config_metadata : database_config.schema.metadata) {
       const schema::ColumnIdentifier column_identifier{
-         .name = config_metadata.name, .type = config_metadata.getColumnType(),
+         .name = config_metadata.name, .type = config_metadata.getColumnType()
       };
       std::shared_ptr<storage::column::ColumnMetadata> metadata;
       storage::column::visit(
@@ -429,7 +417,7 @@ std::shared_ptr<schema::TableSchema> Initializer::createSchemaFromConfigFiles(
       const auto& sequence_name = reference_genomes.nucleotide_sequence_names.at(sequence_idx);
       const auto& reference_sequence = reference_genomes.raw_nucleotide_sequences.at(sequence_idx);
       const schema::ColumnIdentifier column_identifier{
-         .name = sequence_name, .type = schema::ColumnType::NUCLEOTIDE_SEQUENCE,
+         .name = sequence_name, .type = schema::ColumnType::NUCLEOTIDE_SEQUENCE
       };
       auto metadata = std::make_shared<storage::column::SequenceColumnMetadata<Nucleotide>>(
          sequence_name, ReferenceGenomes::stringToVector<Nucleotide>(reference_sequence)
@@ -439,7 +427,7 @@ std::shared_ptr<schema::TableSchema> Initializer::createSchemaFromConfigFiles(
       if (!without_unaligned_sequences) {
          const schema::ColumnIdentifier column_identifier_unaligned{
             .name = UNALIGNED_NUCLEOTIDE_SEQUENCE_PREFIX + sequence_name,
-            .type = schema::ColumnType::ZSTD_COMPRESSED_STRING,
+            .type = schema::ColumnType::ZSTD_COMPRESSED_STRING
          };
          auto metadata_unaligned =
             std::make_shared<storage::column::ZstdCompressedStringColumnMetadata>(
@@ -454,7 +442,7 @@ std::shared_ptr<schema::TableSchema> Initializer::createSchemaFromConfigFiles(
       const auto& sequence_name = reference_genomes.aa_sequence_names.at(sequence_idx);
       const auto& reference_sequence = reference_genomes.raw_aa_sequences.at(sequence_idx);
       const schema::ColumnIdentifier column_identifier{
-         .name = sequence_name, .type = schema::ColumnType::AMINO_ACID_SEQUENCE,
+         .name = sequence_name, .type = schema::ColumnType::AMINO_ACID_SEQUENCE
       };
       auto metadata = std::make_shared<storage::column::SequenceColumnMetadata<AminoAcid>>(
          sequence_name, ReferenceGenomes::stringToVector<AminoAcid>(reference_sequence)

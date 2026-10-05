@@ -12,6 +12,7 @@
 #include "rhydb/query_engine/operators/aggregate_node.h"
 #include "rhydb/query_engine/operators/fetch_node.h"
 #include "rhydb/query_engine/operators/filter_node.h"
+#include "rhydb/query_engine/operators/join_node.h"
 #include "rhydb/query_engine/operators/map_node.h"
 #include "rhydb/query_engine/operators/order_by_node.h"
 #include "rhydb/query_engine/operators/project_node.h"
@@ -444,3 +445,44 @@ TEST(ColumnNarrowingPassUnionAll, narrowsBothBranchesIndependently) {
 }
 
 }  // namespace
+
+// A semi join outputs only its left input: the left input keeps the required columns plus its
+// key, the right input only its key.
+TEST(ColumnNarrowingPass, narrowsSemiJoinInputs) {
+   auto join = std::make_unique<operators::JoinNode>(
+      makeScan({col("a"), col("b"), col("key")}),
+      makeScan({col("c"), col("right_key")}),
+      std::vector<ColumnIdentifier>{col("key")},
+      std::vector<ColumnIdentifier>{col("right_key")},
+      arrow::acero::JoinType::LEFT_SEMI
+   );
+   operators::QueryNodePtr root =
+      std::make_unique<operators::ProjectNode>(std::move(join), std::vector{col("a")});
+
+   root = ColumnNarrowingPass::run(std::move(root));
+
+   auto& project = dynamic_cast<operators::ProjectNode&>(*root);
+   auto& join_node = dynamic_cast<operators::JoinNode&>(*project.child);
+   EXPECT_EQ(scanSchema(leafScan(*join_node.left)), (std::vector{col("a"), col("key")}));
+   EXPECT_EQ(scanSchema(leafScan(*join_node.right)), (std::vector{col("right_key")}));
+}
+
+// An outer join outputs both inputs: each keeps its required columns plus its key.
+TEST(ColumnNarrowingPass, narrowsOuterJoinInputs) {
+   auto join = std::make_unique<operators::JoinNode>(
+      makeScan({col("a"), col("b"), col("key")}),
+      makeScan({col("c"), col("d"), col("right_key")}),
+      std::vector<ColumnIdentifier>{col("key")},
+      std::vector<ColumnIdentifier>{col("right_key")},
+      arrow::acero::JoinType::LEFT_OUTER
+   );
+   operators::QueryNodePtr root =
+      std::make_unique<operators::ProjectNode>(std::move(join), std::vector{col("b"), col("d")});
+
+   root = ColumnNarrowingPass::run(std::move(root));
+
+   auto& project = dynamic_cast<operators::ProjectNode&>(*root);
+   auto& join_node = dynamic_cast<operators::JoinNode&>(*project.child);
+   EXPECT_EQ(scanSchema(leafScan(*join_node.left)), (std::vector{col("b"), col("key")}));
+   EXPECT_EQ(scanSchema(leafScan(*join_node.right)), (std::vector{col("d"), col("right_key")}));
+}

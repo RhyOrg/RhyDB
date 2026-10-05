@@ -12,8 +12,8 @@
 
 #include "rhydb/append/ndjson_line_reader.h"
 #include "rhydb/schema/database_schema.h"
-#include "rhydb/storage/column_group_builder.h"
 #include "rhydb/storage/table.h"
+#include "rhydb/storage/table_chunk_builder.h"
 
 namespace rhydb::append {
 
@@ -46,7 +46,7 @@ class TableInserter {
    /// One output buffer plus its current bounding covered range over the driver column.
    /// `range == nullopt` marks an empty slot (also true right after a flush).
    struct ClusterBuffer {
-      storage::ColumnGroupBuilder builder;
+      storage::TableChunkBuilder builder;
       std::optional<std::pair<uint32_t, uint32_t>> range;
    };
 
@@ -57,7 +57,7 @@ class TableInserter {
    /// The reader inserts every row into this single buffer. When it fills (COLUMN_CHUNK_SIZE rows)
    /// it is flushed: appended directly as one chunk (clustering off) or repartitioned across the
    /// output buffers by driver coverage (clustering on).
-   storage::ColumnGroupBuilder input_buffer;
+   storage::TableChunkBuilder input_buffer;
    /// Per-cluster output buffers. Each accumulates coverage-homogeneous rows across successive
    /// input batches and flushes independently once full. Empty when clustering is disabled.
    std::vector<ClusterBuffer> output_buffers;

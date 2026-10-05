@@ -112,6 +112,7 @@ TEST(TablesNodeMultiTableTest, listsAndFiltersMultipleTables) {
       nlohmann::json::array({
          {{"tableName", "archive"}},
          {{"tableName", "backup"}},
+         {{"tableName", "reference_genomes"}},
          {{"tableName", "source"}},
       })
    );
@@ -130,10 +131,15 @@ TEST(TablesNodeMultiTableTest, listsAndFiltersMultipleTables) {
    );
 }
 
-TEST(TablesNodeMultiTableTest, listsNoTablesForEmptyDatabase) {
+TEST(TablesNodeMultiTableTest, listsOnlyBuiltinTablesForNewDatabase) {
    const Database database;
 
    auto query_plan =
       Planner::planSaneqlQuery("tables()", database.tables, QueryOptions{}, "empty_tables_query");
-   ASSERT_EQ(rhydb::test::executeQueryToJsonArray(query_plan), nlohmann::json::array());
+   ASSERT_EQ(
+      rhydb::test::executeQueryToJsonArray(query_plan),
+      nlohmann::json::array({
+         {{"tableName", "reference_genomes"}},
+      })
+   );
 }

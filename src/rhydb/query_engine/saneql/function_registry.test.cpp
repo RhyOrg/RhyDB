@@ -26,7 +26,7 @@ NamedArgument makeNamed(std::string name, std::string value) {
    return {
       .name = std::move(name),
       .value = makeExpr(StringLiteral{std::move(value)}, {}),
-      .location = {},
+      .location = rhydb::query_engine::saneql::SourceLocation(),
    };
 }
 

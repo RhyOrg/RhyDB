@@ -1,6 +1,11 @@
 #include "rhydb/query_engine/query_plan.h"
 
+#include <atomic>
+#include <thread>
+#include <vector>
+
 #include <arrow/compute/api_aggregate.h>
+#include <arrow/compute/expression.h>
 #include <arrow/compute/ordering.h>
 #include <arrow/table.h>
 #include <gmock/gmock-matchers.h>
@@ -133,4 +138,59 @@ TEST(QueryPlan, timesOutWhenAnInvalidPlanDoesNotFinish) {
          " within 0 seconds."
       ))
    );
+}
+
+// An empty grouped aggregate ends the stream before its plan finishes; don't abort it (#1035)
+TEST(QueryPlan, doesNotAbortPlanAfterEmptyGroupedAggregateCompletes) {
+   auto table = setupTestTable().ValueOrDie();
+   std::atomic<int> aborted_plans = 0;
+   constexpr int THREAD_COUNT = 16;
+   constexpr int RUNS_PER_THREAD = 50;
+   std::vector<std::thread> threads;
+   threads.reserve(THREAD_COUNT);
+   for (int thread = 0; thread < THREAD_COUNT; ++thread) {
+      threads.emplace_back([&]() {
+         for (int run = 0; run < RUNS_PER_THREAD; ++run) {
+            auto arrow_plan = arrow::acero::ExecPlan::Make().ValueOrDie();
+            auto* node =
+               arrow::acero::MakeExecNode(
+                  "table_source", arrow_plan.get(), {}, arrow::acero::TableSourceNodeOptions{table}
+               )
+                  .ValueOrDie();
+            node = arrow::acero::MakeExecNode(
+                      "filter",
+                      arrow_plan.get(),
+                      {node},
+                      arrow::acero::FilterNodeOptions{arrow::compute::less(
+                         arrow::compute::field_ref("id"), arrow::compute::literal(0)
+                      )}
+            )
+                      .ValueOrDie();
+            auto count_options = std::make_shared<arrow::compute::CountOptions>(
+               arrow::compute::CountOptions::CountMode::ALL
+            );
+            const arrow::compute::Aggregate aggregate{
+               "hash_count_all", count_options, std::vector<arrow::FieldRef>{}, "count"
+            };
+            node = arrow::acero::MakeExecNode(
+                      "aggregate",
+                      arrow_plan.get(),
+                      {node},
+                      arrow::acero::AggregateNodeOptions{{aggregate}, {arrow::FieldRef{"id"}}}
+            ).ValueOrDie();
+
+            auto under_test = QueryPlan::makeQueryPlan(arrow_plan, node, "some_id").ValueOrDie();
+            std::stringstream output{};
+            NdjsonSink output_sink{&output, under_test.results_schema};
+            under_test.executeAndWrite(output_sink, 10);
+            if (!arrow_plan->finished().is_finished() || !arrow_plan->finished().status().ok()) {
+               ++aborted_plans;
+            }
+         }
+      });
+   }
+   for (auto& thread : threads) {
+      thread.join();
+   }
+   EXPECT_EQ(aborted_plans, 0);
 }

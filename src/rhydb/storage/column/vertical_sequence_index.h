@@ -44,7 +44,7 @@ class VerticalSequenceIndex {
 
    std::map<SequenceDiffKey, SequenceDiff> vertical_bitmaps;
 
-   using const_iterator = typename std::map<SequenceDiffKey, SequenceDiff>::const_iterator;
+   using const_iterator = std::map<SequenceDiffKey, SequenceDiff>::const_iterator;
 
    void addSymbolsToPositions(
       uint32_t position_idx,

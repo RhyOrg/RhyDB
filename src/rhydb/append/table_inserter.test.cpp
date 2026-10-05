@@ -105,8 +105,7 @@ void appendRows(
 }
 
 const rhydb::storage::column::HorizontalCoverageIndex& coverageIndex(const Table& table) {
-   return table.columns.getColumns<SequenceColumn<Nucleotide>>()
-      .at(std::string{SEQ_COLUMN})
+   return table.getColumn<SequenceColumn<Nucleotide>>(std::string{SEQ_COLUMN})
       .horizontal_coverage_index;
 }
 
@@ -169,8 +168,7 @@ TEST(ClusteredBuffering, nullSequencesClusterSeparatelyFromDataRows) {
    // One chunk for the two data rows, one for the two null rows.
    EXPECT_EQ(table->row_layout.numChunks(), 2);
    const auto& index = coverageIndex(*table);
-   const auto& nuc_column =
-      table->columns.getColumns<SequenceColumn<Nucleotide>>().at(std::string{SEQ_COLUMN});
+   const auto& nuc_column = table->getColumn<SequenceColumn<Nucleotide>>(std::string{SEQ_COLUMN});
    EXPECT_EQ(nuc_column.null_bitmap.cardinality(), 2);
 
    // The data chunk's bounding range is exactly [0,25) — the null rows never widened it.
@@ -196,7 +194,7 @@ TEST(ClusteredBuffering, flushesBufferWhenItReachesChunkSize) {
 
    // A full first chunk was flushed mid-stream; the overflow row lands in a second chunk.
    EXPECT_EQ(table->row_layout.numChunks(), 2);
-   EXPECT_EQ(table->sequence_count, CHUNK_SIZE + 1);
+   EXPECT_EQ(table->row_count, CHUNK_SIZE + 1);
 }
 
 TEST(ClusteredBuffering, preservesAllRowsRegardlessOfChunkAssignment) {
@@ -211,12 +209,12 @@ TEST(ClusteredBuffering, preservesAllRowsRegardlessOfChunkAssignment) {
    auto baseline = makeTable(60);
    appendRows(baseline, ndjson, ClusteredBufferingOptions{});  // clustering off
 
-   EXPECT_EQ(clustered->sequence_count, baseline->sequence_count);
+   EXPECT_EQ(clustered->row_count, baseline->row_count);
 
    const auto& clustered_nuc =
-      clustered->columns.getColumns<SequenceColumn<Nucleotide>>().at(std::string{SEQ_COLUMN});
+      clustered->getColumn<SequenceColumn<Nucleotide>>(std::string{SEQ_COLUMN});
    const auto& baseline_nuc =
-      baseline->columns.getColumns<SequenceColumn<Nucleotide>>().at(std::string{SEQ_COLUMN});
+      baseline->getColumn<SequenceColumn<Nucleotide>>(std::string{SEQ_COLUMN});
    EXPECT_EQ(clustered_nuc.null_bitmap.cardinality(), baseline_nuc.null_bitmap.cardinality());
 
    // Clustering only reorders rows across chunks, so the multiset of covered ranges is invariant.

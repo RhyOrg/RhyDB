@@ -148,7 +148,7 @@ When pushing to GitHub, the linter will run on all changed files in the dependen
 To run the same changed-files lint path locally, use `make lint-changes`.
 
 On main, or if requested using the `trigger-linter` label, the linter will run on all files. This builds a separate Docker image, which runs the formatter. (This was a workaround, because
-building with clang-tidy under alpine was not possible yet. Should be changed in [#1167](https://github.com/GenSpectrum/LAPIS-SILO/issues/1167))
+building with clang-tidy under alpine was not possible yet. Should be changed in [#1167](https://github.com/RhyOrg/RhyDB/issues/1167))
 
 ### Functional End-To-End Tests
 
@@ -156,11 +156,11 @@ End-to-end tests are located in `/endToEndTests`. Those tests are used to verify
 queries. To execute the tests on a `RHYDB_IMAGE`:
 
 - `cd endToEndTests`
-- `RHYDB_IMAGE=ghcr.io/genspectrum/lapis-silo docker compose -f docker-compose-for-tests-preprocessing-from-ndjson.yml up`
-- `RHYDB_IMAGE=ghcr.io/genspectrum/lapis-silo docker compose -f docker-compose-for-tests-api.yml up -d --wait`
+- `RHYDB_IMAGE=ghcr.io/rhyorg/rhydb docker compose -f docker-compose-for-tests-preprocessing-from-ndjson.yml up`
+- `RHYDB_IMAGE=ghcr.io/rhyorg/rhydb docker compose -f docker-compose-for-tests-api.yml up -d --wait`
 - `npm install`
 - `RHYDB_URL=localhost:8080 npm run test`
-- `RHYDB_IMAGE=ghcr.io/genspectrum/lapis-silo docker compose -f docker-compose-for-tests-api.yml down`
+- `RHYDB_IMAGE=ghcr.io/rhyorg/rhydb docker compose -f docker-compose-for-tests-api.yml down`
 
 ## Local Debugging
 

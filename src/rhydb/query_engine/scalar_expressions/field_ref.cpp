@@ -39,11 +39,11 @@ std::unique_ptr<ScalarExpression> FieldRef::rewrite(
 
 std::unique_ptr<filter::operators::Operator> FieldRef::compile(const storage::Table& table) const {
    CHECK_RHYDB_QUERY(
-      table.columns.bool_columns.contains(column.name),
+      table.hasColumn<storage::column::BoolColumn>(column.name),
       "The column '{}' is not of type bool and cannot be used directly as a filter predicate",
       column.name
    );
-   const auto& bool_column = table.columns.bool_columns.at(column.name);
+   const auto& bool_column = table.getColumn<storage::column::BoolColumn>(column.name);
    return std::make_unique<filter::operators::IndexScan>(
       Bitmap{&bool_column.true_bitmap}, table.row_layout
    );

@@ -362,10 +362,10 @@ std::unique_ptr<KeyGroups> makeGrouper(
    const Bitmap& /*filter_bitmap*/
 ) {
    if (dimension.is_nucleotide) {
-      const auto& column = table.columns.getColumns<Nucleotide::Column>().at(dimension.column.name);
+      const auto& column = table.getColumn<Nucleotide::Column>(dimension.column.name);
       return std::make_unique<SequencePositionGrouper<Nucleotide>>(column, dimension.position_idx);
    }
-   const auto& column = table.columns.getColumns<AminoAcid::Column>().at(dimension.column.name);
+   const auto& column = table.getColumn<AminoAcid::Column>(dimension.column.name);
    return std::make_unique<SequencePositionGrouper<AminoAcid>>(column, dimension.position_idx);
 }
 
@@ -375,8 +375,7 @@ std::unique_ptr<KeyGroups> makeGrouper(
    const Bitmap& /*filter_bitmap*/
 ) {
    const auto& column =
-      table.columns.getColumns<storage::column::DictionaryEncodedColumn>().at(dimension.column.name
-      );
+      table.getColumn<storage::column::DictionaryEncodedColumn>(dimension.column.name);
    return std::make_unique<IndexedColumnGrouper>(column);
 }
 

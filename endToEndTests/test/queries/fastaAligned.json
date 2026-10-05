@@ -1,6 +1,6 @@
 {
   "testCaseName": "FastaAligned action with one sequence",
-  "query": "default.project({primary_key, testSecondSequence}).orderBy({primary_key})",
+  "query": "default.project({primary_key, testSecondSequence}).order(by:={primary_key})",
   "expectedQueryResult": [
     {
       "primary_key": "key_1",

@@ -82,13 +82,13 @@ std::unique_ptr<filter::operators::Operator> LineageFilter::compile(const storag
       column.name
    );
    CHECK_RHYDB_QUERY(
-      table.columns.dictionary_encoded_columns.contains(column.name) &&
-         table.columns.dictionary_encoded_columns.at(column.name).getLineageIndex().has_value(),
+      table.hasColumn<DictionaryEncodedColumn>(column.name) &&
+         table.getColumn<DictionaryEncodedColumn>(column.name).getLineageIndex().has_value(),
       "The database does not contain a lineage index for the column '{}'",
       column.name
    );
 
-   const auto& lineage_column = table.columns.dictionary_encoded_columns.at(column.name);
+   const auto& lineage_column = table.getColumn<DictionaryEncodedColumn>(column.name);
    std::optional<const roaring::Roaring*> bitmap = getBitmapForValue(lineage_column);
 
    if (bitmap == std::nullopt) {

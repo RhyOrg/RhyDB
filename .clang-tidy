@@ -25,13 +25,22 @@ Checks: >-
   -bugprone-easily-swappable-parameters,
   -bugprone-unchecked-optional-access,
   -bugprone-unused-return-value,
-  -readability-magic-numbers
+  -readability-magic-numbers,
+  -misc-const-correctness,
+  -bugprone-signed-bitwise,
+  -bugprone-throwing-static-initialization,
+  -misc-multiple-inheritance
 # Not using google-readability-avoid-underscore-in-googletest-name
 # because it also fails for test_name.
 # Not using abseil-string-find-str-contains because we don't want
 # to include more libraries.
 # Not using bugprone-unused-return-value because we get spurious
 # positives for overridden 'T& operator=(T&)'.
+# The following checks are disabled for now after the clang-tidy 23 upgrade;
+# they fire widely on existing code and should be addressed in follow-ups:
+# misc-const-correctness, bugprone-signed-bitwise,
+# bugprone-throwing-static-initialization, misc-multiple-inheritance
+# (misc-multiple-inheritance is a false positive on the Overloaded visitor idiom).
 CheckOptions:
   - key: readability-identifier-length.IgnoredVariableNames
     value: '_|to|it|op'

@@ -52,7 +52,7 @@ enum class Comparator : uint8_t {
    HIGHER,
    LESS_OR_EQUALS,
    HIGHER_OR_EQUALS,
-   NOT_EQUALS
+   NOT_EQUALS,
 };
 
 inline std::string displayComparator(Comparator comparator) {

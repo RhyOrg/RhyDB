@@ -1,4 +1,4 @@
-// Co-occurrence groupBy over the ~141 real SARS-CoV-2 mutation positions in
+// Co-occurrence group over the ~141 real SARS-CoV-2 mutation positions in
 // performance/mutations.csv, run against real wastewater short-read data.
 //
 // This is the benchmark for the HorizontalCoverageIndex coverage-scan optimization. That
@@ -30,7 +30,6 @@
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
 
-#include "sequence_generator.h"
 #include "rhydb/common/input_stream_wrapper.h"
 #include "rhydb/config/database_config.h"
 #include "rhydb/config/runtime_config.h"
@@ -41,6 +40,7 @@
 #include "rhydb/query_engine/query_plan.h"
 #include "rhydb/schema/database_schema.h"
 #include "rhydb/storage/reference_genomes.h"
+#include "sequence_generator.h"
 
 namespace {
 
@@ -87,7 +87,7 @@ std::string buildQuery(const std::vector<uint32_t>& positions) {
       group_keys += fmt::format("s{}", i);
    }
    return fmt::format(
-      "default.map({{{}}}).groupBy({{count:=count()}}, {{{}}})", assignments, group_keys
+      "default.map({{{}}}).group(by:={{{}}}, aggs:={{count:=count()}})", assignments, group_keys
    );
 }
 

@@ -41,7 +41,7 @@ enum class ValueType : uint8_t {
    INT64,
    FLOAT,
    NUCLEOTIDE_SEQUENCE,
-   AMINO_ACID_SEQUENCE
+   AMINO_ACID_SEQUENCE,
 };
 
 constexpr std::string_view columnTypeToString(ColumnType type) {
@@ -161,7 +161,7 @@ class TableSchema {
          );
          return std::nullopt;
       }
-      auto typed_metadata = dynamic_cast<typename ColumnType::Metadata*>(iter->second.get());
+      auto typed_metadata = dynamic_cast<ColumnType::Metadata*>(iter->second.get());
       RHYDB_ASSERT(typed_metadata != nullptr);
       return typed_metadata;
    }

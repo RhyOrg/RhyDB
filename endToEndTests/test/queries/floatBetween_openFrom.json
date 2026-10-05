@@ -1,6 +1,6 @@
 {
   "testCaseName": "FloatBetween for column with open lower bound",
-  "query": "default.filter(qc_value < 0.935).groupBy({count:=count()})",
+  "query": "default.filter(qc_value < 0.935).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 50

@@ -1,6 +1,6 @@
 {
   "testCaseName": "IntBetween Query with 'from' and 'to' value",
-  "query": "default.filter(age.between(52, 55)).groupBy({count:=count()})",
+  "query": "default.filter(age.between(52, 55)).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 33

@@ -1,6 +1,6 @@
 {
   "testCaseName": "amino acid insertions action",
-  "query": "default.aminoAcidInsertions().orderBy({sequenceName, position, insertedSymbols})",
+  "query": "default.aminoAcidInsertions().order(by:={sequenceName, position, insertedSymbols})",
   "expectedQueryResult": [
     {
       "count": 1,

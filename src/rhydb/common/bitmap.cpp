@@ -46,7 +46,7 @@ Bitmap::Container Bitmap::copyContainer(const Container& container) {
             return roaring_util::RoaringContainer::clonedFrom(
                held.rawContainer(), held.getTypecode()
             );
-         },
+         }
       },
       container
    );

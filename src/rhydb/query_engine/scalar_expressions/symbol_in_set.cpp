@@ -291,8 +291,7 @@ std::unique_ptr<filter::operators::Operator> SymbolInSet<SymbolType>::compile(
 ) const {
    const auto valid_sequence_name = validateSequenceName<SymbolType>(column.name, *table.schema);
 
-   const auto& sequence_column =
-      table.columns.getColumns<typename SymbolType::Column>().at(valid_sequence_name);
+   const auto& sequence_column = table.getColumn<typename SymbolType::Column>(valid_sequence_name);
 
    return compileSymbolInSet(sequence_column, position_idx, symbols, table.row_layout);
 }

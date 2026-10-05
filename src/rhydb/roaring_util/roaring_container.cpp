@@ -113,6 +113,16 @@ RoaringContainer operator|(RoaringContainerView lhs, RoaringContainerView rhs) {
 }
 
 RoaringContainer& RoaringContainer::operator|=(RoaringContainerView addend) {
+   // `container_ior` requires both operands to be non-empty: the mixed array/run unions read
+   // element 0 of the array before checking its cardinality, so an empty array would inject
+   // whatever stale value its buffer holds into the result.
+   if (addend.empty()) {
+      return *this;
+   }
+   if (empty()) {
+      *this = addend.toOwning();
+      return *this;
+   }
    uint8_t new_typecode = 0;
    auto* new_container = roaring::internal::container_ior(
       container, typecode, addend.rawContainer(), addend.getTypecode(), &new_typecode
@@ -142,7 +152,7 @@ std::variant<RoaringContainerView, RoaringContainer> cloneCowState(
             return held;
          } else {
             return RoaringContainer::clonedFrom(held.rawContainer(), held.getTypecode());
-         },
+         }
       },
       source
    );

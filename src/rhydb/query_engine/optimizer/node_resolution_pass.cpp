@@ -127,7 +127,7 @@ operators::QueryNodePtr NodeResolutionPass::operator()(operators::AggregateNode&
       auto scan = getTableScanOrNone(*node.child);
       if (scan.has_value()) {
          return std::make_unique<operators::CountFilterNode>(
-            std::move((*scan)->table), std::move((*scan)->filter)
+            std::move((*scan)->table), std::move((*scan)->filter), node.aggregates[0].output_name
          );
       }
    }

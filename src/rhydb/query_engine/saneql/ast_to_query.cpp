@@ -58,7 +58,6 @@
 #include "rhydb/query_engine/scalar_expressions/or.h"
 #include "rhydb/query_engine/scalar_expressions/phylo_child_filter.h"
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
-#include "rhydb/query_engine/scalar_expressions/string_in_set.h"
 #include "rhydb/query_engine/scalar_expressions/string_search.h"
 #include "rhydb/query_engine/scalar_expressions/symbol_equals.h"
 #include "rhydb/query_engine/scalar_expressions/zstd_decompress_scalar.h"
@@ -313,27 +312,51 @@ ScalarExpressionPtr handleBetween(
    );
 }
 
+/// `column = v1 || column = v2 || ...`, or `false` for no values. A bitmap union on indexed
+/// columns.
+ScalarExpressionPtr buildValueSetPredicate(
+   const schema::ColumnIdentifier& column,
+   std::vector<ScalarExpressionPtr> value_literals
+) {
+   if (value_literals.empty()) {
+      return std::make_unique<scalar_expressions::BoolLiteral>(false);
+   }
+   scalar_expressions::ScalarExpressionVector comparisons;
+   comparisons.reserve(value_literals.size());
+   for (auto& literal : value_literals) {
+      comparisons.push_back(std::make_unique<scalar_expressions::Comparison>(
+         std::make_unique<scalar_expressions::FieldRef>(column),
+         std::move(literal),
+         Comparator::EQUALS
+      ));
+   }
+   if (comparisons.size() == 1) {
+      return std::move(comparisons.front());
+   }
+   return std::make_unique<scalar_expressions::Or>(std::move(comparisons));
+}
+
 ScalarExpressionPtr handleIn(
    const BoundArguments& args,
    const std::vector<schema::ColumnIdentifier>& schema,
-   const Tables& /*tables*/
+   const Tables& tables
 ) {
-   auto column_name = extractIdentifierName(args.at("column"));
-   const auto& set_expr = args.at("values");
+   const schema::ColumnIdentifier column =
+      resolveColumn(extractIdentifierName(args.at("column")), schema);
+   const auto& values_expr = args.at("values");
+
    CHECK_RHYDB_QUERY(
-      std::holds_alternative<ast::SetLiteral>(set_expr.value),
+      std::holds_alternative<ast::SetLiteral>(values_expr.value),
       "in() expects a set literal argument at {}:{}",
-      set_expr.location.line,
-      set_expr.location.column
+      values_expr.location.line,
+      values_expr.location.column
    );
-   const auto& set = std::get<ast::SetLiteral>(set_expr.value);
-   std::unordered_set<std::string> values;
-   for (const auto& elem : set.elements) {
-      values.insert(extractStringLiteral(*elem));
+   // Values may be of any column type.
+   std::vector<ScalarExpressionPtr> value_literals;
+   for (const auto& elem : std::get<ast::SetLiteral>(values_expr.value).elements) {
+      value_literals.push_back(convertToScalar(*elem, schema, "in() value", tables));
    }
-   return std::make_unique<scalar_expressions::StringInSet>(
-      resolveColumn(column_name, schema), std::move(values)
-   );
+   return buildValueSetPredicate(column, std::move(value_literals));
 }
 
 ScalarExpressionPtr handleIsNull(
@@ -773,7 +796,7 @@ std::unique_ptr<scalar_expressions::ScalarExpression> convertToFilter(
                ast.location.line,
                ast.location.column
             );
-         },
+         }
       },
       ast.value
    );
@@ -789,8 +812,36 @@ operators::AggregateFunction parseAggregateFunctionName(const std::string& funct
    if (function_name == "count") {
       return operators::AggregateFunction::COUNT;
    }
+   if (function_name == "sum") {
+      return operators::AggregateFunction::SUM;
+   }
    throw IllegalQueryException(
-      "unknown aggregate function '{}'. Valid functions: count", function_name
+      "unknown aggregate function '{}'. Valid functions: count, sum", function_name
+   );
+}
+
+bool isNumericColumnType(schema::ColumnType type) {
+   return type == schema::ColumnType::INT32 || type == schema::ColumnType::INT64 ||
+          type == schema::ColumnType::FLOAT;
+}
+
+/// Checks the arguments of `sum(column)`: exactly one source column, which must be numeric
+void validateSumArguments(
+   const ast::RecordField& field,
+   const ast::FunctionCall& func,
+   const std::optional<schema::ColumnIdentifier>& source_column
+) {
+   CHECK_RHYDB_QUERY(
+      func.positional_arguments.size() == 1 && func.named_arguments.empty(),
+      "aggregate '{}': sum expects exactly one column argument, e.g. sum(age)",
+      field.name
+   );
+   CHECK_RHYDB_QUERY(
+      isNumericColumnType(source_column->type),
+      "aggregate '{}': sum requires a numeric (int, int64 or float) column, but '{}' has type {}",
+      field.name,
+      source_column->name,
+      schema::columnTypeToString(source_column->type)
    );
 }
 
@@ -823,6 +874,9 @@ operators::AggregateDefinition parseAggregateDefinition(
       );
       source_column = *found;
    }
+   if (agg_func == operators::AggregateFunction::SUM) {
+      validateSumArguments(field, func, source_column);
+   }
    return {
       .output_name = field.name, .function = agg_func, .source_column = std::move(source_column),
    };
@@ -839,7 +893,7 @@ std::vector<schema::ColumnIdentifier> parseGroupByFields(
          std::ranges::find_if(schema, [&](const auto& col) { return col.name == group_by_name; });
       CHECK_RHYDB_QUERY(
          found != schema.end(),
-         "groupBy field '{}' is not present in the input's output schema",
+         "group field '{}' is not present in the input's output schema",
          group_by_name
       );
       group_by_fields.push_back(*found);
@@ -853,20 +907,25 @@ GroupByArgs parseGroupBySpecs(
 ) {
    GroupByArgs result;
 
-   // Parse aggregates (required) — a RecordLiteral like {count:=count()}
-   const auto& agg_expr = args.at("aggregates");
+   // Parse by — a SetLiteral like {pango_lineage, division}, or {} for a single global group
+   const auto& by_expr = args.at("by");
+   CHECK_RHYDB_QUERY(
+      !std::holds_alternative<ast::RecordLiteral>(by_expr.value),
+      "group by must be a set of columns like {{pango_lineage}} (or {{}} for no grouping), "
+      "aggregates go into aggs, e.g. group(by:={{}}, aggs:={{count:=count()}})"
+   );
+   const auto& set = extractSetLiteral(by_expr);
+   result.group_by_fields = parseGroupByFields(set, child_schema);
+
+   // Parse aggs — a RecordLiteral like {count:=count()}
+   const auto& agg_expr = args.at("aggs");
    CHECK_RHYDB_QUERY(
       std::holds_alternative<ast::RecordLiteral>(agg_expr.value),
-      "groupBy aggregates must be a record literal like {{count:=count()}}"
+      "group aggs must be a record literal like {{count:=count()}}"
    );
    const auto& record = std::get<ast::RecordLiteral>(agg_expr.value);
    for (const auto& field : record.fields) {
       result.aggregates.push_back(parseAggregateDefinition(field, child_schema));
-   }
-   // Parse columns (optional) — a SetLiteral like {pango_lineage, division}
-   if (const auto* columns_expr = args.get("columns")) {
-      const auto& set = extractSetLiteral(*columns_expr);
-      result.group_by_fields = parseGroupByFields(set, child_schema);
    }
 
    return result;
@@ -913,7 +972,7 @@ OrderByField parseOrderByField(
       const auto& call = std::get<ast::FunctionCall>(expression.value);
       CHECK_RHYDB_QUERY(
          call.function_name == "asc" || call.function_name == "desc",
-         "orderBy field must be an identifier or asc()/desc() call, got '{}' at {}:{}",
+         "order field must be an identifier or asc()/desc() call, got '{}' at {}:{}",
          call.function_name,
          expression.location.line,
          expression.location.column
@@ -938,7 +997,7 @@ OrderByField parseOrderByField(
       return {.field = *found, .ascending = call.function_name == "asc"};
    }
    throw IllegalQueryException(
-      "orderBy field must be an identifier or asc()/desc() call at {}:{}",
+      "order field must be an identifier or asc()/desc() call at {}:{}",
       expression.location.line,
       expression.location.column
    );
@@ -1055,7 +1114,7 @@ operators::QueryNodePtr handleFilter(
    const ChildConverter& convert_child
 ) {
    auto child = convert_child(args.at("input"), tables);
-   auto filter_expr = convertToFilter(args.at("predicate"), child->getOutputSchema(), tables);
+   auto filter_expr = convertToFilter(args.at("condition"), child->getOutputSchema(), tables);
    return std::make_unique<operators::FilterNode>(std::move(child), std::move(filter_expr));
 }
 
@@ -1099,7 +1158,7 @@ operators::QueryNodePtr handleProject(
    const Tables& tables,
    const ChildConverter& convert_child
 ) {
-   const auto& field_argument = args.at("fields");
+   const auto& field_argument = args.at("expressions");
    const std::vector<std::string> field_names =
       holds_alternative<ast::Identifier>(field_argument.value)
          ? std::vector{extractIdentifierName(field_argument)}
@@ -1126,7 +1185,7 @@ operators::QueryNodePtr handleProjectout(
    const Tables& tables,
    const ChildConverter& convert_child
 ) {
-   const auto& field_argument = args.at("fields");
+   const auto& field_argument = args.at("remove");
    const std::vector<std::string> remove_names =
       holds_alternative<ast::Identifier>(field_argument.value)
          ? std::vector{extractIdentifierName(field_argument)}
@@ -1318,7 +1377,7 @@ operators::QueryNodePtr handleOrderBy(
    const ChildConverter& convert_child
 ) {
    auto child = convert_child(args.at("input"), tables);
-   auto order_fields = parseOrderByFields(args.at("fields"), child->getOutputSchema());
+   auto order_fields = parseOrderByFields(args.at("by"), child->getOutputSchema());
    return std::make_unique<operators::OrderByNode>(
       std::move(child), std::move(order_fields), std::nullopt
    );
@@ -1571,7 +1630,7 @@ operators::QueryNodePtr handleUnionAll(
    auto right_schema = right->getOutputSchema();
    CHECK_RHYDB_QUERY(
       left_schema == right_schema,
-      "unionAll requires both inputs to have the same schema "
+      "unionall requires both inputs to have the same schema "
       "(same column names, types, and order). "
       "Left schema: [{}], right schema: [{}].",
       fmt::join(namesWithTypes(left_schema), ", "),
@@ -1588,8 +1647,8 @@ operators::QueryNodePtr handleTransitiveClosure(
    const ChildConverter& convert_child
 ) {
    auto child = convert_child(args.at("input"), tables);
-   auto from_column = extractStringLiteral(args.at("from"));
-   auto to_column = extractStringLiteral(args.at("to"));
+   auto from_column = extractIdentifierName(args.at("from"));
+   auto to_column = extractIdentifierName(args.at("to"));
    bool include_vertices = false;
    if (const auto* expr = args.get("includeVertices")) {
       include_vertices = extractBoolLiteral(*expr);
@@ -1682,19 +1741,17 @@ ParameterDefinition named(std::string name, bool required = true) {
 }  // namespace
 
 FunctionRegistry::FunctionRegistry() {
-   registerFunction("filter", {{pos("input"), pos("predicate")}}, handleFilter);
+   registerFunction("filter", {{pos("input"), pos("condition")}}, handleFilter);
 
    registerFunction("schema", {{pos("input")}}, handleSchema);
 
    registerFunction("tables", {{}}, handleTables);
 
-   registerFunction(
-      "groupBy", {{pos("input"), pos("aggregates"), pos("columns", false)}}, handleGroupBy
-   );
+   registerFunction("group", {{pos("input"), pos("by"), pos("aggs")}}, handleGroupBy);
 
-   registerFunction("project", {{pos("input"), pos("fields")}}, handleProject);
+   registerFunction("project", {{pos("input"), pos("expressions")}}, handleProject);
 
-   registerFunction("projectout", {{pos("input"), pos("fields")}}, handleProjectout);
+   registerFunction("projectout", {{pos("input"), pos("remove")}}, handleProjectout);
 
    registerFunction("map", {{pos("input"), pos("expressions")}}, handleMap);
 
@@ -1722,7 +1779,7 @@ FunctionRegistry::FunctionRegistry() {
 
    registerFunction("offset", {{pos("input"), pos("count")}}, handleOffset);
 
-   registerFunction("orderBy", {{pos("input"), pos("fields")}}, handleOrderBy);
+   registerFunction("order", {{pos("input"), pos("by")}}, handleOrderBy);
 
    registerFunction(
       "mostRecentCommonAncestor",
@@ -1739,7 +1796,7 @@ FunctionRegistry::FunctionRegistry() {
       handlePhyloSubtree
    );
 
-   registerFunction("unionAll", {{pos("left"), pos("right")}}, handleUnionAll);
+   registerFunction("unionall", {{pos("left"), pos("right")}}, handleUnionAll);
 
    registerFunction(
       "join", {{pos("left"), pos("right"), pos("on"), named("type", false)}}, handleJoin

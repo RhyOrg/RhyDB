@@ -155,8 +155,8 @@ operators::QueryNodePtr makeMapOverridingColumn(
    return std::make_unique<operators::MapNode>(std::move(child), std::move(assignments));
 }
 
-/// groupBy({count := count()}, {<fields>}) over `child`, with the single count aggregate optionally
-/// carrying a source column (which takes it out of the recognized "bare count()" shape).
+/// group(by:={<fields>}, aggs:={count := count()}) over `child`, with the single count aggregate
+/// optionally carrying a source column (which takes it out of the recognized "bare count()" shape).
 operators::QueryNodePtr makeGroupByCount(
    operators::QueryNodePtr child,
    const std::vector<std::string>& fields,
@@ -177,7 +177,7 @@ operators::QueryNodePtr makeGroupByCount(
    );
 }
 
-// The canonical mutation co-occurrence shape: groupBy(count) over map(at(sequence column)) over a
+// The canonical mutation co-occurrence shape: a count `group` over map(at(sequence column)) over a
 // table scan is rewritten into the dedicated BitmapAggregationNode.
 TEST(BitmapAggregationRewritePass, rewritesSequencePositionShape) {
    auto node = makeGroupByCount(makeMapWithAt(makeScan(), "s", NUC_COLUMN), {"s"});
@@ -187,7 +187,7 @@ TEST(BitmapAggregationRewritePass, rewritesSequencePositionShape) {
    EXPECT_EQ(result->kind(), operators::NodeKind::BITMAP_AGGREGATION);
 }
 
-// groupBy(count) directly on an indexed string column (no map) is rewritten too: the column can be
+// A count `group` directly on an indexed string column (no map) is rewritten too: the column can be
 // grouped straight from its inverted index.
 TEST(BitmapAggregationRewritePass, rewritesIndexedColumnShape) {
    auto node = makeGroupByCount(makeScan(), {"division"});

@@ -44,12 +44,10 @@ schema::ColumnIdentifier resolveDriverColumn(
 
 size_t genomeLengthOf(const storage::Table& table, const schema::ColumnIdentifier& driver_column) {
    if (driver_column.type == schema::ColumnType::NUCLEOTIDE_SEQUENCE) {
-      return table.columns.getColumns<storage::column::SequenceColumn<Nucleotide>>()
-         .at(driver_column.name)
+      return table.getColumn<storage::column::SequenceColumn<Nucleotide>>(driver_column.name)
          .genome_length;
    }
-   return table.columns.getColumns<storage::column::SequenceColumn<AminoAcid>>()
-      .at(driver_column.name)
+   return table.getColumn<storage::column::SequenceColumn<AminoAcid>>(driver_column.name)
       .genome_length;
 }
 
@@ -158,11 +156,8 @@ TableInserter::TableInserter(
             ? std::optional{resolveDriverColumn(*this->table->schema, options.driver_column_name)}
             : std::nullopt
       ),
-      input_buffer{*this->table->schema, this->table->columns},
-      null_buffer{
-         storage::ColumnGroupBuilder{*this->table->schema, this->table->columns},
-         std::nullopt
-      } {
+      input_buffer{*this->table},
+      null_buffer{storage::TableChunkBuilder{*this->table}, std::nullopt} {
    if (driver_column.has_value()) {
       const size_t genome_length = genomeLengthOf(*this->table, *driver_column);
       growth_threshold = static_cast<uint32_t>(
@@ -171,9 +166,9 @@ TableInserter::TableInserter(
       const size_t num_buffers = std::max<size_t>(1, options.num_buffers);
       output_buffers.reserve(num_buffers);
       for (size_t i = 0; i < num_buffers; ++i) {
-         output_buffers.push_back(ClusterBuffer{
-            storage::ColumnGroupBuilder{*this->table->schema, this->table->columns}, std::nullopt,
-         });
+         output_buffers.push_back(
+            ClusterBuffer{storage::TableChunkBuilder{*this->table}, std::nullopt}
+         );
       }
    }
 }
@@ -213,7 +208,7 @@ TableInserter::ClusterBuffer& TableInserter::chooseBuffer(
    // new cluster. Otherwise seed a fresh buffer with this row's range.
    if (best != nullptr && (best_growth <= growth_threshold || free_slot == nullptr)) {
       best->range = {
-         std::min(best->range->first, row_start), std::max(best->range->second, row_end),
+         std::min(best->range->first, row_start), std::max(best->range->second, row_end)
       };
       return *best;
    }
@@ -226,7 +221,7 @@ std::expected<std::vector<TableInserter::SniffedField>, std::string> TableInsert
    simdjson::ondemand::document_reference ndjson_line
 ) const {
    std::vector<SniffedField> order_in_json_line;
-   auto columns_in_table = table->columns.metadata;
+   auto columns_in_table = table->schema->getColumnIdentifiers();
    ASSIGN_OR_RAISE(auto object, iterateToObject(ndjson_line));
    for (auto maybe_field : object) {
       ASSIGN_OR_RAISE_SIMDJSON(
@@ -258,7 +253,7 @@ std::expected<std::vector<TableInserter::SniffedField>, std::string> TableInsert
          continue;
       }
       order_in_json_line.push_back(SniffedField{
-         .column_identifier = *maybe_column_metadata, .escaped_key = std::string{raw_key_sv},
+         .column_identifier = *maybe_column_metadata, .escaped_key = std::string{raw_key_sv}
       });
    }
    for (const auto& column_metadata : columns_in_table) {
@@ -268,7 +263,7 @@ std::expected<std::vector<TableInserter::SniffedField>, std::string> TableInsert
          }) != order_in_json_line.end();
       if (!contained_in_sniffed_fields) {
          return std::unexpected{
-            fmt::format("the column '{}' is not contained in the object", column_metadata.name),
+            fmt::format("the column '{}' is not contained in the object", column_metadata.name)
          };
       }
    }
@@ -370,7 +365,7 @@ void NdjsonInsertStream::insertAll(NdjsonLineReader& input_data) {
          auto sniffed_field_order_or_error = table_inserter->sniffFieldOrder(ndjson_line);
          if (!sniffed_field_order_or_error.has_value()) {
             throw AppendException{
-               "{} - current line: {}", sniffed_field_order_or_error.error(), raw_line,
+               "{} - current line: {}", sniffed_field_order_or_error.error(), raw_line
             };
          }
          field_order = sniffed_field_order_or_error.value();

@@ -349,7 +349,7 @@ TEST(FilterPushdownPass, pushesFilterThroughProjectAndMapIntoTableScan) {
 
 // --- FilterNode(OrderByNode(...)) ---
 
-// A deterministic orderBy sorts by column values (stable on the input's relative order, which
+// A deterministic order sorts by column values (stable on the input's relative order, which
 // filtering preserves), so a filter above it is pushed down into the scan.
 TEST(FilterPushdownPass, pushesFilterThroughDeterministicOrderByIntoTableScan) {
    std::vector<rhydb::query_engine::OrderByField> fields;
@@ -372,7 +372,7 @@ TEST(FilterPushdownPass, pushesFilterThroughDeterministicOrderByIntoTableScan) {
    EXPECT_EQ(table_scan->filter->toString(), "And(true & false & true)");
 }
 
-// A randomized orderBy derives its sort keys from input ordinals, so a filter above it must be
+// A randomized order derives its sort keys from input ordinals, so a filter above it must be
 // retained above it - pushing it below would reindex the surviving rows and change the order.
 TEST(FilterPushdownPass, retainsFilterAboveRandomizedOrderBy) {
    auto order_by = std::make_unique<operators::OrderByNode>(
