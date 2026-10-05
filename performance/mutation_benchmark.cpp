@@ -33,7 +33,7 @@ schema:
    database->createTable(
       rhydb::schema::TableName::getDefault(),
       rhydb::initialize::Initializer::createSchemaFromConfigFiles(
-         std::move(database_config),
+         database_config,
          std::move(reference_genomes),
          {},
          rhydb::common::PhyloTree{},

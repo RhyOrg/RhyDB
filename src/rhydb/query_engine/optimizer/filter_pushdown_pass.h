@@ -32,6 +32,8 @@ class FilterPushdownPass : public PipelinePassBase<FilterPushdownPass> {
    static void barrier(operators::QueryNodePtr& child);
 
   public:
+   // Shadowing the PipelinePassBase defaults is the intended way to customize a pass.
+   // NOLINTBEGIN(bugprone-derived-method-shadowing-base-method)
    /// Visits `node`, then wraps any filters it left pending into a FilterNode above it. This is
    /// what makes "break pushdown" the default.
    void propagateToNode(operators::QueryNodePtr& node);
@@ -48,6 +50,7 @@ class FilterPushdownPass : public PipelinePassBase<FilterPushdownPass> {
    operators::QueryNodePtr operator()(operators::MapNode& node);
    operators::QueryNodePtr operator()(operators::UnionAllNode& node);
    operators::QueryNodePtr operator()(operators::JoinNode& node);
+   // NOLINTEND(bugprone-derived-method-shadowing-base-method)
 
    // Fail-closed default. A node with no explicit handler and a single `QueryNodePtr child` is a
    // barrier: the filter above it is retained by `propagateToNode`, while its child subtree is

@@ -26,16 +26,21 @@ TEST(BidirectionalMap, correctStdStringDict) {
 }
 
 TEST(BidirectionalMap, correctStdStringDictWithExplicitInitialization) {
+   const std::string not_in_dict{"Not in dict"};
+   const std::string now_in_dict{"Now in dict"};
+   const std::string second_in_dict{"Second in dict"};
+   const std::string still_not_in_dict{"Still not in dict"};
+
    BidirectionalStringMap under_test;
-   EXPECT_EQ(under_test.getId(std::string{"Not in dict"}), std::nullopt);
+   EXPECT_EQ(under_test.getId(not_in_dict), std::nullopt);
 
-   EXPECT_EQ(under_test.getOrCreateId(std::string{"Now in dict"}), 0);
-   EXPECT_EQ(under_test.getOrCreateId(std::string{"Now in dict"}), 0);
-   EXPECT_EQ(under_test.getOrCreateId(std::string{"Second in dict"}), 1);
+   EXPECT_EQ(under_test.getOrCreateId(now_in_dict), 0);
+   EXPECT_EQ(under_test.getOrCreateId(now_in_dict), 0);
+   EXPECT_EQ(under_test.getOrCreateId(second_in_dict), 1);
 
-   EXPECT_EQ(under_test.getId(std::string{"Now in dict"}), 0);
-   EXPECT_EQ(under_test.getId(std::string{"Still not in dict"}), std::nullopt);
-   EXPECT_EQ(under_test.getId(std::string{"Second in dict"}), 1);
+   EXPECT_EQ(under_test.getId(now_in_dict), 0);
+   EXPECT_EQ(under_test.getId(still_not_in_dict), std::nullopt);
+   EXPECT_EQ(under_test.getId(second_in_dict), 1);
 
    EXPECT_EQ(under_test.getValue(0), std::string{"Now in dict"});
    EXPECT_EQ(under_test.getValue(1), std::string{"Second in dict"});

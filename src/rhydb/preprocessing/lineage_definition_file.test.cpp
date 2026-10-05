@@ -36,7 +36,7 @@ SOME_lineage: "
 }
 
 TEST(LineageDefinitionFile, errorOnMisspelledParents) {
-   auto throwing_lambda = []() {
+   auto throwing_lambda = [] {
       LineageDefinitionFile::fromYAMLString(R"(
 some_lineage:
   parent:
@@ -72,7 +72,7 @@ some_other_lineage:
 }
 
 TEST(LineageDefinitionFile, errorOnExtraFields) {
-   auto throwing_lambda = []() {
+   auto throwing_lambda = [] {
       LineageDefinitionFile::fromYAMLString(R"(
 some_lineage:
   parents: []

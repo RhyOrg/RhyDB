@@ -10,12 +10,10 @@
 #include "rhydb/database.h"
 #include "rhydb/schema/database_schema.h"
 
-using rhydb::Database;
-
 namespace {
 
 double toMs(std::chrono::steady_clock::time_point start, std::chrono::steady_clock::time_point end) {
-   return std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / 1000.0;
+   return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
 // Ingest full-length sequences with realistic N runs through the regular appendData path (NDJSON ->
