@@ -80,8 +80,7 @@ void QueryHandler::post(
       );
 
       const std::string accept_header = request.has("Accept") ? request.get("Accept") : "";
-      const bool use_arrow_ipc =
-         accept_header.find("application/vnd.apache.arrow.stream") != std::string::npos;
+      const bool use_arrow_ipc = accept_header.contains("application/vnd.apache.arrow.stream");
 
       if (use_arrow_ipc) {
          response.setContentType("application/vnd.apache.arrow.stream");

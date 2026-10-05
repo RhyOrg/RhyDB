@@ -279,14 +279,13 @@ class AminoAcid {
 
 /// The switch in charToSymbolSwitch compiles to an indirect jump, which is mispredicted for
 /// every symbol of every inserted sequence. The table turns it into a single L1 load.
-inline constexpr std::array<std::optional<AminoAcid::Symbol>, 256> AMINO_ACID_CHAR_TO_SYMBOL =
-   []() {
-      std::array<std::optional<AminoAcid::Symbol>, 256> table{};
-      for (size_t character = 0; character < table.size(); ++character) {
-         table[character] = AminoAcid::charToSymbolSwitch(static_cast<char>(character));
-      }
-      return table;
-   }();
+inline constexpr std::array<std::optional<AminoAcid::Symbol>, 256> AMINO_ACID_CHAR_TO_SYMBOL = [] {
+   std::array<std::optional<AminoAcid::Symbol>, 256> table{};
+   for (size_t character = 0; character < table.size(); ++character) {
+      table[character] = AminoAcid::charToSymbolSwitch(static_cast<char>(character));
+   }
+   return table;
+}();
 
 constexpr std::optional<AminoAcid::Symbol> AminoAcid::charToSymbol(char character) {
    return AMINO_ACID_CHAR_TO_SYMBOL[static_cast<unsigned char>(character)];
