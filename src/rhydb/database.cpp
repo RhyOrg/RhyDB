@@ -366,15 +366,18 @@ namespace {
 
 void addTableStatisticsToDatabaseInfo(DatabaseInfo& database_info, const storage::Table& table) {
    // TODO(#743) try to analyze size accuracy relative to RSS
-   for (const auto& [_, seq_column] : table.nuc_columns) {
-      auto info = seq_column.getInfo();
-      database_info.vertical_bitmaps_size += info.vertical_bitmaps_size;
-      database_info.horizontal_bitmaps_size += info.horizontal_bitmaps_size;
-   }
-   for (const auto& [_, seq_column] : table.aa_columns) {
-      auto info = seq_column.getInfo();
-      database_info.vertical_bitmaps_size += info.vertical_bitmaps_size;
-      database_info.horizontal_bitmaps_size += info.horizontal_bitmaps_size;
+   for (const auto& [_, column] : table.columns) {
+      std::visit(
+         [&]<typename Column>(const Column& seq_column) {
+            if constexpr (std::is_same_v<Column, storage::column::SequenceColumn<Nucleotide>> ||
+                          std::is_same_v<Column, storage::column::SequenceColumn<AminoAcid>>) {
+               auto info = seq_column.getInfo();
+               database_info.vertical_bitmaps_size += info.vertical_bitmaps_size;
+               database_info.horizontal_bitmaps_size += info.horizontal_bitmaps_size;
+            }
+         },
+         column
+      );
    }
    database_info.row_count += table.row_layout.numRows();
 }
