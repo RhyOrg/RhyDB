@@ -87,7 +87,7 @@ const QueryTestScenario TABLE_SCHEMA_SCENARIO = {
 
 const QueryTestScenario GROUP_BY_SCHEMA_SCENARIO = {
    .name = "GROUP_BY_SCHEMA",
-   .query = "default.filter(country='CH').groupBy({count := count()}, {age}).schema()",
+   .query = "default.filter(country='CH').group(by:={age}, aggs:={count := count()}).schema()",
    .expected_query_result = nlohmann::json(
       {{{"fieldName", "age"}, {"type", "INT32"}}, {{"fieldName", "count"}, {"type", "INT64"}}}
    )
@@ -96,7 +96,8 @@ const QueryTestScenario GROUP_BY_SCHEMA_SCENARIO = {
 const QueryTestScenario CHAINING_SCHEMA_SCENARIO = {
    .name = "CHAINING_SCHEMA",
    .query =
-      "default.filter(country='CH').groupBy({count := count()}, {age}).schema().project({type})",
+      "default.filter(country='CH').group(by:={age}, aggs:={count := "
+      "count()}).schema().project({type})",
    .expected_query_result = nlohmann::json({{{"type", "INT32"}}, {{"type", "INT64"}}})
 };
 
@@ -146,11 +147,11 @@ const QueryTestScenario SCHEMA_AFTER_PROJECT_ORDER_SCENARIO = {
    )
 };
 
-// orderBy() after schema() is schema-preserving and needs no data source below it,
+// order() after schema() is schema-preserving and needs no data source below it,
 // so it reorders schema() rows out of the box.
 const QueryTestScenario ORDER_BY_AFTER_SCHEMA_SCENARIO = {
    .name = "ORDER_BY_AFTER_SCHEMA",
-   .query = "default.groupBy({count := count()}, {age}).schema().orderBy({fieldName})",
+   .query = "default.group(by:={age}, aggs:={count := count()}).schema().order(by:={fieldName})",
    .expected_query_result = nlohmann::json(
       {{{"fieldName", "age"}, {"type", "INT32"}}, {{"fieldName", "count"}, {"type", "INT64"}}}
    )
@@ -159,13 +160,14 @@ const QueryTestScenario ORDER_BY_AFTER_SCHEMA_SCENARIO = {
 // limit() after schema() truncates the schema() rows.
 const QueryTestScenario LIMIT_AFTER_SCHEMA_SCENARIO = {
    .name = "LIMIT_AFTER_SCHEMA",
-   .query = "default.groupBy({count := count()}, {age}).schema().orderBy({fieldName}).limit(1)",
+   .query =
+      "default.group(by:={age}, aggs:={count := count()}).schema().order(by:={fieldName}).limit(1)",
    .expected_query_result = nlohmann::json({{{"fieldName", "age"}, {"type", "INT32"}}})
 };
 
 const QueryTestScenario MAP_AFTER_SCHEMA_SCENARIO = {
    .name = "MAP_AFTER_SCHEMA",
-   .query = "default.groupBy({count := count()}, {age}).schema().map({kind := 'field'})",
+   .query = "default.group(by:={age}, aggs:={count := count()}).schema().map({kind := 'field'})",
    .expected_query_result = nlohmann::json(
       {{{"fieldName", "age"}, {"type", "INT32"}, {"kind", "field"}},
        {{"fieldName", "count"}, {"type", "INT64"}, {"kind", "field"}}}

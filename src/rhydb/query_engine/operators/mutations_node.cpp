@@ -400,8 +400,9 @@ arrow::Result<arrow::acero::ExecNode*> MutationsNode<SymbolType>::addToExecPlan(
 
       for (const auto& sequence_column_identifier : sequence_column_identifiers) {
          const storage::column::SequenceColumn<SymbolType>& sequence_column =
-            table_handle->columns.template getColumns<storage::column::SequenceColumn<SymbolType>>()
-               .at(sequence_column_identifier.name);
+            table_handle->template getColumn<storage::column::SequenceColumn<SymbolType>>(
+               sequence_column_identifier.name
+            );
 
          ARROW_RETURN_NOT_OK(addMutationsToOutput<SymbolType>(
             sequence_column_identifier.name,

@@ -1,6 +1,6 @@
 {
   "testCaseName": "Group all sequences by lineage and order by count descending, with limit 4",
-  "query": "default.groupBy({count:=count()},{pango_lineage}).orderBy({count.desc()}).limit(4)",
+  "query": "default.group(by:={pango_lineage},aggs:={count:=count()}).order(by:={count.desc()}).limit(4)",
   "expectedQueryResult": [
     {
       "count": 48,

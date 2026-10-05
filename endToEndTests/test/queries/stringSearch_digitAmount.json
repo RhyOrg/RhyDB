@@ -1,6 +1,6 @@
 {
   "testCaseName": "StringSearch that matches the primary key to end with exactly six digits",
-  "query": "default.filter(primary_key.like('^\\D*\\d{1}$')).groupBy({count:=count()})",
+  "query": "default.filter(primary_key.like('^\\D*\\d{1}$')).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 9

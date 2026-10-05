@@ -42,7 +42,7 @@ NodeValuesResult getNodeValuesFromTable(
    uint32_t num_empty = 0;
    all_tree_node_ids.reserve(num_rows);
 
-   const auto& string_column = table.columns.string_columns.at(column_name);
+   const auto& string_column = table.getColumn<rhydb::storage::column::StringColumn>(column_name);
 
    for (const uint32_t row_in_table : filter_bitmap) {
       const auto row_id = rhydb::storage::column::RowId::fromGlobal(row_in_table);

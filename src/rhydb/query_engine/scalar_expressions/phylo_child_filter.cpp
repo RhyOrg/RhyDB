@@ -70,13 +70,13 @@ std::unique_ptr<filter::operators::Operator> PhyloChildFilter::compile(const sto
       column.name
    );
    CHECK_RHYDB_QUERY(
-      table.columns.string_columns.contains(column.name),
+      table.hasColumn<storage::column::StringColumn>(column.name),
       "The column '{}' is not of type string",
       column.name
    );
 
-   RHYDB_ASSERT(table.columns.string_columns.contains(column.name));
-   const auto& string_column = table.columns.string_columns.at(column.name);
+   RHYDB_ASSERT(table.hasColumn<storage::column::StringColumn>(column.name));
+   const auto& string_column = table.getColumn<storage::column::StringColumn>(column.name);
    return createMatchingBitmap(string_column, internal_node, table.row_layout);
 }
 

@@ -1,6 +1,6 @@
 {
-  "testCaseName": "UnionAll of two filtered pipelines with groupBy",
-  "query": "unionAll(default.filter(division='Aargau').project({division}), default.filter(division='Bern').project({division})).groupBy({count:=count()},{division}).orderBy({asc(division)})",
+  "testCaseName": "unionall of two filtered pipelines with group",
+  "query": "unionall(default.filter(division='Aargau').project({division}), default.filter(division='Bern').project({division})).group(by:={division},aggs:={count:=count()}).order(by:={asc(division)})",
   "expectedQueryResult": [
     {
       "division": "Aargau",

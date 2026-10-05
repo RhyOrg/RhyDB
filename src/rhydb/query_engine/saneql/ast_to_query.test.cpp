@@ -446,14 +446,16 @@ TEST(AstToQueryBinaryExpr, unhandledBinaryOpThrows) {
    );
 }
 
-// --- groupBy ---
+// --- group ---
 
 TEST(AstToQueryGroupBy, aggregatesNotRecordLiteralThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
-      [&]() { (void)parseAndConvertToQueryTree("default.groupBy('not_a_record')", tables); },
+      [&]() {
+         (void)parseAndConvertToQueryTree("default.group(by:={}, aggs:='not_a_record')", tables);
+      },
       ThrowsMessage<IllegalQueryException>(
-         ::testing::HasSubstr("groupBy aggregates must be a record literal")
+         ::testing::HasSubstr("group aggs must be a record literal")
       )
    );
 }
@@ -461,7 +463,7 @@ TEST(AstToQueryGroupBy, aggregatesNotRecordLiteralThrows) {
 TEST(AstToQueryGroupBy, aggregateDefNotFunctionCallThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
-      [&]() { (void)parseAndConvertToQueryTree("default.groupBy({n:=42})", tables); },
+      [&]() { (void)parseAndConvertToQueryTree("default.group(by:={}, aggs:={n:=42})", tables); },
       ThrowsMessage<IllegalQueryException>(
          ::testing::HasSubstr("aggregate definition 'n' must be a function call")
       )
@@ -471,7 +473,9 @@ TEST(AstToQueryGroupBy, aggregateDefNotFunctionCallThrows) {
 TEST(AstToQueryGroupBy, unknownAggregateFunctionThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
-      [&]() { (void)parseAndConvertToQueryTree("default.groupBy({n:=avg()})", tables); },
+      [&]() {
+         (void)parseAndConvertToQueryTree("default.group(by:={}, aggs:={n:=avg()})", tables);
+      },
       ThrowsMessage<IllegalQueryException>(
          ::testing::HasSubstr("unknown aggregate function 'avg'. Valid functions: count, sum")
       )
@@ -482,15 +486,97 @@ TEST(AstToQueryGroupBy, fieldNotInSchemaThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
       [&tables]() {
-         (void)parseAndConvertToQueryTree("default.groupBy({n:=count()}, {nonexistent})", tables);
+         (void)parseAndConvertToQueryTree(
+            "default.group(by:={nonexistent}, aggs:={n:=count()})", tables
+         );
       },
       ThrowsMessage<IllegalQueryException>(::testing::HasSubstr(
-         "groupBy field 'nonexistent' is not present in the input's output schema"
+         "group field 'nonexistent' is not present in the input's output schema"
       ))
    );
 }
 
+TEST(AstToQueryGroupBy, acceptsNamedByAndAggs) {
+   auto tables = makeTablesWithDefault();
+   const auto query_tree =
+      parseAndConvertToQueryTree("default.group(aggs:={n:=count()}, by:={date})", tables);
+   std::vector<std::string> column_names;
+   for (const auto& col : query_tree->getOutputSchema()) {
+      column_names.push_back(col.name);
+   }
+   EXPECT_THAT(column_names, ::testing::UnorderedElementsAre("date", "n"));
+}
+
+TEST(AstToQueryGroupBy, acceptsPositionalByAndAggs) {
+   auto tables = makeTablesWithDefault();
+   const auto query_tree =
+      parseAndConvertToQueryTree("default.group({date}, {n:=count()})", tables);
+   std::vector<std::string> column_names;
+   for (const auto& col : query_tree->getOutputSchema()) {
+      column_names.push_back(col.name);
+   }
+   EXPECT_THAT(column_names, ::testing::UnorderedElementsAre("date", "n"));
+}
+
+TEST(AstToQueryGroupBy, missingAggsThrows) {
+   auto tables = makeTablesWithDefault();
+   EXPECT_THAT(
+      [&]() { (void)parseAndConvertToQueryTree("default.group(by:={date})", tables); },
+      ThrowsMessage<IllegalQueryException>(::testing::HasSubstr("group() requires argument 'aggs'"))
+   );
+}
+
+TEST(AstToQueryGroupBy, aggregatesInByPositionThrows) {
+   auto tables = makeTablesWithDefault();
+   EXPECT_THAT(
+      [&]() { (void)parseAndConvertToQueryTree("default.group({n:=count()}, {date})", tables); },
+      ThrowsMessage<IllegalQueryException>(::testing::HasSubstr("group by must be a set of columns")
+      )
+   );
+}
+
+// --- projectout ---
+
+TEST(AstToQueryProjectout, acceptsNamedRemove) {
+   auto tables = makeTablesWithDefault();
+   const auto query_tree = parseAndConvertToQueryTree("default.projectout(remove:={date})", tables);
+   const auto output_schema = query_tree->getOutputSchema();
+   ASSERT_EQ(output_schema.size(), 1);
+   EXPECT_EQ(output_schema[0].name, "id");
+}
+
+TEST(AstToQueryProjectout, oldFieldsParameterNameThrows) {
+   auto tables = makeTablesWithDefault();
+   EXPECT_THAT(
+      [&tables]() {
+         (void)parseAndConvertToQueryTree("default.projectout(fields:={date})", tables);
+      },
+      ThrowsMessage<IllegalQueryException>(
+         ::testing::HasSubstr("projectout() received unknown argument 'fields'")
+      )
+   );
+}
+
 // --- project ---
+
+TEST(AstToQueryProject, acceptsNamedExpressions) {
+   auto tables = makeTablesWithDefault();
+   const auto query_tree =
+      parseAndConvertToQueryTree("default.project(expressions:={date})", tables);
+   const auto output_schema = query_tree->getOutputSchema();
+   ASSERT_EQ(output_schema.size(), 1);
+   EXPECT_EQ(output_schema[0].name, "date");
+}
+
+TEST(AstToQueryProject, oldFieldsParameterNameThrows) {
+   auto tables = makeTablesWithDefault();
+   EXPECT_THAT(
+      [&tables]() { (void)parseAndConvertToQueryTree("default.project(fields:={date})", tables); },
+      ThrowsMessage<IllegalQueryException>(
+         ::testing::HasSubstr("project() received unknown argument 'fields'")
+      )
+   );
+}
 
 TEST(AstToQueryProject, fieldNotInSchemaThrows) {
    auto tables = makeTablesWithDefault();
@@ -606,6 +692,25 @@ TEST(AstToQueryMap, isoWeekOnNonDateColumnThrows) {
    );
 }
 
+TEST(AstToQueryFilter, acceptsNamedCondition) {
+   auto tables = makeTablesWithDefault();
+   const auto query_tree =
+      parseAndConvertToQueryTree("default.filter(condition:=id = 'some_id')", tables);
+   EXPECT_EQ(query_tree->getOutputSchema().size(), 2);
+}
+
+TEST(AstToQueryFilter, oldPredicateParameterNameThrows) {
+   auto tables = makeTablesWithDefault();
+   EXPECT_THAT(
+      [&tables]() {
+         (void)parseAndConvertToQueryTree("default.filter(predicate:=id = 'some_id')", tables);
+      },
+      ThrowsMessage<IllegalQueryException>(
+         ::testing::HasSubstr("filter() received unknown argument 'predicate'")
+      )
+   );
+}
+
 TEST(AstToQueryFilter, nonBooleanScalarFunctionRejected) {
    EXPECT_THAT(
       []() {
@@ -617,14 +722,36 @@ TEST(AstToQueryFilter, nonBooleanScalarFunctionRejected) {
    );
 }
 
-// --- orderBy ---
+// --- order ---
+
+TEST(AstToQueryOrderBy, acceptsNamedBy) {
+   auto tables = makeTablesWithDefault();
+   const auto query_tree = parseAndConvertToQueryTree("default.order(by:={date.desc()})", tables);
+   EXPECT_EQ(query_tree->getOutputSchema().size(), 2);
+}
+
+TEST(AstToQueryOrderBy, acceptsPositionalBy) {
+   auto tables = makeTablesWithDefault();
+   const auto query_tree = parseAndConvertToQueryTree("default.order({date.desc()})", tables);
+   EXPECT_EQ(query_tree->getOutputSchema().size(), 2);
+}
+
+TEST(AstToQueryOrderBy, oldFieldsParameterNameThrows) {
+   auto tables = makeTablesWithDefault();
+   EXPECT_THAT(
+      [&tables]() { (void)parseAndConvertToQueryTree("default.order(fields:={date})", tables); },
+      ThrowsMessage<IllegalQueryException>(
+         ::testing::HasSubstr("order() received unknown argument 'fields'")
+      )
+   );
+}
 
 TEST(AstToQueryOrderBy, fieldUnsupportedTypeThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
-      [&tables]() { (void)parseAndConvertToQueryTree("default.orderBy({'value'})", tables); },
+      [&tables]() { (void)parseAndConvertToQueryTree("default.order(by:={'value'})", tables); },
       ThrowsMessage<IllegalQueryException>(
-         ::testing::HasSubstr("orderBy field must be an identifier or asc()/desc() call")
+         ::testing::HasSubstr("order field must be an identifier or asc()/desc() call")
       )
    );
 }
@@ -632,9 +759,9 @@ TEST(AstToQueryOrderBy, fieldUnsupportedTypeThrows) {
 TEST(AstToQueryOrderBy, unsupportedFunctionNameThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
-      [&tables]() { (void)parseAndConvertToQueryTree("default.orderBy({foo(bar)})", tables); },
+      [&tables]() { (void)parseAndConvertToQueryTree("default.order(by:={foo(bar)})", tables); },
       ThrowsMessage<IllegalQueryException>(
-         ::testing::HasSubstr("orderBy field must be an identifier or asc()/desc() call, got 'foo'")
+         ::testing::HasSubstr("order field must be an identifier or asc()/desc() call, got 'foo'")
       )
    );
 }
@@ -642,7 +769,7 @@ TEST(AstToQueryOrderBy, unsupportedFunctionNameThrows) {
 TEST(AstToQueryOrderBy, ascWrongArgCountThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
-      [&]() { (void)parseAndConvertToQueryTree("default.orderBy({asc()})", tables); },
+      [&]() { (void)parseAndConvertToQueryTree("default.order(by:={asc()})", tables); },
       ThrowsMessage<IllegalQueryException>(::testing::HasSubstr("asc() expects exactly one argument"
       ))
    );
@@ -651,7 +778,7 @@ TEST(AstToQueryOrderBy, ascWrongArgCountThrows) {
 TEST(AstToQueryOrderBy, unknownFieldThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
-      [&tables]() { (void)parseAndConvertToQueryTree("default.orderBy({nonexistent})", tables); },
+      [&tables]() { (void)parseAndConvertToQueryTree("default.order(by:={nonexistent})", tables); },
       ThrowsMessage<IllegalQueryException>(
          ::testing::HasSubstr("OrderByField nonexistent is not contained in the result")
       )
@@ -662,7 +789,7 @@ TEST(AstToQueryOrderBy, unknownFieldInAscThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
       [&tables]() {
-         (void)parseAndConvertToQueryTree("default.orderBy({asc(nonexistent)})", tables);
+         (void)parseAndConvertToQueryTree("default.order(by:={asc(nonexistent)})", tables);
       },
       ThrowsMessage<IllegalQueryException>(
          ::testing::HasSubstr("OrderByField nonexistent is not contained in the result")

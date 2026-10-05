@@ -151,7 +151,7 @@ const QueryTestData TEST_DATA{
 // (parent null) and the edge CHILD->BASE => 2 rows.
 const QueryTestScenario RELATION_TABLE_CONTAINS_ONLY_DIRECT_EDGES = {
    .name = "RELATION_TABLE_CONTAINS_ONLY_DIRECT_EDGES",
-   .query = "lin.groupBy({count:=count()})",
+   .query = "lin.group(by:={}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([{"count":2}])")
 };
 
@@ -159,7 +159,7 @@ const QueryTestScenario RELATION_TABLE_CONTAINS_ONLY_DIRECT_EDGES = {
 // parent.
 const QueryTestScenario RELATION_TABLE_PARENT_IS_QUERYABLE = {
    .name = "RELATION_TABLE_PARENT_IS_QUERYABLE",
-   .query = "lin.filter(parent = 'BASE').groupBy({count:=count()})",
+   .query = "lin.filter(parent = 'BASE').group(by:={}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([{"count":1}])")
 };
 

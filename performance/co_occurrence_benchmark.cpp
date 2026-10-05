@@ -1,9 +1,9 @@
 // Measurement-only benchmark for a co-occurrence query, expressed on the SaneQL interface.
 //
 // It builds a database of random sequences and times the end-to-end planning + execution of a
-// `map({s := main.at(p)}) | groupBy({count()}, {...})` query through the regular Planner. There is
-// deliberately no before/after comparison in here: run this benchmark on a branch WITHOUT the
-// co-occurrence optimization to get the baseline number, and again WITH it to get the optimized
+// `map({s := main.at(p)}) | group(by:={...}, aggs:={count()})` query through the regular Planner.
+// There is deliberately no before/after comparison in here: run this benchmark on a branch WITHOUT
+// the co-occurrence optimization to get the baseline number, and again WITH it to get the optimized
 // number. Because the query is unchanged, the two runs are directly comparable.
 
 #include <algorithm>
@@ -18,7 +18,6 @@
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
 
-#include "sequence_generator.h"
 #include "rhydb/config/database_config.h"
 #include "rhydb/config/runtime_config.h"
 #include "rhydb/database.h"
@@ -28,6 +27,7 @@
 #include "rhydb/query_engine/query_plan.h"
 #include "rhydb/schema/database_schema.h"
 #include "rhydb/storage/reference_genomes.h"
+#include "sequence_generator.h"
 
 namespace {
 
@@ -83,7 +83,7 @@ std::string buildQuery() {
       group_keys += fmt::format("s{}", i);
    }
    return fmt::format(
-      "default.map({{{}}}).groupBy({{count:=count()}}, {{{}}})", assignments, group_keys
+      "default.map({{{}}}).group(by:={{{}}}, aggs:={{count:=count()}})", assignments, group_keys
    );
 }
 

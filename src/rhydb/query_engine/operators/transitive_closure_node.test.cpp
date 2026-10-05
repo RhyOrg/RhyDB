@@ -101,7 +101,7 @@ const QueryTestData TEST_DATA{
 // Plain transitive closure of the parent -> lineage edges: every (ancestor, descendant) pair.
 const QueryTestScenario TRANSITIVE_CLOSURE_SCENARIO = {
    .name = "TRANSITIVE_CLOSURE_SCENARIO",
-   .query = "pango_lineage_indexed.transitiveClosure('parent', 'lineage').orderBy({from, to})",
+   .query = "pango_lineage_indexed.transitiveClosure(parent, lineage).order(by:={from, to})",
    .expected_query_result = nlohmann::json(
       {{{"from", "BASE.1"}, {"to", "CHILD"}},
        {{"from", "BASE.1"}, {"to", "CHILD.2"}},
@@ -114,8 +114,8 @@ const QueryTestScenario TRANSITIVE_CLOSURE_SCENARIO = {
 const QueryTestScenario TRANSITIVE_CLOSURE_INCLUDE_VERTICES_SCENARIO = {
    .name = "TRANSITIVE_CLOSURE_INCLUDE_VERTICES_SCENARIO",
    .query =
-      "pango_lineage_indexed.transitiveClosure('parent', 'lineage', includeVertices:=true)"
-      ".orderBy({from, to})",
+      "pango_lineage_indexed.transitiveClosure(parent, lineage, includeVertices:=true)"
+      ".order(by:={from, to})",
    .expected_query_result = nlohmann::json(
       {{{"from", "BASE.1"}, {"to", "BASE.1"}},
        {{"from", "BASE.1"}, {"to", "CHILD"}},
@@ -129,7 +129,7 @@ const QueryTestScenario TRANSITIVE_CLOSURE_INCLUDE_VERTICES_SCENARIO = {
 };
 
 // The motivating use case: count every lineage together with all of its sublineages.
-// transitiveClosure (reflexive) -> join default on `to` = pango_lineage -> groupBy `from`.
+// transitiveClosure (reflexive) -> join default on `to` = pango_lineage -> group by `from`.
 //   BASE.1     : id_0, id_1, id_2, id_3, id_4 -> 5
 //   CHILD      : id_1, id_2, id_4             -> 3
 //   CHILD.2    : id_3                         -> 1
@@ -137,10 +137,10 @@ const QueryTestScenario TRANSITIVE_CLOSURE_INCLUDE_VERTICES_SCENARIO = {
 const QueryTestScenario COUNT_LINEAGE_INCLUDING_SUBLINEAGES_SCENARIO = {
    .name = "COUNT_LINEAGE_INCLUDING_SUBLINEAGES_SCENARIO",
    .query =
-      "pango_lineage_indexed.transitiveClosure('parent', 'lineage', includeVertices:=true)"
+      "pango_lineage_indexed.transitiveClosure(parent, lineage, includeVertices:=true)"
       ".join(default, to = pango_lineage)"
-      ".groupBy({count := count()}, {from})"
-      ".orderBy({from})",
+      ".group(by:={from}, aggs:={count := count()})"
+      ".order(by:={from})",
    .expected_query_result = nlohmann::json(
       {{{"from", "BASE.1"}, {"count", 5}},
        {{"from", "CHILD"}, {"count", 3}},
@@ -155,7 +155,7 @@ const QueryTestScenario SUBQUERY_INPUT_SCENARIO = {
    .name = "SUBQUERY_INPUT_SCENARIO",
    .query =
       "pango_lineage_indexed.project({parent, lineage})"
-      ".transitiveClosure('parent', 'lineage').orderBy({from, to})",
+      ".transitiveClosure(parent, lineage).order(by:={from, to})",
    .expected_query_result = nlohmann::json(
       {{{"from", "BASE.1"}, {"to", "CHILD"}},
        {{"from", "BASE.1"}, {"to", "CHILD.2"}},
@@ -170,8 +170,8 @@ const QueryTestScenario SUBQUERY_INPUT_SCENARIO = {
 const QueryTestScenario FILTER_ON_OUTPUT_SCENARIO = {
    .name = "FILTER_ON_OUTPUT_SCENARIO",
    .query =
-      "pango_lineage_indexed.transitiveClosure('parent', 'lineage')"
-      ".filter(from = 'BASE.1').orderBy({from, to})",
+      "pango_lineage_indexed.transitiveClosure(parent, lineage)"
+      ".filter(from = 'BASE.1').order(by:={from, to})",
    .expected_query_result = nlohmann::json({
       {{"from", "BASE.1"}, {"to", "CHILD"}},
       {{"from", "BASE.1"}, {"to", "CHILD.2"}},
@@ -184,8 +184,8 @@ const QueryTestScenario FILTER_ON_OUTPUT_SCENARIO = {
 const QueryTestScenario TRANSITIVE_CLOSURE_ONE_PAIR_PER_BATCH_SCENARIO = {
    .name = "TRANSITIVE_CLOSURE_ONE_PAIR_PER_BATCH_SCENARIO",
    .query =
-      "pango_lineage_indexed.transitiveClosure('parent', 'lineage', includeVertices:=true)"
-      ".orderBy({from, to})",
+      "pango_lineage_indexed.transitiveClosure(parent, lineage, includeVertices:=true)"
+      ".order(by:={from, to})",
    .expected_query_result = nlohmann::json(
       {{{"from", "BASE.1"}, {"to", "BASE.1"}},
        {{"from", "BASE.1"}, {"to", "CHILD"}},
@@ -204,8 +204,8 @@ const QueryTestScenario TRANSITIVE_CLOSURE_ONE_PAIR_PER_BATCH_SCENARIO = {
 const QueryTestScenario STARTING_FROM_SCENARIO = {
    .name = "STARTING_FROM_SCENARIO",
    .query =
-      "pango_lineage_indexed.transitiveClosure('parent', 'lineage', startingFrom:={'CHILD'})"
-      ".orderBy({from, to})",
+      "pango_lineage_indexed.transitiveClosure(parent, lineage, startingFrom:={'CHILD'})"
+      ".order(by:={from, to})",
    .expected_query_result = nlohmann::json({{{"from", "CHILD"}, {"to", "GRANDCHILD"}}})
 };
 
@@ -213,8 +213,8 @@ const QueryTestScenario STARTING_FROM_SCENARIO = {
 const QueryTestScenario STARTING_FROM_INCLUDE_VERTICES_SCENARIO = {
    .name = "STARTING_FROM_INCLUDE_VERTICES_SCENARIO",
    .query =
-      "pango_lineage_indexed.transitiveClosure('parent', 'lineage', includeVertices:=true, "
-      "startingFrom:={'CHILD', 'CHILD.2'}).orderBy({from, to})",
+      "pango_lineage_indexed.transitiveClosure(parent, lineage, includeVertices:=true, "
+      "startingFrom:={'CHILD', 'CHILD.2'}).order(by:={from, to})",
    .expected_query_result = nlohmann::json(
       {{{"from", "CHILD"}, {"to", "CHILD"}},
        {{"from", "CHILD"}, {"to", "GRANDCHILD"}},
@@ -227,8 +227,8 @@ const QueryTestScenario STARTING_FROM_INCLUDE_VERTICES_SCENARIO = {
 const QueryTestScenario STARTING_FROM_UNKNOWN_VERTEX_SCENARIO = {
    .name = "STARTING_FROM_UNKNOWN_VERTEX_SCENARIO",
    .query =
-      "pango_lineage_indexed.transitiveClosure('parent', 'lineage', includeVertices:=true, "
-      "startingFrom:={'NOT_A_LINEAGE'}).orderBy({from, to})",
+      "pango_lineage_indexed.transitiveClosure(parent, lineage, includeVertices:=true, "
+      "startingFrom:={'NOT_A_LINEAGE'}).order(by:={from, to})",
    .expected_query_result = nlohmann::json::array()
 };
 
@@ -238,11 +238,11 @@ const QueryTestScenario STARTING_FROM_UNKNOWN_VERTEX_SCENARIO = {
 const QueryTestScenario COUNT_ONE_LINEAGE_INCLUDING_SUBLINEAGES_SCENARIO = {
    .name = "COUNT_ONE_LINEAGE_INCLUDING_SUBLINEAGES_SCENARIO",
    .query =
-      "pango_lineage_indexed.transitiveClosure('parent', 'lineage', includeVertices:=true, "
+      "pango_lineage_indexed.transitiveClosure(parent, lineage, includeVertices:=true, "
       "startingFrom:={'CHILD'})"
       ".join(default, to = pango_lineage)"
-      ".groupBy({count := count()}, {from})"
-      ".orderBy({from})",
+      ".group(by:={from}, aggs:={count := count()})"
+      ".order(by:={from})",
    .expected_query_result = nlohmann::json({{{"from", "CHILD"}, {"count", 3}}})
 };
 
@@ -251,8 +251,8 @@ const QueryTestScenario COUNT_ONE_LINEAGE_INCLUDING_SUBLINEAGES_SCENARIO = {
 const QueryTestScenario STARTING_FROM_DUPLICATE_VERTEX_SCENARIO = {
    .name = "STARTING_FROM_DUPLICATE_VERTEX_SCENARIO",
    .query =
-      "pango_lineage_indexed.transitiveClosure('parent', 'lineage', includeVertices:=true, "
-      "startingFrom:={'CHILD', 'CHILD'}).orderBy({from, to})",
+      "pango_lineage_indexed.transitiveClosure(parent, lineage, includeVertices:=true, "
+      "startingFrom:={'CHILD', 'CHILD'}).order(by:={from, to})",
    .expected_query_result = nlohmann::json(
       {{{"from", "CHILD"}, {"to", "CHILD"}},
        {{"from", "CHILD"}, {"to", "CHILD"}},
@@ -267,11 +267,11 @@ const QueryTestScenario STARTING_FROM_DUPLICATE_VERTEX_SCENARIO = {
 const QueryTestScenario COUNT_LINEAGE_WITH_DUPLICATE_SOURCE_SCENARIO = {
    .name = "COUNT_LINEAGE_WITH_DUPLICATE_SOURCE_SCENARIO",
    .query =
-      "pango_lineage_indexed.transitiveClosure('parent', 'lineage', includeVertices:=true, "
+      "pango_lineage_indexed.transitiveClosure(parent, lineage, includeVertices:=true, "
       "startingFrom:={'CHILD', 'CHILD'})"
       ".join(default, to = pango_lineage)"
-      ".groupBy({count := count()}, {from})"
-      ".orderBy({from})",
+      ".group(by:={from}, aggs:={count := count()})"
+      ".order(by:={from})",
    .expected_query_result = nlohmann::json({{{"from", "CHILD"}, {"count", 6}}})
 };
 
@@ -280,8 +280,8 @@ const QueryTestScenario COUNT_LINEAGE_WITH_DUPLICATE_SOURCE_SCENARIO = {
 const QueryTestScenario STARTING_FROM_EMPTY_SET_SCENARIO = {
    .name = "STARTING_FROM_EMPTY_SET_SCENARIO",
    .query =
-      "pango_lineage_indexed.transitiveClosure('parent', 'lineage', startingFrom:={})"
-      ".orderBy({from, to})",
+      "pango_lineage_indexed.transitiveClosure(parent, lineage, startingFrom:={})"
+      ".order(by:={from, to})",
    .expected_query_result = nlohmann::json::array()
 };
 
@@ -289,20 +289,26 @@ const QueryTestScenario STARTING_FROM_EMPTY_SET_SCENARIO = {
 const QueryTestScenario STARTING_FROM_EMPTY_SET_INCLUDE_VERTICES_SCENARIO = {
    .name = "STARTING_FROM_EMPTY_SET_INCLUDE_VERTICES_SCENARIO",
    .query =
-      "pango_lineage_indexed.transitiveClosure('parent', 'lineage', includeVertices:=true, "
-      "startingFrom:={}).orderBy({from, to})",
+      "pango_lineage_indexed.transitiveClosure(parent, lineage, includeVertices:=true, "
+      "startingFrom:={}).order(by:={from, to})",
    .expected_query_result = nlohmann::json::array()
 };
 
 const QueryTestScenario STARTING_FROM_NOT_A_SET_SCENARIO = {
    .name = "STARTING_FROM_NOT_A_SET_SCENARIO",
-   .query = "pango_lineage_indexed.transitiveClosure('parent', 'lineage', startingFrom:='CHILD')",
-   .expected_error_message = "expected set literal at 1:76"
+   .query = "pango_lineage_indexed.transitiveClosure(parent, lineage, startingFrom:='CHILD')",
+   .expected_error_message = "expected set literal at 1:72"
+};
+
+const QueryTestScenario COLUMN_AS_STRING_LITERAL_SCENARIO = {
+   .name = "COLUMN_AS_STRING_LITERAL_SCENARIO",
+   .query = "pango_lineage_indexed.transitiveClosure('parent', lineage)",
+   .expected_error_message = "expected identifier at 1:41"
 };
 
 const QueryTestScenario UNKNOWN_COLUMN_SCENARIO = {
    .name = "UNKNOWN_COLUMN_SCENARIO",
-   .query = "pango_lineage_indexed.transitiveClosure('parent', 'does_not_exist')",
+   .query = "pango_lineage_indexed.transitiveClosure(parent, does_not_exist)",
    .expected_error_message =
       "transitiveClosure() column 'does_not_exist' is not present in the input's output schema"
 };
@@ -310,7 +316,7 @@ const QueryTestScenario UNKNOWN_COLUMN_SCENARIO = {
 // A lineage-indexed column is dictionary-encoded, not STRING, so it cannot be an edge endpoint.
 const QueryTestScenario NON_STRING_COLUMN_SCENARIO = {
    .name = "NON_STRING_COLUMN_SCENARIO",
-   .query = "default.transitiveClosure('pango_lineage_indexed', 'primaryKey')",
+   .query = "default.transitiveClosure(pango_lineage_indexed, primaryKey)",
    .expected_error_message =
       "transitiveClosure() can only be applied to STRING columns, but "
       "column 'pango_lineage_indexed' has type DICTIONARY_ENCODED"
@@ -342,7 +348,7 @@ const QueryTestData TEST_DATA_WITH_ISOLATED_VERTEX{
 // An edge row with a null endpoint carries no edge, so the isolated vertex appears in no pair.
 const QueryTestScenario ISOLATED_VERTEX_SCENARIO = {
    .name = "ISOLATED_VERTEX_SCENARIO",
-   .query = "pango_lineage_indexed.transitiveClosure('parent', 'lineage').orderBy({from, to})",
+   .query = "pango_lineage_indexed.transitiveClosure(parent, lineage).order(by:={from, to})",
    .expected_query_result = nlohmann::json({{{"from", "ROOT"}, {"to", "KID"}}})
 };
 
@@ -350,8 +356,8 @@ const QueryTestScenario ISOLATED_VERTEX_SCENARIO = {
 const QueryTestScenario ISOLATED_VERTEX_INCLUDE_VERTICES_SCENARIO = {
    .name = "ISOLATED_VERTEX_INCLUDE_VERTICES_SCENARIO",
    .query =
-      "pango_lineage_indexed.transitiveClosure('parent', 'lineage', includeVertices:=true)"
-      ".orderBy({from, to})",
+      "pango_lineage_indexed.transitiveClosure(parent, lineage, includeVertices:=true)"
+      ".order(by:={from, to})",
    .expected_query_result = nlohmann::json(
       {{{"from", "KID"}, {"to", "KID"}},
        {{"from", "ORPHAN"}, {"to", "ORPHAN"}},
@@ -413,7 +419,7 @@ const QueryTestScenario CYCLIC_RELATION_SCENARIO = {
    .name = "CYCLIC_RELATION_SCENARIO",
    .query =
       "default.project({edge_from, edge_to})"
-      ".transitiveClosure('edge_from', 'edge_to').orderBy({from, to})",
+      ".transitiveClosure(edge_from, edge_to).order(by:={from, to})",
    .expected_query_result = nlohmann::json(
       {{{"from", "A"}, {"to", "A"}},
        {{"from", "A"}, {"to", "B"}},
@@ -430,8 +436,8 @@ const QueryTestScenario CYCLIC_RELATION_INCLUDE_VERTICES_SCENARIO = {
    .name = "CYCLIC_RELATION_INCLUDE_VERTICES_SCENARIO",
    .query =
       "default.project({edge_from, edge_to})"
-      ".transitiveClosure('edge_from', 'edge_to', includeVertices:=true)"
-      ".orderBy({from, to})",
+      ".transitiveClosure(edge_from, edge_to, includeVertices:=true)"
+      ".order(by:={from, to})",
    .expected_query_result = nlohmann::json(
       {{{"from", "A"}, {"to", "A"}},
        {{"from", "A"}, {"to", "B"}},
@@ -447,7 +453,7 @@ const QueryTestScenario CYCLIC_RELATION_INCLUDE_VERTICES_SCENARIO = {
 
 const QueryTestScenario INT_COLUMN_SCENARIO = {
    .name = "INT_COLUMN_SCENARIO",
-   .query = "default.transitiveClosure('edge_from', 'weight')",
+   .query = "default.transitiveClosure(edge_from, weight)",
    .expected_error_message =
       "transitiveClosure() can only be applied to STRING columns, but "
       "column 'weight' has type INT32"
@@ -502,10 +508,10 @@ const QueryTestData SINGLE_LINEAGE_COLUMN_TEST_DATA{
 const QueryTestScenario COUNT_SUBLINEAGES_ON_DICTIONARY_ENCODED_COLUMN_SCENARIO = {
    .name = "COUNT_SUBLINEAGES_ON_DICTIONARY_ENCODED_COLUMN_SCENARIO",
    .query =
-      "pango_lineage.transitiveClosure('parent', 'lineage', includeVertices:=true)"
+      "pango_lineage.transitiveClosure(parent, lineage, includeVertices:=true)"
       ".join(default, to = pango_lineage)"
-      ".groupBy({count := count()}, {from})"
-      ".orderBy({from})",
+      ".group(by:={from}, aggs:={count := count()})"
+      ".order(by:={from})",
    .expected_query_result = nlohmann::json(
       {{{"from", "BASE.1"}, {"count", 5}},
        {{"from", "CHILD"}, {"count", 3}},
@@ -535,6 +541,7 @@ QUERY_TEST(
       STARTING_FROM_EMPTY_SET_INCLUDE_VERTICES_SCENARIO,
       COUNT_ONE_LINEAGE_INCLUDING_SUBLINEAGES_SCENARIO,
       STARTING_FROM_NOT_A_SET_SCENARIO,
+      COLUMN_AS_STRING_LITERAL_SCENARIO,
       UNKNOWN_COLUMN_SCENARIO,
       NON_STRING_COLUMN_SCENARIO
    )

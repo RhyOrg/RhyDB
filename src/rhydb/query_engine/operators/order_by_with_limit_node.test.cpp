@@ -59,11 +59,11 @@ const QueryTestData TEST_DATA{
    .reference_genomes = REFERENCE_GENOMES
 };
 
-// orderBy ascending + limit: the three smallest rows, nulls (smallest) first.
+// order ascending + limit: the three smallest rows, nulls (smallest) first.
 const QueryTestScenario ASC_LIMIT_SCENARIO = {
    .name = "ORDER_BY_WITH_LIMIT_ASC",
    .query =
-      "default.project({primaryKey, int_value, date}).orderBy({int_value.asc(), "
+      "default.project({primaryKey, int_value, date}).order(by:={int_value.asc(), "
       "date.asc()}).limit(3)",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
@@ -72,12 +72,12 @@ const QueryTestScenario ASC_LIMIT_SCENARIO = {
    )
 };
 
-// orderBy descending + limit: the three largest rows, nulls (smallest) sort last so they do not
+// order descending + limit: the three largest rows, nulls (smallest) sort last so they do not
 // appear in the top-k at all.
 const QueryTestScenario DESC_LIMIT_SCENARIO = {
    .name = "ORDER_BY_WITH_LIMIT_DESC",
    .query =
-      "default.project({primaryKey, int_value, date}).orderBy({int_value.desc(), "
+      "default.project({primaryKey, int_value, date}).order(by:={int_value.desc(), "
       "date.desc()}).limit(3)",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_5"}, {"int_value", 2}, {"date", "2023-01-01"}},
@@ -90,7 +90,7 @@ const QueryTestScenario DESC_LIMIT_SCENARIO = {
 const QueryTestScenario LIMIT_LARGER_THAN_INPUT_SCENARIO = {
    .name = "ORDER_BY_WITH_LIMIT_LARGER_THAN_INPUT",
    .query =
-      "default.project({primaryKey, date}).orderBy({date.asc(), primaryKey.asc()}).limit(100)",
+      "default.project({primaryKey, date}).order(by:={date.asc(), primaryKey.asc()}).limit(100)",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"date", nullptr}},
        {{"primaryKey", "id_2"}, {"date", nullptr}},
@@ -105,13 +105,13 @@ const QueryTestScenario LIMIT_LARGER_THAN_INPUT_SCENARIO = {
 const QueryTestScenario FILTER_ABOVE_LIMIT_SCENARIO = {
    .name = "FILTER_ABOVE_LIMIT_NOT_PUSHED_BELOW",
    .query =
-      "default.project({primaryKey, int_value, date}).orderBy({int_value.asc(), "
+      "default.project({primaryKey, int_value, date}).order(by:={int_value.asc(), "
       "date.asc()}).limit(3).filter(int_value = 1)",
    .expected_query_result =
       nlohmann::json({{{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}}})
 };
 
-// The same barrier for a plain FetchNode (a `limit` with no preceding `orderBy`, so no top-k
+// The same barrier for a plain FetchNode (a `limit` with no preceding `order`, so no top-k
 // rewrite).
 const QueryTestScenario FILTER_ABOVE_PLAIN_LIMIT_SCENARIO = {
    .name = "FILTER_ABOVE_PLAIN_LIMIT_NOT_PUSHED_BELOW",
@@ -123,7 +123,7 @@ const QueryTestScenario FILTER_ABOVE_PLAIN_LIMIT_SCENARIO = {
 const QueryTestScenario MULTI_BATCH_SCENARIO = {
    .name = "ORDER_BY_WITH_LIMIT_MULTI_BATCH",
    .query =
-      "default.project({primaryKey, int_value, date}).orderBy({int_value.asc(), "
+      "default.project({primaryKey, int_value, date}).order(by:={int_value.asc(), "
       "date.asc()}).limit(3)",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
@@ -138,7 +138,8 @@ const QueryTestScenario MULTI_BATCH_SCENARIO = {
 const QueryTestScenario EMPTY_INPUT_SCENARIO = {
    .name = "ORDER_BY_WITH_LIMIT_EMPTY_INPUT",
    .query =
-      "default.filter(int_value = 999).project({primaryKey, int_value}).orderBy({int_value.asc()})"
+      "default.filter(int_value = 999).project({primaryKey, "
+      "int_value}).order(by:={int_value.asc()})"
       ".limit(3)",
    .expected_query_result = nlohmann::json::array()
 };

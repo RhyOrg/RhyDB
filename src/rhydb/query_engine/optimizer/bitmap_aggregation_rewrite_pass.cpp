@@ -278,7 +278,7 @@ operators::QueryNodePtr BitmapAggregationRewritePass::operator()(operators::Aggr
    }
 
    // Whenever the plan is not a shape this rewrite can resolve, decline (nullptr) and leave the
-   // generic map/groupBy pipeline to handle it rather than erroring.
+   // generic map/group pipeline to handle it rather than erroring.
    auto source = groupBySource(*node.child);
    if (!source.has_value()) {
       return nullptr;

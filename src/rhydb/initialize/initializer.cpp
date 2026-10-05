@@ -136,10 +136,12 @@ void Initializer::fillReferenceGenomesTable(
    append_rows(
       reference_genomes.nucleotide_sequence_names,
       reference_genomes.raw_nucleotide_sequences,
-      "nucleotide"
+      schema::REFERENCE_GENOMES_NUCLEOTIDE_TYPE
    );
    append_rows(
-      reference_genomes.aa_sequence_names, reference_genomes.raw_aa_sequences, "amino_acid"
+      reference_genomes.aa_sequence_names,
+      reference_genomes.raw_aa_sequences,
+      schema::REFERENCE_GENOMES_AMINO_ACID_TYPE
    );
    std::stringstream ndjson_stream{ndjson};
    rhydb::append::NdjsonLineReader ndjson_reader{ndjson_stream};

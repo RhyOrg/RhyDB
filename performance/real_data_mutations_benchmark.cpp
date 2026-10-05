@@ -1,5 +1,5 @@
 // Benchmarks run against real wastewater short-read data (see dataset note below):
-//   * coverageGroupByOverWastewaterReads: co-occurrence groupBy over the ~141 real SARS-CoV-2
+//   * coverageGroupByOverWastewaterReads: co-occurrence group over the ~141 real SARS-CoV-2
 //     mutation positions in performance/mutations.csv.
 //   * bareCountGroupByOverWastewaterReads: a bare `count()` group-by
 // Both share a single ingested database via the RealDataMutations test fixture.
@@ -35,7 +35,6 @@
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
 
-#include "sequence_generator.h"
 #include "rhydb/common/input_stream_wrapper.h"
 #include "rhydb/config/database_config.h"
 #include "rhydb/config/runtime_config.h"
@@ -46,6 +45,7 @@
 #include "rhydb/query_engine/query_plan.h"
 #include "rhydb/schema/database_schema.h"
 #include "rhydb/storage/reference_genomes.h"
+#include "sequence_generator.h"
 
 namespace {
 
@@ -92,7 +92,7 @@ std::string buildQuery(const std::vector<uint32_t>& positions) {
       group_keys += fmt::format("s{}", i);
    }
    return fmt::format(
-      "default.map({{{}}}).groupBy({{count:=count()}}, {{{}}})", assignments, group_keys
+      "default.map({{{}}}).group(by:={{{}}}, aggs:={{count:=count()}})", assignments, group_keys
    );
 }
 
@@ -228,5 +228,5 @@ TEST_F(RealDataMutations, coverageGroupByOverWastewaterReads) {
 
 TEST_F(RealDataMutations, bareCountGroupByOverWastewaterReads) {
    const auto query_options = rhydb::config::RuntimeConfig::withDefaults().query_options;
-   timeQuery("bareCount", "default.groupBy({n := count()})", *database, query_options);
+   timeQuery("bareCount", "default.group(by := {}, aggs := {n := count()})", *database, query_options);
 }

@@ -3,6 +3,7 @@
 #include <utility>
 #include <variant>
 
+#include "rhydb/query_engine/command/create_table_command.h"
 #include "rhydb/query_engine/command/insert_command.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/query_engine/saneql/ast.h"
@@ -44,6 +45,15 @@ WriteStatementRegistry::WriteStatementRegistry() {
          {ParameterDefinition{.name = "input"}, ParameterDefinition{.name = "target"}}
       },
       buildInsertInto
+   );
+   registerStatement(
+      "createTable",
+      FunctionSignature{
+         {ParameterDefinition{.name = "table"},
+          ParameterDefinition{.name = "columns"},
+          ParameterDefinition{.name = "primaryKey", .required = false, .positional = false}}
+      },
+      buildCreateTable
    );
 }
 

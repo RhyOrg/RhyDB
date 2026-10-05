@@ -1,4 +1,4 @@
-#include "rhydb/storage/column_group_builder.h"
+#include "rhydb/storage/table_chunk_builder.h"
 
 #include <map>
 #include <memory>
@@ -26,7 +26,7 @@
 using rhydb::Nucleotide;
 using rhydb::schema::ColumnIdentifier;
 using rhydb::schema::TableSchema;
-using rhydb::storage::ColumnGroupBuilder;
+using rhydb::storage::TableChunkBuilder;
 using rhydb::storage::column::BoolColumn;
 using rhydb::storage::column::Column;
 using rhydb::storage::column::ColumnMetadata;
@@ -67,7 +67,7 @@ std::expected<void, std::string> setupColumnAndInsertJson(
    const ColumnIdentifier column_id{column_name, ColumnType::TYPE};
    auto schema = std::make_shared<TableSchema>(makeSingleColumnSchema(column_id, meta));
    const rhydb::storage::Table table{rhydb::schema::TableName::getDefault(), schema};
-   ColumnGroupBuilder builder{*schema, table.columns};
+   TableChunkBuilder builder{*schema, table.columns};
 
    simdjson::ondemand::parser parser;
    const simdjson::padded_string json(json_string);
@@ -88,7 +88,7 @@ std::expected<void, std::string> setupNucleotideColumnAndInsertJson(
    const ColumnIdentifier column_id{.name = column_name, .type = SequenceColumn<Nucleotide>::TYPE};
    auto schema = std::make_shared<TableSchema>(makeSingleColumnSchema(column_id, meta));
    const rhydb::storage::Table table{rhydb::schema::TableName::getDefault(), schema};
-   ColumnGroupBuilder builder{*schema, table.columns};
+   TableChunkBuilder builder{*schema, table.columns};
 
    simdjson::ondemand::parser parser;
    const simdjson::padded_string json(json_string);
@@ -111,7 +111,7 @@ std::string compressAndBase64Encode(std::string_view sequence, const std::string
 
 }  // namespace
 
-TEST(ColumnGroupBuilder, givenIntegerValueForBoolColumn_returnsColumnInsertError) {
+TEST(TableChunkBuilder, givenIntegerValueForBoolColumn_returnsColumnInsertError) {
    const auto result = setupColumnAndInsertJson<BoolColumn>("bool_col", R"({"bool_col": 42})");
 
    ASSERT_FALSE(result.has_value());
@@ -123,7 +123,7 @@ TEST(ColumnGroupBuilder, givenIntegerValueForBoolColumn_returnsColumnInsertError
    );
 }
 
-TEST(ColumnGroupBuilder, givenStringValueForIntColumn_returnsColumnInsertError) {
+TEST(TableChunkBuilder, givenStringValueForIntColumn_returnsColumnInsertError) {
    const auto result = setupColumnAndInsertJson<Int32Column>("int_col", R"({"int_col": "hello"})");
 
    ASSERT_FALSE(result.has_value());
@@ -135,7 +135,7 @@ TEST(ColumnGroupBuilder, givenStringValueForIntColumn_returnsColumnInsertError) 
    );
 }
 
-TEST(ColumnGroupBuilder, givenStringValueForFloatColumn_returnsColumnInsertError) {
+TEST(TableChunkBuilder, givenStringValueForFloatColumn_returnsColumnInsertError) {
    const auto result =
       setupColumnAndInsertJson<FloatColumn>("float_col", R"({"float_col": "hello"})");
 
@@ -148,7 +148,7 @@ TEST(ColumnGroupBuilder, givenStringValueForFloatColumn_returnsColumnInsertError
    );
 }
 
-TEST(ColumnGroupBuilder, givenIntegerValueForStringColumn_returnsColumnInsertError) {
+TEST(TableChunkBuilder, givenIntegerValueForStringColumn_returnsColumnInsertError) {
    const auto result =
       setupColumnAndInsertJson<StringColumn>("string_col", R"({"string_col": 42})");
 
@@ -161,7 +161,7 @@ TEST(ColumnGroupBuilder, givenIntegerValueForStringColumn_returnsColumnInsertErr
    );
 }
 
-TEST(ColumnGroupBuilder, givenIntegerValueForDate32Column_returnsColumnInsertError) {
+TEST(TableChunkBuilder, givenIntegerValueForDate32Column_returnsColumnInsertError) {
    const auto result = setupColumnAndInsertJson<Date32Column>("date_col", R"({"date_col": 42})");
 
    ASSERT_FALSE(result.has_value());
@@ -173,7 +173,7 @@ TEST(ColumnGroupBuilder, givenIntegerValueForDate32Column_returnsColumnInsertErr
    );
 }
 
-TEST(ColumnGroupBuilder, givenInvalidDateStringForDate32Column_returnsColumnInsertError) {
+TEST(TableChunkBuilder, givenInvalidDateStringForDate32Column_returnsColumnInsertError) {
    const auto result =
       setupColumnAndInsertJson<Date32Column>("date_col", R"({"date_col": "not-a-date"})");
 
@@ -187,7 +187,7 @@ TEST(ColumnGroupBuilder, givenInvalidDateStringForDate32Column_returnsColumnInse
    );
 }
 
-TEST(ColumnGroupBuilder, givenOutOfRangeDateForDate32Column_returnsColumnInsertError) {
+TEST(TableChunkBuilder, givenOutOfRangeDateForDate32Column_returnsColumnInsertError) {
    const auto result =
       setupColumnAndInsertJson<Date32Column>("date_col", R"({"date_col": "2021-13-01"})");
 
@@ -200,7 +200,7 @@ TEST(ColumnGroupBuilder, givenOutOfRangeDateForDate32Column_returnsColumnInsertE
    );
 }
 
-TEST(ColumnGroupBuilder, givenObjectMissingSequenceField_returnsColumnInsertError) {
+TEST(TableChunkBuilder, givenObjectMissingSequenceField_returnsColumnInsertError) {
    const auto result =
       setupColumnAndInsertJson<SequenceColumn<Nucleotide>>("nuc_col", R"({"nuc_col": {}})");
 
@@ -213,7 +213,7 @@ TEST(ColumnGroupBuilder, givenObjectMissingSequenceField_returnsColumnInsertErro
    );
 }
 
-TEST(ColumnGroupBuilder, givenObjectMissingInsertionsField_returnsColumnInsertError) {
+TEST(TableChunkBuilder, givenObjectMissingInsertionsField_returnsColumnInsertError) {
    const auto result = setupColumnAndInsertJson<SequenceColumn<Nucleotide>>(
       "nuc_col", R"({"nuc_col": {"sequence": "A"}})"
    );
@@ -227,7 +227,7 @@ TEST(ColumnGroupBuilder, givenObjectMissingInsertionsField_returnsColumnInsertEr
    );
 }
 
-TEST(ColumnGroupBuilder, givenValidSequenceCompressed_succeeds) {
+TEST(TableChunkBuilder, givenValidSequenceCompressed_succeeds) {
    const std::vector<Nucleotide::Symbol> reference = {
       Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::G, Nucleotide::Symbol::T
    };
@@ -243,7 +243,7 @@ TEST(ColumnGroupBuilder, givenValidSequenceCompressed_succeeds) {
    ASSERT_TRUE(result.has_value());
 }
 
-TEST(ColumnGroupBuilder, givenSequenceCompressedWithMutation_succeeds) {
+TEST(TableChunkBuilder, givenSequenceCompressedWithMutation_succeeds) {
    const std::vector<Nucleotide::Symbol> reference = {
       Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::G, Nucleotide::Symbol::T
    };
@@ -260,7 +260,7 @@ TEST(ColumnGroupBuilder, givenSequenceCompressedWithMutation_succeeds) {
    ASSERT_TRUE(result.has_value());
 }
 
-TEST(ColumnGroupBuilder, givenSequenceCompressedMultipleRows_succeeds) {
+TEST(TableChunkBuilder, givenSequenceCompressedMultipleRows_succeeds) {
    std::vector<Nucleotide::Symbol> reference = {
       Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::G, Nucleotide::Symbol::T
    };
@@ -271,7 +271,7 @@ TEST(ColumnGroupBuilder, givenSequenceCompressedMultipleRows_succeeds) {
    const ColumnIdentifier column_id{.name = "nuc_col", .type = SequenceColumn<Nucleotide>::TYPE};
    auto schema = std::make_shared<TableSchema>(makeSingleColumnSchema(column_id, meta));
    const rhydb::storage::Table table{rhydb::schema::TableName::getDefault(), schema};
-   ColumnGroupBuilder builder{*schema, table.columns};
+   TableChunkBuilder builder{*schema, table.columns};
 
    for (const std::string_view sequence : {"ACGT", "ATGT", "ACGT"}) {
       const std::string encoded = compressAndBase64Encode(sequence, reference_str);
@@ -288,7 +288,7 @@ TEST(ColumnGroupBuilder, givenSequenceCompressedMultipleRows_succeeds) {
    }
 }
 
-TEST(ColumnGroupBuilder, givenSequenceCompressedWithInvalidBase64_returnsError) {
+TEST(TableChunkBuilder, givenSequenceCompressedWithInvalidBase64_returnsError) {
    const std::vector<Nucleotide::Symbol> reference = {Nucleotide::Symbol::A};
 
    const auto result = setupNucleotideColumnAndInsertJson(
@@ -301,7 +301,7 @@ TEST(ColumnGroupBuilder, givenSequenceCompressedWithInvalidBase64_returnsError) 
    EXPECT_THAT(result.error(), testing::HasSubstr("invalid base64"));
 }
 
-TEST(ColumnGroupBuilder, givenSequenceCompressedWithInvalidZstdData_returnsError) {
+TEST(TableChunkBuilder, givenSequenceCompressedWithInvalidZstdData_returnsError) {
    const std::vector<Nucleotide::Symbol> reference = {
       Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::G, Nucleotide::Symbol::T
    };
