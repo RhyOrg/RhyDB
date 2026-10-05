@@ -7,7 +7,10 @@ using rhydb::ReferenceGenomes;
 using rhydb::test::QueryTestData;
 using rhydb::test::QueryTestScenario;
 
-const nlohmann::json MAIN_SEQUENCE = {{"sequence", "ATCG"}, {"insertions", nlohmann::json::array()}};
+const nlohmann::json MAIN_SEQUENCE = {
+   {"sequence", "ATCG"},
+   {"insertions", nlohmann::json::array()}
+};
 
 // Per country: Switzerland has two complete rows, Germany one complete row and one row that is null
 // in every numeric column, France only such a null row, and one row has no country at all. `reads`
@@ -73,8 +76,7 @@ schema:
 const QueryTestData TEST_DATA{
    .ndjson_input_data = DATA,
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = ReferenceGenomes{
-      {{"main", "ATCG"}}, {}},
+   .reference_genomes = ReferenceGenomes{{{"main", "ATCG"}}, {}},
    .without_unaligned_sequences = true,
 };
 
@@ -188,7 +190,8 @@ const QueryTestScenario SUM_OF_UNKNOWN_COLUMN = {
 // (since the group by requires no columns, no columns should be read by the table scan)
 const QueryTestScenario COUNT_NON_COLLAPSIBLE_TABLE_SCAN = {
    .name = "COUNT_NON_COLLAPSIBLE_TABLE_SCAN",
-   .query = "unionall(reference_genomes, reference_genomes).group(by:={}, aggs:={count := count()})",
+   .query =
+      "unionall(reference_genomes, reference_genomes).group(by:={}, aggs:={count := count()})",
    .expected_query_result = nlohmann::json::parse(R"([{"count": 2}])"),
 };
 
