@@ -170,9 +170,10 @@ std::optional<std::string> findReferenceSequence(
    const std::string& name,
    std::string_view type
 ) {
-   const auto& name_column = reference_genomes.columns.string_columns.at("name");
-   const auto& type_column = reference_genomes.columns.string_columns.at("type");
-   const auto& sequence_column = reference_genomes.columns.string_columns.at("sequence");
+   const auto& name_column = reference_genomes.getColumn<storage::column::StringColumn>("name");
+   const auto& type_column = reference_genomes.getColumn<storage::column::StringColumn>("type");
+   const auto& sequence_column =
+      reference_genomes.getColumn<storage::column::StringColumn>("sequence");
    for (const auto row_id : reference_genomes.row_layout) {
       if (name_column.isNull(row_id) || type_column.isNull(row_id) ||
           sequence_column.isNull(row_id)) {
