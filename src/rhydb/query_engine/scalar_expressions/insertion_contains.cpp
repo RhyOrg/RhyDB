@@ -68,7 +68,9 @@ std::unique_ptr<filter::operators::Operator> InsertionContains<SymbolType>::comp
    std::shared_ptr<const storage::insertion::InsertionSearchPattern<SymbolType>> search_pattern;
    try {
       search_pattern =
-         std::make_shared<const storage::insertion::InsertionSearchPattern<SymbolType>>(value);
+         std::make_shared<const storage::insertion::InsertionSearchPattern<SymbolType>>(
+            storage::insertion::InsertionSearchPattern<SymbolType>::make(value)
+         );
    } catch (const storage::InsertionFormatException&) {
       throw IllegalQueryException(
          "The field 'value' in the InsertionContains expression does not contain a valid "

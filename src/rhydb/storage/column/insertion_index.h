@@ -23,10 +23,15 @@ class ThreeMerHash {
 template <typename SymbolType>
 class InsertionSearchPattern {
    std::vector<std::array<typename SymbolType::Symbol, 3>> three_mers;
-   re2::RE2 regex;
+   std::unique_ptr<const re2::RE2> regex;
+
+   InsertionSearchPattern(
+      std::vector<std::array<typename SymbolType::Symbol, 3>> three_mers,
+      std::unique_ptr<const re2::RE2> regex
+   );
 
   public:
-   explicit InsertionSearchPattern(const std::string& search_pattern);
+   [[nodiscard]] static InsertionSearchPattern make(const std::string& search_pattern);
 
    [[nodiscard]] const std::vector<std::array<typename SymbolType::Symbol, 3>>& getThreeMers(
    ) const;

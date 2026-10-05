@@ -1,6 +1,7 @@
 #include "rhydb/storage/column/insertion_index.h"
 
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string_view>
 #include <unordered_set>
@@ -72,14 +73,25 @@ size_t ThreeMerHash<SymbolType>::operator()(
 }
 
 template <typename SymbolType>
-InsertionSearchPattern<SymbolType>::InsertionSearchPattern(const std::string& search_pattern)
-    : three_mers(extractThreeMers<SymbolType>(search_pattern)),
-      regex(search_pattern) {
-   if (!regex.ok()) {
+InsertionSearchPattern<SymbolType>::InsertionSearchPattern(
+   std::vector<std::array<typename SymbolType::Symbol, 3>> three_mers,
+   std::unique_ptr<const RE2> regex
+)
+    : three_mers(std::move(three_mers)),
+      regex(std::move(regex)) {}
+
+template <typename SymbolType>
+InsertionSearchPattern<SymbolType> InsertionSearchPattern<SymbolType>::make(
+   const std::string& search_pattern
+) {
+   auto three_mers = extractThreeMers<SymbolType>(search_pattern);
+   auto regex = std::make_unique<const RE2>(search_pattern);
+   if (!regex->ok()) {
       throw InsertionFormatException(
-         "Invalid regex in insertion search pattern '{}': {}", search_pattern, regex.error()
+         "Invalid regex in insertion search pattern '{}': {}", search_pattern, regex->error()
       );
    }
+   return {std::move(three_mers), std::move(regex)};
 }
 
 template <typename SymbolType>
@@ -90,7 +102,7 @@ const std::vector<std::array<typename SymbolType::Symbol, 3>>& InsertionSearchPa
 
 template <typename SymbolType>
 const RE2& InsertionSearchPattern<SymbolType>::getRegex() const {
-   return regex;
+   return *regex;
 }
 
 template <typename SymbolType>
