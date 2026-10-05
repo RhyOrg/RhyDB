@@ -220,8 +220,9 @@ available instances the endpoint should be guarded by other means (e.g. using `n
 source.filter(country='CH').project({primaryKey, country}).insertInto(archive)
 ```
 
-**Response** (200, `application/json`): a summary of the effect. For `insertInto`, the number of rows
-inserted:
+**Response** (200): a single row summarizing the effect, as NDJSON (`application/x-ndjson`) or, when
+requested via the `Accept: application/vnd.apache.arrow.stream` header, as an Arrow IPC stream, the
+same as for [`POST /query`](#post-query). For `insertInto`, the number of rows inserted:
 ```json
 {"insertedRows": 42}
 ```

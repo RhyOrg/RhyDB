@@ -386,9 +386,9 @@ TEST(DatabaseInsertQueryTest, copiesFilteredRowsFromOneTableIntoAnother) {
                << R"({"key":"c","country":"CH","age":3})" << "\n";
    database.appendData(TableName{"source"}, source_data);
 
-   const nlohmann::json result = database.executeWrite(
+   const nlohmann::json result = rhydb::test::writeResultToJson(database.executeWrite(
       "source.filter(country='CH').insertInto(archive)", defaultQueryOptions(), "test_request_id"
-   );
+   ));
 
    EXPECT_EQ(result.at("insertedRows").get<size_t>(), 2);
    EXPECT_EQ(countInTableWhere(database, "archive", "true"), 2);
@@ -420,18 +420,18 @@ TEST(DatabaseInsertQueryTest, reshapesWithProjectAndAccumulates) {
    database.appendData(TableName{"source"}, source_data);
 
    // project drops the `age` column the target does not have.
-   const nlohmann::json result = database.executeWrite(
+   const nlohmann::json result = rhydb::test::writeResultToJson(database.executeWrite(
       "source.project({key, country}).insertInto(archive)", defaultQueryOptions(), "test_request_id"
-   );
+   ));
    EXPECT_EQ(result.at("insertedRows").get<size_t>(), 2);
    EXPECT_EQ(countInTableWhere(database, "archive", "true"), 2);
 
    // A second append accumulates on top of the existing rows rather than replacing them.
-   const nlohmann::json result_again = database.executeWrite(
+   const nlohmann::json result_again = rhydb::test::writeResultToJson(database.executeWrite(
       "source.filter(country='US').project({key, country}).insertInto(archive)",
       defaultQueryOptions(),
       "test_request_id"
-   );
+   ));
    EXPECT_EQ(result_again.at("insertedRows").get<size_t>(), 1);
    EXPECT_EQ(countInTableWhere(database, "archive", "true"), 3);
 }
@@ -455,11 +455,11 @@ TEST(DatabaseInsertQueryTest, insertsAResultThatSpansSeveralBatches) {
    database.appendData(TableName{"source"}, source_data);
 
    // A cutoff of 1 makes the table scan emit tiny batches, so the insert sees many of them.
-   const nlohmann::json result = database.executeWrite(
+   const nlohmann::json result = rhydb::test::writeResultToJson(database.executeWrite(
       "source.insertInto(archive)",
       rhydb::config::QueryOptions{.materialization_cutoff = 1},
       "test_request_id"
-   );
+   ));
 
    EXPECT_EQ(result.at("insertedRows").get<size_t>(), NUMBER_OF_ROWS);
    EXPECT_EQ(countInTableWhere(database, "archive", "true"), NUMBER_OF_ROWS);

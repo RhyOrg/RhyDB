@@ -7,9 +7,12 @@
 #include <string_view>
 #include <variant>
 
-#include <nlohmann/json_fwd.hpp>
+#include <arrow/result.h>
+#include <arrow/scalar.h>
+#include <arrow/table.h>
 
 #include "rhydb/config/runtime_config.h"
+#include "rhydb/query_engine/exec_node/arrow_batch_sink.h"
 #include "rhydb/query_engine/operators/query_node.h"
 #include "rhydb/query_engine/saneql/function_registry.h"
 
@@ -23,11 +26,12 @@ class WriteCommand {
   public:
    virtual ~WriteCommand() = default;
 
-   /// Applies the command to `database`, mutating it, and returns a JSON summary of the effect
-   /// (e.g. `{"insertedRows": 42}`). Consuming: a command is executed at most once. `query_options`
-   /// are the same options that the read endpoint uses, so a command that plans a query executes it
-   /// with the configured materialization behaviour.
-   [[nodiscard]] virtual nlohmann::json execute(
+   /// Applies the command to `database`, mutating it, and returns its result as a table, which
+   /// may span several batches. For the current commands this is a single-row summary of the
+   /// effect (e.g. `{insertedRows: 42}`, see `makeWriteSummary`). Consuming: a command is executed
+   /// at most once. `query_options` are the same options that the read endpoint uses, so a command
+   /// that plans a query executes it with the configured materialization behaviour.
+   [[nodiscard]] virtual arrow::Result<std::shared_ptr<arrow::Table>> execute(
       Database& database,
       const config::QueryOptions& query_options,
       std::string_view request_id
@@ -35,6 +39,19 @@ class WriteCommand {
 };
 
 using WriteCommandPtr = std::unique_ptr<WriteCommand>;
+
+/// Builds the summary a write command returns: a single row with the single column `name` holding
+/// `value`.
+[[nodiscard]] arrow::Result<std::shared_ptr<arrow::Table>> makeWriteSummary(
+   const std::string& name,
+   const std::shared_ptr<arrow::Scalar>& value
+);
+
+/// Writes the result of a write command to `output_sink`, batch by batch, and finishes the sink.
+[[nodiscard]] arrow::Status writeToSink(
+   const arrow::Table& write_result,
+   exec_node::ArrowBatchSink& output_sink
+);
 
 using Request = std::variant<operators::QueryNodePtr, WriteCommandPtr>;
 

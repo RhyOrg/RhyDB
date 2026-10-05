@@ -6,8 +6,6 @@
 #include <string_view>
 #include <vector>
 
-#include <nlohmann/json_fwd.hpp>
-
 #include "rhydb/config/runtime_config.h"
 #include "rhydb/query_engine/command/write_command.h"
 #include "rhydb/query_engine/operators/query_node.h"
@@ -55,7 +53,7 @@ class CreateTableCommand : public WriteCommand {
       std::optional<std::string> primary_key
    );
 
-   [[nodiscard]] nlohmann::json execute(
+   [[nodiscard]] arrow::Result<std::shared_ptr<arrow::Table>> execute(
       Database& database,
       const config::QueryOptions& query_options,
       std::string_view request_id

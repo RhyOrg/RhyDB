@@ -9,6 +9,9 @@
 #include <vector>
 
 #include <Poco/Net/HTTPResponse.h>
+#include <arrow/api.h>
+#include <arrow/io/memory.h>
+#include <arrow/ipc/reader.h>
 #include <fmt/format.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -124,11 +127,15 @@ void postAdminQuery(
    const std::filesystem::path& data_directory,
    const std::string& query,
    rhydb_app::test::MockResponse& response,
-   bool allow_admin_endpoint = true
+   bool allow_admin_endpoint = true,
+   const std::string& accept_header = ""
 ) {
    rhydb_app::test::MockRequest request(response);
    request.setMethod("POST");
    request.setURI("/admin/query");
+   if (!accept_header.empty()) {
+      request.set("Accept", accept_header);
+   }
    request.in_stream << query;
 
    rhydb_app::RhyDBRequestHandlerFactory factory{
@@ -157,6 +164,7 @@ TEST(AdminQueryHandler, insertsQueryResultAndReportsRowCount) {
    );
 
    EXPECT_EQ(response.getStatus(), Poco::Net::HTTPResponse::HTTP_OK);
+   EXPECT_EQ(response.getContentType(), "application/x-ndjson");
 
    const auto body = nlohmann::json::parse(response.out_stream.str());
    EXPECT_EQ(body.at("insertedRows").get<size_t>(), 2);
@@ -171,6 +179,35 @@ TEST(AdminQueryHandler, insertsQueryResultAndReportsRowCount) {
    EXPECT_EQ(written.getDataVersionTimestamp().value, response.get("data-version"));
    EXPECT_EQ(written.tables.at(TableName{"archive"})->row_layout.numRows(), 2U);
    EXPECT_EQ(written.tables.at(TableName{"source"})->row_layout.numRows(), 3U);
+}
+
+TEST(AdminQueryHandler, returnsResultAsArrowIpcWhenRequested) {
+   const TemporaryDataDirectory data_directory;
+   auto handle = makeActiveDatabaseWithSourceData(data_directory.path());
+
+   rhydb_app::test::MockResponse response;
+   postAdminQuery(
+      handle,
+      data_directory.path(),
+      "source.filter(country='CH').insertInto(archive)",
+      response,
+      /*allow_admin_endpoint=*/true,
+      "application/vnd.apache.arrow.stream"
+   );
+
+   EXPECT_EQ(response.getStatus(), Poco::Net::HTTPResponse::HTTP_OK);
+   EXPECT_EQ(response.getContentType(), "application/vnd.apache.arrow.stream");
+
+   auto buffer_reader =
+      std::make_shared<arrow::io::BufferReader>(arrow::Buffer::FromString(response.out_stream.str())
+      );
+   auto reader = arrow::ipc::RecordBatchStreamReader::Open(buffer_reader).ValueOrDie();
+   const auto result = reader->ToTable().ValueOrDie();
+   ASSERT_EQ(result->num_rows(), 1);
+   ASSERT_EQ(result->schema()->field_names(), std::vector<std::string>{"insertedRows"});
+   const auto inserted_rows =
+      std::static_pointer_cast<arrow::Int64Array>(result->column(0)->chunk(0));
+   EXPECT_EQ(inserted_rows->Value(0), 2);
 }
 
 TEST(AdminQueryHandler, createsTableAndPersistsItsSchema) {

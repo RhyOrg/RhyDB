@@ -74,6 +74,8 @@ nlohmann::json executeQueryToJsonArray(
    uint64_t timeout_in_seconds = 3
 );
 
+nlohmann::json writeResultToJson(const std::shared_ptr<arrow::Table>& write_result);
+
 template <typename DataContainer>
 class QueryTestFixture : public ::testing::TestWithParam<QueryTestScenario> {
   public:
@@ -102,7 +104,7 @@ class QueryTestFixture : public ::testing::TestWithParam<QueryTestScenario> {
 
       database->appendData(schema::TableName::getDefault(), ndjson_objects_istream);
 
-      shared_database = database;
+      shared_database = std::move(database);
    }
 
    void runTest(const rhydb::test::QueryTestScenario& scenario) {

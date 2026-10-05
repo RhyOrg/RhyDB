@@ -17,7 +17,6 @@
 #include <arrow/ipc/writer.h>
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
-#include <nlohmann/json.hpp>
 
 #include "rhydb/append/table_inserter.h"
 #include "rhydb/common/aa_symbols.h"
@@ -526,7 +525,21 @@ std::string Database::executeQueryAsArrowIpc(const std::string& query_string) co
    return output_stream.str();
 }
 
-nlohmann::json Database::executeWrite(
+namespace {
+
+std::shared_ptr<arrow::Table> valueOrThrow(arrow::Result<std::shared_ptr<arrow::Table>> write_result
+) {
+   if (!write_result.ok()) {
+      throw std::runtime_error(
+         fmt::format("Failed to build the write result: {}", write_result.status().message())
+      );
+   }
+   return std::move(write_result).ValueUnsafe();
+}
+
+}  // namespace
+
+std::shared_ptr<arrow::Table> Database::executeWrite(
    const std::string& query_string,
    const config::QueryOptions& query_options,
    std::string_view request_id
@@ -538,7 +551,7 @@ nlohmann::json Database::executeWrite(
          "expected a write statement, e.g. `<query>.insertInto(<table>)`"
       );
    }
-   return (*command)->execute(*this, query_options, request_id);
+   return valueOrThrow((*command)->execute(*this, query_options, request_id));
 }
 
 }  // namespace rhydb

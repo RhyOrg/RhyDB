@@ -16,7 +16,6 @@
 #include <arrow/array/util.h>
 #include <arrow/compute/exec.h>
 #include <fmt/ranges.h>
-#include <nlohmann/json.hpp>
 
 #include "rhydb/common/aa_symbols.h"
 #include "rhydb/common/nucleotide_symbols.h"
@@ -239,7 +238,7 @@ class StringValuesSink : public exec_node::ArrowBatchSink {
    std::vector<std::optional<std::string>> values;
 
    arrow::Status writeBatch(const arrow::compute::ExecBatch& batch) override {
-      RHYDB_ASSERT_EQ(batch.values.size(), 1);
+      RHYDB_ASSERT_EQ(batch.values.size(), static_cast<size_t>(1));
       const auto& datum = batch.values.front();
       std::shared_ptr<arrow::Array> array;
       if (datum.is_array()) {
@@ -437,7 +436,7 @@ CreateTableCommand::CreateTableCommand(
       columns_(std::move(columns)),
       primary_key_(std::move(primary_key)) {}
 
-nlohmann::json CreateTableCommand::execute(
+arrow::Result<std::shared_ptr<arrow::Table>> CreateTableCommand::execute(
    Database& database,
    const config::QueryOptions& query_options,
    std::string_view request_id
@@ -471,7 +470,7 @@ nlohmann::json CreateTableCommand::execute(
    );
    database.updateDataVersion();
 
-   return {{"createdTable", table_name_.getName()}};
+   return makeWriteSummary("createdTable", arrow::MakeScalar(table_name_.getName()));
 }
 
 }  // namespace rhydb::query_engine::command

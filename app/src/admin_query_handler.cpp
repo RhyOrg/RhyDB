@@ -11,11 +11,13 @@
 #include <Poco/StreamCopier.h>
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
-#include <nlohmann/json.hpp>
 
 #include <rhydb/append/append_exception.h>
 #include <rhydb/common/rhydb_directory.h>
 #include <rhydb/database.h>
+#include <rhydb/query_engine/command/write_command.h>
+#include <rhydb/query_engine/exec_node/arrow_ipc_sink.h>
+#include <rhydb/query_engine/exec_node/ndjson_sink.h>
 #include <rhydb/query_engine/illegal_query_exception.h>
 #include <rhydb/query_engine/saneql/parse_exception.h>
 #include <evobench/evobench.hpp>
@@ -90,7 +92,7 @@ void AdminQueryHandler::post(
 
       rhydb::Database staged_database = loadDatabaseToWriteTo();
 
-      const nlohmann::json result =
+      const auto write_result =
          staged_database.executeWrite(query_string, query_options, request_id);
 
       staged_database.saveDatabaseState(data_directory);
@@ -98,16 +100,38 @@ void AdminQueryHandler::post(
       const auto data_version = staged_database.getDataVersionTimestamp();
 
       SPDLOG_INFO(
-         "Request Id [{}] - admin write statement applied: {}; new data version {}",
+         "Request Id [{}] - admin write statement applied; new data version {}",
          request_id,
-         result.dump(),
          data_version.value
       );
 
       response.set("data-version", data_version.value);
-      response.setContentType("application/json");
-      std::ostream& output_stream = response.send();
-      output_stream << result.dump();
+
+      const std::string accept_header = request.has("Accept") ? request.get("Accept") : "";
+      const bool use_arrow_ipc = accept_header.contains("application/vnd.apache.arrow.stream");
+
+      arrow::Status status;
+      if (use_arrow_ipc) {
+         response.setContentType("application/vnd.apache.arrow.stream");
+         std::ostream& output_stream = response.send();
+         auto output_sink = rhydb::query_engine::exec_node::ArrowIpcSink::make(
+            &output_stream, write_result->schema()
+         );
+         if (!output_sink.ok()) {
+            throw std::runtime_error(output_sink.status().ToString());
+         }
+         status = rhydb::query_engine::command::writeToSink(*write_result, *output_sink);
+      } else {
+         response.setContentType("application/x-ndjson");
+         std::ostream& output_stream = response.send();
+         rhydb::query_engine::exec_node::NdjsonSink output_sink{
+            &output_stream, write_result->schema()
+         };
+         status = rhydb::query_engine::command::writeToSink(*write_result, output_sink);
+      }
+      if (!status.ok()) {
+         throw std::runtime_error(status.ToString());
+      }
    } catch (const rhydb::query_engine::saneql::ParseException& ex) {
       throw BadRequest(ex.what());
    } catch (const rhydb::query_engine::IllegalQueryException& ex) {

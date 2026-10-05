@@ -1,8 +1,11 @@
 #include "rhydb/test/query_fixture.test.h"
 
+#include <memory>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 
+#include "rhydb/query_engine/command/write_command.h"
 #include "rhydb/query_engine/exec_node/ndjson_sink.h"
 
 namespace rhydb::test {
@@ -24,6 +27,16 @@ nlohmann::json executeQueryToJsonArray(
       result.push_back(nlohmann::json::parse(line));
    }
    return result;
+}
+
+nlohmann::json writeResultToJson(const std::shared_ptr<arrow::Table>& write_result) {
+   std::stringstream buffer;
+   query_engine::exec_node::NdjsonSink output_sink{&buffer, write_result->schema()};
+   const auto status = query_engine::command::writeToSink(*write_result, output_sink);
+   if (!status.ok()) {
+      throw std::runtime_error(status.ToString());
+   }
+   return nlohmann::json::parse(buffer.str());
 }
 
 }  // namespace rhydb::test
