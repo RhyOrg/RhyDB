@@ -99,13 +99,14 @@ void assertDecompressedStringArray(
          << "Decompressed array length does not match expected values size.";
 
       for (size_t i = 0; i < expected_values.size(); i++) {
-         if (string_array->IsNull(i)) {
+         const auto array_index = static_cast<int64_t>(i);
+         if (string_array->IsNull(array_index)) {
             ASSERT_FALSE(expected_values[i].has_value())
                << "Value at index " << i << " is null, but expected a value.";
          } else {
             ASSERT_TRUE(expected_values[i].has_value())
                << "Value at index " << i << " is not null, but expected null.";
-            ASSERT_EQ(string_array->Value(i), expected_values[i].value())
+            ASSERT_EQ(string_array->Value(array_index), expected_values[i].value())
                << "Decompressed value at index " << i << " does not match expected.";
          }
       }

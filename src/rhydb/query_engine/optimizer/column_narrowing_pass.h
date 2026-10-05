@@ -39,6 +39,8 @@ class ColumnNarrowingPass : public PipelinePassBase<ColumnNarrowingPass> {
 
    using PipelinePassBase<ColumnNarrowingPass>::operator();
 
+   // Shadowing the PipelinePassBase defaults is the intended way to customize a pass.
+   // NOLINTBEGIN(bugprone-derived-method-shadowing-base-method)
    operators::QueryNodePtr operator()(operators::FilterNode& node);
    operators::QueryNodePtr operator()(operators::TableScanNode& node);
    operators::QueryNodePtr operator()(operators::AggregateNode& node);
@@ -49,6 +51,7 @@ class ColumnNarrowingPass : public PipelinePassBase<ColumnNarrowingPass> {
    operators::QueryNodePtr operator()(operators::JoinNode& node);
    operators::QueryNodePtr operator()(operators::SchemaNode& node);
    operators::QueryNodePtr operator()(operators::TransitiveClosureNode& node);
+   // NOLINTEND(bugprone-derived-method-shadowing-base-method)
 };
 
 }  // namespace rhydb::query_engine::optimizer

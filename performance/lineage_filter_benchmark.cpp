@@ -152,10 +152,9 @@ Timing timeQuery(
       const auto start = std::chrono::high_resolution_clock::now();
       executeCount(database, query);
       const auto end = std::chrono::high_resolution_clock::now();
-      const double ms =
-         std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() / 1000.0;
-      sum_ms += ms;
-      min_ms = std::min(min_ms, ms);
+      const double elapsed_ms = std::chrono::duration<double, std::milli>(end - start).count();
+      sum_ms += elapsed_ms;
+      min_ms = std::min(min_ms, elapsed_ms);
    }
    return {.avg_ms = sum_ms / iterations, .min_ms = min_ms};
 }

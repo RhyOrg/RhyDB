@@ -109,7 +109,7 @@ schema:
    database.createTable(
       rhydb::schema::TableName::getDefault(),
       rhydb::initialize::Initializer::createSchemaFromConfigFiles(
-         std::move(database_config),
+         database_config,
          reference_genomes,
          {},
          rhydb::common::PhyloTree{},
@@ -183,9 +183,9 @@ void run() {
       const auto start = std::chrono::high_resolution_clock::now();
       result_rows = planAndExecute(query, database, query_options);
       const auto end = std::chrono::high_resolution_clock::now();
-      const double ms = std::chrono::duration<double, std::milli>(end - start).count();
-      sum_ms += ms;
-      min_ms = (i == 0) ? ms : std::min(min_ms, ms);
+      const double elapsed_ms = std::chrono::duration<double, std::milli>(end - start).count();
+      sum_ms += elapsed_ms;
+      min_ms = (i == 0) ? elapsed_ms : std::min(min_ms, elapsed_ms);
    }
 
    SPDLOG_INFO("Result rows: {}", result_rows);

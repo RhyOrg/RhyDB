@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -31,9 +32,11 @@ namespace rhydb::test {
  * Must be of the form `::testing::Values(rhydb::test::QueryTestScenario... scenarios)`.
  */
 #define QUERY_TEST(TEST_SUITE_NAME, TEST_DATA, TEST_VALUES)                                       \
+   namespace {                                                                                    \
    struct TEST_SUITE_NAME##DataContainer {                                                        \
       const rhydb::test::QueryTestData test_data = TEST_DATA;                                     \
    };                                                                                             \
+   }                                                                                              \
                                                                                                   \
    using TEST_SUITE_NAME##FixtureAlias =                                                          \
       rhydb::test::QueryTestFixture<TEST_SUITE_NAME##DataContainer>;                              \

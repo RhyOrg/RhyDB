@@ -29,16 +29,26 @@ namespace rhydb::storage {
 using schema::ColumnIdentifier;
 using schema::TableSchema;
 
+using column::BoolColumn;
+using column::Date32Column;
+using column::DictionaryEncodedColumn;
+using column::FloatColumn;
+using column::Int32Column;
+using column::Int64Column;
+using column::SequenceColumn;
+using column::StringColumn;
+using column::ZstdCompressedStringColumn;
+
 namespace {
 class BulkInsertVisitor {
   public:
    template <column::Column ColumnType>
    std::expected<void, std::string> operator()(
-      ColumnGroup& columns,
+      Table& table,
       TableChunkBuilder& block,
       const std::string& name
    ) {
-      return columns.getColumns<ColumnType>().at(name).appendChunk(
+      return table.getColumn<ColumnType>(name).appendChunk(
          block.getColumnBuilders<ColumnType>().at(name).finalize()
       );
    }
@@ -48,17 +58,16 @@ class BulkInsertVisitor {
 Table::Table(schema::TableName table_name, std::shared_ptr<schema::TableSchema> schema)
     : table_name(std::move(table_name)),
       schema(std::move(schema)) {
-   auto column_initializer = []<column::Column ColumnType>(
-                                ColumnGroup& column_group,
-                                const ColumnIdentifier& column_identifier,
-                                TableSchema& table_schema
-                             ) {
-      ColumnType column(table_schema.getColumnMetadata<ColumnType>(column_identifier.name).value());
-      column_group.metadata.emplace_back(column_identifier);
-      column_group.getColumns<ColumnType>().emplace(column_identifier.name, std::move(column));
-   };
+   auto column_initializer =
+      [this]<column::Column ColumnType>(const ColumnIdentifier& column_identifier) {
+         columns.try_emplace(
+            column_identifier.name,
+            std::in_place_type<ColumnType>,
+            this->schema->getColumnMetadata<ColumnType>(column_identifier.name).value()
+         );
+      };
    for (const auto& col : this->schema->getColumnIdentifiers()) {
-      column::visit(col.type, column_initializer, columns, col, *this->schema);
+      column::visit(col.type, column_initializer, col);
    }
 }
 
@@ -80,8 +89,8 @@ void Table::validate() const {
 std::expected<void, std::string> Table::bulkInsert(TableChunkBuilder& block) {
    row_layout.appendChunk(static_cast<uint32_t>(block.numBufferedRows()));
    row_count += block.numBufferedRows();
-   for (const auto& column : columns.metadata) {
-      auto result = column::visit(column.type, BulkInsertVisitor{}, columns, block, column.name);
+   for (const auto& column : schema->getColumnIdentifiers()) {
+      auto result = column::visit(column.type, BulkInsertVisitor{}, *this, block, column.name);
       if (!result.has_value()) {
          return result;
       }
@@ -90,11 +99,12 @@ std::expected<void, std::string> Table::bulkInsert(TableChunkBuilder& block) {
 }
 
 void Table::finalize() {
-   for (auto& [_, sequence_column] : columns.nuc_columns) {
-      sequence_column.finalize();
-   }
-   for (auto& [_, sequence_column] : columns.aa_columns) {
-      sequence_column.finalize();
+   for (auto& [_, column] : columns) {
+      if (auto* nuc_column = std::get_if<SequenceColumn<Nucleotide>>(&column)) {
+         nuc_column->finalize();
+      } else if (auto* aa_column = std::get_if<SequenceColumn<AminoAcid>>(&column)) {
+         aa_column->finalize();
+      }
    }
 }
 
@@ -107,7 +117,7 @@ void Table::validatePrimaryKeyUnique() const {
    const auto& primary_key = schema->primary_key.value();
    RHYDB_ASSERT(primary_key.type == schema::ColumnType::STRING);
 
-   const auto& primary_key_column = columns.string_columns.at(primary_key.name);
+   const auto& primary_key_column = getColumn<StringColumn>(primary_key.name);
 
    std::unordered_set<std::string> unique_keys;
    unique_keys.reserve(row_layout.numRows());
@@ -122,7 +132,12 @@ void Table::validatePrimaryKeyUnique() const {
 }
 
 void Table::validateNucleotideSequences() const {
-   for (const auto& [name, nuc_column] : columns.nuc_columns) {
+   for (const auto& [name, column] : columns) {
+      const auto* nuc_column_ptr = std::get_if<SequenceColumn<Nucleotide>>(&column);
+      if (nuc_column_ptr == nullptr) {
+         continue;
+      }
+      const auto& nuc_column = *nuc_column_ptr;
       if (nuc_column.sequence_count > row_count) {
          RHYDB_PANIC(
             "nuc_store {} ({}) has invalid size (expected {}).",
@@ -138,7 +153,12 @@ void Table::validateNucleotideSequences() const {
 }
 
 void Table::validateAminoAcidSequences() const {
-   for (const auto& [name, aa_column] : columns.aa_columns) {
+   for (const auto& [name, column] : columns) {
+      const auto* aa_column_ptr = std::get_if<SequenceColumn<AminoAcid>>(&column);
+      if (aa_column_ptr == nullptr) {
+         continue;
+      }
+      const auto& aa_column = *aa_column_ptr;
       if (aa_column.sequence_count > row_count) {
          RHYDB_PANIC(
             "aa_store {} ({}) has invalid size (expected {}).",
@@ -154,46 +174,45 @@ void Table::validateAminoAcidSequences() const {
 }
 
 template <typename Column>
-void Table::validateColumnsHaveSize(
-   const std::map<std::string, Column>& columnsOfTheType,
-   const std::string& columnType
-) const {
-   for (const auto& col : columnsOfTheType) {
-      // Every column is appended to in lockstep with the table's `RowLayout`, so each must hold
-      // exactly one chunk per layout chunk. The per-chunk row counts live in the layout itself.
-      if (col.second.numChunks() != row_layout.numChunks()) {
+void Table::validateColumnHasSize(const std::string& name, const Column& column) const {
+   // Every column is appended to in lockstep with the table's `RowLayout`, so each must hold
+   // exactly one chunk per layout chunk. The per-chunk row counts live in the layout itself.
+   if (column.numChunks() != row_layout.numChunks()) {
+      throw preprocessing::PreprocessingException(
+         "column {} has invalid chunk count {} (expected {})",
+         name,
+         column.numChunks(),
+         row_layout.numChunks()
+      );
+   }
+   const uint16_t num_chunks = row_layout.numChunks();
+   for (uint16_t chunk_id = 0; chunk_id < num_chunks; ++chunk_id) {
+      if (column.chunkSize(chunk_id) != row_layout.chunkSize(chunk_id)) {
          throw preprocessing::PreprocessingException(
-            "{} {} has invalid chunk count {} (expected {})",
-            columnType,
-            col.first,
-            col.second.numChunks(),
-            row_layout.numChunks()
+            "column {} has invalid chunk (id={}) size {} (expected {})",
+            name,
+            chunk_id,
+            column.chunkSize(chunk_id),
+            row_layout.chunkSize(chunk_id)
          );
-      }
-      const uint16_t num_chunks = row_layout.numChunks();
-      for (uint16_t chunk_id = 0; chunk_id < num_chunks; ++chunk_id) {
-         if (col.second.chunkSize(chunk_id) != row_layout.chunkSize(chunk_id)) {
-            throw preprocessing::PreprocessingException(
-               "{} {} has invalid chunk (id={}) size {} (expected {})",
-               columnType,
-               col.first,
-               chunk_id,
-               col.second.chunkSize(chunk_id),
-               row_layout.chunkSize(chunk_id)
-            );
-         }
       }
    }
 }
 
 void Table::validateMetadataColumns() const {
-   validateColumnsHaveSize(columns.date32_columns, "date32_columns");
-   validateColumnsHaveSize(columns.bool_columns, "bool_columns");
-   validateColumnsHaveSize(columns.int32_columns, "int32_columns");
-   validateColumnsHaveSize(columns.int64_columns, "int64_columns");
-   validateColumnsHaveSize(columns.dictionary_encoded_columns, "dictionary_encoded_columns");
-   validateColumnsHaveSize(columns.string_columns, "string_columns");
-   validateColumnsHaveSize(columns.float_columns, "float_columns");
+   for (const auto& [name, column] : columns) {
+      std::visit(
+         [&]<typename Column>(const Column& typed_column) {
+            // Sequence and zstd-compressed string columns are not chunk-checked here
+            if constexpr (!std::is_same_v<Column, SequenceColumn<Nucleotide>> &&
+                          !std::is_same_v<Column, SequenceColumn<AminoAcid>> &&
+                          !std::is_same_v<Column, ZstdCompressedStringColumn>) {
+               validateColumnHasSize(name, typed_column);
+            }
+         },
+         column
+      );
+   }
 }
 
 namespace {

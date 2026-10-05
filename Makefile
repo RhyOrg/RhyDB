@@ -15,6 +15,8 @@ DEPENDENCIES_FLAG=dependencies
 WASM_DEPENDENCIES_FLAG=build/wasm/dependencies
 CLANG_FORMAT=$(shell command -v clang-format-19 2>/dev/null || command -v clang-format 2>/dev/null || echo clang-format)
 CMAKE_BUILD_PARALLEL_LEVEL ?= 16
+# Docker image for lint-changes/lint-all; empty uses the scripts' default (:latest)
+LINT_DOCKER_IMAGE ?=
 # Route cmake through `env` so recipe lines survive an emsdk-activated PATH.
 # emsdk prepends a directory literally named `cmake` (its CMake module dir) to
 # PATH. GNU make execs recipe lines without shell metacharacters directly via
@@ -194,11 +196,11 @@ bump-serialization-version:
 
 .PHONY: lint-changes
 lint-changes:
-	buildScripts/lint-changes
+	buildScripts/lint-changes $(LINT_DOCKER_IMAGE)
 
 .PHONY: lint-all
 lint-all:
-	buildScripts/lint-all
+	buildScripts/lint-all $(LINT_DOCKER_IMAGE)
 
 .PHONY: clean-api
 clean-api:

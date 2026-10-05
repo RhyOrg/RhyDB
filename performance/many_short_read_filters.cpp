@@ -37,7 +37,7 @@ TestDatabaseResult setupTestDatabase() {
    auto database = initializeDatabaseWithShortReadSchema(reference);
    database->appendData(rhydb::schema::TableName::getDefault(), input_file);
 
-   return {database, ref_length};
+   return {.database = database, .reference_length = ref_length};
 }
 
 class QueryGenerator {
@@ -47,7 +47,7 @@ class QueryGenerator {
    static constexpr std::array<char, 5> SYMBOLS = {'A', 'C', 'G', 'T', '-'};
 
   public:
-   QueryGenerator(size_t ref_length, uint64_t seed = 42)
+   explicit QueryGenerator(size_t ref_length, uint64_t seed = 42)
        : rng(seed),
          reference_length(ref_length) {}
 
