@@ -114,6 +114,17 @@ const QueryTestScenario INSERTION_CONTAINS_WITHOUT_SEQUENCE_NAME_POSITION_OUT_OF
    .expected_error_message = "insertionContains() requires argument 'sequenceName'",
 };
 
+const QueryTestScenario INSERTION_CONTAINS_INVALID_PATTERN_AT_POSITION_WITHOUT_INSERTIONS = {
+   .name = "INSERTION_CONTAINS_INVALID_PATTERN_AT_POSITION_WITHOUT_INSERTIONS",
+   .query =
+      "default.filter(insertionContains(position:=5, value:='CC+++', "
+      "sequenceName:='segment1')).project(primaryKey)",
+   .expected_error_message =
+      "The field 'value' in the InsertionContains expression does not contain a valid regex "
+      "pattern: \"CC+++\". It must only consist of nucleotide symbols and the regex symbol '.*'. "
+      "Also note that the stop codon * must be escaped correctly with a \\ in amino acid queries."
+};
+
 }  // namespace nucleotide
 
 namespace amino_acid {
@@ -195,7 +206,8 @@ QUERY_TEST(
       nucleotide::INSERTION_CONTAINS_WITHOUT_SEQUENCE_NAME_ERRORS,
       nucleotide::INSERTION_CONTAINS_WITH_UNKNOWN_SEGMENT_SCENARIO,
       nucleotide::INSERTION_CONTAINS_POSITION_OUT_OF_RANGE,
-      nucleotide::INSERTION_CONTAINS_WITHOUT_SEQUENCE_NAME_POSITION_OUT_OF_RANGE
+      nucleotide::INSERTION_CONTAINS_WITHOUT_SEQUENCE_NAME_POSITION_OUT_OF_RANGE,
+      nucleotide::INSERTION_CONTAINS_INVALID_PATTERN_AT_POSITION_WITHOUT_INSERTIONS
    )
 );
 
