@@ -149,7 +149,7 @@ TEST(QueryPlan, doesNotAbortPlanAfterEmptyGroupedAggregateCompletes) {
    std::vector<std::thread> threads;
    threads.reserve(THREAD_COUNT);
    for (int thread = 0; thread < THREAD_COUNT; ++thread) {
-      threads.emplace_back([&]() {
+      threads.emplace_back([&] {
          for (int run = 0; run < RUNS_PER_THREAD; ++run) {
             auto arrow_plan = arrow::acero::ExecPlan::Make().ValueOrDie();
             auto* node =

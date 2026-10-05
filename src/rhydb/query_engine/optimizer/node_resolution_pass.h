@@ -26,6 +26,8 @@ class NodeResolutionPass : public PipelinePassBase<NodeResolutionPass> {
   public:
    using PipelinePassBase<NodeResolutionPass>::operator();
 
+   // Shadowing the PipelinePassBase defaults is the intended way to customize a pass.
+   // NOLINTBEGIN(bugprone-derived-method-shadowing-base-method)
    operators::QueryNodePtr operator()(operators::AggregateNode& node);
    template <typename SymbolType>
    operators::QueryNodePtr operator()(operators::UnresolvedMutationsNode<SymbolType>& node);
@@ -34,6 +36,7 @@ class NodeResolutionPass : public PipelinePassBase<NodeResolutionPass> {
    operators::QueryNodePtr operator()(operators::UnresolvedMostRecentCommonAncestorNode& node);
    operators::QueryNodePtr operator()(operators::UnresolvedPhyloSubtreeNode& node);
    operators::QueryNodePtr operator()(operators::SchemaNode& node);
+   // NOLINTEND(bugprone-derived-method-shadowing-base-method)
 };
 
 }  // namespace rhydb::query_engine::optimizer

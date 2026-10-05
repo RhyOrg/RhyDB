@@ -16,6 +16,8 @@
 
 namespace rhydb::storage::column {
 
+namespace {
+
 // Test fixture for HorizontalCoverageIndex with Nucleotide
 class HorizontalCoverageIndexTest : public ::testing::Test {
   protected:
@@ -74,8 +76,6 @@ class HorizontalCoverageIndexTest : public ::testing::Test {
    std::unique_ptr<HorizontalCoverageIndex> index;
    uint32_t current_global_row_id = 0;
 };
-
-namespace {
 
 /// The rows a `coveredRowsInChunk` result holds, as row-in-chunk indices.
 std::vector<uint16_t> rowsIn(const roaring_util::RoaringContainer& container) {
@@ -682,6 +682,8 @@ const std::vector<size_t> ROW_COUNTS =
 // Runs everywhere, and pins down the bit packing (`row / 64`, `row % 64`) that the AVX-512 kernel
 // then has to reproduce with a shifted 16-bit mask.
 TEST(CoverageScan, scalarMatchesSpecification) {
+   // A fixed seed keeps the test reproducible.
+   // NOLINTNEXTLINE(bugprone-random-generator-seed)
    std::mt19937 random{20260922};
    constexpr uint32_t GENOME_LENGTH = 512;
 
@@ -715,6 +717,8 @@ TEST(CoverageScan, avx512MatchesScalar) {
       GTEST_SKIP() << "CPU lacks avx512f/avx512bw, so coverageScanAvx512 cannot be executed here";
    }
 
+   // A fixed seed keeps the test reproducible.
+   // NOLINTNEXTLINE(bugprone-random-generator-seed)
    std::mt19937 random{20260922};
    constexpr uint32_t GENOME_LENGTH = 512;
 

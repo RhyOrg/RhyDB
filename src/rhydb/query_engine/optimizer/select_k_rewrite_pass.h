@@ -23,7 +23,10 @@ class SelectKRewritePass : public PipelinePassBase<SelectKRewritePass> {
   public:
    using PipelinePassBase<SelectKRewritePass>::operator();
 
+   // Shadowing the PipelinePassBase defaults is the intended way to customize a pass.
+   // NOLINTBEGIN(bugprone-derived-method-shadowing-base-method)
    operators::QueryNodePtr operator()(operators::FetchNode& node);
+   // NOLINTEND(bugprone-derived-method-shadowing-base-method)
 };
 
 }  // namespace rhydb::query_engine::optimizer
