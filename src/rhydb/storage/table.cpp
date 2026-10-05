@@ -29,16 +29,130 @@ namespace rhydb::storage {
 using schema::ColumnIdentifier;
 using schema::TableSchema;
 
+using column::BoolColumn;
+using column::Date32Column;
+using column::DictionaryEncodedColumn;
+using column::FloatColumn;
+using column::Int32Column;
+using column::Int64Column;
+using column::SequenceColumn;
+using column::StringColumn;
+using column::ZstdCompressedStringColumn;
+
+template <>
+std::map<std::string, DictionaryEncodedColumn>& Table::getColumns<DictionaryEncodedColumn>() {
+   return dictionary_encoded_columns;
+}
+
+template <>
+std::map<std::string, StringColumn>& Table::getColumns<StringColumn>() {
+   return string_columns;
+}
+
+template <>
+std::map<std::string, Int32Column>& Table::getColumns<Int32Column>() {
+   return int32_columns;
+}
+
+template <>
+std::map<std::string, Int64Column>& Table::getColumns<Int64Column>() {
+   return int64_columns;
+}
+
+template <>
+std::map<std::string, BoolColumn>& Table::getColumns<BoolColumn>() {
+   return bool_columns;
+}
+
+template <>
+std::map<std::string, FloatColumn>& Table::getColumns<FloatColumn>() {
+   return float_columns;
+}
+
+template <>
+std::map<std::string, Date32Column>& Table::getColumns<Date32Column>() {
+   return date32_columns;
+}
+
+template <>
+std::map<std::string, SequenceColumn<Nucleotide>>& Table::getColumns<SequenceColumn<Nucleotide>>() {
+   return nuc_columns;
+}
+
+template <>
+std::map<std::string, SequenceColumn<AminoAcid>>& Table::getColumns<SequenceColumn<AminoAcid>>() {
+   return aa_columns;
+}
+
+template <>
+std::map<std::string, ZstdCompressedStringColumn>& Table::getColumns<ZstdCompressedStringColumn>() {
+   return zstd_compressed_string_columns;
+}
+
+template <>
+const std::map<std::string, DictionaryEncodedColumn>& Table::getColumns<DictionaryEncodedColumn>(
+) const {
+   return dictionary_encoded_columns;
+}
+
+template <>
+const std::map<std::string, StringColumn>& Table::getColumns<StringColumn>() const {
+   return string_columns;
+}
+
+template <>
+const std::map<std::string, Int32Column>& Table::getColumns<Int32Column>() const {
+   return int32_columns;
+}
+
+template <>
+const std::map<std::string, Int64Column>& Table::getColumns<Int64Column>() const {
+   return int64_columns;
+}
+
+template <>
+const std::map<std::string, BoolColumn>& Table::getColumns<BoolColumn>() const {
+   return bool_columns;
+}
+
+template <>
+const std::map<std::string, FloatColumn>& Table::getColumns<FloatColumn>() const {
+   return float_columns;
+}
+
+template <>
+const std::map<std::string, Date32Column>& Table::getColumns<Date32Column>() const {
+   return date32_columns;
+}
+
+template <>
+const std::map<std::string, SequenceColumn<Nucleotide>>& Table::getColumns<
+   SequenceColumn<Nucleotide>>() const {
+   return nuc_columns;
+}
+
+template <>
+const std::map<std::string, SequenceColumn<AminoAcid>>& Table::getColumns<
+   SequenceColumn<AminoAcid>>() const {
+   return aa_columns;
+}
+
+template <>
+const std::map<std::string, ZstdCompressedStringColumn>& Table::getColumns<
+   ZstdCompressedStringColumn>() const {
+   return zstd_compressed_string_columns;
+}
+
 namespace {
 class BulkInsertVisitor {
   public:
    template <column::Column ColumnType>
    std::expected<void, std::string> operator()(
-      ColumnGroup& columns,
+      Table& table,
       TableChunkBuilder& block,
       const std::string& name
    ) {
-      return columns.getColumns<ColumnType>().at(name).appendChunk(
+      return table.getColumns<ColumnType>().at(name).appendChunk(
          block.getColumnBuilders<ColumnType>().at(name).finalize()
       );
    }
@@ -48,17 +162,15 @@ class BulkInsertVisitor {
 Table::Table(schema::TableName table_name, std::shared_ptr<schema::TableSchema> schema)
     : table_name(std::move(table_name)),
       schema(std::move(schema)) {
-   auto column_initializer = []<column::Column ColumnType>(
-                                ColumnGroup& column_group,
-                                const ColumnIdentifier& column_identifier,
-                                TableSchema& table_schema
+   auto column_initializer = [this]<column::Column ColumnType>(
+                                const ColumnIdentifier& column_identifier
                              ) {
-      ColumnType column(table_schema.getColumnMetadata<ColumnType>(column_identifier.name).value());
-      column_group.metadata.emplace_back(column_identifier);
-      column_group.getColumns<ColumnType>().emplace(column_identifier.name, std::move(column));
+      ColumnType column(this->schema->getColumnMetadata<ColumnType>(column_identifier.name).value()
+      );
+      getColumns<ColumnType>().emplace(column_identifier.name, std::move(column));
    };
    for (const auto& col : this->schema->getColumnIdentifiers()) {
-      column::visit(col.type, column_initializer, columns, col, *this->schema);
+      column::visit(col.type, column_initializer, col);
    }
 }
 
@@ -80,8 +192,8 @@ void Table::validate() const {
 std::expected<void, std::string> Table::bulkInsert(TableChunkBuilder& block) {
    row_layout.appendChunk(static_cast<uint32_t>(block.numBufferedRows()));
    row_count += block.numBufferedRows();
-   for (const auto& column : columns.metadata) {
-      auto result = column::visit(column.type, BulkInsertVisitor{}, columns, block, column.name);
+   for (const auto& column : schema->getColumnIdentifiers()) {
+      auto result = column::visit(column.type, BulkInsertVisitor{}, *this, block, column.name);
       if (!result.has_value()) {
          return result;
       }
@@ -90,10 +202,10 @@ std::expected<void, std::string> Table::bulkInsert(TableChunkBuilder& block) {
 }
 
 void Table::finalize() {
-   for (auto& [_, sequence_column] : columns.nuc_columns) {
+   for (auto& [_, sequence_column] : nuc_columns) {
       sequence_column.finalize();
    }
-   for (auto& [_, sequence_column] : columns.aa_columns) {
+   for (auto& [_, sequence_column] : aa_columns) {
       sequence_column.finalize();
    }
 }
@@ -107,7 +219,7 @@ void Table::validatePrimaryKeyUnique() const {
    const auto& primary_key = schema->primary_key.value();
    RHYDB_ASSERT(primary_key.type == schema::ColumnType::STRING);
 
-   const auto& primary_key_column = columns.string_columns.at(primary_key.name);
+   const auto& primary_key_column = string_columns.at(primary_key.name);
 
    std::unordered_set<std::string> unique_keys;
    unique_keys.reserve(row_layout.numRows());
@@ -122,7 +234,7 @@ void Table::validatePrimaryKeyUnique() const {
 }
 
 void Table::validateNucleotideSequences() const {
-   for (const auto& [name, nuc_column] : columns.nuc_columns) {
+   for (const auto& [name, nuc_column] : nuc_columns) {
       if (nuc_column.sequence_count > row_count) {
          RHYDB_PANIC(
             "nuc_store {} ({}) has invalid size (expected {}).",
@@ -138,7 +250,7 @@ void Table::validateNucleotideSequences() const {
 }
 
 void Table::validateAminoAcidSequences() const {
-   for (const auto& [name, aa_column] : columns.aa_columns) {
+   for (const auto& [name, aa_column] : aa_columns) {
       if (aa_column.sequence_count > row_count) {
          RHYDB_PANIC(
             "aa_store {} ({}) has invalid size (expected {}).",
@@ -187,13 +299,13 @@ void Table::validateColumnsHaveSize(
 }
 
 void Table::validateMetadataColumns() const {
-   validateColumnsHaveSize(columns.date32_columns, "date32_columns");
-   validateColumnsHaveSize(columns.bool_columns, "bool_columns");
-   validateColumnsHaveSize(columns.int32_columns, "int32_columns");
-   validateColumnsHaveSize(columns.int64_columns, "int64_columns");
-   validateColumnsHaveSize(columns.dictionary_encoded_columns, "dictionary_encoded_columns");
-   validateColumnsHaveSize(columns.string_columns, "string_columns");
-   validateColumnsHaveSize(columns.float_columns, "float_columns");
+   validateColumnsHaveSize(date32_columns, "date32_columns");
+   validateColumnsHaveSize(bool_columns, "bool_columns");
+   validateColumnsHaveSize(int32_columns, "int32_columns");
+   validateColumnsHaveSize(int64_columns, "int64_columns");
+   validateColumnsHaveSize(dictionary_encoded_columns, "dictionary_encoded_columns");
+   validateColumnsHaveSize(string_columns, "string_columns");
+   validateColumnsHaveSize(float_columns, "float_columns");
 }
 
 namespace {
