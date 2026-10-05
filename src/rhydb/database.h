@@ -1,6 +1,8 @@
 #pragma once
 
+#include <expected>
 #include <filesystem>
+#include <string_view>
 
 #include <nlohmann/json_fwd.hpp>
 
@@ -34,6 +36,14 @@ class Database {
 
    virtual ~Database() = default;
 
+   /// Checks that `table_name` can name a table. A table's data is saved to a file named after it,
+   /// so the name may only contain letters, digits, '_' and '-' (no path separators or dots), and
+   /// must not collide with the files that hold the database's own metadata.
+   [[nodiscard]] static std::expected<void, std::string> validateTableName(
+      std::string_view table_name
+   );
+
+   /// Throws if `table_name` is invalid, see `validateTableName`.
    void createTable(
       schema::TableName table_name,
       std::shared_ptr<schema::TableSchema> table_schema

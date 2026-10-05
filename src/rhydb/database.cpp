@@ -1,5 +1,7 @@
 #include "rhydb/database.h"
 
+#include <algorithm>
+#include <expected>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -78,6 +80,17 @@ std::string symbolVectorToString(const std::vector<typename SymbolType::Symbol>&
 
 namespace rhydb {
 
+namespace {
+
+const std::string DATABASE_SCHEMA_FILENAME = "database_schema.silo";
+const std::string DATA_VERSION_FILENAME = "data_version.silo";
+
+std::string tableDataFilename(std::string_view table_name) {
+   return fmt::format("{}.silo", table_name);
+}
+
+}  // namespace
+
 Database::Database() {
    createMissingBuiltinTables();
 }
@@ -98,10 +111,33 @@ void Database::createMissingBuiltinTables() {
    }
 }
 
+std::expected<void, std::string> Database::validateTableName(std::string_view table_name) {
+   if (table_name.empty()) {
+      return std::unexpected{std::string{"a table name must not be empty"}};
+   }
+   const bool has_only_safe_characters = std::ranges::all_of(table_name, [](char character) {
+      return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+             (character >= '0' && character <= '9') || character == '_' || character == '-';
+   });
+   if (!has_only_safe_characters) {
+      return std::unexpected{fmt::format(
+         "the table name '{}' may only contain letters, digits, '_' and '-'", table_name
+      )};
+   }
+   const auto data_filename = tableDataFilename(table_name);
+   if (data_filename == DATABASE_SCHEMA_FILENAME || data_filename == DATA_VERSION_FILENAME) {
+      return std::unexpected{fmt::format("the table name '{}' is reserved", table_name)};
+   }
+   return {};
+}
+
 void Database::createTable(
    schema::TableName table_name,
    std::shared_ptr<schema::TableSchema> table_schema
 ) {
+   if (auto valid = validateTableName(table_name.getName()); !valid.has_value()) {
+      throw std::runtime_error{fmt::format("Cannot create table: {}", valid.error())};
+   }
    tables.emplace(table_name, std::make_shared<storage::Table>(table_name, table_schema));
    schema.tables.emplace(std::move(table_name), std::move(table_schema));
 }
@@ -359,9 +395,6 @@ DatabaseInfo Database::getDatabaseInfo() const {
    return database_info;
 }
 
-const std::string DATABASE_SCHEMA_FILENAME = "database_schema.silo";
-const std::string DATA_VERSION_FILENAME = "data_version.silo";
-
 void Database::saveDatabaseState(const std::filesystem::path& save_directory) {
    if (getDataVersionTimestamp().value.empty()) {
       throw persistence::SaveDatabaseException(
@@ -404,7 +437,7 @@ void Database::saveDatabaseState(const std::filesystem::path& save_directory) {
    for (const auto& [table_name, table] : tables) {
       SPDLOG_DEBUG("Saving table data for table {}", table_name.getName());
       const std::filesystem::path table_file =
-         versioned_save_directory / (table_name.getName() + ".silo");
+         versioned_save_directory / tableDataFilename(table_name.getName());
       table->saveData(table_file);
    }
 
@@ -451,7 +484,8 @@ Database Database::loadDatabaseState(const RhyDBDataSource& rhydb_data_source) {
 
    for (const auto& [table_name, _] : schema.tables) {
       SPDLOG_DEBUG("Loading data for table {}", table_name.getName());
-      database.tables.at(table_name)->loadData(save_directory / (table_name.getName() + ".silo"));
+      database.tables.at(table_name)
+         ->loadData(save_directory / tableDataFilename(table_name.getName()));
    }
 
    database.data_version_ = loadDataVersion(save_directory / DATA_VERSION_FILENAME);
