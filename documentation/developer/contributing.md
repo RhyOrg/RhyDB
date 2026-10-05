@@ -142,7 +142,7 @@ To run all tests, run
 build/Release/rhydb_test
 ```
 
-For linting we use clang-tidy. The config is stored in `.clang-tidy`. The CI/dependency image uses clang-tidy 23, including `readability-trailing-comma` for multi-line initializer lists.
+For linting we use clang-tidy. The config is stored in `.clang-tidy`.
 
 When pushing to GitHub, the linter will run on all changed files in the dependencies image, which has clang-tidy installed.
 To run the same changed-files lint path locally, use `make lint-changes`.
