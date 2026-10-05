@@ -23,7 +23,7 @@
 
 namespace rhydb::storage {
 
-class ColumnGroup;
+class Table;
 
 /// Accumulates one ingestion chunk (at most column::COLUMN_CHUNK_SIZE rows) by
 /// buffering the extracted value of each row into a per-column builder. The
@@ -49,7 +49,7 @@ class TableChunkBuilder {
    /// The sequence column builders are seeded with each column's current
    /// (possibly adapted) local reference, so sequences buffered into a chunk are
    /// diffed against the same reference basis as the already-stored rows.
-   TableChunkBuilder(const schema::TableSchema& schema, const ColumnGroup& columns);
+   explicit TableChunkBuilder(const Table& table);
 
    /// Extract the value of one column for the current row from the json line and
    /// buffer it into the matching column builder.
