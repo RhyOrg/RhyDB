@@ -74,7 +74,13 @@ size_t ThreeMerHash<SymbolType>::operator()(
 template <typename SymbolType>
 InsertionSearchPattern<SymbolType>::InsertionSearchPattern(const std::string& search_pattern)
     : three_mers(extractThreeMers<SymbolType>(search_pattern)),
-      regex(search_pattern) {}
+      regex(search_pattern) {
+   if (!regex.ok()) {
+      throw InsertionFormatException(
+         "Invalid regex in insertion search pattern '{}': {}", search_pattern, regex.error()
+      );
+   }
+}
 
 template <typename SymbolType>
 const std::vector<std::array<typename SymbolType::Symbol, 3>>& InsertionSearchPattern<
