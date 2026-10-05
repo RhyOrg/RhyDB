@@ -102,7 +102,7 @@ std::string printTestName(const ::testing::TestParamInfo<Scenario<Assertion>>& i
 const Scenario<Success> NDJSON_FILE_WITH_MISSING_SEGMENTS_AND_GENES = {
    .test_name = "NDJSON_FILE_WITH_MISSING_SEGMENTS_AND_GENES",
    .input_data =
-      []() {
+      [] {
          std::vector<nlohmann::json> result;
          result.push_back(nlohmann::json::parse(R"({
 "accessionVersion": "1.1",
@@ -183,7 +183,7 @@ schema:
 const Scenario<Success> NDJSON_WITH_SQL_KEYWORD_AS_FIELD = {
    .test_name = "NDJSON_WITH_SQL_KEYWORD_AS_FIELD",
    .input_data =
-      []() {
+      [] {
          std::vector<nlohmann::json> result;
          result.push_back(nlohmann::json::parse(R"({
 "primaryKey": "1.1",
@@ -241,7 +241,7 @@ schema:
 const Scenario<Success> NDJSON_WITH_NUMERIC_NAMES = {
    .test_name = "NDJSON_WITH_NUMERIC_NAMES",
    .input_data =
-      []() {
+      [] {
          std::vector<nlohmann::json> result;
          result.push_back(nlohmann::json::parse(R"({
 "2": "google.com",
@@ -313,7 +313,7 @@ schema:
 
 const Scenario<Success> EMPTY_INPUT_NDJSON = {
    .test_name = "EMPTY_INPUT_NDJSON",
-   .input_data = []() { return std::vector<nlohmann::json>{}; },
+   .input_data = [] { return std::vector<nlohmann::json>{}; },
    .database_config =
       R"(
 schema:
@@ -361,7 +361,7 @@ schema:
 
 const Scenario<Success> EMPTY_INPUT_NDJSON_UNPARTITIONED = {
    .test_name = "EMPTY_INPUT_NDJSON_UNPARTITIONED",
-   .input_data = []() { return std::vector<nlohmann::json>{}; },
+   .input_data = [] { return std::vector<nlohmann::json>{}; },
    .database_config =
       R"(
 schema:
@@ -407,7 +407,7 @@ schema:
 const Scenario<Success> NO_GENES = {
    .test_name = "NO_GENES",
    .input_data =
-      []() {
+      [] {
          std::vector<nlohmann::json> result;
          result.reserve(100);
          for (size_t i = 0; i < 100; i++) {
@@ -452,7 +452,7 @@ schema:
 const Scenario<Success> NO_NUCLEOTIDE_SEQUENCES = {
    .test_name = "NO_NUCLEOTIDE_SEQUENCES",
    .input_data =
-      []() {
+      [] {
          std::vector<nlohmann::json> result;
          result.reserve(100);
          for (size_t i = 0; i < 100; i++) {
@@ -496,7 +496,7 @@ schema:
 const Scenario<Success> NO_SEQUENCES = {
    .test_name = "NO_SEQUENCES",
    .input_data =
-      []() {
+      [] {
          std::vector<nlohmann::json> result;
          result.reserve(100);
          for (size_t i = 0; i < 100; i++) {
@@ -535,7 +535,7 @@ schema:
 const Scenario<Success> DIVERSE_SEQUENCE_NAMES_NDJSON = {
    .test_name = "DIVERSE_SEQUENCE_NAMES_NDJSON",
    .input_data =
-      []() {
+      [] {
          std::vector<nlohmann::json> result;
          result.push_back(nlohmann::json::parse(R"({
 "accessionVersion":"1.1",
@@ -660,7 +660,7 @@ schema:
 const Scenario<Success> PREVENT_LATE_AUTO_CASTING = {
    .test_name = "PREVENT_LATE_AUTO_CASTING",
    .input_data =
-      []() {
+      [] {
          std::vector<nlohmann::json> result;
          result.push_back(nlohmann::json::parse(R"({
 "accessionVersion": "0"
@@ -699,7 +699,7 @@ schema:
 const Scenario<Success> DATE_COLUMN_VALID_DATES = {
    .test_name = "DATE_COLUMN_VALID_DATES",
    .input_data =
-      []() {
+      [] {
          return std::vector<nlohmann::json>{
             nlohmann::json::parse(R"({"accessionVersion": "1", "theDate": "1969-12-31"})"),
             nlohmann::json::parse(R"({"accessionVersion": "2", "theDate": "2021-03-15"})"),
@@ -732,7 +732,7 @@ schema:
 const Scenario<Success> TWO_LINEAGE_SYSTEMS = {
    .test_name = "TWO_LINEAGE_SYSTEMS",
    .input_data =
-      []() {
+      [] {
          std::vector<nlohmann::json> result;
          result.push_back(nlohmann::json::parse(R"({
 "accessionVersion": "0", "lineage_1": "root_1", "lineage_2": "root_2"
@@ -803,7 +803,7 @@ child_2:
 const Scenario<Success> NO_PRIMARY_KEY_ALLOWS_DUPLICATES = {
    .test_name = "NO_PRIMARY_KEY_ALLOWS_DUPLICATES",
    .input_data =
-      []() {
+      [] {
          std::vector<nlohmann::json> result;
          result.emplace_back(nlohmann::json::parse(R"({"accessionVersion": "id_1"})"));
          result.emplace_back(nlohmann::json::parse(R"({"accessionVersion": "id_1"})"));
@@ -886,7 +886,7 @@ class InvalidPreprocessorTestFixture : public ::testing::TestWithParam<Scenario<
 const Scenario<Error> DUPLICATE_PRIMARY_KEY{
    .test_name = "duplicate_primary_key",
    .input_data =
-      []() {
+      [] {
          std::vector<nlohmann::json> result;
          result.emplace_back(nlohmann::json::parse(R"({"primaryKey": "id_1"})"));
          result.emplace_back(nlohmann::json::parse(R"({"primaryKey": "id_1"})"));
@@ -914,7 +914,7 @@ schema:
 const Scenario<Error> MISSING_NUCLEOTIDE_SEQUENCE_INPUT = {
    .test_name = "MISSING_NUCLEOTIDE_SEQUENCE_INPUT",
    .input_data =
-      []() {
+      [] {
          std::vector<nlohmann::json> result;
          result.reserve(100);
          for (size_t i = 0; i < 100; i++) {
@@ -953,7 +953,7 @@ schema:
 const Scenario<Error> TYPE_ERROR = {
    .test_name = "TYPE_ERROR",
    .input_data =
-      []() {
+      [] {
          std::vector<nlohmann::json> result{
             nlohmann::json::parse(R"({
 "accessionVersion": 0
@@ -985,7 +985,7 @@ schema:
 const Scenario<Error> SEQUENCE_ILLEGAL_SYMBOL = {
    .test_name = "SEQUENCE_ILLEGAL_SYMBOL",
    .input_data =
-      []() {
+      [] {
          std::vector<nlohmann::json> result{
             nlohmann::json::parse(R"({
 "accessionVersion": "1.3",
@@ -1023,7 +1023,7 @@ schema:
 const Scenario<Error> NDJSON_FILE_WITH_SOME_MISSING_KEYS = {
    .test_name = "NDJSON_FILE_WITH_SOME_MISSING_KEYS",
    .input_data =
-      []() {
+      [] {
          std::vector<nlohmann::json> result;
          result.push_back(nlohmann::json::parse(R"({
 "accessionVersion": "1.1",
@@ -1083,7 +1083,7 @@ schema:
 const Scenario<Error> DATE_WRONG_FORMAT = {
    .test_name = "DATE_WRONG_FORMAT",
    .input_data =
-      []() {
+      [] {
          return std::vector<nlohmann::json>{
             nlohmann::json::parse(R"({"accessionVersion": "1", "theDate": "2020/01/01"})"),
          };
@@ -1109,7 +1109,7 @@ schema:
 const Scenario<Error> DATE_INVALID_CALENDAR_DATE = {
    .test_name = "DATE_INVALID_CALENDAR_DATE",
    .input_data =
-      []() {
+      [] {
          return std::vector<nlohmann::json>{
             nlohmann::json::parse(R"({"accessionVersion": "1", "theDate": "2023-02-30"})"),
          };
@@ -1135,7 +1135,7 @@ schema:
 const Scenario<Error> SEQUENCE_LONGER_THAN_REFERENCE = {
    .test_name = "SEQUENCE_LONGER_THAN_REFERENCE",
    .input_data =
-      []() {
+      [] {
          std::vector<nlohmann::json> result;
          result.push_back(nlohmann::json::parse(R"({
 "accessionVersion": "1.1",
@@ -1177,7 +1177,7 @@ TEST_P(InvalidPreprocessorTestFixture, shouldNotProcessData) {
    auto preprocessing_config = prepareInputDirAndPreprocessorForScenario(scenario);
    EXPECT_THAT(
       // NOLINTNEXTLINE(clang-diagnostic-error)
-      [&]() { rhydb::preprocessing::preprocessing(preprocessing_config); },
+      [&] { rhydb::preprocessing::preprocessing(preprocessing_config); },
       ThrowsMessage<PreprocessingException>(::testing::HasSubstr(scenario.assertion.error_message))
    );
    std::filesystem::remove_all(preprocessing_config.initialization_files.directory);
