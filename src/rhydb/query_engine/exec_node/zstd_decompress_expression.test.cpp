@@ -98,7 +98,7 @@ void assertDecompressedStringArray(
       ASSERT_EQ(string_array->length(), expected_values.size())
          << "Decompressed array length does not match expected values size.";
 
-      for (size_t i = 0; i < expected_values.size(); i++) {
+      for (int64_t i = 0; i < expected_values.size(); i++) {
          if (string_array->IsNull(i)) {
             ASSERT_FALSE(expected_values[i].has_value())
                << "Value at index " << i << " is null, but expected a value.";
