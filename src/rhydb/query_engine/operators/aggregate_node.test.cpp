@@ -212,16 +212,80 @@ const QueryTestScenario COUNT_PER_GROUP_WITH_CUSTOM_NAME = {
    ])")
 };
 
-// count(<column>) is not yet implemented. Without grouping keys this used to be silently rewritten
-// into a full count(*) (returning the wrong result); it must surface the same error the grouped
-// case already gives.
-const QueryTestScenario COUNT_OF_COLUMN_WITHOUT_GROUPS = {
-   .name = "COUNT_OF_COLUMN_WITHOUT_GROUPS",
-   .query = "default.group(by:={}, aggs:={n := count(country)})",
-   .expected_error_message = "count(<column_ref>) not yet implemented"
+// count(column) only counts the rows whose value in the column is not null, unlike count()
+const QueryTestScenario COUNT_COLUMN_PER_GROUP = {
+   .name = "COUNT_COLUMN_PER_GROUP",
+   .query =
+      "default.group(by:={country}, aggs:={n:=count(), with_age:=count(age), "
+      "with_coverage:=count(coverage)}).order(by:={country})",
+   .expected_query_result = nlohmann::json::parse(R"([
+      {"country": null, "n": 1, "with_age": 1, "with_coverage": 1},
+      {"country": "France", "n": 1, "with_age": 0, "with_coverage": 0},
+      {"country": "Germany", "n": 2, "with_age": 1, "with_coverage": 1},
+      {"country": "Switzerland", "n": 2, "with_age": 2, "with_coverage": 2}
+   ])")
+};
+
+const QueryTestScenario COUNT_COLUMN_WITHOUT_GROUPS = {
+   .name = "COUNT_COLUMN_WITHOUT_GROUPS",
+   .query = "default.group(by:={}, aggs:={with_country:=count(country), with_reads:=count(reads)})",
+   .expected_query_result = nlohmann::json::parse(R"([{"with_country": 5, "with_reads": 4}])")
+};
+
+const QueryTestScenario COUNT_COLUMN_OVER_NO_ROWS = {
+   .name = "COUNT_COLUMN_OVER_NO_ROWS",
+   .query = "default.filter(country = 'Italy').group(by:={}, aggs:={with_age:=count(age)})",
+   .expected_query_result = nlohmann::json::parse(R"([{"with_age": 0}])")
+};
+
+const QueryTestScenario COUNT_OF_TWO_COLUMNS = {
+   .name = "COUNT_OF_TWO_COLUMNS",
+   .query = "default.group(by:={}, aggs:={n:=count(age, reads)})",
+   .expected_error_message =
+      "aggregate 'n': count expects no argument or exactly one column argument, e.g. count() or "
+      "count(age)"
+};
+
+const QueryTestScenario COUNT_OF_UNKNOWN_COLUMN = {
+   .name = "COUNT_OF_UNKNOWN_COLUMN",
+   .query = "default.group(by:={}, aggs:={n:=count(weight)})",
+   .expected_error_message = "source column weight is not present in the input's output schema"
+};
+
+// Null values are skipped; France has no non-null value, so its extrema are null
+const QueryTestScenario MIN_MAX_PER_GROUP = {
+   .name = "MIN_MAX_PER_GROUP",
+   .query =
+      "default.group(by:={country}, aggs:={youngest:=min(age), oldest:=max(age), "
+      "least_reads:=min(reads), max_coverage:=max(coverage)}).order(by:={country})",
+   .expected_query_result = nlohmann::json::parse(R"([
+      {"country": null, "youngest": 1, "oldest": 1, "least_reads": 2, "max_coverage": 0.25},
+      {"country": "France", "youngest": null, "oldest": null, "least_reads": null, "max_coverage": null},
+      {"country": "Germany", "youngest": 10, "oldest": 10, "least_reads": 1, "max_coverage": 2.0},
+      {"country": "Switzerland", "youngest": 5, "oldest": 7, "least_reads": 3000000000, "max_coverage": 1.25}
+   ])")
+};
+
+const QueryTestScenario MIN_MAX_OF_STRING_COLUMN = {
+   .name = "MIN_MAX_OF_STRING_COLUMN",
+   .query = "default.group(by:={}, aggs:={first:=min(country), last:=max(country)})",
+   .expected_query_result = nlohmann::json::parse(R"([{"first": "France", "last": "Switzerland"}])")
+};
+
+const QueryTestScenario MAX_WITHOUT_COLUMN = {
+   .name = "MAX_WITHOUT_COLUMN",
+   .query = "default.group(by:={}, aggs:={oldest:=max()})",
+   .expected_error_message =
+      "aggregate 'oldest': max expects exactly one column argument, e.g. max(age)"
 };
 
 }  // namespace
+
+QUERY_TEST(
+   AggregateMinMax,
+   TEST_DATA,
+   ::testing::Values(MIN_MAX_PER_GROUP, MIN_MAX_OF_STRING_COLUMN, MAX_WITHOUT_COLUMN)
+);
 
 QUERY_TEST(
    AggregateSum,
@@ -249,6 +313,10 @@ QUERY_TEST(
    ::testing::Values(
       COUNT_STAR_WITH_CUSTOM_NAME,
       COUNT_PER_GROUP_WITH_CUSTOM_NAME,
-      COUNT_OF_COLUMN_WITHOUT_GROUPS
+      COUNT_COLUMN_PER_GROUP,
+      COUNT_COLUMN_WITHOUT_GROUPS,
+      COUNT_COLUMN_OVER_NO_ROWS,
+      COUNT_OF_TWO_COLUMNS,
+      COUNT_OF_UNKNOWN_COLUMN
    )
 );
