@@ -139,7 +139,7 @@ const QueryTestScenario MUTATIONS_MISSING_MIN_PROPORTION = {
 
 const QueryTestScenario MUTATIONS_ON_NON_SCAN = {
    .name = "MUTATIONS_ON_NON_SCAN",
-   .query = "default.project({primaryKey}).mutations(minProportion:=0.1)",
+   .query = "default.schema().mutations(minProportion:=0.1)",
    .expected_error_message = "mutations() must be applied to a table scan"
 };
 

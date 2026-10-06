@@ -78,7 +78,7 @@ const QueryTestScenario INSERTIONS_WITH_INPUT_FILTER = {
 
 const QueryTestScenario INSERTIONS_ON_NON_SCAN = {
    .name = "INSERTIONS_ON_NON_SCAN",
-   .query = "default.project({primaryKey}).insertions()",
+   .query = "default.schema().insertions()",
    .expected_error_message = "insertions() must be applied to a table scan"
 };
 

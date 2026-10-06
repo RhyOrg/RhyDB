@@ -59,14 +59,10 @@ operators::QueryNodePtr ColumnNarrowingPass::operator()(operators::AggregateNode
       }
    }
 
-   if (child_required.empty()) {
-      // COUNT(*) with no group-by: still need one column to drive the row stream.
-      auto child_schema = node.child->getOutputSchema();
-      RHYDB_ASSERT(!child_schema.empty());
-      required = RequiredColumns{child_schema.front()};
-   } else {
-      required = std::move(child_required);
-   }
+   // A bare count(*) with no group-by needs no columns at all: the scan drives rows off the row-id
+   // bitmap and emits zero-column batches (see ExecBatchBuilder::finishBatch), so leave `required`
+   // empty here instead of forcing a column to be materialized.
+   required = std::move(child_required);
    propagateToNode(node.child);
    return nullptr;
 }
@@ -148,13 +144,6 @@ operators::QueryNodePtr ColumnNarrowingPass::operator()(operators::MapNode& node
 
    node.assignments = std::move(kept_assignments);
 
-   if (child_required.empty()) {
-      // Even when all output columns are produced by assignments, the child must
-      // emit at least one field so that row identity is preserved.
-      auto child_schema = node.child->getOutputSchema();
-      RHYDB_ASSERT(!child_schema.empty());
-      child_required.push_back(child_schema.front());
-   }
    required = std::move(child_required);
    propagateToNode(node.child);
 

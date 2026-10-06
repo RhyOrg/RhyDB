@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "rhydb/common/nucleotide_symbols.h"
@@ -304,6 +305,55 @@ TEST(BitmapAggregationRewritePass, declinesWhenGroupingOnNonIndexedColumn) {
 // A count with a source column is not the bare count() the rewrite recognizes, so it declines.
 TEST(BitmapAggregationRewritePass, declinesWhenAggregateIsNotBareCount) {
    auto node = makeGroupByCount(makeMapWithAt(makeScan(), "s", NUC_COLUMN), {"s"}, NUC_COLUMN);
+
+   auto result = BitmapAggregationRewritePass::run(std::move(node));
+
+   EXPECT_EQ(result->kind(), operators::NodeKind::AGGREGATE);
+}
+
+// --- bare count(*) with no grouping keys -> CountFilterNode ---
+
+// A full count(*) directly over a scan is the filter's cardinality: replaced by a CountFilterNode
+// that carries the query-assigned output name.
+TEST(BitmapAggregationRewritePass, rewritesBareCountOverScanToCountFilter) {
+   auto node = makeGroupByCount(makeScan(), {});
+
+   auto result = BitmapAggregationRewritePass::run(std::move(node));
+
+   ASSERT_EQ(result->kind(), operators::NodeKind::COUNT_FILTER);
+   EXPECT_THAT(
+      result->getOutputSchema(),
+      ::testing::ElementsAre(ColumnIdentifier{.name = "count", .type = ColumnType::INT64})
+   );
+}
+
+// The map that `default` inserts to decompress sequence columns is row-preserving and reads no
+// column the count needs, so a count(*) over such a map still collapses to a CountFilterNode.
+TEST(BitmapAggregationRewritePass, rewritesBareCountOverMapToCountFilter) {
+   auto node = makeGroupByCount(makeMapWithFieldRef(makeScan(), "k", ID_COLUMN), {});
+
+   auto result = BitmapAggregationRewritePass::run(std::move(node));
+
+   EXPECT_EQ(result->kind(), operators::NodeKind::COUNT_FILTER);
+}
+
+// A bare count(*) that does not sit on a (map over a) scan is left for the generic pipeline.
+TEST(BitmapAggregationRewritePass, declinesBareCountOverNonScan) {
+   auto filtered_scan = std::make_unique<operators::FilterNode>(
+      makeScan(), std::make_unique<scalar_expressions::BoolLiteral>(true)
+   );
+   auto node = makeGroupByCount(std::move(filtered_scan), {});
+
+   operators::QueryNodePtr result;
+   ASSERT_NO_THROW(result = BitmapAggregationRewritePass::run(std::move(node)));
+   EXPECT_EQ(result->kind(), operators::NodeKind::AGGREGATE);
+}
+
+// count(<column>) without grouping keys is not the bare count(*) the rewrite handles: it must stay
+// an AggregateNode so the generic path reports it as not-yet-implemented rather than the rewrite
+// silently turning it into a count(*).
+TEST(BitmapAggregationRewritePass, declinesBareCountWithSourceColumn) {
+   auto node = makeGroupByCount(makeScan(), {}, ID_COLUMN);
 
    auto result = BitmapAggregationRewritePass::run(std::move(node));
 

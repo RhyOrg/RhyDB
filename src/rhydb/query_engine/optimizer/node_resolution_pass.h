@@ -4,7 +4,6 @@
 #include "rhydb/query_engine/optimizer/pipeline_pass_base.h"
 
 namespace rhydb::query_engine::operators {
-class AggregateNode;
 template <typename SymbolType>
 class UnresolvedMutationsNode;
 template <typename SymbolType>
@@ -21,14 +20,12 @@ namespace rhydb::query_engine::optimizer {
 /// - UnresolvedInsertionsNode → InsertionsNode
 /// - UnresolvedPhyloSubtreeNode → PhyloSubtreeNode
 /// - UnresolvedMostRecentCommonAncestorNode → MostRecentCommonAncestorNode
-/// - AggregateNode(COUNT(*), TableScanNode) → CountFilterNode
 class NodeResolutionPass : public PipelinePassBase<NodeResolutionPass> {
   public:
    using PipelinePassBase<NodeResolutionPass>::operator();
 
    // Shadowing the PipelinePassBase defaults is the intended way to customize a pass.
    // NOLINTBEGIN(bugprone-derived-method-shadowing-base-method)
-   operators::QueryNodePtr operator()(operators::AggregateNode& node);
    template <typename SymbolType>
    operators::QueryNodePtr operator()(operators::UnresolvedMutationsNode<SymbolType>& node);
    template <typename SymbolType>

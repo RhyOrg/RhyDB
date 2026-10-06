@@ -238,7 +238,7 @@ const QueryTestScenario SCHEMA_PROPAGATES_BAD_SEQUENCE_ERROR_SCENARIO = {
 // mutations() must be applied to a table scan and schema() must not suppress that error.
 const QueryTestScenario SCHEMA_PROPAGATES_NON_SCAN_ERROR_SCENARIO = {
    .name = "SCHEMA_PROPAGATES_NON_SCAN_ERROR",
-   .query = "default.project({age}).mutations(minProportion:=0.1).schema()",
+   .query = "default.schema().mutations(minProportion:=0.1).schema()",
    .expected_error_message = "mutations() must be applied to a table scan"
 };
 
