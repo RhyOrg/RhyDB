@@ -1,6 +1,6 @@
 {
   "testCaseName": "DateBetween Query for date column that is not sorted",
-  "query": "default.filter(unsorted_date.between('2021-03-18'::date, '2021-03-20'::date)).group(by:={}, aggs:={count:=count()})",
+  "query": "data.filter(unsorted_date.between('2021-03-18'::date, '2021-03-20'::date)).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 2

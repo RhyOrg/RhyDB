@@ -116,7 +116,7 @@ test("preprocess, query, save, and load a database end-to-end", async () => {
     const info = JSON.parse(module.info(handle));
     assert.equal(info.sequenceCount, EXPECTED_SEQUENCE_COUNT);
 
-    const ndjson = module.query(handle, "default.group(by:={}, aggs:={count:=count()})");
+    const ndjson = module.query(handle, "data.group(by:={}, aggs:={count:=count()})");
     const rows = ndjson
         .trim()
         .split("\n")
@@ -146,7 +146,7 @@ test("save/query/info reject an unknown database handle", async () => {
     const unknownHandle = 999999;
     for (const call of [
         () => module.save(unknownHandle, "/unused"),
-        () => module.query(unknownHandle, "default.group(by:={}, aggs:={count:=count()})"),
+        () => module.query(unknownHandle, "data.group(by:={}, aggs:={count:=count()})"),
         () => module.info(unknownHandle),
     ]) {
         const message = expectThrows(module, call, "call with unknown handle");

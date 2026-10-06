@@ -1,6 +1,6 @@
 {
   "testCaseName": "amino acid insertions action only one sequence",
-  "query": "default.aminoAcidInsertions(sequenceNames:={S}).order(by:={insertedSymbols, position})",
+  "query": "data.aminoAcidInsertions(sequenceNames:={S}).order(by:={insertedSymbols, position})",
   "expectedQueryResult": [
     {
       "count": 1,

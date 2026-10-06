@@ -1,6 +1,6 @@
 {
   "testCaseName": "Mutations action without minProportion",
-  "query": "default.filter(false).mutations()",
+  "query": "data.filter(false).mutations()",
   "expectedError": {
     "error": "Bad request",
     "message": "mutations() requires argument 'minProportion'"

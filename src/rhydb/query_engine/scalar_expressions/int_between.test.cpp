@@ -64,7 +64,7 @@ const QueryTestData TEST_DATA{
 
 const QueryTestScenario INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO = {
    .name = "INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO",
-   .query = "default.filter(int_value.between(2, 4))",
+   .query = "data.filter(int_value.between(2, 4))",
    .expected_query_result = nlohmann::json({
       {{"primaryKey", "id_0"},
        {"int_value", VALUE_IN_FILTER},
@@ -81,7 +81,7 @@ const QueryTestScenario INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO = {
 
 const QueryTestScenario NEGATED_INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO = {
    .name = "NEGATED_INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO",
-   .query = "default.filter(!(int_value.between(2, 4)))",
+   .query = "data.filter(!(int_value.between(2, 4)))",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_2"},
         {"int_value", VALUE_BELOW_FILTER},
@@ -103,7 +103,7 @@ const QueryTestScenario NEGATED_INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO = {
 
 const QueryTestScenario INT_BETWEEN_WITH_FROM_SCENARIO = {
    .name = "INT_BETWEEN_WITH_FROM_SCENARIO",
-   .query = "default.filter(int_value >= 2)",
+   .query = "data.filter(int_value >= 2)",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"},
         {"int_value", VALUE_IN_FILTER},
@@ -125,7 +125,7 @@ const QueryTestScenario INT_BETWEEN_WITH_FROM_SCENARIO = {
 
 const QueryTestScenario NEGATED_INT_BETWEEN_WITH_FROM_SCENARIO = {
    .name = "NEGATED_INT_BETWEEN_WITH_FROM_SCENARIO",
-   .query = "default.filter(!(int_value >= 2))",
+   .query = "data.filter(!(int_value >= 2))",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_2"},
         {"int_value", VALUE_BELOW_FILTER},
@@ -142,7 +142,7 @@ const QueryTestScenario NEGATED_INT_BETWEEN_WITH_FROM_SCENARIO = {
 
 const QueryTestScenario INT_BETWEEN_WITH_TO_SCENARIO = {
    .name = "INT_BETWEEN_WITH_TO_SCENARIO",
-   .query = "default.filter(int_value <= 4)",
+   .query = "data.filter(int_value <= 4)",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"},
         {"int_value", VALUE_IN_FILTER},
@@ -164,7 +164,7 @@ const QueryTestScenario INT_BETWEEN_WITH_TO_SCENARIO = {
 
 const QueryTestScenario NEGATED_INT_BETWEEN_WITH_TO_SCENARIO = {
    .name = "NEGATED_INT_BETWEEN_WITH_TO_SCENARIO",
-   .query = "default.filter(!(int_value <= 4))",
+   .query = "data.filter(!(int_value <= 4))",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_3"},
         {"int_value", VALUE_ABOVE_FILTER},
@@ -181,7 +181,7 @@ const QueryTestScenario NEGATED_INT_BETWEEN_WITH_TO_SCENARIO = {
 
 const QueryTestScenario INT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO = {
    .name = "INT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO",
-   .query = "default.filter(int_value.isNotNull())",
+   .query = "data.filter(int_value.isNotNull())",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"},
         {"int_value", VALUE_IN_FILTER},
@@ -208,7 +208,7 @@ const QueryTestScenario INT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO = {
 
 const QueryTestScenario NEGATED_INT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO = {
    .name = "NEGATED_INT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO",
-   .query = "default.filter(!(int_value.isNotNull()))",
+   .query = "data.filter(!(int_value.isNotNull()))",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_4"},
         {"int_value", nullptr},
@@ -220,7 +220,7 @@ const QueryTestScenario NEGATED_INT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO = {
 
 const QueryTestScenario INT_COMPARE_WITH_OVERFLOW = {
    .name = "INT_COMPARE_WITH_OVERFLOW",
-   .query = "default.filter(int_value >= 4294967295)",
+   .query = "data.filter(int_value >= 4294967295)",
    .expected_error_message = "Cannot cast 4294967295 to int32. Value out of range"
 };
 

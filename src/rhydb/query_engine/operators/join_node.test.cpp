@@ -52,8 +52,8 @@ const QueryTestData TEST_DATA{
 const QueryTestScenario JOIN_INNER_ON_KEY_SCENARIO = {
    .name = "JOIN_INNER_ON_KEY",
    .query = R"(join(
-      default.project({primaryKey, country}),
-      default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
+      data.project({primaryKey, country}),
+      data.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk
    ).order(by:={asc(primaryKey)}))",
    .expected_query_result = nlohmann::json(
@@ -68,8 +68,8 @@ const QueryTestScenario JOIN_INNER_ON_KEY_SCENARIO = {
 const QueryTestScenario JOIN_PIPED_SYNTAX_SCENARIO = {
    .name = "JOIN_PIPED_SYNTAX",
    .query = R"(
-      default.project({primaryKey, country})
-         .join(default.map({pk := primaryKey, ctry := country}).project({pk, ctry}), primaryKey = pk)
+      data.project({primaryKey, country})
+         .join(data.map({pk := primaryKey, ctry := country}).project({pk, ctry}), primaryKey = pk)
          .order(by:={asc(primaryKey)})
    )",
    .expected_query_result = nlohmann::json(
@@ -84,8 +84,8 @@ const QueryTestScenario JOIN_PIPED_SYNTAX_SCENARIO = {
 const QueryTestScenario JOIN_EXPLICIT_INNER_SCENARIO = {
    .name = "JOIN_EXPLICIT_INNER",
    .query = R"(join(
-      default.filter(country='CH').project({primaryKey, country}),
-      default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
+      data.filter(country='CH').project({primaryKey, country}),
+      data.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk,
       type := inner
    ).order(by:={asc(primaryKey)}))",
@@ -99,8 +99,8 @@ const QueryTestScenario JOIN_EXPLICIT_INNER_SCENARIO = {
 const QueryTestScenario JOIN_MANY_TO_MANY_SCENARIO = {
    .name = "JOIN_MANY_TO_MANY",
    .query = R"(join(
-      default.filter(country='DE').project({primaryKey, country}),
-      default.filter(country='DE').map({pk := primaryKey, ctry := country}).project({pk, ctry}),
+      data.filter(country='DE').project({primaryKey, country}),
+      data.filter(country='DE').map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       country = ctry
    ).order(by:={asc(primaryKey), asc(pk)}))",
    .expected_query_result = nlohmann::json(
@@ -115,8 +115,8 @@ const QueryTestScenario JOIN_MANY_TO_MANY_SCENARIO = {
 const QueryTestScenario JOIN_LEFT_OUTER_SCENARIO = {
    .name = "JOIN_LEFT_OUTER",
    .query = R"(join(
-      default.project({primaryKey, country}),
-      default.filter(country='CH').map({pk := primaryKey, ctry := country}).project({pk, ctry}),
+      data.project({primaryKey, country}),
+      data.filter(country='CH').map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk,
       type := left
    ).order(by:={asc(primaryKey)}))",
@@ -132,8 +132,8 @@ const QueryTestScenario JOIN_LEFT_OUTER_SCENARIO = {
 const QueryTestScenario JOIN_LEFT_SEMI_SCENARIO = {
    .name = "JOIN_LEFT_SEMI",
    .query = R"(join(
-      default.project({primaryKey, country}),
-      default.filter(country='CH').map({pk := primaryKey, ctry := country}).project({pk, ctry}),
+      data.project({primaryKey, country}),
+      data.filter(country='CH').map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk,
       type := leftSemi
    ).order(by:={asc(primaryKey)}))",
@@ -146,8 +146,8 @@ const QueryTestScenario JOIN_LEFT_SEMI_SCENARIO = {
 const QueryTestScenario JOIN_LEFT_ANTI_SCENARIO = {
    .name = "JOIN_LEFT_ANTI",
    .query = R"(join(
-      default.project({primaryKey, country}),
-      default.filter(country='CH').map({pk := primaryKey, ctry := country}).project({pk, ctry}),
+      data.project({primaryKey, country}),
+      data.filter(country='CH').map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk,
       type := leftAnti
    ).order(by:={asc(primaryKey)}))",
@@ -160,8 +160,8 @@ const QueryTestScenario JOIN_LEFT_ANTI_SCENARIO = {
 const QueryTestScenario JOIN_RIGHT_OUTER_SCENARIO = {
    .name = "JOIN_RIGHT_OUTER",
    .query = R"(join(
-      default.filter(country='CH').project({primaryKey, country}),
-      default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
+      data.filter(country='CH').project({primaryKey, country}),
+      data.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk,
       type := right
    ).order(by:={asc(pk)}))",
@@ -178,8 +178,8 @@ const QueryTestScenario JOIN_RIGHT_OUTER_SCENARIO = {
 const QueryTestScenario JOIN_FULL_OUTER_SCENARIO = {
    .name = "JOIN_FULL_OUTER",
    .query = R"(join(
-      default.filter(country='CH').project({primaryKey, country}),
-      default.filter(country='DE').map({pk := primaryKey, ctry := country}).project({pk, ctry}),
+      data.filter(country='CH').project({primaryKey, country}),
+      data.filter(country='DE').map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk,
       type := full
    ).order(by:={asc(primaryKey), asc(pk)}))",
@@ -195,8 +195,8 @@ const QueryTestScenario JOIN_FULL_OUTER_SCENARIO = {
 const QueryTestScenario JOIN_RIGHT_SEMI_SCENARIO = {
    .name = "JOIN_RIGHT_SEMI",
    .query = R"(join(
-      default.filter(country='CH').project({primaryKey, country}),
-      default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
+      data.filter(country='CH').project({primaryKey, country}),
+      data.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk,
       type := rightSemi
    ).order(by:={asc(pk)}))",
@@ -208,8 +208,8 @@ const QueryTestScenario JOIN_RIGHT_SEMI_SCENARIO = {
 const QueryTestScenario JOIN_RIGHT_ANTI_SCENARIO = {
    .name = "JOIN_RIGHT_ANTI",
    .query = R"(join(
-      default.filter(country='CH').project({primaryKey, country}),
-      default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
+      data.filter(country='CH').project({primaryKey, country}),
+      data.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk,
       type := rightAnti
    ).order(by:={asc(pk)}))",
@@ -224,8 +224,8 @@ const QueryTestScenario JOIN_RIGHT_ANTI_SCENARIO = {
 const QueryTestScenario JOIN_DOWNSTREAM_FILTER_SCENARIO = {
    .name = "JOIN_DOWNSTREAM_FILTER",
    .query = R"(join(
-      default.project({primaryKey, country}),
-      default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
+      data.project({primaryKey, country}),
+      data.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk
    ).filter(country='CH').order(by:={asc(primaryKey)}))",
    .expected_query_result = nlohmann::json(
@@ -238,8 +238,8 @@ const QueryTestScenario JOIN_DOWNSTREAM_FILTER_SCENARIO = {
 const QueryTestScenario JOIN_WITH_GROUPBY_SCENARIO = {
    .name = "JOIN_WITH_GROUPBY",
    .query = R"(join(
-      default.project({primaryKey, country}),
-      default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
+      data.project({primaryKey, country}),
+      data.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk
    ).group(by:={country}, aggs:={count := count()}).order(by:={asc(country)}))",
    .expected_query_result =
@@ -250,8 +250,8 @@ const QueryTestScenario JOIN_WITH_GROUPBY_SCENARIO = {
 const QueryTestScenario JOIN_MULTI_KEY_SCENARIO = {
    .name = "JOIN_MULTI_KEY",
    .query = R"(join(
-      default.project({primaryKey, country}),
-      default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
+      data.project({primaryKey, country}),
+      data.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
       primaryKey = pk && country = ctry
    ).order(by:={asc(primaryKey)}))",
    .expected_query_result = nlohmann::json(
@@ -266,8 +266,8 @@ const QueryTestScenario JOIN_MULTI_KEY_SCENARIO = {
 const QueryTestScenario JOIN_OVERLAPPING_COLUMNS_SCENARIO = {
    .name = "JOIN_OVERLAPPING_COLUMNS",
    .query = R"(join(
-      default.project({primaryKey, country}),
-      default.project({primaryKey, country}),
+      data.project({primaryKey, country}),
+      data.project({primaryKey, country}),
       primaryKey = primaryKey
    ))",
    .expected_query_result = {},
@@ -280,8 +280,8 @@ const QueryTestScenario JOIN_OVERLAPPING_COLUMNS_SCENARIO = {
 const QueryTestScenario JOIN_PARTIALLY_OVERLAPPING_COLUMNS_SCENARIO = {
    .name = "JOIN_PARTIALLY_OVERLAPPING_COLUMNS",
    .query = R"(join(
-      default.project({primaryKey, country}),
-      default.map({pk := primaryKey}).project({pk, country}),
+      data.project({primaryKey, country}),
+      data.map({pk := primaryKey}).project({pk, country}),
       primaryKey = pk
    ))",
    .expected_query_result = {},
@@ -294,8 +294,8 @@ const QueryTestScenario JOIN_PARTIALLY_OVERLAPPING_COLUMNS_SCENARIO = {
 const QueryTestScenario JOIN_UNKNOWN_COLUMN_SCENARIO = {
    .name = "JOIN_UNKNOWN_COLUMN",
    .query = R"(join(
-      default.project({primaryKey}),
-      default.map({pk := primaryKey}).project({pk}),
+      data.project({primaryKey}),
+      data.map({pk := primaryKey}).project({pk}),
       primaryKey = doesNotExist
    ))",
    .expected_query_result = {},
@@ -306,8 +306,8 @@ const QueryTestScenario JOIN_UNKNOWN_COLUMN_SCENARIO = {
 const QueryTestScenario JOIN_INVALID_TYPE_SCENARIO = {
    .name = "JOIN_INVALID_TYPE",
    .query = R"(join(
-      default.project({primaryKey}),
-      default.map({pk := primaryKey}).project({pk}),
+      data.project({primaryKey}),
+      data.map({pk := primaryKey}).project({pk}),
       primaryKey = pk,
       type := sideways
    ))",

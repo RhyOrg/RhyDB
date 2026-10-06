@@ -1,6 +1,6 @@
 {
   "testCaseName": "PhyloSubtree action on column not labelled as isPhyloTreeField",
-  "query": "default.filter(country = 'Switzerland').phyloSubtree('country', printNodesNotInTree:=true)",
+  "query": "data.filter(country = 'Switzerland').phyloSubtree('country', printNodesNotInTree:=true)",
   "expectedError": {
     "error": "Bad request",
     "message": "PhyloSubtree action cannot be called on Column 'country' as it does not have a phylogenetic tree associated with it"

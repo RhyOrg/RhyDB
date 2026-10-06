@@ -327,7 +327,7 @@ TEST(BitmapAggregationRewritePass, rewritesBareCountOverScanToCountFilter) {
    );
 }
 
-// The map that `default` inserts to decompress sequence columns is row-preserving and reads no
+// The map that `data` inserts to decompress sequence columns is row-preserving and reads no
 // column the count needs, so a count(*) over such a map still collapses to a CountFilterNode.
 TEST(BitmapAggregationRewritePass, rewritesBareCountOverMapToCountFilter) {
    auto node = makeGroupByCount(makeMapWithFieldRef(makeScan(), "k", ID_COLUMN), {});

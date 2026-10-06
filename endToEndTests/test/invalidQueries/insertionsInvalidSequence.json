@@ -1,6 +1,6 @@
 {
   "testCaseName": "The insertions action with an invalid sequence",
-  "query": "default.insertions(sequenceNames:={notAValidSequence})",
+  "query": "data.insertions(sequenceNames:={notAValidSequence})",
   "expectedError": {
     "error": "Bad request",
     "message": "The database does not contain the Nucleotide sequence 'notAValidSequence'"

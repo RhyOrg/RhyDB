@@ -129,7 +129,7 @@ const QueryTestScenario TRANSITIVE_CLOSURE_INCLUDE_VERTICES_SCENARIO = {
 };
 
 // The motivating use case: count every lineage together with all of its sublineages.
-// transitiveClosure (reflexive) -> join default on `to` = pango_lineage -> group by `from`.
+// transitiveClosure (reflexive) -> join data on `to` = pango_lineage -> group by `from`.
 //   BASE.1     : id_0, id_1, id_2, id_3, id_4 -> 5
 //   CHILD      : id_1, id_2, id_4             -> 3
 //   CHILD.2    : id_3                         -> 1
@@ -138,7 +138,7 @@ const QueryTestScenario COUNT_LINEAGE_INCLUDING_SUBLINEAGES_SCENARIO = {
    .name = "COUNT_LINEAGE_INCLUDING_SUBLINEAGES_SCENARIO",
    .query =
       "pango_lineage_indexed.transitiveClosure(parent, lineage, includeVertices:=true)"
-      ".join(default, to = pango_lineage)"
+      ".join(data, to = pango_lineage)"
       ".group(by:={from}, aggs:={count := count()})"
       ".order(by:={from})",
    .expected_query_result = nlohmann::json(
@@ -240,7 +240,7 @@ const QueryTestScenario COUNT_ONE_LINEAGE_INCLUDING_SUBLINEAGES_SCENARIO = {
    .query =
       "pango_lineage_indexed.transitiveClosure(parent, lineage, includeVertices:=true, "
       "startingFrom:={'CHILD'})"
-      ".join(default, to = pango_lineage)"
+      ".join(data, to = pango_lineage)"
       ".group(by:={from}, aggs:={count := count()})"
       ".order(by:={from})",
    .expected_query_result = nlohmann::json({{{"from", "CHILD"}, {"count", 3}}})
@@ -269,7 +269,7 @@ const QueryTestScenario COUNT_LINEAGE_WITH_DUPLICATE_SOURCE_SCENARIO = {
    .query =
       "pango_lineage_indexed.transitiveClosure(parent, lineage, includeVertices:=true, "
       "startingFrom:={'CHILD', 'CHILD'})"
-      ".join(default, to = pango_lineage)"
+      ".join(data, to = pango_lineage)"
       ".group(by:={from}, aggs:={count := count()})"
       ".order(by:={from})",
    .expected_query_result = nlohmann::json({{{"from", "CHILD"}, {"count", 6}}})
@@ -316,7 +316,7 @@ const QueryTestScenario UNKNOWN_COLUMN_SCENARIO = {
 // A lineage-indexed column is dictionary-encoded, not STRING, so it cannot be an edge endpoint.
 const QueryTestScenario NON_STRING_COLUMN_SCENARIO = {
    .name = "NON_STRING_COLUMN_SCENARIO",
-   .query = "default.transitiveClosure(pango_lineage_indexed, primaryKey)",
+   .query = "data.transitiveClosure(pango_lineage_indexed, primaryKey)",
    .expected_error_message =
       "transitiveClosure() can only be applied to STRING columns, but "
       "column 'pango_lineage_indexed' has type DICTIONARY_ENCODED"
@@ -418,7 +418,7 @@ const QueryTestData GRAPH_TEST_DATA{
 const QueryTestScenario CYCLIC_RELATION_SCENARIO = {
    .name = "CYCLIC_RELATION_SCENARIO",
    .query =
-      "default.project({edge_from, edge_to})"
+      "data.project({edge_from, edge_to})"
       ".transitiveClosure(edge_from, edge_to).order(by:={from, to})",
    .expected_query_result = nlohmann::json(
       {{{"from", "A"}, {"to", "A"}},
@@ -435,7 +435,7 @@ const QueryTestScenario CYCLIC_RELATION_SCENARIO = {
 const QueryTestScenario CYCLIC_RELATION_INCLUDE_VERTICES_SCENARIO = {
    .name = "CYCLIC_RELATION_INCLUDE_VERTICES_SCENARIO",
    .query =
-      "default.project({edge_from, edge_to})"
+      "data.project({edge_from, edge_to})"
       ".transitiveClosure(edge_from, edge_to, includeVertices:=true)"
       ".order(by:={from, to})",
    .expected_query_result = nlohmann::json(
@@ -453,7 +453,7 @@ const QueryTestScenario CYCLIC_RELATION_INCLUDE_VERTICES_SCENARIO = {
 
 const QueryTestScenario INT_COLUMN_SCENARIO = {
    .name = "INT_COLUMN_SCENARIO",
-   .query = "default.transitiveClosure(edge_from, weight)",
+   .query = "data.transitiveClosure(edge_from, weight)",
    .expected_error_message =
       "transitiveClosure() can only be applied to STRING columns, but "
       "column 'weight' has type INT32"
@@ -509,7 +509,7 @@ const QueryTestScenario COUNT_SUBLINEAGES_ON_DICTIONARY_ENCODED_COLUMN_SCENARIO 
    .name = "COUNT_SUBLINEAGES_ON_DICTIONARY_ENCODED_COLUMN_SCENARIO",
    .query =
       "pango_lineage.transitiveClosure(parent, lineage, includeVertices:=true)"
-      ".join(default, to = pango_lineage)"
+      ".join(data, to = pango_lineage)"
       ".group(by:={from}, aggs:={count := count()})"
       ".order(by:={from})",
    .expected_query_result = nlohmann::json(

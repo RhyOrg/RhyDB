@@ -1,6 +1,6 @@
 {
   "testCaseName": "Insertion Contains with exact match CCC",
-  "query": "default.filter(insertionContains(position:=25701, value:='CCC', sequenceName:='main')).group(by:={}, aggs:={count:=count()})",
+  "query": "data.filter(insertionContains(position:=25701, value:='CCC', sequenceName:='main')).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 17

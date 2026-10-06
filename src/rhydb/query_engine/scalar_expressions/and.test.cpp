@@ -82,7 +82,7 @@ const QueryTestData TEST_DATA{
 const QueryTestScenario NESTED_AND = {
    .name = "NESTED_AND",
    .query =
-      "default.filter(date >= '2009-01-01'::date && date >= '2000-01-01'::date && country = "
+      "data.filter(date >= '2009-01-01'::date && date >= '2000-01-01'::date && country = "
       "'Germany').project({age,country,coverage,date,primaryKey})",
    .expected_query_result = nlohmann::json::parse(
       R"(
@@ -93,7 +93,7 @@ const QueryTestScenario NESTED_AND = {
 const QueryTestScenario ALL_NEGATED_AND_ON_INDEXED_COLUMN = {
    .name = "ALL_NEGATED_AND_ON_INDEXED_COLUMN",
    .query =
-      "default.filter(!(country = 'Germany') && !(country = 'Switzerland'))"
+      "data.filter(!(country = 'Germany') && !(country = 'Switzerland'))"
       ".project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_6"}])"),
 };

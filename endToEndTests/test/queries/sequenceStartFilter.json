@@ -1,6 +1,6 @@
 {
   "testCaseName": "Filtering for the first genome position",
-  "query": "default.filter(nucleotideEquals(position:=1, symbol:='-', sequenceName:='main')).group(by:={}, aggs:={count:=count()})",
+  "query": "data.filter(nucleotideEquals(position:=1, symbol:='-', sequenceName:='main')).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 45

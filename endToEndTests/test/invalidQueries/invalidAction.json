@@ -1,8 +1,8 @@
 {
   "testCaseName": "query with invalid action",
-  "query": "default.filter(true).invalidAction()",
+  "query": "data.filter(true).invalidAction()",
   "expectedError": {
     "error": "Bad request",
-    "message": "unknown function 'invalidAction' at 1:22"
+    "message": "unknown function 'invalidAction' at 1:19"
   }
 }

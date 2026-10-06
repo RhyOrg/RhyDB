@@ -67,11 +67,11 @@ const QueryTestData TEST_DATA{
 };
 
 std::string createDateEqualsQuery(const std::string& column, const std::string& date_value) {
-   return fmt::format("default.filter({} = '{}'::date)", column, date_value);
+   return fmt::format("data.filter({} = '{}'::date)", column, date_value);
 }
 
 std::string createDateEqualsNullQuery(const std::string& column) {
-   return fmt::format("default.filter({} = null)", column);
+   return fmt::format("data.filter({} = null)", column);
 }
 
 // Matches row1 and row3 (both have sorted_date = 2020-12-24)
@@ -114,7 +114,7 @@ const QueryTestScenario SORTED_DATE_NULL_REJECTED = {
    .query = createDateEqualsNullQuery("sorted_date"),
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
-      "a column reference, or a scalar function call at 1:30"
+      "a column reference, or a scalar function call at 1:27"
 };
 
 const QueryTestScenario UNSORTED_DATE_NULL_REJECTED = {
@@ -122,7 +122,7 @@ const QueryTestScenario UNSORTED_DATE_NULL_REJECTED = {
    .query = createDateEqualsNullQuery("unsorted_date"),
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
-      "a column reference, or a scalar function call at 1:32"
+      "a column reference, or a scalar function call at 1:29"
 };
 
 const QueryTestScenario DATE_EQUALS_NO_MATCH = {
@@ -133,29 +133,29 @@ const QueryTestScenario DATE_EQUALS_NO_MATCH = {
 
 const QueryTestScenario DATE_EQUALS_WRONG_FORMAT = {
    .name = "DATE_EQUALS_WRONG_FORMAT",
-   .query = "default.filter(sorted_date = '2021-03-00018'::date)",
+   .query = "data.filter(sorted_date = '2021-03-00018'::date)",
    .expected_error_message =
-      "invalid date '2021-03-00018' at 1:45: Invalid date format '2021-03-00018': "
+      "invalid date '2021-03-00018' at 1:42: Invalid date format '2021-03-00018': "
       "expected exactly YYYY-MM-DD"
 };
 
 const QueryTestScenario DATE_EQUALS_WRONG_VALUE_TYPE = {
    .name = "DATE_EQUALS_WRONG_VALUE_TYPE",
-   .query = "default.filter(sorted_date = 'asdf'::date)",
+   .query = "data.filter(sorted_date = 'asdf'::date)",
    .expected_error_message =
-      "invalid date 'asdf' at 1:36: Invalid date format 'asdf': expected exactly YYYY-MM-DD"
+      "invalid date 'asdf' at 1:33: Invalid date format 'asdf': expected exactly YYYY-MM-DD"
 };
 
 const QueryTestScenario DATE_EQUALS_COLUMN_NOT_IN_DB = {
    .name = "DATE_EQUALS_COLUMN_NOT_IN_DB",
-   .query = "default.filter(something_not_in_database = '2020-01-01'::date)",
+   .query = "data.filter(something_not_in_database = '2020-01-01'::date)",
    .expected_error_message =
-      "the left side of a comparison references unknown column 'something_not_in_database' at 1:16"
+      "the left side of a comparison references unknown column 'something_not_in_database' at 1:13"
 };
 
 const QueryTestScenario DATE_EQUALS_WRONG_COLUMN_TYPE = {
    .name = "DATE_EQUALS_WRONG_COLUMN_TYPE",
-   .query = "default.filter(primaryKey = '2020-01-01'::date)",
+   .query = "data.filter(primaryKey = '2020-01-01'::date)",
    .expected_error_message = "The column 'primaryKey' is not of type date"
 };
 

@@ -464,7 +464,7 @@ const QueryTestData TEST_DATA{
 const QueryTestScenario NESTED_OR_SAME_COLUMN = {
    .name = "NESTED_OR_SAME_COLUMN",
    .query =
-      "default.filter((country = 'Switzerland' || country = 'Germany') || country = "
+      "data.filter((country = 'Switzerland' || country = 'Germany') || country = "
       "'France').project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -480,7 +480,7 @@ const QueryTestScenario NESTED_OR_SAME_COLUMN = {
 const QueryTestScenario DEEPLY_NESTED_OR = {
    .name = "DEEPLY_NESTED_OR",
    .query =
-      "default.filter(country = 'Switzerland' || country = 'Germany').project({primaryKey, "
+      "data.filter(country = 'Switzerland' || country = 'Germany').project({primaryKey, "
       "country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -494,7 +494,7 @@ const QueryTestScenario DEEPLY_NESTED_OR = {
 
 const QueryTestScenario OR_SINGLE_CHILD_UNWRAPPED = {
    .name = "OR_SINGLE_CHILD_UNWRAPPED",
-   .query = "default.filter(country = 'Switzerland').project({primaryKey, country})",
+   .query = "data.filter(country = 'Switzerland').project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([{"country":"Switzerland","primaryKey":"id_0"},{"country":"Switzerland","primaryKey":"id_3"}])"
    )
@@ -503,7 +503,7 @@ const QueryTestScenario OR_SINGLE_CHILD_UNWRAPPED = {
 const QueryTestScenario OR_STRING_EQUALS_MERGED = {
    .name = "OR_STRING_EQUALS_MERGED",
    .query =
-      "default.filter(country = 'Switzerland' || country = 'Germany' || country = "
+      "data.filter(country = 'Switzerland' || country = 'Germany' || country = "
       "'France').project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -519,7 +519,7 @@ const QueryTestScenario OR_STRING_EQUALS_MERGED = {
 const QueryTestScenario OR_MIXED_COLUMNS = {
    .name = "OR_MIXED_COLUMNS",
    .query =
-      "default.filter(country = 'USA' || region = 'Europe').project({primaryKey, country, region})",
+      "data.filter(country = 'USA' || region = 'Europe').project({primaryKey, country, region})",
    .expected_query_result = nlohmann::json::parse(
       R"([
 {"country":"Switzerland","primaryKey":"id_0","region":"Europe"},
@@ -535,7 +535,7 @@ const QueryTestScenario OR_MIXED_COLUMNS = {
 const QueryTestScenario OR_WITH_AND = {
    .name = "OR_WITH_AND",
    .query =
-      "default.filter((country = 'Switzerland' && region = 'Europe') || country = "
+      "data.filter((country = 'Switzerland' && region = 'Europe') || country = "
       "'USA').project({primaryKey, country, region})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -548,7 +548,7 @@ const QueryTestScenario OR_WITH_AND = {
 
 const QueryTestScenario OR_EMPTY_CHILDREN = {
    .name = "OR_EMPTY_CHILDREN",
-   .query = "default.filter(false).project(primaryKey)",
+   .query = "data.filter(false).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([])")
 };
 

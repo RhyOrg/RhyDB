@@ -67,8 +67,7 @@ const QueryTestData TEST_DATA{
 // leads, and within every group the null `date` comes first.
 const QueryTestScenario ASC_THEN_ASC_SCENARIO = {
    .name = "ORDER_BY_ASC_THEN_ASC",
-   .query =
-      "default.project({primaryKey, int_value, date}).order(by:={int_value.asc(), date.asc()})",
+   .query = "data.project({primaryKey, int_value, date}).order(by:={int_value.asc(), date.asc()})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
        {{"primaryKey", "id_1"}, {"int_value", nullptr}, {"date", "2023-01-01"}},
@@ -84,7 +83,7 @@ const QueryTestScenario ASC_THEN_ASC_SCENARIO = {
 const QueryTestScenario DESC_THEN_DESC_SCENARIO = {
    .name = "ORDER_BY_DESC_THEN_DESC",
    .query =
-      "default.project({primaryKey, int_value, date}).order(by:={int_value.desc(), date.desc()})",
+      "data.project({primaryKey, int_value, date}).order(by:={int_value.desc(), date.desc()})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_5"}, {"int_value", 2}, {"date", "2023-01-01"}},
        {{"primaryKey", "id_4"}, {"int_value", 2}, {"date", nullptr}},
@@ -102,8 +101,7 @@ const QueryTestScenario DESC_THEN_DESC_SCENARIO = {
 // the first (descending) key, wrongly pushing the `date` nulls to the end of each group.
 const QueryTestScenario DESC_THEN_ASC_SCENARIO = {
    .name = "ORDER_BY_DESC_THEN_ASC",
-   .query =
-      "default.project({primaryKey, int_value, date}).order(by:={int_value.desc(), date.asc()})",
+   .query = "data.project({primaryKey, int_value, date}).order(by:={int_value.desc(), date.asc()})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_4"}, {"int_value", 2}, {"date", nullptr}},
        {{"primaryKey", "id_5"}, {"int_value", 2}, {"date", "2023-01-01"}},
@@ -119,8 +117,7 @@ const QueryTestScenario DESC_THEN_ASC_SCENARIO = {
 // the null `int_value` group still sorts first.
 const QueryTestScenario ASC_THEN_DESC_SCENARIO = {
    .name = "ORDER_BY_ASC_THEN_DESC",
-   .query =
-      "default.project({primaryKey, int_value, date}).order(by:={int_value.asc(), date.desc()})",
+   .query = "data.project({primaryKey, int_value, date}).order(by:={int_value.asc(), date.desc()})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_1"}, {"int_value", nullptr}, {"date", "2023-01-01"}},
        {{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
@@ -135,7 +132,7 @@ const QueryTestScenario ASC_THEN_DESC_SCENARIO = {
 // (smallest) sorts first.
 const QueryTestScenario SINGLE_ASC_SCENARIO = {
    .name = "ORDER_BY_SINGLE_ASC",
-   .query = "default.project({primaryKey, date}).order(by:={date.asc(), primaryKey.asc()})",
+   .query = "data.project({primaryKey, date}).order(by:={date.asc(), primaryKey.asc()})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"date", nullptr}},
        {{"primaryKey", "id_2"}, {"date", nullptr}},
@@ -149,7 +146,7 @@ const QueryTestScenario SINGLE_ASC_SCENARIO = {
 // Single descending key: null (smallest) sorts last.
 const QueryTestScenario SINGLE_DESC_SCENARIO = {
    .name = "ORDER_BY_SINGLE_DESC",
-   .query = "default.project({primaryKey, date}).order(by:={date.desc(), primaryKey.asc()})",
+   .query = "data.project({primaryKey, date}).order(by:={date.desc(), primaryKey.asc()})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_1"}, {"date", "2023-01-01"}},
        {{"primaryKey", "id_3"}, {"date", "2023-01-01"}},

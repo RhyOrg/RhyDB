@@ -1,6 +1,6 @@
 {
   "testCaseName": "StringSearch that wants to match a non-existing column",
-  "query": "default.filter(this_column_does_not_exist.like('test')).group(by:={}, aggs:={count:=count()})",
+  "query": "data.filter(this_column_does_not_exist.like('test')).group(by:={}, aggs:={count:=count()})",
   "expectedError": {
     "error": "Bad request",
     "message": "The database does not contain the column 'this_column_does_not_exist'"

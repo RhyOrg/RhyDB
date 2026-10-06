@@ -1,6 +1,6 @@
 {
   "testCaseName": "Filtering for the position 0",
-  "query": "default.filter(nucleotideEquals(position:=0, symbol:='-', sequenceName:='main')).group(by:={}, aggs:={count:=count()})",
+  "query": "data.filter(nucleotideEquals(position:=0, symbol:='-', sequenceName:='main')).group(by:={}, aggs:={count:=count()})",
   "expectedError": {
     "error": "Bad request",
     "message": "The field 'position' is 1-indexed. Value of 0 not allowed."

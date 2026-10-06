@@ -55,43 +55,43 @@ const QueryTestData TEST_DATA{
 
 const QueryTestScenario STRING_EQUALS_NULL_REJECTED_STRING_COLUMN = {
    .name = "STRING_EQUALS_NULL_REJECTED_STRING_COLUMN",
-   .query = "default.filter(stringField = null).project(primaryKey)",
+   .query = "data.filter(stringField = null).project(primaryKey)",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
-      "a column reference, or a scalar function call at 1:30"
+      "a column reference, or a scalar function call at 1:27"
 };
 
 const QueryTestScenario STRING_EQUALS_NULL_REJECTED_DICTIONARY_ENCODED_COLUMN = {
    .name = "STRING_EQUALS_NULL_REJECTED_DICTIONARY_ENCODED_COLUMN",
-   .query = "default.filter(dictionaryEncodedStringField = null).project(primaryKey)",
+   .query = "data.filter(dictionaryEncodedStringField = null).project(primaryKey)",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
-      "a column reference, or a scalar function call at 1:47"
+      "a column reference, or a scalar function call at 1:44"
 };
 
 const QueryTestScenario STRING_EQUALS_NULL_REJECTED_NEGATED = {
    .name = "STRING_EQUALS_NULL_REJECTED_NEGATED",
-   .query = "default.filter(!(stringField = null)).project(primaryKey)",
+   .query = "data.filter(!(stringField = null)).project(primaryKey)",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
-      "a column reference, or a scalar function call at 1:32"
+      "a column reference, or a scalar function call at 1:29"
 };
 
 const QueryTestScenario STRING_EQUALS_VALUE = {
    .name = "STRING_EQUALS_VALUE",
-   .query = "default.filter(stringField = 'value1').project(primaryKey)",
+   .query = "data.filter(stringField = 'value1').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_0"}])")
 };
 
 const QueryTestScenario STRING_EQUALS_INDEXED_VALUE = {
    .name = "STRING_EQUALS_INDEXED_VALUE",
-   .query = "default.filter(dictionaryEncodedStringField = 'indexed1').project(primaryKey)",
+   .query = "data.filter(dictionaryEncodedStringField = 'indexed1').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_0"}])")
 };
 
 const QueryTestScenario STRING_EQUALS_NO_MATCH = {
    .name = "STRING_EQUALS_NO_MATCH",
-   .query = "default.filter(stringField = 'nonexistent').project(primaryKey)",
+   .query = "data.filter(stringField = 'nonexistent').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([])")
 };
 

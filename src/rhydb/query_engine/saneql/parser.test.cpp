@@ -117,17 +117,17 @@ TEST(SaneQLParser, parsesFunctionCallWithNamedArgs) {
 }
 
 TEST(SaneQLParser, parsesMethodCall) {
-   Parser parser("default.filter(country = 'USA')");
+   Parser parser("data.filter(country = 'USA')");
    auto expr = parser.parse();
    // Method call syntax is desugared: receiver becomes first positional arg
-   EXPECT_EQ(expr->toString(), "filter(default, (country = 'USA'))");
+   EXPECT_EQ(expr->toString(), "filter(data, (country = 'USA'))");
 }
 
 TEST(SaneQLParser, parsesMethodCallChain) {
-   Parser parser("default.filter(country = 'USA').group(by:={}, aggs:={count:=count()})");
+   Parser parser("data.filter(country = 'USA').group(by:={}, aggs:={count:=count()})");
    auto expr = parser.parse();
    EXPECT_EQ(
-      expr->toString(), "group(filter(default, (country = 'USA')), by:={}, aggs:={count:=count()})"
+      expr->toString(), "group(filter(data, (country = 'USA')), by:={}, aggs:={count:=count()})"
    );
 }
 
@@ -156,8 +156,7 @@ TEST(SaneQLParser, parsesMethodCallOnSetLiteral) {
 }
 
 TEST(SaneQLParser, parsesComplexFilterQuery) {
-   Parser parser("default.filter(country = 'USA' && age > 30).group(by:={}, aggs:={count:=count()})"
-   );
+   Parser parser("data.filter(country = 'USA' && age > 30).group(by:={}, aggs:={count:=count()})");
    auto expr = parser.parse();
    ASSERT_TRUE(std::holds_alternative<ast::FunctionCall>(expr->value));
    auto& outer = std::get<ast::FunctionCall>(expr->value);
@@ -180,7 +179,7 @@ TEST(SaneQLParser, parsesDateBetweenWithTypeCast) {
 }
 
 TEST(SaneQLParser, parsesLimitMethod) {
-   Parser parser("default.filter(country = 'USA').limit(100)");
+   Parser parser("data.filter(country = 'USA').limit(100)");
    auto expr = parser.parse();
    ASSERT_TRUE(std::holds_alternative<ast::FunctionCall>(expr->value));
    auto& limit_call = std::get<ast::FunctionCall>(expr->value);

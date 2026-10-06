@@ -36,13 +36,13 @@ const QueryTestData TEST_DATA{
 
 const QueryTestScenario PROJECT_EMPTY_SCENARIO = {
    .name = "PROJECT_EMPTY",
-   .query = "default.project({})",
+   .query = "data.project({})",
    .expected_error_message = "a projection must keep at least one column",
 };
 
 const QueryTestScenario PROJECTOUT_SET_SCENARIO = {
    .name = "PROJECTOUT_SET",
-   .query = "default.projectout({age})",
+   .query = "data.projectout({age})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"country", "Switzerland"}},
        {{"primaryKey", "id_1"}, {"country", "Germany"}}}
@@ -51,21 +51,21 @@ const QueryTestScenario PROJECTOUT_SET_SCENARIO = {
 
 const QueryTestScenario PROJECTOUT_SINGLE_SCENARIO = {
    .name = "PROJECTOUT_SINGLE",
-   .query = "default.projectout(country)",
+   .query = "data.projectout(country)",
    .expected_query_result =
       nlohmann::json({{{"primaryKey", "id_0"}, {"age", 5}}, {{"primaryKey", "id_1"}, {"age", 7}}}),
 };
 
 const QueryTestScenario PROJECTOUT_MULTIPLE_SCENARIO = {
    .name = "PROJECTOUT_MULTIPLE",
-   .query = "default.projectout({country, age})",
+   .query = "data.projectout({country, age})",
    .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}, {{"primaryKey", "id_1"}}}),
 };
 
 const QueryTestScenario PROJECTOUT_OVER_GROUP_BY_SCENARIO = {
    .name = "PROJECTOUT_OVER_GROUP_BY",
    .query =
-      "default.group(by:={country}, aggs:={count := "
+      "data.group(by:={country}, aggs:={count := "
       "count()}).order(by:={country}).projectout({count})",
    .expected_query_result =
       nlohmann::json({{{"country", "Germany"}}, {{"country", "Switzerland"}}}),
@@ -73,13 +73,13 @@ const QueryTestScenario PROJECTOUT_OVER_GROUP_BY_SCENARIO = {
 
 const QueryTestScenario PROJECTOUT_ALL_SCENARIO = {
    .name = "PROJECTOUT_ALL",
-   .query = "default.projectout({primaryKey, country, age})",
+   .query = "data.projectout({primaryKey, country, age})",
    .expected_error_message = "a projection must keep at least one column",
 };
 
 const QueryTestScenario PROJECTOUT_UNKNOWN_COLUMN_SCENARIO = {
    .name = "PROJECTOUT_UNKNOWN_COLUMN",
-   .query = "default.projectout({doesNotExist})",
+   .query = "data.projectout({doesNotExist})",
    .expected_error_message =
       "projectout field 'doesNotExist' is not present in the input's output schema",
 };

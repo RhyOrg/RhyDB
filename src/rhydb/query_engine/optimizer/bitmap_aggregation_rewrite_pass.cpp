@@ -287,7 +287,7 @@ operators::QueryNodePtr BitmapAggregationRewritePass::operator()(operators::Aggr
    // A full `count(*)` with no grouping keys is the filter's cardinality: read it straight off the
    // scan's filter bitmap. The map (if any) only decompresses columns nobody reads here and does
    // not change the row count, so it is dropped. This is the fast path for
-   // `default.group(aggs:={n := count()}, by:={})`.
+   // `data.group(aggs:={n := count()}, by:={})`.
    if (node.group_by_fields.empty()) {
       return std::make_unique<operators::CountFilterNode>(
          std::move(source->scan.table),

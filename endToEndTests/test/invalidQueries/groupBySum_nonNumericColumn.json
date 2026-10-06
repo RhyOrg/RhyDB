@@ -1,6 +1,6 @@
 {
   "testCaseName": "Sum over a non-numeric column",
-  "query": "default.group(by:={}, aggs:={total:=sum(country)})",
+  "query": "data.group(by:={}, aggs:={total:=sum(country)})",
   "expectedError": {
     "error": "Bad request",
     "message": "aggregate 'total': sum requires a numeric (int, int64 or float) column, but 'country' has type STRING"
