@@ -18,7 +18,8 @@ The table holding the sequences and their metadata is named `data`.
 
 Additional tables exist if the database config declares columns with `lineageIndexType: table` or
 `both`: each such column gets a companion table named after the column, holding the edges of its
-lineage tree. These are queried like any other table — see
+lineage tree, and one named after the column with an `_aliases` suffix, holding its aliases. These
+are queried like any other table — see
 [lineage_definitions.md](lineage_definitions.md#lineage-relation-tables) for their schema.
 
 Some tables are **built-in**: every database contains them, so queries can always rely on their

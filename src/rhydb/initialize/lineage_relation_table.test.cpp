@@ -14,7 +14,9 @@
 #include "rhydb/test/query_fixture.test.h"
 
 using rhydb::common::LineageTreeAndIdMap;
+using rhydb::initialize::buildLineageAliasRows;
 using rhydb::initialize::buildLineageRelationRows;
+using rhydb::initialize::LineageAliasRow;
 using rhydb::initialize::LineageRelationRow;
 using rhydb::preprocessing::LineageDefinitionFile;
 using ::testing::UnorderedElementsAreArray;
@@ -94,12 +96,43 @@ XBB:
    );
 }
 
+TEST(LineageRelationTable, aliasesAreNotEdgesButAliasRows) {
+   auto tree = LineageTreeAndIdMap::fromLineageDefinitionFile(LineageDefinitionFile::fromYAMLString(
+      R"(
+A:
+  aliases:
+    - X
+  parents: []
+A.1:
+  aliases:
+    - Y
+    - Z
+  parents:
+    - A
+)"
+   ));
+
+   EXPECT_THAT(
+      buildLineageRelationRows(tree),
+      UnorderedElementsAreArray({edge("A", std::nullopt), edge("A.1", "A")})
+   );
+   EXPECT_THAT(
+      buildLineageAliasRows(tree),
+      UnorderedElementsAreArray({
+         LineageAliasRow{.alias = "X", .lineage = "A"},
+         LineageAliasRow{.alias = "Y", .lineage = "A.1"},
+         LineageAliasRow{.alias = "Z", .lineage = "A.1"},
+      })
+   );
+}
+
 namespace {
 using rhydb::ReferenceGenomes;
 using rhydb::test::QueryTestData;
 using rhydb::test::QueryTestScenario;
 
-// A column with `lineageIndexType: table` gets a companion relation table named after the column.
+// A column with `lineageIndexType: table` gets a companion relation table named after the column,
+// and an alias table named after the column with an `_aliases` suffix.
 const auto DATABASE_CONFIG =
    R"(
 schema:
@@ -125,6 +158,8 @@ const auto QUERYABLE_LINEAGE_TREE =
 BASE:
   parents: []
 CHILD:
+  aliases:
+    - C
   parents:
     - BASE
 )"));
@@ -174,6 +209,12 @@ const QueryTestScenario RELATION_TABLE_ROW_SHAPE = {
 )"),
 };
 
+const QueryTestScenario ALIAS_TABLE_MAPS_ALIASES_TO_LINEAGES = {
+   .name = "ALIAS_TABLE_MAPS_ALIASES_TO_LINEAGES",
+   .query = "lin_aliases.project({alias, lineage})",
+   .expected_query_result = nlohmann::json::parse(R"([{"alias":"C","lineage":"CHILD"}])"),
+};
+
 }  // namespace
 
 QUERY_TEST(
@@ -182,6 +223,7 @@ QUERY_TEST(
    ::testing::Values(
       RELATION_TABLE_CONTAINS_ONLY_DIRECT_EDGES,
       RELATION_TABLE_PARENT_IS_QUERYABLE,
-      RELATION_TABLE_ROW_SHAPE
+      RELATION_TABLE_ROW_SHAPE,
+      ALIAS_TABLE_MAPS_ALIASES_TO_LINEAGES
    )
 )
