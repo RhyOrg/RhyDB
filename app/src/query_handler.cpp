@@ -45,7 +45,7 @@ void QueryHandler::post(
 
    const std::string query_string = readQueryString(request, request_id);
 
-   rethrowInvalidQueryAsBadRequest([&]() {
+   rethrowInvalidQueryAsBadRequest([&] {
       auto parsed_request =
          rhydb::query_engine::command::parseRequest(query_string, database->tables);
 

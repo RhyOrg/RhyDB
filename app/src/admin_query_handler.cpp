@@ -76,8 +76,8 @@ void AdminQueryHandler::post(
 
    const std::string query_string = readQueryString(request, request_id);
 
-   rethrowInvalidQueryAsBadRequest([&]() {
-      const auto [write_result, data_version] = [&]() {
+   rethrowInvalidQueryAsBadRequest([&] {
+      const auto [write_result, data_version] = [&] {
          // One write at a time
          const std::scoped_lock<std::mutex> write_lock{*write_mutex};
 
