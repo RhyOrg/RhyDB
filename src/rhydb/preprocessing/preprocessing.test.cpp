@@ -954,7 +954,8 @@ const Scenario<Error> TYPE_ERROR = {
    .test_name = "TYPE_ERROR",
    .input_data =
       [] {
-         std::vector<nlohmann::json> result{nlohmann::json::parse(R"({
+         std::vector<nlohmann::json> result{
+            nlohmann::json::parse(R"({
 "accessionVersion": 0
 })"),
          };
@@ -985,7 +986,8 @@ const Scenario<Error> SEQUENCE_ILLEGAL_SYMBOL = {
    .test_name = "SEQUENCE_ILLEGAL_SYMBOL",
    .input_data =
       [] {
-         std::vector<nlohmann::json> result{nlohmann::json::parse(R"({
+         std::vector<nlohmann::json> result{
+            nlohmann::json::parse(R"({
 "accessionVersion": "1.3",
 "main": {"sequence": "ACET", "insertions": []},
 "unaligned_main": "ACGT"
