@@ -39,7 +39,7 @@ arrow::Result<arrow::acero::ExecNode*> CountFilterNode::addToExecPlan(
    const std::map<schema::TableName, std::shared_ptr<storage::Table>>& /*tables*/,
    const config::QueryOptions& /*query_options*/
 ) const {
-   auto filter_bitmap = computeFilter(filter, *table);
+   auto filter_bitmap = compileFilter(filter, table)->evaluate();
 
    std::function<arrow::Future<std::optional<arrow::ExecBatch>>()> producer =
       [filter_bitmap = std::move(filter_bitmap),

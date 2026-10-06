@@ -92,7 +92,7 @@ arrow::Result<arrow::acero::ExecNode*> PhyloSubtreeNode::addToExecPlan(
    const std::map<schema::TableName, std::shared_ptr<storage::Table>>& /*tables*/,
    const config::QueryOptions& /*query_options*/
 ) const {
-   auto bitmap_filter = computeFilter(filter, *table);
+   auto bitmap_filter = compileFilter(filter, table)->evaluate();
 
    CHECK_RHYDB_QUERY(
       table->schema->getColumn(column_name).has_value(),
