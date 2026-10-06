@@ -61,6 +61,7 @@
 #include "rhydb/query_engine/scalar_expressions/string_search.h"
 #include "rhydb/query_engine/scalar_expressions/symbol_equals.h"
 #include "rhydb/query_engine/scalar_expressions/zstd_decompress_scalar.h"
+#include "rhydb/query_engine/subquery_value_set.h"
 #include "rhydb/storage/column/column_type_visitor.h"
 #include "rhydb/storage/column/sequence_column.h"
 #include "rhydb/storage/column/zstd_compressed_string_column.h"
@@ -353,16 +354,23 @@ ScalarExpressionPtr handleIn(
       resolveColumn(extractIdentifierName(args.at("column")), schema);
    const auto& values_expr = args.at("values");
 
-   CHECK_RHYDB_QUERY(
-      std::holds_alternative<ast::SetLiteral>(values_expr.value),
-      "in() expects a set literal argument at {}:{}",
-      values_expr.location.line,
-      values_expr.location.column
-   );
-   // Values may be of any column type.
+   // Collect the candidate values as typed scalar literals, from either a set literal or a
+   // subquery. `in` is agnostic both to the value source and to the column type.
    std::vector<ScalarExpressionPtr> value_literals;
-   for (const auto& elem : std::get<ast::SetLiteral>(values_expr.value).elements) {
-      value_literals.push_back(convertToScalar(*elem, schema, "in() value", context));
+   if (std::holds_alternative<ast::SetLiteral>(values_expr.value)) {
+      for (const auto& elem : std::get<ast::SetLiteral>(values_expr.value).elements) {
+         value_literals.push_back(convertToScalar(*elem, schema, "in() value", context));
+      }
+   } else {
+      // Anything else runs through the generic query-tree conversion (which validates that it is a
+      // table reference or pipeline expression) and is executed; its single column becomes the set.
+      CHECK_RHYDB_QUERY(
+         context.tables != nullptr && context.convert_child != nullptr,
+         "in(<subquery>) is not supported in this context; pass a set literal instead."
+      );
+      auto subquery = (*context.convert_child)(values_expr, *context.tables);
+      value_literals =
+         materializeSubqueryColumnLiterals(std::move(subquery), *context.tables, "in_subquery");
    }
    return buildValueSetPredicate(column, std::move(value_literals));
 }
