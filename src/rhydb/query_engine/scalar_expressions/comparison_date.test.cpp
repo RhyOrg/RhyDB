@@ -44,26 +44,26 @@ const QueryTestData TEST_DATA{
 
 const QueryTestScenario LESS_THAN = {
    .name = "DATE_LESS_THAN",
-   .query = "default.filter(date_value < '2021-06-15'::date).project(primaryKey)",
+   .query = "data.filter(date_value < '2021-06-15'::date).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_below"}])")
 };
 
 const QueryTestScenario LESS_EQUAL = {
    .name = "DATE_LESS_EQUAL",
-   .query = "default.filter(date_value <= '2021-06-15'::date).project(primaryKey)",
+   .query = "data.filter(date_value <= '2021-06-15'::date).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_below"},{"primaryKey":"id_bound"}])")
 };
 
 const QueryTestScenario GREATER_THAN = {
    .name = "DATE_GREATER_THAN",
-   .query = "default.filter(date_value > '2021-06-15'::date).project(primaryKey)",
+   .query = "data.filter(date_value > '2021-06-15'::date).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_above"}])")
 };
 
 const QueryTestScenario GREATER_EQUAL = {
    .name = "DATE_GREATER_EQUAL",
-   .query = "default.filter(date_value >= '2021-06-15'::date).project(primaryKey)",
+   .query = "data.filter(date_value >= '2021-06-15'::date).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"}])")
 };
@@ -71,7 +71,7 @@ const QueryTestScenario GREATER_EQUAL = {
 // !(date_value < bound) == date_value >= bound, and nulls are included by the negation.
 const QueryTestScenario NEGATED_LESS_THAN = {
    .name = "DATE_NEGATED_LESS_THAN",
-   .query = "default.filter(!(date_value < '2021-06-15'::date)).project(primaryKey)",
+   .query = "data.filter(!(date_value < '2021-06-15'::date)).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"},{"primaryKey":"id_null"}])"
    )
@@ -80,20 +80,20 @@ const QueryTestScenario NEGATED_LESS_THAN = {
 // Operand flip: `bound > date_value` must equal `date_value < bound`.
 const QueryTestScenario FLIPPED_OPERANDS = {
    .name = "DATE_FLIPPED_OPERANDS",
-   .query = "default.filter('2021-06-15'::date > date_value).project(primaryKey)",
+   .query = "data.filter('2021-06-15'::date > date_value).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_below"}])")
 };
 
 const QueryTestScenario UNKNOWN_COLUMN = {
    .name = "DATE_UNKNOWN_COLUMN",
-   .query = "default.filter(does_not_exist < '2021-06-15'::date).project(primaryKey)",
+   .query = "data.filter(does_not_exist < '2021-06-15'::date).project(primaryKey)",
    .expected_error_message =
-      "the left side of a comparison references unknown column 'does_not_exist' at 1:16"
+      "the left side of a comparison references unknown column 'does_not_exist' at 1:13"
 };
 
 const QueryTestScenario WRONG_COLUMN_TYPE = {
    .name = "DATE_WRONG_COLUMN_TYPE",
-   .query = "default.filter(primaryKey < '2021-06-15'::date).project(primaryKey)",
+   .query = "data.filter(primaryKey < '2021-06-15'::date).project(primaryKey)",
    .expected_error_message = "The column 'primaryKey' is not of type date"
 };
 

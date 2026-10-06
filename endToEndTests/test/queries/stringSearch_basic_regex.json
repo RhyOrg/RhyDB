@@ -1,6 +1,6 @@
 {
   "testCaseName": "StringSearch with a basic regex",
-  "query": "default.filter(!(primary_key.like('key'))).group(by:={}, aggs:={count:=count()})",
+  "query": "data.filter(!(primary_key.like('key'))).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 0

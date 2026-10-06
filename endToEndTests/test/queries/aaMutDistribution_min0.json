@@ -1,6 +1,6 @@
 {
   "testCaseName": "The distribution of Amino Acid Mutations action with minProportion 0",
-  "query": "default.aminoAcidMutations(minProportion:=0.0, sequenceNames:={E}).order(by:={sequenceName, position, mutationTo})",
+  "query": "data.aminoAcidMutations(minProportion:=0.0, sequenceNames:={E}).order(by:={sequenceName, position, mutationTo})",
   "expectedQueryResult": [
     {
       "count": 34,

@@ -1,6 +1,6 @@
 {
   "testCaseName": "StringEquals for region",
-  "query": "default.filter(country = 'Switzerland').group(by:={}, aggs:={count:=count()})",
+  "query": "data.filter(country = 'Switzerland').group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 100

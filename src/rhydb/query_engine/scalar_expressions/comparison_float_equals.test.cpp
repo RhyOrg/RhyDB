@@ -60,7 +60,7 @@ const QueryTestData TEST_DATA{
 
 const QueryTestScenario FLOAT_EQUALS_VALUE_SCENARIO = {
    .name = "FLOAT_EQUALS_VALUE_SCENARIO",
-   .query = "default.filter(float_value = 1.23).project({primaryKey, float_value})",
+   .query = "data.filter(float_value = 1.23).project({primaryKey, float_value})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"float_value", 1.23}},
        {{"primaryKey", "id_1"}, {"float_value", 1.23}}}
@@ -69,7 +69,7 @@ const QueryTestScenario FLOAT_EQUALS_VALUE_SCENARIO = {
 
 const QueryTestScenario NEGATED_FLOAT_EQUALS_VALUE_SCENARIO = {
    .name = "NEGATED_FLOAT_EQUALS_VALUE_SCENARIO",
-   .query = "default.filter(!(float_value = 1.23)).project({primaryKey, float_value})",
+   .query = "data.filter(!(float_value = 1.23)).project({primaryKey, float_value})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_2"}, {"float_value", 0.345}},
        {{"primaryKey", "id_3"}, {"float_value", 2.345}},
@@ -79,23 +79,23 @@ const QueryTestScenario NEGATED_FLOAT_EQUALS_VALUE_SCENARIO = {
 
 const QueryTestScenario FLOAT_EQUALS_NULL_REJECTED_SCENARIO = {
    .name = "FLOAT_EQUALS_NULL_REJECTED_SCENARIO",
-   .query = "default.filter(float_value = null).project({primaryKey, float_value})",
+   .query = "data.filter(float_value = null).project({primaryKey, float_value})",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
-      "a column reference, or a scalar function call at 1:30"
+      "a column reference, or a scalar function call at 1:27"
 };
 
 const QueryTestScenario NEGATED_FLOAT_EQUALS_NULL_REJECTED_SCENARIO = {
    .name = "NEGATED_FLOAT_EQUALS_NULL_REJECTED_SCENARIO",
-   .query = "default.filter(!(float_value = null)).project({primaryKey, float_value})",
+   .query = "data.filter(!(float_value = null)).project({primaryKey, float_value})",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
-      "a column reference, or a scalar function call at 1:32"
+      "a column reference, or a scalar function call at 1:29"
 };
 
 const QueryTestScenario FLOAT_EQUALS_WITH_INVALID_VALUE = {
    .name = "FLOAT_EQUALS_WITH_INVALID_VALUE",
-   .query = "default.filter(float_value = 'something').project({primaryKey, float_value})",
+   .query = "data.filter(float_value = 'something').project({primaryKey, float_value})",
    .expected_error_message = "The column 'float_value' is not of type string"
 };
 

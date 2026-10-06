@@ -130,56 +130,56 @@ const QueryTestData TEST_DATA{
 
 const QueryTestScenario IS_NULL_STRING_COLUMN = {
    .name = "IS_NULL_STRING_COLUMN",
-   .query = "default.filter(stringField.isNull()).project(primaryKey)",
+   .query = "data.filter(stringField.isNull()).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_1"},{"primaryKey":"id_7"}])")
 };
 
 const QueryTestScenario IS_NULL_DICTIONARY_ENCODED_COLUMN = {
    .name = "IS_NULL_DICTIONARY_ENCODED_COLUMN",
-   .query = "default.filter(dictionaryEncodedStringField.isNull()).project(primaryKey)",
+   .query = "data.filter(dictionaryEncodedStringField.isNull()).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_2"},{"primaryKey":"id_7"}])")
 };
 
 const QueryTestScenario IS_NULL_INT_COLUMN = {
    .name = "IS_NULL_INT_COLUMN",
-   .query = "default.filter(intField.isNull()).project(primaryKey)",
+   .query = "data.filter(intField.isNull()).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_3"},{"primaryKey":"id_7"}])")
 };
 
 const QueryTestScenario IS_NULL_INT64_COLUMN = {
    .name = "IS_NULL_INT64_COLUMN",
-   .query = "default.filter(int64Field.isNull()).project(primaryKey)",
+   .query = "data.filter(int64Field.isNull()).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_7"}])")
 };
 
 const QueryTestScenario IS_NULL_FLOAT_COLUMN = {
    .name = "IS_NULL_FLOAT_COLUMN",
-   .query = "default.filter(floatField.isNull()).project(primaryKey)",
+   .query = "data.filter(floatField.isNull()).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_4"},{"primaryKey":"id_7"}])")
 };
 
 const QueryTestScenario IS_NULL_BOOL_COLUMN = {
    .name = "IS_NULL_BOOL_COLUMN",
-   .query = "default.filter(boolField.isNull()).project(primaryKey)",
+   .query = "data.filter(boolField.isNull()).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_5"},{"primaryKey":"id_7"}])")
 };
 
 const QueryTestScenario IS_NULL_DATE_COLUMN = {
    .name = "IS_NULL_DATE_COLUMN",
-   .query = "default.filter(dateField.isNull()).project(primaryKey)",
+   .query = "data.filter(dateField.isNull()).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_6"},{"primaryKey":"id_7"}])")
 };
 
 const QueryTestScenario IS_NULL_NEGATED = {
    .name = "IS_NULL_NEGATED",
-   .query = "default.filter(!(stringField.isNull())).project(primaryKey)",
+   .query = "data.filter(!(stringField.isNull())).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"id_0"},{"primaryKey":"id_2"},{"primaryKey":"id_3"},{"primaryKey":"id_4"},{"primaryKey":"id_5"},{"primaryKey":"id_6"}])"
    )
@@ -187,7 +187,7 @@ const QueryTestScenario IS_NULL_NEGATED = {
 
 const QueryTestScenario IS_NOT_NULL = {
    .name = "IS_NOT_NULL",
-   .query = "default.filter(stringField.isNotNull()).project(primaryKey)",
+   .query = "data.filter(stringField.isNotNull()).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"id_0"},{"primaryKey":"id_2"},{"primaryKey":"id_3"},{"primaryKey":"id_4"},{"primaryKey":"id_5"},{"primaryKey":"id_6"}])"
    )
@@ -195,7 +195,7 @@ const QueryTestScenario IS_NOT_NULL = {
 
 const QueryTestScenario IS_NULL_WITH_AND = {
    .name = "IS_NULL_WITH_AND",
-   .query = "default.filter(stringField.isNull() && intField.isNull()).project(primaryKey)",
+   .query = "data.filter(stringField.isNull() && intField.isNull()).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_7"}])")
 };
 

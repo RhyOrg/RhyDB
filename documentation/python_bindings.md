@@ -29,11 +29,11 @@ from rhydb import Database
 db = Database("path/to/data-directory")
 
 # Run a SaneQL query; results come back as a pyarrow.Table
-table = db.query("default.filter(region = 'Europe').project({primaryKey, age})")
+table = db.query("data.filter(region = 'Europe').project({primaryKey, age})")
 print(table.to_pydict())
 
 # Overwrite a scalar column for the matching rows
-db.update_column("default", "age", "0", filter_expression="age = 4")
+db.update_column("data", "age", "0", filter_expression="age = 4")
 ```
 
 ## The `Database` Class
@@ -58,7 +58,7 @@ Raises `FileNotFoundError` if the path does not exist, and `RuntimeError` if no 
 
 ```python
 with Database("path/to/rhydb-dir") as db:
-    result = db.query("default")
+    result = db.query("data")
 ```
 
 ### Building a database in memory
@@ -98,7 +98,7 @@ db.append_data_from_string(
 Executes a [SaneQL](query_documentation.md) query. The leading identifier is the table name.
 
 ```python
-result = db.query("default.filter(age >= 18).project({primaryKey, age, country})")
+result = db.query("data.filter(age >= 18).project({primaryKey, age, country})")
 data = result.to_pydict()      # dict of columns
 df = result.to_pandas()        # pandas DataFrame
 ```
@@ -107,7 +107,7 @@ df = result.to_pandas()        # pandas DataFrame
 Returns the row indices matching a SaneQL filter expression. An empty or `None` filter defaults to `true` (all rows). Useful for cheap counting and set operations.
 
 ```python
-matching = db.get_filtered_bitmap("default", "region = 'Europe'")
+matching = db.get_filtered_bitmap("data", "region = 'Europe'")
 print(len(matching))                       # number of matching rows
 ```
 
@@ -141,19 +141,19 @@ Scalar value columns (int32, int64, float, date, bool) and string columns (plain
 db = Database("path/to/rhydb-dir")
 
 # Set every row's age to 0
-db.update_column("default", "age", "0")
+db.update_column("data", "age", "0")
 
 # Set age to 100 only for rows currently equal to 4
-db.update_column("default", "age", "100", filter_expression="age = 4")
+db.update_column("data", "age", "100", filter_expression="age = 4")
 
 # Assign a date literal
-db.update_column("default", "date", "'2000-01-01'::date")
+db.update_column("data", "date", "'2000-01-01'::date")
 
 # Reassign a string column (note the quotes: the value is a SaneQL string literal)
-db.update_column("default", "division", "'Basel'", filter_expression="division = 'Bern'")
+db.update_column("data", "division", "'Basel'", filter_expression="division = 'Bern'")
 
 # Clear a boolean column to null for a subset of rows
-db.update_column("default", "test_boolean_column", "null", filter_expression="region = 'Asia'")
+db.update_column("data", "test_boolean_column", "null", filter_expression="region = 'Asia'")
 ```
 
 The update mutates only the **in-memory** database. On-disk state is left untouched until you call `save_checkpoint`. Because the update bumps the data version, a subsequently saved checkpoint is written as a new versioned state.
@@ -166,7 +166,7 @@ The update mutates only the **in-memory** database. On-disk state is left untouc
 Writes the current database state into `save_directory` as a new versioned state, which can later be reloaded with `Database(save_directory)`.
 
 ```python
-db.update_column("default", "age", "0")
+db.update_column("data", "age", "0")
 db.save_checkpoint("out/rhydb-dir")
 reloaded = Database("out/rhydb-dir")
 ```
@@ -181,7 +181,7 @@ The bindings translate C++ exceptions into Python ones:
 
 ```python
 try:
-    db.update_column("default", "pango_lineage", "'B.1'")   # backed by a lineage index
+    db.update_column("data", "pango_lineage", "'B.1'")   # backed by a lineage index
 except ValueError as e:
     print(e)   # "Column 'pango_lineage' is backed by a lineage index and cannot be updated"
 ```
@@ -193,14 +193,14 @@ from rhydb import Database
 
 with Database("path/to/rhydb-dir") as db:
     # Count the rows we are about to change
-    before = len(db.get_filtered_bitmap("default", "age = 4"))
+    before = len(db.get_filtered_bitmap("data", "age = 4"))
 
     # Reset those rows' age to null
-    db.update_column("default", "age", "null", filter_expression="age = 4")
+    db.update_column("data", "age", "null", filter_expression="age = 4")
 
     # Verify via a query
-    remaining = len(db.get_filtered_bitmap("default", "age = 4"))
-    cleared = len(db.get_filtered_bitmap("default", "age.isNull()"))
+    remaining = len(db.get_filtered_bitmap("data", "age = 4"))
+    cleared = len(db.get_filtered_bitmap("data", "age.isNull()"))
     assert remaining == 0
     assert cleared >= before
 

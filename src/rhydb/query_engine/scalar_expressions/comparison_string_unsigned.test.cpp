@@ -57,13 +57,13 @@ const QueryTestData TEST_DATA{
 
 const QueryTestScenario SHORT_GREATER_THAN_ASCII = {
    .name = "STRING_SHORT_NON_ASCII_GREATER_THAN_ASCII",
-   .query = "default.filter(stringField > 'z').project(primaryKey)",
+   .query = "data.filter(stringField > 'z').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_ae"}])")
 };
 
 const QueryTestScenario DICT_SHORT_GREATER_THAN_ASCII = {
    .name = "DICT_SHORT_NON_ASCII_GREATER_THAN_ASCII",
-   .query = "default.filter(dictField > 'z').project(primaryKey)",
+   .query = "data.filter(dictField > 'z').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_ae"}])")
 };
 
@@ -71,7 +71,7 @@ const QueryTestScenario DICT_SHORT_GREATER_THAN_ASCII = {
 
 const QueryTestScenario LONG_FALLBACK_GREATER = {
    .name = "STRING_LONG_NON_ASCII_SUFFIX_FALLBACK",
-   .query = "default.filter(stringField > 'prefixaaaaaaz').project(primaryKey)",
+   .query = "data.filter(stringField > 'prefixaaaaaaz').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"id_z"},{"primaryKey":"id_ae"},{"primaryKey":"id_long_non_ascii"}])"
    )
@@ -79,7 +79,7 @@ const QueryTestScenario LONG_FALLBACK_GREATER = {
 
 const QueryTestScenario DICT_LONG_GREATER = {
    .name = "DICT_LONG_NON_ASCII",
-   .query = "default.filter(dictField > 'prefixaaaaaaz').project(primaryKey)",
+   .query = "data.filter(dictField > 'prefixaaaaaaz').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"id_z"},{"primaryKey":"id_ae"},{"primaryKey":"id_long_non_ascii"}])"
    )

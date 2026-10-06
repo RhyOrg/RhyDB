@@ -49,7 +49,7 @@ const QueryTestData TEST_DATA{
 
 const QueryTestScenario INSERTIONS_ALL_FIELDS = {
    .name = "INSERTIONS_ALL_FIELDS",
-   .query = "default.insertions().order(by:={sequenceName, position})",
+   .query = "data.insertions().order(by:={sequenceName, position})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"position":2,"insertedSymbols":"TT","sequenceName":"segment1","count":3},
       {"position":3,"insertedSymbols":"G","sequenceName":"segment1","count":1},
@@ -59,7 +59,7 @@ const QueryTestScenario INSERTIONS_ALL_FIELDS = {
 
 const QueryTestScenario INSERTIONS_SEQUENCE_NAMES_SELECTS = {
    .name = "INSERTIONS_SEQUENCE_NAMES_SELECTS",
-   .query = "default.insertions(sequenceNames:={segment1}).order(by:={position})",
+   .query = "data.insertions(sequenceNames:={segment1}).order(by:={position})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"position":2,"insertedSymbols":"TT","sequenceName":"segment1","count":3},
       {"position":3,"insertedSymbols":"G","sequenceName":"segment1","count":1}
@@ -69,7 +69,7 @@ const QueryTestScenario INSERTIONS_SEQUENCE_NAMES_SELECTS = {
 const QueryTestScenario INSERTIONS_WITH_INPUT_FILTER = {
    .name = "INSERTIONS_WITH_INPUT_FILTER",
    .query =
-      "default.filter(primaryKey = 's1' || primaryKey = 's2')"
+      "data.filter(primaryKey = 's1' || primaryKey = 's2')"
       ".insertions().order(by:={sequenceName, position})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"position":2,"insertedSymbols":"TT","sequenceName":"segment1","count":2}
@@ -78,13 +78,13 @@ const QueryTestScenario INSERTIONS_WITH_INPUT_FILTER = {
 
 const QueryTestScenario INSERTIONS_ON_NON_SCAN = {
    .name = "INSERTIONS_ON_NON_SCAN",
-   .query = "default.schema().insertions()",
+   .query = "data.schema().insertions()",
    .expected_error_message = "insertions() must be applied to a table scan"
 };
 
 const QueryTestScenario INSERTIONS_UNKNOWN_SEQUENCE_NAME = {
    .name = "INSERTIONS_UNKNOWN_SEQUENCE_NAME",
-   .query = "default.insertions(sequenceNames:={unknownSegment})",
+   .query = "data.insertions(sequenceNames:={unknownSegment})",
    .expected_error_message =
       "The database does not contain the Nucleotide sequence 'unknownSegment'"
 };
@@ -92,7 +92,7 @@ const QueryTestScenario INSERTIONS_UNKNOWN_SEQUENCE_NAME = {
 // gene1 exists but is an amino acid sequence
 const QueryTestScenario INSERTIONS_WRONG_TYPE_SEQUENCE_NAME = {
    .name = "INSERTIONS_WRONG_TYPE_SEQUENCE_NAME",
-   .query = "default.insertions(sequenceNames:={gene1})",
+   .query = "data.insertions(sequenceNames:={gene1})",
    .expected_error_message = "The database does not contain the Nucleotide sequence 'gene1'"
 };
 
@@ -100,7 +100,7 @@ const QueryTestScenario INSERTIONS_WRONG_TYPE_SEQUENCE_NAME = {
 
 const QueryTestScenario AA_INSERTIONS_ALL_FIELDS = {
    .name = "AA_INSERTIONS_ALL_FIELDS",
-   .query = "default.aminoAcidInsertions()",
+   .query = "data.aminoAcidInsertions()",
    .expected_query_result = nlohmann::json::parse(R"([
       {"position":1,"insertedSymbols":"W","sequenceName":"gene1","count":2}
    ])")
@@ -108,7 +108,7 @@ const QueryTestScenario AA_INSERTIONS_ALL_FIELDS = {
 
 const QueryTestScenario AA_INSERTIONS_SEQUENCE_NAMES_SELECTS = {
    .name = "AA_INSERTIONS_SEQUENCE_NAMES_SELECTS",
-   .query = "default.aminoAcidInsertions(sequenceNames:={gene1})",
+   .query = "data.aminoAcidInsertions(sequenceNames:={gene1})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"position":1,"insertedSymbols":"W","sequenceName":"gene1","count":2}
    ])")
@@ -117,7 +117,7 @@ const QueryTestScenario AA_INSERTIONS_SEQUENCE_NAMES_SELECTS = {
 // segment1 is a nucleotide sequence
 const QueryTestScenario AA_INSERTIONS_WRONG_TYPE_SEQUENCE_NAME = {
    .name = "AA_INSERTIONS_WRONG_TYPE_SEQUENCE_NAME",
-   .query = "default.aminoAcidInsertions(sequenceNames:={segment1})",
+   .query = "data.aminoAcidInsertions(sequenceNames:={segment1})",
    .expected_error_message = "The database does not contain the AminoAcid sequence 'segment1'"
 };
 

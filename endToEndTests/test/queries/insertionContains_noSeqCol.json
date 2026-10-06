@@ -1,5 +1,5 @@
 {
   "testCaseName": "Insertion Contains without sequence or column specified",
-  "query": "default.filter((insertionContains(position:=25701, value:='CC.*', sequenceName:='main')) && (insertionContains(position:=22339, value:='.*C.*G.*', sequenceName:='main'))).mutations(minProportion:=1)",
+  "query": "data.filter((insertionContains(position:=25701, value:='CC.*', sequenceName:='main')) && (insertionContains(position:=22339, value:='.*C.*G.*', sequenceName:='main'))).mutations(minProportion:=1)",
   "expectedQueryResult": []
 }

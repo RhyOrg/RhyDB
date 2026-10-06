@@ -1,6 +1,6 @@
 {
   "testCaseName": "StringSearch that wants to match a non-string column",
-  "query": "default.filter(age.like('test')).group(by:={}, aggs:={count:=count()})",
+  "query": "data.filter(age.like('test')).group(by:={}, aggs:={count:=count()})",
   "expectedError": {
     "error": "Bad request",
     "message": "The column 'age' is not of type string"

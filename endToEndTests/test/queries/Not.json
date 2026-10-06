@@ -1,6 +1,6 @@
 {
   "testCaseName": "Not Query",
-  "query": "default.filter(!(country = 'Switzerland')).group(by:={}, aggs:={count:=count()})",
+  "query": "data.filter(!(country = 'Switzerland')).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 0

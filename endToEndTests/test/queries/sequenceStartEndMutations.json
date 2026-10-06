@@ -1,6 +1,6 @@
 {
   "testCaseName": "Getting a mutation distribution that contains the first and last genome position",
-  "query": "default.filter((nucleotideEquals(position:=1, symbol:='-', sequenceName:='main')) && (nucleotideEquals(position:=29903, symbol:='-', sequenceName:='main'))).mutations(minProportion:=1)",
+  "query": "data.filter((nucleotideEquals(position:=1, symbol:='-', sequenceName:='main')) && (nucleotideEquals(position:=29903, symbol:='-', sequenceName:='main'))).mutations(minProportion:=1)",
   "expectedQueryResult": [
     {
       "count": 42,

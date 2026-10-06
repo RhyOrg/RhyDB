@@ -51,7 +51,7 @@ std::map<rhydb::schema::TableName, std::shared_ptr<rhydb::storage::Table>> makeT
 operators::QueryNodePtr makeTableScan() {
    auto tables = makeTablesWithDefault();
    return std::make_unique<operators::TableScanNode>(
-      tables.at(rhydb::schema::TableName{"default"}),
+      tables.at(rhydb::schema::TableName{"data"}),
       std::make_unique<rhydb::query_engine::scalar_expressions::BoolLiteral>(true),
       std::vector<rhydb::schema::ColumnIdentifier>{}
    );

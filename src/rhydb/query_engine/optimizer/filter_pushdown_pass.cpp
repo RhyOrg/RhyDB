@@ -162,7 +162,7 @@ operators::QueryNodePtr FilterPushdownPass::operator()(operators::JoinNode& node
    // propagateToNode (realized as an Arrow filter over the join output).
    //
    // The child subtrees may still contain FilterNodes of their own (e.g.
-   // `join(default.filter(...), ...)`); each input is a barrier of its own so no state leaks
+   // `join(data.filter(...), ...)`); each input is a barrier of its own so no state leaks
    // between the two branches or with the filters left above the join.
    barrier(node.left);
    barrier(node.right);

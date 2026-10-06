@@ -1,6 +1,6 @@
 {
   "testCaseName": "Get two unaligned fastas for one row",
-  "query": "default.filter(primary_key = 'key_41').project({primary_key, unaligned_main, unaligned_testSecondSequence})",
+  "query": "data.filter(primary_key = 'key_41').project({primary_key, unaligned_main, unaligned_testSecondSequence})",
   "expectedQueryResult": [
     {
       "primary_key": "key_41",

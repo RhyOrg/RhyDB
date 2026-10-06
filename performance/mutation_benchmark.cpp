@@ -6,11 +6,11 @@
 
 #include <gtest/gtest.h>
 
-#include "sequence_generator.h"
 #include "rhydb/append/table_inserter.h"
 #include "rhydb/initialize/initializer.h"
 #include "rhydb/query_engine/exec_node/ndjson_sink.h"
 #include "rhydb/query_engine/planner.h"
+#include "sequence_generator.h"
 
 namespace {
 
@@ -80,7 +80,7 @@ void printClipped(const std::string& output) {
 
 void executeMutationsAllQuery(const std::shared_ptr<Database>& database) {
    auto query_plan = Planner::planSaneqlQuery(
-      "default.mutations(minProportion:=0.05, sequenceNames:={main})",
+      "data.mutations(minProportion:=0.05, sequenceNames:={main})",
       database->tables,
       {},
       "test_query"
@@ -93,7 +93,7 @@ void executeMutationsAllQuery(const std::shared_ptr<Database>& database) {
 
 void executeMutationsAlmostAllQuery(const std::shared_ptr<Database>& database) {
    auto query_plan = Planner::planSaneqlQuery(
-      "default.filter(!(key = '3')).mutations(minProportion:=0.05, sequenceNames:={main})",
+      "data.filter(!(key = '3')).mutations(minProportion:=0.05, sequenceNames:={main})",
       database->tables,
       {},
       "test_query"

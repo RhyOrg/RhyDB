@@ -1,6 +1,6 @@
 {
   "testCaseName": "The insertions action with an amino acid sequence name",
-  "query": "default.insertions(sequenceNames:={S})",
+  "query": "data.insertions(sequenceNames:={S})",
   "expectedError": {
     "error": "Bad request",
     "message": "The database does not contain the Nucleotide sequence 'S'"
