@@ -34,7 +34,7 @@ Every response includes:
 | `X-Request-Id` | Echoes the request's `X-Request-Id`, or a generated UUID v4 if none was provided. Useful for correlating logs. |
 | `data-version` | A 10-digit Unix timestamp identifying the database snapshot used to serve the request. Allows clients to detect when the underlying data has changed between requests. |
 
-The `POST /query` endpoint additionally returns an [`result-ordering`](#response-headers) header describing the sort order of the result rows.
+The query endpoints (`POST /query` and `POST /admin/query`) additionally return a [`result-ordering`](#response-headers) header describing the sort order of the result rows.
 
 ## Endpoints
 
@@ -116,7 +116,7 @@ Queries time out after 120 seconds.
 
 #### Response Headers
 
-In addition to the [common response headers](#common-response-headers), a successful (200) query response carries an `result-ordering` header describing the order in which the result rows are returned.
+In addition to the [common response headers](#common-response-headers), a successful (200) query response carries a `result-ordering` header describing the order in which the result rows are returned.
 
 | Header | Description |
 |--------|-------------|
@@ -232,9 +232,10 @@ For `createTable`, the name of the created table:
 {"createdTable": "archive"}
 ```
 
-A successful response carries the [`data-version`](#common-response-headers) header naming the
-version the write produced, which is served once the directory watcher has picked it up. A failed
-write leaves the data version unchanged.
+A successful response carries the same headers as one of [`POST /query`](#response-headers): the
+[`data-version`](#common-response-headers) header names the version the write produced, which is
+served once the directory watcher has picked it up, and the `result-ordering` header is `[]`, since
+the summary has no ordering. A failed write leaves the data version unchanged.
 
 **Errors** (400, `application/json`): returned when the body is not a valid write statement.
 A 500 is returned when the write itself could not be carried out, e.g. because the
