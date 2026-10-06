@@ -9,6 +9,6 @@
     "apache-arrow": "^21.2.0",
     "chai": "^6.2.2",
     "prettier": "^3.9.9",
-    "supertest": "^7.3.0"
+    "supertest": "^7.3.1"
   }
 }
