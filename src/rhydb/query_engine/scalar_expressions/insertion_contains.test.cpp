@@ -134,7 +134,9 @@ nlohmann::json createDataWithAminoAcidInsertions(
          "gene1",
          {{"sequence", "ABCDEFGHIKLMNPQRSTVWYZ*"}, {"insertions", aminoAcidInsertionsGene1}},
       },
-      {"gene2", {{"sequence", "ABCDEFGHIKLMNPQRSTVWYZ*"}, {"insertions", aminoAcidInsertionsGene2}}
+      {
+         "gene2",
+         {{"sequence", "ABCDEFGHIKLMNPQRSTVWYZ*"}, {"insertions", aminoAcidInsertionsGene2}},
       },
    };
 }
