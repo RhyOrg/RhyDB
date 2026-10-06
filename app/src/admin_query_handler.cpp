@@ -8,22 +8,16 @@
 
 #include <Poco/Net/HTTPServerRequest.h>
 #include <Poco/Net/HTTPServerResponse.h>
-#include <Poco/StreamCopier.h>
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
-#include <rhydb/append/append_exception.h>
 #include <rhydb/common/rhydb_directory.h>
 #include <rhydb/database.h>
 #include <rhydb/query_engine/command/write_command.h>
-#include <rhydb/query_engine/exec_node/arrow_ipc_sink.h>
-#include <rhydb/query_engine/exec_node/ndjson_sink.h>
-#include <rhydb/query_engine/illegal_query_exception.h>
-#include <rhydb/query_engine/saneql/parse_exception.h>
 #include <evobench/evobench.hpp>
 
 #include "active_database.h"
-#include "bad_request.h"
+#include "query_response.h"
 
 namespace rhydb_app {
 
@@ -80,24 +74,21 @@ void AdminQueryHandler::post(
 
    const auto request_id = response.get("X-Request-Id");
 
-   std::string query_string;
-   std::istream& istream = request.stream();
-   Poco::StreamCopier::copyToString(istream, query_string);
+   const std::string query_string = readQueryString(request, request_id);
 
-   SPDLOG_INFO("Request Id [{}] - received admin query: {}", request_id, query_string);
+   rethrowInvalidQueryAsBadRequest([&]() {
+      const auto [write_result, data_version] = [&]() {
+         // One write at a time
+         const std::scoped_lock<std::mutex> write_lock{*write_mutex};
 
-   try {
-      // One write at a time
-      const std::scoped_lock<std::mutex> write_lock{*write_mutex};
+         rhydb::Database staged_database = loadDatabaseToWriteTo();
 
-      rhydb::Database staged_database = loadDatabaseToWriteTo();
+         auto result = staged_database.executeWrite(query_string, query_options, request_id);
 
-      const auto write_result =
-         staged_database.executeWrite(query_string, query_options, request_id);
+         staged_database.saveDatabaseState(data_directory);
 
-      staged_database.saveDatabaseState(data_directory);
-
-      const auto data_version = staged_database.getDataVersionTimestamp();
+         return std::pair{std::move(result), staged_database.getDataVersionTimestamp()};
+      }();
 
       SPDLOG_INFO(
          "Request Id [{}] - admin write statement applied; new data version {}",
@@ -105,40 +96,19 @@ void AdminQueryHandler::post(
          data_version.value
       );
 
-      response.set("data-version", data_version.value);
-
-      const std::string accept_header = request.has("Accept") ? request.get("Accept") : "";
-      const bool use_arrow_ipc = accept_header.contains("application/vnd.apache.arrow.stream");
-
-      arrow::Status status;
-      if (use_arrow_ipc) {
-         response.setContentType("application/vnd.apache.arrow.stream");
-         std::ostream& output_stream = response.send();
-         auto output_sink = rhydb::query_engine::exec_node::ArrowIpcSink::make(
-            &output_stream, write_result->schema()
-         );
-         if (!output_sink.ok()) {
-            throw std::runtime_error(output_sink.status().ToString());
+      sendQueryResult(
+         request,
+         response,
+         QueryResult{
+            .data_version = data_version,
+            .schema = write_result->schema(),
+            .write_to_sink =
+               [&](rhydb::query_engine::exec_node::ArrowBatchSink& output_sink) {
+                  return rhydb::query_engine::command::writeToSink(*write_result, output_sink);
+               },
          }
-         status = rhydb::query_engine::command::writeToSink(*write_result, *output_sink);
-      } else {
-         response.setContentType("application/x-ndjson");
-         std::ostream& output_stream = response.send();
-         rhydb::query_engine::exec_node::NdjsonSink output_sink{
-            &output_stream, write_result->schema()
-         };
-         status = rhydb::query_engine::command::writeToSink(*write_result, output_sink);
-      }
-      if (!status.ok()) {
-         throw std::runtime_error(status.ToString());
-      }
-   } catch (const rhydb::query_engine::saneql::ParseException& ex) {
-      throw BadRequest(ex.what());
-   } catch (const rhydb::query_engine::IllegalQueryException& ex) {
-      throw BadRequest(ex.what());
-   } catch (const rhydb::append::AppendException& ex) {
-      throw BadRequest(ex.what());
-   }
+      );
+   });
 }
 
 }  // namespace rhydb_app

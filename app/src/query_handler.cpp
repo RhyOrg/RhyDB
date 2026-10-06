@@ -7,20 +7,15 @@
 #include <Poco/Net/HTTPResponse.h>
 #include <Poco/Net/HTTPServerRequest.h>
 #include <Poco/Net/HTTPServerResponse.h>
-#include <Poco/StreamCopier.h>
 #include <spdlog/spdlog.h>
 
 #include <rhydb/query_engine/command/write_command.h>
-#include <rhydb/query_engine/exec_node/arrow_ipc_sink.h>
-#include <rhydb/query_engine/exec_node/ndjson_sink.h>
-#include <rhydb/query_engine/illegal_query_exception.h>
 #include <rhydb/query_engine/planner.h>
-#include <rhydb/query_engine/saneql/parse_exception.h>
 #include <evobench/evobench.hpp>
 
 #include "active_database.h"
 #include "bad_request.h"
-#include "error_request_handler.h"
+#include "query_response.h"
 
 namespace rhydb_app {
 
@@ -48,15 +43,9 @@ void QueryHandler::post(
 
    const auto request_id = response.get("X-Request-Id");
 
-   std::string query_string;
-   std::istream& istream = request.stream();
+   const std::string query_string = readQueryString(request, request_id);
 
-   // TODO(#1244) add size limit for query_strings;
-   Poco::StreamCopier::copyToString(istream, query_string);
-
-   SPDLOG_INFO("Request Id [{}] - received query: {}", request_id, query_string);
-
-   try {
+   rethrowInvalidQueryAsBadRequest([&]() {
       auto parsed_request =
          rhydb::query_engine::command::parseRequest(query_string, database->tables);
 
@@ -74,42 +63,22 @@ void QueryHandler::post(
          std::move(*query_node), database->tables, query_options, request_id
       );
 
-      response.set("data-version", database->getDataVersionTimestamp().value);
-      response.set(
-         "result-ordering", rhydb::query_engine::serializeResultOrdering(query_plan.result_ordering)
-      );
-
-      const std::string accept_header = request.has("Accept") ? request.get("Accept") : "";
-      const bool use_arrow_ipc = accept_header.contains("application/vnd.apache.arrow.stream");
-
-      if (use_arrow_ipc) {
-         response.setContentType("application/vnd.apache.arrow.stream");
-         std::ostream& output_stream = response.send();
-         auto result = rhydb::query_engine::exec_node::ArrowIpcSink::make(
-            &output_stream, query_plan.results_schema
-         );
-         if (!result.ok()) {
-            throw std::runtime_error(result.status().ToString());
+      sendQueryResult(
+         request,
+         response,
+         QueryResult{
+            .data_version = database->getDataVersionTimestamp(),
+            .result_ordering = query_plan.result_ordering,
+            .schema = query_plan.results_schema,
+            .write_to_sink =
+               [&](rhydb::query_engine::exec_node::ArrowBatchSink& output_sink) {
+                  EVOBENCH_SCOPE("QueryPlan", "executeAndWrite");
+                  query_plan.executeAndWrite(output_sink, DEFAULT_TIMEOUT_TWO_MINUTES);
+                  return arrow::Status::OK();
+               },
          }
-         auto output_sink = std::move(result).ValueUnsafe();
-
-         EVOBENCH_SCOPE("QueryPlan", "executeAndWrite");
-         query_plan.executeAndWrite(output_sink, DEFAULT_TIMEOUT_TWO_MINUTES);
-      } else {
-         response.setContentType("application/x-ndjson");
-         std::ostream& output_stream = response.send();
-         rhydb::query_engine::exec_node::NdjsonSink output_sink{
-            &output_stream, query_plan.results_schema
-         };
-
-         EVOBENCH_SCOPE("QueryPlan", "executeAndWrite");
-         query_plan.executeAndWrite(output_sink, DEFAULT_TIMEOUT_TWO_MINUTES);
-      }
-   } catch (const rhydb::query_engine::saneql::ParseException& ex) {
-      throw BadRequest(ex.what());
-   } catch (const rhydb::query_engine::IllegalQueryException& ex) {
-      throw BadRequest(ex.what());
-   }
+      );
+   });
 }
 
 }  // namespace rhydb_app

@@ -174,6 +174,10 @@ TEST(AdminQueryHandler, insertsQueryResultAndReportsRowCount) {
    ASSERT_TRUE(response.has("data-version"));
    EXPECT_THAT(response.get("data-version"), testing::MatchesRegex("[0-9]{10}"));
 
+   // Same headers as the read endpoint: the single summary row has no ordering.
+   ASSERT_TRUE(response.has("result-ordering"));
+   EXPECT_EQ(response.get("result-ordering"), "[]");
+
    // The rows really landed in the target table, and the source table is untouched.
    auto written = reloadFromDataDirectory(data_directory.path());
    EXPECT_EQ(written.getDataVersionTimestamp().value, response.get("data-version"));
