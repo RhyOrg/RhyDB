@@ -228,5 +228,7 @@ TEST_F(RealDataMutations, coverageGroupByOverWastewaterReads) {
 
 TEST_F(RealDataMutations, bareCountGroupByOverWastewaterReads) {
    const auto query_options = rhydb::config::RuntimeConfig::withDefaults().query_options;
-   timeQuery("bareCount", "default.group(by := {}, aggs := {n := count()})", *database, query_options);
+   timeQuery(
+      "bareCount", "default.group(by := {}, aggs := {n := count()})", *database, query_options
+   );
 }

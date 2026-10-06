@@ -6,13 +6,16 @@
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
 
-#include "sequence_generator.h"
 #include "rhydb/database.h"
 #include "rhydb/schema/database_schema.h"
+#include "sequence_generator.h"
 
 namespace {
 
-double toMs(std::chrono::steady_clock::time_point start, std::chrono::steady_clock::time_point end) {
+double toMs(
+   std::chrono::steady_clock::time_point start,
+   std::chrono::steady_clock::time_point end
+) {
    return std::chrono::duration<double, std::milli>(end - start).count();
 }
 

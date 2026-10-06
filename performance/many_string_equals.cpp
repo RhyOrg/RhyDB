@@ -10,7 +10,6 @@
 
 #include <gtest/gtest.h>
 
-#include "sequence_generator.h"
 #include "rhydb/append/table_inserter.h"
 #include "rhydb/initialize/initializer.h"
 #include "rhydb/query_engine/exec_node/ndjson_sink.h"
@@ -24,6 +23,7 @@
 #include "rhydb/query_engine/scalar_expressions/literal.h"
 #include "rhydb/query_engine/scalar_expressions/or.h"
 #include "rhydb/query_engine/scalar_expressions/string_in_set.h"
+#include "sequence_generator.h"
 
 namespace {
 
