@@ -108,7 +108,7 @@ TEST(
    auto wrapped_handler_mock = std::make_unique<MockRequestHandler>();
 
    auto database = std::make_shared<rhydb_app::ActiveDatabase>();
-   ON_CALL(*wrapped_handler_mock, handleRequest).WillByDefault([&]() {
+   ON_CALL(*wrapped_handler_mock, handleRequest).WillByDefault([&] {
       database->getActiveDatabase();
       RHYDB_UNREACHABLE();
    });
@@ -143,7 +143,7 @@ TEST(
    auto wrapped_handler_mock = std::make_unique<MockRequestHandler>();
 
    auto database = std::make_shared<rhydb_app::ActiveDatabase>();
-   ON_CALL(*wrapped_handler_mock, handleRequest).WillByDefault([&]() {
+   ON_CALL(*wrapped_handler_mock, handleRequest).WillByDefault([&] {
       database->getActiveDatabase();
       RHYDB_UNREACHABLE();
    });

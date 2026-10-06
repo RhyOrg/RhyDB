@@ -132,8 +132,8 @@ TEST(Date32Column, nullBitmapRowIdsAreOffsetAcrossChunks) {
       {{.chunk_id = 1, .row_in_chunk = 2}, true},
       {{.chunk_id = 2, .row_in_chunk = 0}, false},
    };
-   for (const auto& [id, is_null] : expected_null) {
-      ASSERT_EQ(under_test.isNull(id), is_null) << "row_id=" << id.toGlobal();
+   for (const auto& [row_id, is_null] : expected_null) {
+      ASSERT_EQ(under_test.isNull(row_id), is_null) << "row_id=" << row_id.toGlobal();
    }
 
    ASSERT_EQ(

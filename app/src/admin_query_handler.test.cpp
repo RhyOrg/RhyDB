@@ -381,7 +381,7 @@ TEST(AdminQueryHandler, serializesConcurrentWrites) {
    std::vector<std::thread> writers;
    writers.reserve(NUMBER_OF_THREADS);
    for (size_t thread_index = 0; thread_index < NUMBER_OF_THREADS; ++thread_index) {
-      writers.emplace_back([&factory]() {
+      writers.emplace_back([&factory] {
          for (size_t request_index = 0; request_index < REQUESTS_PER_THREAD; ++request_index) {
             rhydb_app::test::MockResponse response;
             rhydb_app::test::MockRequest request(response);

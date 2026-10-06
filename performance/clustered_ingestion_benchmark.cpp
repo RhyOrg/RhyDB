@@ -73,8 +73,7 @@ std::pair<std::shared_ptr<Database>, double> buildDatabase(
    const auto start = std::chrono::high_resolution_clock::now();
    database->appendData(rhydb::schema::TableName::getDefault(), input_file, scenario.clustering);
    const auto end = std::chrono::high_resolution_clock::now();
-   const double seconds =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0;
+   const double seconds = std::chrono::duration<double>(end - start).count();
    return {database, seconds};
 }
 
@@ -85,7 +84,7 @@ class QueryGenerator {
    static constexpr std::array<char, 5> SYMBOLS = {'A', 'C', 'G', 'T', '-'};
 
   public:
-   QueryGenerator(size_t ref_length, uint64_t seed = 42)
+   explicit QueryGenerator(size_t ref_length, uint64_t seed = 42)
        : rng(seed),
          reference_length(ref_length) {}
 
@@ -145,7 +144,7 @@ double executeAllQueries(
       query_plan.executeAndWrite(sink, /*timeout_in_seconds=*/20);
    }
    const auto end = std::chrono::high_resolution_clock::now();
-   return std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() / 1000.0;
+   return std::chrono::duration<double>(end - start).count();
 }
 
 struct ScenarioResult {
@@ -159,11 +158,15 @@ void run() {
    SPDLOG_INFO("Read reference sequence of length {}", reference.size());
 
    const std::array<Scenario, 3> scenarios{{
-      {"amplicon-sorted, ingestion clustering off", SHORT_READ_AMPLICON_SORTED_NDJSON, {}},
-      {"amplicon-shuffled, ingestion clustering off", SHORT_READ_AMPLICON_SHUFFLED_NDJSON, {}},
-      {"amplicon-shuffled, 128-way clustered ingestion",
-       SHORT_READ_AMPLICON_SHUFFLED_NDJSON,
-       clusteredOptions()},
+      {.name = "amplicon-sorted, ingestion clustering off",
+       .dataset_path = SHORT_READ_AMPLICON_SORTED_NDJSON,
+       .clustering = {}},
+      {.name = "amplicon-shuffled, ingestion clustering off",
+       .dataset_path = SHORT_READ_AMPLICON_SHUFFLED_NDJSON,
+       .clustering = {}},
+      {.name = "amplicon-shuffled, 128-way clustered ingestion",
+       .dataset_path = SHORT_READ_AMPLICON_SHUFFLED_NDJSON,
+       .clustering = clusteredOptions()},
    }};
 
    std::vector<ScenarioResult> results;
@@ -175,7 +178,9 @@ void run() {
       );
       const double query_seconds = executeAllQueries(database, reference.size());
       SPDLOG_INFO("Finished query set in {:.3f} seconds", query_seconds);
-      results.push_back({scenario.name, ingest_seconds, query_seconds});
+      results.push_back(
+         {.name = scenario.name, .ingest_seconds = ingest_seconds, .query_seconds = query_seconds}
+      );
    }
 
    SPDLOG_INFO("=== Summary (ingestion / {} queries) ===", DEFAULT_QUERY_COUNT);

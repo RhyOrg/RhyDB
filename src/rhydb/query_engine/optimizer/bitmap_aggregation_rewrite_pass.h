@@ -54,7 +54,10 @@ class BitmapAggregationRewritePass : public PipelinePassBase<BitmapAggregationRe
   public:
    using PipelinePassBase<BitmapAggregationRewritePass>::operator();
 
+   // Shadowing the PipelinePassBase defaults is the intended way to customize a pass.
+   // NOLINTBEGIN(bugprone-derived-method-shadowing-base-method)
    operators::QueryNodePtr operator()(operators::AggregateNode& node);
+   // NOLINTEND(bugprone-derived-method-shadowing-base-method)
 };
 
 }  // namespace rhydb::query_engine::optimizer
