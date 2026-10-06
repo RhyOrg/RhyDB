@@ -6,6 +6,7 @@
 #include <optional>
 #include <ranges>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "rhydb/common/bitmap.h"
@@ -55,7 +56,7 @@ enum class Comparator : uint8_t {
    NOT_EQUALS,
 };
 
-inline std::string displayComparator(Comparator comparator) {
+inline std::string_view displayComparator(Comparator comparator) {
    switch (comparator) {
       case Comparator::EQUALS:
          return "=";

@@ -9,8 +9,12 @@ using rhydb::storage::column::Int32Column;
 using rhydb::storage::column::Int64Column;
 using rhydb::storage::column::RowId;
 
+namespace {
+
 template <typename ColumnT>
 class NumericColumnTest : public ::testing::Test {};
+
+}  // namespace
 
 using NumericColumnTypes = ::testing::Types<Int32Column, Int64Column>;
 TYPED_TEST_SUITE(NumericColumnTest, NumericColumnTypes);

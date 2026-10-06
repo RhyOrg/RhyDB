@@ -40,9 +40,12 @@ class MapPullupPass : public PipelinePassBase<MapPullupPass> {
   public:
    using PipelinePassBase<MapPullupPass>::operator();
 
+   // Shadowing the PipelinePassBase defaults is the intended way to customize a pass.
+   // NOLINTBEGIN(bugprone-derived-method-shadowing-base-method)
    operators::QueryNodePtr operator()(operators::FetchNode& node);
    operators::QueryNodePtr operator()(operators::OrderByNode& node);
    operators::QueryNodePtr operator()(operators::MapNode& node);
+   // NOLINTEND(bugprone-derived-method-shadowing-base-method)
 };
 
 }  // namespace rhydb::query_engine::optimizer

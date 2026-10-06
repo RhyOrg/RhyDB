@@ -206,7 +206,7 @@ arrow::Status ExecBatchBuilder::appendEntries(const storage::Table& table, const
    return arrow::Status::OK();
 }
 
-arrow::Result<arrow::ExecBatch> ExecBatchBuilder::finishBatch() {
+arrow::Result<arrow::ExecBatch> ExecBatchBuilder::finishBatch(int64_t length) {
    EVOBENCH_SCOPE("ExecBatchBuilder", "finishBatch");
    std::vector<arrow::Datum> data;
    for (auto& field : output_fields) {
@@ -219,7 +219,9 @@ arrow::Result<arrow::ExecBatch> ExecBatchBuilder::finishBatch() {
       });
       ARROW_RETURN_NOT_OK(status);
    }
-   return arrow::compute::ExecBatch::Make(data);
+   // Pass the row count explicitly: a zero-column batch (e.g. a bare count(*) whose scan needs no
+   // columns) has no arrays to infer the length from, and Arrow rejects ExecBatch::Make without it.
+   return arrow::compute::ExecBatch::Make(std::move(data), length);
 }
 
 arrow::Result<std::optional<arrow::ExecBatch>> TableScanGenerator::produceNextBatch() {
@@ -227,10 +229,10 @@ arrow::Result<std::optional<arrow::ExecBatch>> TableScanGenerator::produceNextBa
    while (current_bitmap_reader.has_value()) {
       auto row_ids = current_bitmap_reader.value().nextBatch();
       if (row_ids.has_value()) {
-         ARROW_RETURN_NOT_OK(
-            exec_batch_builder.appendEntries(*table, Bitmap{std::move(row_ids.value())})
-         );
-         ARROW_ASSIGN_OR_RAISE(auto batch, exec_batch_builder.finishBatch());
+         const Bitmap batch_row_ids{std::move(row_ids.value())};
+         const auto length = static_cast<int64_t>(batch_row_ids.cardinality());
+         ARROW_RETURN_NOT_OK(exec_batch_builder.appendEntries(*table, batch_row_ids));
+         ARROW_ASSIGN_OR_RAISE(auto batch, exec_batch_builder.finishBatch(length));
          SPDLOG_DEBUG("Finished arrow::ExecBatch with length: {}", batch.length);
          return batch;
       }

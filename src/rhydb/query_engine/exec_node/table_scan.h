@@ -36,7 +36,7 @@ class ExecBatchBuilder {
 
    arrow::Status appendEntries(const storage::Table& table, const Bitmap& row_ids);
 
-   arrow::Result<arrow::ExecBatch> finishBatch();
+   arrow::Result<arrow::ExecBatch> finishBatch(int64_t length);
 };
 
 class TableScanGenerator {

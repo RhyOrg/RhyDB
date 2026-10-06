@@ -25,6 +25,7 @@ Checks: >-
   -bugprone-easily-swappable-parameters,
   -bugprone-unchecked-optional-access,
   -bugprone-unused-return-value,
+  -bugprone-derived-method-shadowing-base-method,
   -readability-magic-numbers,
   -misc-const-correctness,
   -bugprone-signed-bitwise,
@@ -41,6 +42,9 @@ Checks: >-
 # misc-const-correctness, bugprone-signed-bitwise,
 # bugprone-throwing-static-initialization, misc-multiple-inheritance
 # (misc-multiple-inheritance is a false positive on the Overloaded visitor idiom).
+# Not using bugprone-derived-method-shadowing-base-method: the optimizer passes
+# intentionally override PipelinePassBase's operator() overloads and re-import the
+# rest via `using PipelinePassBase<...>::operator();`, so nothing is actually hidden.
 CheckOptions:
   - key: readability-identifier-length.IgnoredVariableNames
     value: '_|to|it|op'

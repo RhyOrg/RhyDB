@@ -15,6 +15,8 @@ using rhydb::Nucleotide;
 using rhydb::SymbolMap;
 using rhydb::storage::column::VerticalSequenceIndex;
 
+namespace {
+
 class VerticalSequenceIndexTest : public ::testing::Test {
   protected:
    VerticalSequenceIndex<Nucleotide> index;
@@ -24,6 +26,8 @@ class VerticalSequenceIndexTest : public ::testing::Test {
       index = VerticalSequenceIndex<Nucleotide>();
    }
 };
+
+}  // namespace
 
 // Basic functionality tests
 TEST_F(VerticalSequenceIndexTest, AddAndRetrieveSinglePosition) {

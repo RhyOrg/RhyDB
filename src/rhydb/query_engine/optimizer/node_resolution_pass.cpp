@@ -5,8 +5,6 @@
 #include "rhydb/common/aa_symbols.h"
 #include "rhydb/common/nucleotide_symbols.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
-#include "rhydb/query_engine/operators/aggregate_node.h"
-#include "rhydb/query_engine/operators/count_filter_node.h"
 #include "rhydb/query_engine/operators/insertions_node.h"
 #include "rhydb/query_engine/operators/most_recent_common_ancestor_node.h"
 #include "rhydb/query_engine/operators/mutations_node.h"
@@ -115,23 +113,6 @@ operators::QueryNodePtr NodeResolutionPass::operator()(
    return std::make_unique<operators::InsertionsNode<SymbolType>>(
       std::move((*scan)->table), std::move((*scan)->filter), std::move(bound_sequence_columns)
    );
-}
-
-// NOLINTNEXTLINE(misc-no-recursion)
-operators::QueryNodePtr NodeResolutionPass::operator()(operators::AggregateNode& node) {
-   propagateToNode(node.child);
-
-   // Full aggregations (COUNT(*) and only a filter below can be optimized)
-   if (node.group_by_fields.empty() && node.aggregates.size() == 1 &&
-       node.aggregates[0].function == operators::AggregateFunction::COUNT) {
-      auto scan = getTableScanOrNone(*node.child);
-      if (scan.has_value()) {
-         return std::make_unique<operators::CountFilterNode>(
-            std::move((*scan)->table), std::move((*scan)->filter), node.aggregates[0].output_name
-         );
-      }
-   }
-   return nullptr;
 }
 
 // NOLINTNEXTLINE(misc-no-recursion)

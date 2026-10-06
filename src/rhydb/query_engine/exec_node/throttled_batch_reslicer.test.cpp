@@ -16,6 +16,8 @@ using arrow::acero::BackpressureMonitor;
 
 using rhydb::query_engine::exec_node::ThrottledBatchReslicer;
 
+namespace {
+
 // Mock BackpressureMonitor for testing
 class MockBackpressureMonitor : public BackpressureMonitor {
   public:
@@ -55,7 +57,7 @@ class ThrottledBatchReslicerTest : public ::testing::Test {
       auto iter = std::make_shared<decltype(batches_wrapped->begin())>(batches_wrapped->begin());
       auto end_iter = batches_wrapped->end();
 
-      return [batches_wrapped, iter, end_iter]() -> arrow::Future<std::optional<ExecBatch>> {
+      return [batches_wrapped, iter, end_iter] -> arrow::Future<std::optional<ExecBatch>> {
          if (*iter == end_iter) {
             return std::optional<ExecBatch>{std::nullopt};
          }
@@ -65,6 +67,8 @@ class ThrottledBatchReslicerTest : public ::testing::Test {
       };
    }
 };
+
+}  // namespace
 
 TEST_F(ThrottledBatchReslicerTest, ConstructorValidation) {
    auto generator = createGenerator({});
@@ -331,7 +335,7 @@ TEST_F(ThrottledBatchReslicerTest, DataIntegrity) {
 
 TEST_F(ThrottledBatchReslicerTest, ExceptionHandling) {
    // Create a generator that throws an exception
-   auto throwing_generator = []() -> arrow::Future<std::optional<ExecBatch>> {
+   auto throwing_generator = [] -> arrow::Future<std::optional<ExecBatch>> {
       throw std::runtime_error("Test exception");
    };
 

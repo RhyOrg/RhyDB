@@ -76,7 +76,7 @@ schema:
    database->createTable(
       rhydb::schema::TableName::getDefault(),
       rhydb::initialize::Initializer::createSchemaFromConfigFiles(
-         std::move(database_config),
+         database_config,
          std::move(reference_genomes),
          {},
          rhydb::common::PhyloTree{},
@@ -191,10 +191,10 @@ BenchmarkResult runBenchmark(
    int64_t sum = 0;
    int64_t min_val = durations[0];
    int64_t max_val = durations[0];
-   for (int64_t d : durations) {
-      sum += d;
-      min_val = std::min(min_val, d);
-      max_val = std::max(max_val, d);
+   for (const int64_t duration : durations) {
+      sum += duration;
+      min_val = std::min(min_val, duration);
+      max_val = std::max(max_val, duration);
    }
 
    return BenchmarkResult{
@@ -242,11 +242,11 @@ void run() {
       }
 
       // Lambda builders that capture search_values
-      auto build_or = [&]() { return buildManyStringEquals("accession", search_values); };
-      auto build_nested_or = [&]() {
+      auto build_or = [&] { return buildManyStringEquals("accession", search_values); };
+      auto build_nested_or = [&] {
          return buildManyNestedStringEquals("accession", search_values);
       };
-      auto build_set = [&]() { return buildStringInSet("accession", search_values); };
+      auto build_set = [&] { return buildStringInSet("accession", search_values); };
 
       // Run benchmarks
       auto or_result = runBenchmark(database, build_or, ITERATIONS);
@@ -284,10 +284,9 @@ void run() {
    SPDLOG_INFO("=== Testing on INDEXED column (country) ===");
    SPDLOG_INFO("");
 
-   std::vector<std::string> all_countries;
-   for (const auto country : STRING_EQUALS_COUNTRIES) {
-      all_countries.emplace_back(country);
-   }
+   const std::vector<std::string> all_countries(
+      STRING_EQUALS_COUNTRIES.begin(), STRING_EQUALS_COUNTRIES.end()
+   );
 
    for (size_t num_values : test_sizes) {
       SPDLOG_INFO("--- Benchmark with {} country values (indexed column) ---", num_values);
@@ -304,11 +303,11 @@ void run() {
             search_countries.push_back(fmt::format("NOTEXIST{:06}", i));
          }
       }
-      auto build_or = [&]() { return buildManyStringEquals("country", search_countries); };
-      auto build_nested_or = [&]() {
+      auto build_or = [&] { return buildManyStringEquals("country", search_countries); };
+      auto build_nested_or = [&] {
          return buildManyNestedStringEquals("country", search_countries);
       };
-      auto build_set = [&]() { return buildStringInSet("country", search_countries); };
+      auto build_set = [&] { return buildStringInSet("country", search_countries); };
 
       auto or_result = runBenchmark(database, build_or, ITERATIONS);
       SPDLOG_INFO(

@@ -176,7 +176,7 @@ TEST(ColumnNarrowingPassAggregate, narrowsScanToGroupByColumns) {
    EXPECT_THAT(scanSchema(leafScan(*agg)), ::testing::ElementsAre(col("b")));
 }
 
-TEST(ColumnNarrowingPassAggregate, countStarWithNoGroupByKeepsOneColumn) {
+TEST(ColumnNarrowingPassAggregate, countStarWithNoGroupByNeedsNoColumns) {
    auto scan = makeScan({col("a"), col("b"), col("c")});
    auto agg = std::make_unique<operators::AggregateNode>(
       std::move(scan),
@@ -193,8 +193,9 @@ TEST(ColumnNarrowingPassAggregate, countStarWithNoGroupByKeepsOneColumn) {
    ColumnNarrowingPass pass({col("a"), col("b"), col("c")});
    pass(*agg);
 
-   // COUNT(*) with no group-by needs only one column to drive the row stream.
-   EXPECT_THAT(scanSchema(leafScan(*agg)), ::testing::SizeIs(1));
+   // COUNT(*) with no group-by needs no columns at all: the scan drives rows off the row-id bitmap
+   // and emits zero-column batches.
+   EXPECT_THAT(scanSchema(leafScan(*agg)), ::testing::IsEmpty());
 }
 
 // --- OrderByNode -> TableScanNode ---

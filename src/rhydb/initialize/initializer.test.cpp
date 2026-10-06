@@ -288,6 +288,7 @@ TEST(Initializer, rejectsCreatingTableWithNameOfExistingTable) {
 }
 
 namespace {
+
 class FindLineageTreeForName : public ::testing::Test {
   protected:
    void SetUp() override {
@@ -313,6 +314,7 @@ some_parent: ~)")
    LineageTreeAndIdMap test_lineage_tree2;
    LineageTreeAndIdMap test_lineage_tree3;
 };
+
 }  // namespace
 
 // Test finding with exact match (no prefix/suffix)
