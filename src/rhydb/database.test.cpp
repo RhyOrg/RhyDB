@@ -161,7 +161,7 @@ namespace {
 // Counts the rows of the default table matching `filter` by running a SaneQL count aggregation.
 int64_t countWhere(rhydb::Database& database, const std::string& filter) {
    auto query_plan = rhydb::query_engine::Planner::planSaneqlQuery(
-      fmt::format("default.filter({}).group(by:={{}}, aggs:={{count:=count()}})", filter),
+      fmt::format("data.filter({}).group(by:={{}}, aggs:={{count:=count()}})", filter),
       database.tables,
       rhydb::config::QueryOptions{},
       "count_query"

@@ -1,6 +1,6 @@
 {
   "testCaseName": "Order By age column ascending",
-  "query": "default.group(by:={age},aggs:={count:=count()}).order(by:={age})",
+  "query": "data.group(by:={age},aggs:={count:=count()}).order(by:={age})",
   "expectedQueryResult": [
     {
       "age": null,

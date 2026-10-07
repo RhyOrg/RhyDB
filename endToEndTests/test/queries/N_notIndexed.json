@@ -1,6 +1,6 @@
 {
   "testCaseName": "Nucleotide equals query for symbol N",
-  "query": "default.filter(nucleotideEquals(position:=122, symbol:='N', sequenceName:='main')).group(by:={}, aggs:={count:=count()})",
+  "query": "data.filter(nucleotideEquals(position:=122, symbol:='N', sequenceName:='main')).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 3

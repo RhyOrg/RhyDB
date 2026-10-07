@@ -46,26 +46,26 @@ const QueryTestData TEST_DATA{
 
 const QueryTestScenario LESS_THAN = {
    .name = "FLOAT_LESS_THAN",
-   .query = "default.filter(float_value < 3.0).project(primaryKey)",
+   .query = "data.filter(float_value < 3.0).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_below"}])"),
 };
 
 const QueryTestScenario LESS_EQUAL = {
    .name = "FLOAT_LESS_EQUAL",
-   .query = "default.filter(float_value <= 3.0).project(primaryKey)",
+   .query = "data.filter(float_value <= 3.0).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_below"},{"primaryKey":"id_bound"}])"),
 };
 
 const QueryTestScenario GREATER_THAN = {
    .name = "FLOAT_GREATER_THAN",
-   .query = "default.filter(float_value > 3.0).project(primaryKey)",
+   .query = "data.filter(float_value > 3.0).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_above"}])"),
 };
 
 const QueryTestScenario GREATER_EQUAL = {
    .name = "FLOAT_GREATER_EQUAL",
-   .query = "default.filter(float_value >= 3.0).project(primaryKey)",
+   .query = "data.filter(float_value >= 3.0).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"}])"),
 };
@@ -73,7 +73,7 @@ const QueryTestScenario GREATER_EQUAL = {
 // !(float_value < 3.0) == float_value >= 3.0, and nulls are included by the negation.
 const QueryTestScenario NEGATED_LESS_THAN = {
    .name = "FLOAT_NEGATED_LESS_THAN",
-   .query = "default.filter(!(float_value < 3.0)).project(primaryKey)",
+   .query = "data.filter(!(float_value < 3.0)).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"},{"primaryKey":"id_null"}])"
    ),
@@ -82,19 +82,19 @@ const QueryTestScenario NEGATED_LESS_THAN = {
 // Operand flip: `3.0 > float_value` must equal `float_value < 3.0`.
 const QueryTestScenario FLIPPED_OPERANDS = {
    .name = "FLOAT_FLIPPED_OPERANDS",
-   .query = "default.filter(3.0 > float_value).project(primaryKey)",
+   .query = "data.filter(3.0 > float_value).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_below"}])"),
 };
 
 const QueryTestScenario TYPE_MISMATCH = {
    .name = "FLOAT_TYPE_MISMATCH",
-   .query = "default.filter(float_value < 'x').project(primaryKey)",
+   .query = "data.filter(float_value < 'x').project(primaryKey)",
    .expected_error_message = "The column 'float_value' is not of type string",
 };
 
 const QueryTestScenario UNKNOWN_COLUMN = {
    .name = "FLOAT_UNKNOWN_COLUMN",
-   .query = "default.filter(does_not_exist < 3.0).project(primaryKey)",
+   .query = "data.filter(does_not_exist < 3.0).project(primaryKey)",
    .expected_error_message =
       "the left side of a comparison references unknown column 'does_not_exist' at 1:16",
 };

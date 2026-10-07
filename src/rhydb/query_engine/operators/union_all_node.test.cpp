@@ -51,8 +51,8 @@ const QueryTestData TEST_DATA{
 const QueryTestScenario UNION_ALL_BASIC_SCENARIO = {
    .name = "UNION_ALL_BASIC",
    .query = R"(unionall(
-      default.filter(country='CH').project({primaryKey, country}),
-      default.filter(country='DE').project({primaryKey, country})
+      data.filter(country='CH').project({primaryKey, country}),
+      data.filter(country='DE').project({primaryKey, country})
    ).order(by:={asc(primaryKey)}))",
    .expected_query_result = nlohmann::json({
       {{"primaryKey", "id_0"}, {"country", "CH"}},
@@ -66,8 +66,8 @@ const QueryTestScenario UNION_ALL_BASIC_SCENARIO = {
 const QueryTestScenario UNION_ALL_DUPLICATES_SCENARIO = {
    .name = "UNION_ALL_DUPLICATES",
    .query = R"(unionall(
-      default.project({primaryKey}),
-      default.project({primaryKey})
+      data.project({primaryKey}),
+      data.project({primaryKey})
    ).order(by:={asc(primaryKey)}))",
    .expected_query_result = nlohmann::json({
       {{"primaryKey", "id_0"}},
@@ -85,8 +85,8 @@ const QueryTestScenario UNION_ALL_DUPLICATES_SCENARIO = {
 const QueryTestScenario UNION_ALL_WITH_GROUPBY_SCENARIO = {
    .name = "UNION_ALL_WITH_GROUPBY",
    .query = R"(unionall(
-      default.filter(country='CH').project({country}),
-      default.filter(country='DE').project({country})
+      data.filter(country='CH').project({country}),
+      data.filter(country='DE').project({country})
    ).group(by:={country}, aggs:={count := count()}).order(by:={asc(country)}))",
    .expected_query_result =
       nlohmann::json({{{"country", "CH"}, {"count", 2}}, {{"country", "DE"}, {"count", 2}}}),
@@ -96,8 +96,8 @@ const QueryTestScenario UNION_ALL_WITH_GROUPBY_SCENARIO = {
 const QueryTestScenario UNION_ALL_EMPTY_CHILD_SCENARIO = {
    .name = "UNION_ALL_EMPTY_CHILD",
    .query = R"(unionall(
-      default.filter(country='CH').project({primaryKey, country}),
-      default.filter(country='XX').project({primaryKey, country})
+      data.filter(country='CH').project({primaryKey, country}),
+      data.filter(country='XX').project({primaryKey, country})
    ).order(by:={asc(primaryKey)}))",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"country", "CH"}}, {{"primaryKey", "id_2"}, {"country", "CH"}}}
@@ -108,8 +108,8 @@ const QueryTestScenario UNION_ALL_EMPTY_CHILD_SCENARIO = {
 const QueryTestScenario UNION_ALL_SCHEMA_MISMATCH_SCENARIO = {
    .name = "UNION_ALL_SCHEMA_MISMATCH",
    .query = R"(unionall(
-      default.project({primaryKey}),
-      default.project({country})
+      data.project({primaryKey}),
+      data.project({country})
    ))",
    .expected_query_result = {},
    .expected_error_message =
@@ -122,8 +122,8 @@ const QueryTestScenario UNION_ALL_SCHEMA_MISMATCH_SCENARIO = {
 const QueryTestScenario UNION_ALL_TYPE_MISMATCH_SCENARIO = {
    .name = "UNION_ALL_TYPE_MISMATCH",
    .query = R"(unionall(
-      default.map({x := 42}).project({primaryKey, x}),
-      default.map({x := 'hello'}).project({primaryKey, x})
+      data.map({x := 42}).project({primaryKey, x}),
+      data.map({x := 'hello'}).project({primaryKey, x})
    ))",
    .expected_query_result = {},
    .expected_error_message =
@@ -135,8 +135,8 @@ const QueryTestScenario UNION_ALL_TYPE_MISMATCH_SCENARIO = {
 const QueryTestScenario UNION_ALL_DIFFERENT_COLUMN_ORDER_SCENARIO = {
    .name = "UNION_ALL_DIFFERENT_COLUMN_ORDER",
    .query = R"(unionall(
-      default.project({primaryKey, country}),
-      default.project({country, primaryKey})
+      data.project({primaryKey, country}),
+      data.project({country, primaryKey})
    ))",
    .expected_query_result = {},
    .expected_error_message =
@@ -151,12 +151,12 @@ const QueryTestScenario UNION_ALL_NESTED_SCENARIO = {
    .name = "UNION_ALL_NESTED",
    .query = R"(unionall(
       unionall(
-         default.filter(country='CH').project({primaryKey}),
-         default.filter(country='DE').project({primaryKey})
+         data.filter(country='CH').project({primaryKey}),
+         data.filter(country='DE').project({primaryKey})
       ),
       unionall(
-         default.filter(country='CH').project({primaryKey}),
-         default.filter(country='DE').project({primaryKey})
+         data.filter(country='CH').project({primaryKey}),
+         data.filter(country='DE').project({primaryKey})
       )
    ).order(by:={asc(primaryKey)}))",
    .expected_query_result = nlohmann::json({
@@ -174,8 +174,8 @@ const QueryTestScenario UNION_ALL_NESTED_SCENARIO = {
 const QueryTestScenario UNION_ALL_MUTATIONS_ON_UNION_SCENARIO = {
    .name = "UNION_ALL_MUTATIONS_ON_UNION",
    .query = R"(unionall(
-      default.project({primaryKey}),
-      default.project({primaryKey})
+      data.project({primaryKey}),
+      data.project({primaryKey})
    ).mutations(minProportion:=0.0))",
    .expected_query_result = {},
    .expected_error_message = "mutations() must be applied to a table scan",
@@ -184,8 +184,8 @@ const QueryTestScenario UNION_ALL_MUTATIONS_ON_UNION_SCENARIO = {
 const QueryTestScenario UNION_ALL_OF_MUTATIONS_SCENARIO = {
    .name = "UNION_ALL_OF_MUTATIONS",
    .query = R"(unionall(
-      default.filter(country='CH').mutations(minProportion:=0.0, fields:={mutationTo, proportion}),
-      default.filter(country='DE').mutations(minProportion:=0.0, fields:={mutationTo, proportion})
+      data.filter(country='CH').mutations(minProportion:=0.0, fields:={mutationTo, proportion}),
+      data.filter(country='DE').mutations(minProportion:=0.0, fields:={mutationTo, proportion})
    ).order(by:={asc(mutationTo)}))",
    .expected_query_result = nlohmann::json(
       {{{"mutationTo", "T"}, {"proportion", 1.0}}, {{"mutationTo", "T"}, {"proportion", 1.0}}}
@@ -196,8 +196,8 @@ const QueryTestScenario UNION_ALL_OF_MUTATIONS_SCENARIO = {
 const QueryTestScenario UNION_ALL_PIPED_SYNTAX_SCENARIO = {
    .name = "UNION_ALL_PIPED_SYNTAX",
    .query = R"(
-      default.filter(country='CH').project({primaryKey, country})
-         .unionall(default.filter(country='DE').project({primaryKey, country}))
+      data.filter(country='CH').project({primaryKey, country})
+         .unionall(data.filter(country='DE').project({primaryKey, country}))
          .order(by:={asc(primaryKey)})
    )",
    .expected_query_result = nlohmann::json({
@@ -212,8 +212,8 @@ const QueryTestScenario UNION_ALL_PIPED_SYNTAX_SCENARIO = {
 const QueryTestScenario UNION_ALL_NAMED_ARGS_SCENARIO = {
    .name = "UNION_ALL_NAMED_ARGS",
    .query = R"(unionall(
-      left:=default.filter(country='CH').project({primaryKey, country}),
-      right:=default.filter(country='DE').project({primaryKey, country})
+      left:=data.filter(country='CH').project({primaryKey, country}),
+      right:=data.filter(country='DE').project({primaryKey, country})
    ).order(by:={asc(primaryKey)}))",
    .expected_query_result = nlohmann::json({
       {{"primaryKey", "id_0"}, {"country", "CH"}},
@@ -227,8 +227,8 @@ const QueryTestScenario UNION_ALL_NAMED_ARGS_SCENARIO = {
 const QueryTestScenario UNION_ALL_DOWNSTREAM_FILTER_SCENARIO = {
    .name = "UNION_ALL_DOWNSTREAM_FILTER",
    .query = R"(unionall(
-      default.project({primaryKey, country}),
-      default.project({primaryKey, country})
+      data.project({primaryKey, country}),
+      data.project({primaryKey, country})
    ).filter(country='CH').order(by:={asc(primaryKey)}))",
    .expected_query_result = nlohmann::json({
       {{"primaryKey", "id_0"}, {"country", "CH"}},
@@ -241,8 +241,8 @@ const QueryTestScenario UNION_ALL_DOWNSTREAM_FILTER_SCENARIO = {
 const QueryTestScenario UNION_ALL_COMBINED_FILTERS_SCENARIO = {
    .name = "UNION_ALL_COMBINED_FILTERS",
    .query = R"(unionall(
-      default.filter(country='CH').project({primaryKey, country}),
-      default.filter(country='DE').project({primaryKey, country})
+      data.filter(country='CH').project({primaryKey, country}),
+      data.filter(country='DE').project({primaryKey, country})
    ).filter(primaryKey='id_0'))",
    .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}, {"country", "CH"}}}),
 };

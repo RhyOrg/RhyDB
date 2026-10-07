@@ -92,7 +92,7 @@ std::string buildQuery(const std::vector<uint32_t>& positions) {
       group_keys += fmt::format("s{}", i);
    }
    return fmt::format(
-      "default.map({{{}}}).group(by:={{{}}}, aggs:={{count:=count()}})", assignments, group_keys
+      "data.map({{{}}}).group(by:={{{}}}, aggs:={{count:=count()}})", assignments, group_keys
    );
 }
 
@@ -229,6 +229,6 @@ TEST_F(RealDataMutations, coverageGroupByOverWastewaterReads) {
 TEST_F(RealDataMutations, bareCountGroupByOverWastewaterReads) {
    const auto query_options = rhydb::config::RuntimeConfig::withDefaults().query_options;
    timeQuery(
-      "bareCount", "default.group(by := {}, aggs := {n := count()})", *database, query_options
+      "bareCount", "data.group(by := {}, aggs := {n := count()})", *database, query_options
    );
 }

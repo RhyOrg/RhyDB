@@ -59,7 +59,7 @@ class QueryGenerator {
 
       if (use_all_symbols) {
          return fmt::format(
-            "default.filter("
+            "data.filter("
             "locationName = 'generated' && "
             "samplingDate.between('2024-01-01'::date, '2024-01-07'::date) && "
             "(nucleotideEquals(position:={0}, symbol:='A', sequenceName:='main') || "
@@ -75,7 +75,7 @@ class QueryGenerator {
       std::uniform_int_distribution<size_t> sym_dist(0, SYMBOLS.size() - 1);
       const char symbol = SYMBOLS[sym_dist(rng)];
       return fmt::format(
-         "default.filter("
+         "data.filter("
          "locationName = 'generated' && "
          "samplingDate.between('2024-01-01'::date, '2024-01-07'::date) && "
          "nucleotideEquals(position:={}, symbol:='{}', sequenceName:='main') && "

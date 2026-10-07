@@ -64,7 +64,7 @@ const QueryTestData TEST_DATA{
 
 const QueryTestScenario INT_EQUALS_VALUE_SCENARIO = {
    .name = "INT_EQUALS_VALUE_SCENARIO",
-   .query = "default.filter(int_value = 3)",
+   .query = "data.filter(int_value = 3)",
    .expected_query_result = nlohmann::json({
       {
          {"primaryKey", "id_0"},
@@ -85,7 +85,7 @@ const QueryTestScenario INT_EQUALS_VALUE_SCENARIO = {
 
 const QueryTestScenario NEGATED_INT_EQUALS_VALUE_SCENARIO = {
    .name = "NEGATED_INT_EQUALS_VALUE_SCENARIO",
-   .query = "default.filter(!(int_value = 3))",
+   .query = "data.filter(!(int_value = 3))",
    .expected_query_result = nlohmann::json({
       {
          {"primaryKey", "id_2"},
@@ -113,7 +113,7 @@ const QueryTestScenario NEGATED_INT_EQUALS_VALUE_SCENARIO = {
 
 const QueryTestScenario INT_EQUALS_NULL_REJECTED_SCENARIO = {
    .name = "INT_EQUALS_NULL_REJECTED_SCENARIO",
-   .query = "default.filter(int_value = null)",
+   .query = "data.filter(int_value = null)",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
       "a column reference, or a scalar function call at 1:28",
@@ -121,7 +121,7 @@ const QueryTestScenario INT_EQUALS_NULL_REJECTED_SCENARIO = {
 
 const QueryTestScenario NEGATED_INT_EQUALS_NULL_REJECTED_SCENARIO = {
    .name = "NEGATED_INT_EQUALS_NULL_REJECTED_SCENARIO",
-   .query = "default.filter(!(int_value = null))",
+   .query = "data.filter(!(int_value = null))",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
       "a column reference, or a scalar function call at 1:30",
@@ -129,7 +129,7 @@ const QueryTestScenario NEGATED_INT_EQUALS_NULL_REJECTED_SCENARIO = {
 
 const QueryTestScenario INT_NOT_EQUALS_NULL_REJECTED_SCENARIO = {
    .name = "INT_NOT_EQUALS_NULL_REJECTED_SCENARIO",
-   .query = "default.filter(int_value <> null)",
+   .query = "data.filter(int_value <> null)",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
       "a column reference, or a scalar function call at 1:29",
@@ -137,19 +137,19 @@ const QueryTestScenario INT_NOT_EQUALS_NULL_REJECTED_SCENARIO = {
 
 const QueryTestScenario INT_EQUALS_WITH_OVERFLOW = {
    .name = "INT_EQUALS_WITH_OVERFLOW",
-   .query = "default.filter(int_value = 4294967295)",
+   .query = "data.filter(int_value = 4294967295)",
    .expected_error_message = "Cannot cast 4294967295 to int32. Value out of range",
 };
 
 const QueryTestScenario INT_COMPARISON_WITH_OVERFLOW = {
    .name = "INT_COMPARISON_WITH_OVERFLOW",
-   .query = "default.filter(int_value >= 4294967295)",
+   .query = "data.filter(int_value >= 4294967295)",
    .expected_error_message = "Cannot cast 4294967295 to int32. Value out of range",
 };
 
 const QueryTestScenario INT_BETWEEN_WITH_OVERFLOW = {
    .name = "INT_BETWEEN_WITH_OVERFLOW",
-   .query = "default.filter(between(int_value, 0, 4294967295))",
+   .query = "data.filter(between(int_value, 0, 4294967295))",
    .expected_error_message = "Cannot cast 4294967295 to int32. Value out of range",
 };
 

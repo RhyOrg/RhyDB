@@ -58,26 +58,26 @@ const QueryTestData TEST_DATA{
 
 const QueryTestScenario LESS_THAN = {
    .name = "INT_LESS_THAN",
-   .query = "default.filter(int_value < 3).project(primaryKey)",
+   .query = "data.filter(int_value < 3).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_below"}])"),
 };
 
 const QueryTestScenario LESS_EQUAL = {
    .name = "INT_LESS_EQUAL",
-   .query = "default.filter(int_value <= 3).project(primaryKey)",
+   .query = "data.filter(int_value <= 3).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_below"},{"primaryKey":"id_bound"}])"),
 };
 
 const QueryTestScenario GREATER_THAN = {
    .name = "INT_GREATER_THAN",
-   .query = "default.filter(int_value > 3).project(primaryKey)",
+   .query = "data.filter(int_value > 3).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_above"}])"),
 };
 
 const QueryTestScenario GREATER_EQUAL = {
    .name = "INT_GREATER_EQUAL",
-   .query = "default.filter(int_value >= 3).project(primaryKey)",
+   .query = "data.filter(int_value >= 3).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"}])"),
 };
@@ -85,7 +85,7 @@ const QueryTestScenario GREATER_EQUAL = {
 // !(int_value < 3) == int_value >= 3, and nulls are included by the negation.
 const QueryTestScenario NEGATED_LESS_THAN = {
    .name = "INT_NEGATED_LESS_THAN",
-   .query = "default.filter(!(int_value < 3)).project(primaryKey)",
+   .query = "data.filter(!(int_value < 3)).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"},{"primaryKey":"id_null"}])"
    ),
@@ -94,40 +94,40 @@ const QueryTestScenario NEGATED_LESS_THAN = {
 // Operand flip: `3 > int_value` must equal `int_value < 3`.
 const QueryTestScenario FLIPPED_OPERANDS = {
    .name = "INT_FLIPPED_OPERANDS",
-   .query = "default.filter(3 > int_value).project(primaryKey)",
+   .query = "data.filter(3 > int_value).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_below"}])"),
 };
 
 const QueryTestScenario FLIPPED_OPERANDS_INCLUSIVE = {
    .name = "INT_FLIPPED_OPERANDS_INCLUSIVE",
-   .query = "default.filter(3 >= int_value).project(primaryKey)",
+   .query = "data.filter(3 >= int_value).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_below"},{"primaryKey":"id_bound"}])"),
 };
 
 const QueryTestScenario TYPE_MISMATCH = {
    .name = "INT_TYPE_MISMATCH",
-   .query = "default.filter(int_value < 'x').project(primaryKey)",
+   .query = "data.filter(int_value < 'x').project(primaryKey)",
    .expected_error_message = "The column 'int_value' is not of type string",
 };
 
 const QueryTestScenario BOOL_COMPARISON = {
    .name = "INT_BOOL_COMPARISON",
-   .query = "default.filter(bool_value < true).project(primaryKey)",
+   .query = "data.filter(bool_value < true).project(primaryKey)",
    .expected_error_message =
       "The comparison operators <,>,<=,>= are not supported for boolean column 'bool_value'",
 };
 
 const QueryTestScenario UNKNOWN_COLUMN = {
    .name = "INT_UNKNOWN_COLUMN",
-   .query = "default.filter(does_not_exist < 3).project(primaryKey)",
+   .query = "data.filter(does_not_exist < 3).project(primaryKey)",
    .expected_error_message =
       "the left side of a comparison references unknown column 'does_not_exist' at 1:16",
 };
 
 const QueryTestScenario TWO_COLUMNS = {
    .name = "INT_TWO_COLUMNS",
-   .query = "default.filter(int_value < primaryKey).project(primaryKey)",
+   .query = "data.filter(int_value < primaryKey).project(primaryKey)",
    .expected_error_message =
       "A Comparison expression can only be compiled to a filter when exactly one side is a column "
       "reference and the other a literal value",
@@ -135,7 +135,7 @@ const QueryTestScenario TWO_COLUMNS = {
 
 const QueryTestScenario NO_COLUMN = {
    .name = "INT_NO_COLUMN",
-   .query = "default.filter(1 < 2).project(primaryKey)",
+   .query = "data.filter(1 < 2).project(primaryKey)",
    .expected_error_message =
       "A Comparison expression can only be compiled to a filter when exactly one side is a column "
       "reference and the other a literal value",
@@ -143,7 +143,7 @@ const QueryTestScenario NO_COLUMN = {
 
 const QueryTestScenario NO_LITERAL = {
    .name = "INT_NO_LITERAL",
-   .query = "default.filter(int_value < primaryKey.at(1)).project(primaryKey)",
+   .query = "data.filter(int_value < primaryKey.at(1)).project(primaryKey)",
    .expected_error_message =
       "Unsupported value type in comparison with column 'int_value': the value must be an int, "
       "float, date, string, or bool literal",
@@ -151,26 +151,26 @@ const QueryTestScenario NO_LITERAL = {
 
 const QueryTestScenario INT32_OVERFLOW = {
    .name = "INT_INT32_OVERFLOW",
-   .query = "default.filter(int_value < 3000000000).project(primaryKey)",
+   .query = "data.filter(int_value < 3000000000).project(primaryKey)",
    .expected_error_message = "Cannot cast 3000000000 to int32. Value out of range",
 };
 
 const QueryTestScenario INT64_LESS_THAN = {
    .name = "INT_INT64_LESS_THAN",
-   .query = "default.filter(int64_value < 3000000000).project(primaryKey)",
+   .query = "data.filter(int64_value < 3000000000).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_below"}])"),
 };
 
 const QueryTestScenario INT64_GREATER_EQUAL = {
    .name = "INT_INT64_GREATER_EQUAL",
-   .query = "default.filter(int64_value >= 3000000000).project(primaryKey)",
+   .query = "data.filter(int64_value >= 3000000000).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"}])"),
 };
 
 const QueryTestScenario INT64_FLIPPED_OPERANDS = {
    .name = "INT_INT64_FLIPPED_OPERANDS",
-   .query = "default.filter(3000000000 > int64_value).project(primaryKey)",
+   .query = "data.filter(3000000000 > int64_value).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_below"}])"),
 };
 

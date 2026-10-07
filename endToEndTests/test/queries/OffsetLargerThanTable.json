@@ -1,5 +1,5 @@
 {
   "testCaseName": "Offset is larger than the table",
-  "query": "default.filter((country = 'Switzerland') && (pango_lineage.lineage('B.1.1.7', includeSublineages:=true))).order(by:={primary_key}).offset(1231241)",
+  "query": "data.filter((country = 'Switzerland') && (pango_lineage.lineage('B.1.1.7', includeSublineages:=true))).order(by:={primary_key}).offset(1231241)",
   "expectedQueryResult": []
 }

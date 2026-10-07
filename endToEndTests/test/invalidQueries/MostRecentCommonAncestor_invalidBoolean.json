@@ -1,8 +1,8 @@
 {
   "testCaseName": "MostRecentCommonAncestor action with invalid printNodesNotInTree value ",
-  "query": "default.filter(country = 'Switzerland').mostRecentCommonAncestor('primary_key', printNodesNotInTree:='T').order(by:={mrcaNode})",
+  "query": "data.filter(country = 'Switzerland').mostRecentCommonAncestor('primary_key', printNodesNotInTree:='T').order(by:={mrcaNode})",
   "expectedError": {
     "error": "Bad request",
-    "message": "expected boolean literal at 1:102"
+    "message": "expected boolean literal at 1:99"
   }
 }

@@ -2,13 +2,13 @@ import { describe, it } from 'node:test';
 import { expect } from 'chai';
 import { server } from './common.js';
 
-const WRITE_QUERY = 'default.insertInto(default)';
+const WRITE_QUERY = 'data.insertInto(data)';
 
 async function countRows() {
   const response = await server
     .post('/query')
     .set('Content-Type', 'text/plain')
-    .send('default.group(by:={}, aggs:={count:=count()})');
+    .send('data.group(by:={}, aggs:={count:=count()})');
 
   expect(response.status).to.equal(200);
   const rows = response.text

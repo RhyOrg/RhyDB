@@ -71,7 +71,7 @@ const QueryTestData TEST_DATA{
 const QueryTestScenario INSERTION_CONTAINS_SCENARIO = {
    .name = "INSERTION_CONTAINS_SCENARIO",
    .query =
-      "default.filter(insertionContains(position:=12, value:='A', "
+      "data.filter(insertionContains(position:=12, value:='A', "
       "sequenceName:='segment1')).project(primaryKey)",
    .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}, {{"primaryKey", "id_1"}}}),
 };
@@ -79,7 +79,7 @@ const QueryTestScenario INSERTION_CONTAINS_SCENARIO = {
 const QueryTestScenario INSERTION_CONTAINS_SCENARIO_POSITION_0_EQUALS_BEFORE_FIRST = {
    .name = "INSERTION_CONTAINS_SCENARIO_POSITION_0_EQUALS_BEFORE_FIRST",
    .query =
-      "default.filter(insertionContains(position:=0, value:='A', "
+      "data.filter(insertionContains(position:=0, value:='A', "
       "sequenceName:='segment1')).project(primaryKey)",
    .expected_query_result = nlohmann::json({{{"primaryKey", "id_4"}}}),
 };
@@ -87,14 +87,14 @@ const QueryTestScenario INSERTION_CONTAINS_SCENARIO_POSITION_0_EQUALS_BEFORE_FIR
 // A sequence name is required for every nucleotide sequence filter.
 const QueryTestScenario INSERTION_CONTAINS_WITHOUT_SEQUENCE_NAME_ERRORS = {
    .name = "INSERTION_CONTAINS_WITHOUT_SEQUENCE_NAME_ERRORS",
-   .query = "default.filter(insertionContains(position:=12, value:='A')).project(primaryKey)",
+   .query = "data.filter(insertionContains(position:=12, value:='A')).project(primaryKey)",
    .expected_error_message = "insertionContains() requires argument 'sequenceName'",
 };
 
 const QueryTestScenario INSERTION_CONTAINS_WITH_UNKNOWN_SEGMENT_SCENARIO = {
    .name = "INSERTION_CONTAINS_WITH_UNKNOWN_SEGMENT_SCENARIO",
    .query =
-      "default.filter(insertionContains(position:=12, value:='A', "
+      "data.filter(insertionContains(position:=12, value:='A', "
       "sequenceName:='unknownSegmentName'))",
    .expected_error_message = "The database does not contain the column 'unknownSegmentName'",
 };
@@ -102,7 +102,7 @@ const QueryTestScenario INSERTION_CONTAINS_WITH_UNKNOWN_SEGMENT_SCENARIO = {
 const QueryTestScenario INSERTION_CONTAINS_POSITION_OUT_OF_RANGE = {
    .name = "INSERTION_CONTAINS_POSITION_OUT_OF_RANGE",
    .query =
-      "default.filter(insertionContains(position:=100, value:='A', sequenceName:='segment2'))",
+      "data.filter(insertionContains(position:=100, value:='A', sequenceName:='segment2'))",
    .expected_error_message =
       "the requested insertion position (100) is larger than the length of the reference sequence "
       "(32) for sequence 'segment2'",
@@ -111,7 +111,7 @@ const QueryTestScenario INSERTION_CONTAINS_POSITION_OUT_OF_RANGE = {
 // A sequence name is required even before the insertion position is validated.
 const QueryTestScenario INSERTION_CONTAINS_WITHOUT_SEQUENCE_NAME_POSITION_OUT_OF_RANGE = {
    .name = "INSERTION_CONTAINS_WITHOUT_SEQUENCE_NAME_POSITION_OUT_OF_RANGE",
-   .query = "default.filter(insertionContains(position:=100, value:='A'))",
+   .query = "data.filter(insertionContains(position:=100, value:='A'))",
    .expected_error_message = "insertionContains() requires argument 'sequenceName'",
 };
 
@@ -172,14 +172,14 @@ const QueryTestData TEST_DATA{
 const QueryTestScenario AMINO_ACID_INSERTION_CONTAINS_SCENARIO = {
    .name = "AMINO_ACID_INSERTION_CONTAINS_SCENARIO",
    .query =
-      "default.filter(aminoAcidInsertionContains(position:=12, value:='A', "
+      "data.filter(aminoAcidInsertionContains(position:=12, value:='A', "
       "sequenceName:='gene1')).project(primaryKey)",
    .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}, {{"primaryKey", "id_1"}}}),
 };
 
 const QueryTestScenario AMINO_ACID_INSERTION_CONTAINS_WITH_NULL_SEGMENT_SCENARIO = {
    .name = "AMINO_ACID_INSERTION_CONTAINS_WITH_NULL_SEGMENT_SCENARIO",
-   .query = "default.filter(aminoAcidInsertionContains(position:=12, value:='A'))",
+   .query = "data.filter(aminoAcidInsertionContains(position:=12, value:='A'))",
    .expected_error_message = "aminoAcidInsertionContains() requires argument 'sequenceName'",
 };
 

@@ -37,7 +37,7 @@ std::shared_ptr<rhydb::storage::Table> makeTable() {
       {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)},
    };
    auto schema = std::make_shared<rhydb::schema::TableSchema>(std::move(col_meta), primary_key);
-   return std::make_shared<rhydb::storage::Table>(rhydb::schema::TableName("default"), schema);
+   return std::make_shared<rhydb::storage::Table>(rhydb::schema::TableName("data"), schema);
 }
 
 operators::QueryNodePtr makeScan() {

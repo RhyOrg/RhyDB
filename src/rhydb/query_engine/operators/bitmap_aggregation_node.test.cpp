@@ -89,7 +89,7 @@ const QueryTestData TEST_DATA{
 const QueryTestScenario CO_OCCURRENCE_VIA_MAP_TWO_POSITIONS = {
    .name = "CO_OCCURRENCE_VIA_MAP_TWO_POSITIONS",
    .query =
-      "default.map({s1 := segment1.at(1), s2 := segment1.at(2)})"
+      "data.map({s1 := segment1.at(1), s2 := segment1.at(2)})"
       ".group(by:={s1, s2}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "A", "s2": "T", "count": 2},
@@ -101,7 +101,7 @@ const QueryTestScenario CO_OCCURRENCE_VIA_MAP_TWO_POSITIONS = {
 const QueryTestScenario CO_OCCURRENCE_VIA_MAP_WITH_FILTER = {
    .name = "CO_OCCURRENCE_VIA_MAP_WITH_FILTER",
    .query =
-      "default.filter(hasMutation(position:=1, sequenceName:='segment1'))"
+      "data.filter(hasMutation(position:=1, sequenceName:='segment1'))"
       ".map({s1 := segment1.at(1), s2 := segment1.at(2)})"
       ".group(by:={s1, s2}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
@@ -111,7 +111,7 @@ const QueryTestScenario CO_OCCURRENCE_VIA_MAP_WITH_FILTER = {
 
 const QueryTestScenario CO_OCCURRENCE_VIA_MAP_AMINO_ACID = {
    .name = "CO_OCCURRENCE_VIA_MAP_AMINO_ACID",
-   .query = "default.map({stop := gene1.at(2)}).group(by:={stop}, aggs:={count:=count()})",
+   .query = "data.map({stop := gene1.at(2)}).group(by:={stop}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"stop": "*", "count": 4}
    ])")
@@ -123,7 +123,7 @@ const QueryTestScenario CO_OCCURRENCE_VIA_MAP_AMINO_ACID = {
 // character is 'i' for all four rows -- a single group.
 const QueryTestScenario CO_OCCURRENCE_VIA_MAP_NON_SEQUENCE_STRING_AT = {
    .name = "CO_OCCURRENCE_VIA_MAP_NON_SEQUENCE_STRING_AT",
-   .query = "default.map({first := primaryKey.at(1)}).group(by:={first}, aggs:={count:=count()})",
+   .query = "data.map({first := primaryKey.at(1)}).group(by:={first}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"first": "i", "count": 4}
    ])")
@@ -136,7 +136,7 @@ const QueryTestScenario CO_OCCURRENCE_VIA_MAP_NON_SEQUENCE_STRING_AT = {
 const QueryTestScenario LIMIT_ON_UNORDERED_AGGREGATION = {
    .name = "LIMIT_ON_UNORDERED_AGGREGATION",
    .query =
-      "default.map({first := primaryKey.at(1)}).group(by:={first}, "
+      "data.map({first := primaryKey.at(1)}).group(by:={first}, "
       "aggs:={count:=count()}).limit(1)",
    .expected_query_result = nlohmann::json::parse(R"([
       {"first": "i", "count": 4}
@@ -147,7 +147,7 @@ const QueryTestScenario LIMIT_ON_UNORDERED_AGGREGATION = {
 // The rows carry N, N, N, T there: the N group is every filtered row minus the explicit T mutation.
 const QueryTestScenario CO_OCCURRENCE_VIA_MAP_REFERENCE_IS_MISSING = {
    .name = "CO_OCCURRENCE_VIA_MAP_REFERENCE_IS_MISSING",
-   .query = "default.map({s5 := segment1.at(5)}).group(by:={s5}, aggs:={count:=count()})",
+   .query = "data.map({s5 := segment1.at(5)}).group(by:={s5}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s5": "T", "count": 1},
       {"s5": "N", "count": 3}
@@ -158,7 +158,7 @@ const QueryTestScenario CO_OCCURRENCE_VIA_MAP_REFERENCE_IS_MISSING = {
 // aggregation node reports this when it builds the per-symbol bitmaps.
 const QueryTestScenario CO_OCCURRENCE_VIA_MAP_POSITION_OUT_OF_RANGE = {
    .name = "CO_OCCURRENCE_VIA_MAP_POSITION_OUT_OF_RANGE",
-   .query = "default.map({s := segment1.at(6)}).group(by:={s}, aggs:={count:=count()})",
+   .query = "data.map({s := segment1.at(6)}).group(by:={s}, aggs:={count:=count()})",
    .expected_error_message = "segment1.at(6) is out of bounds: the nucleotide sequence has length 5"
 };
 
@@ -168,7 +168,7 @@ const QueryTestScenario CO_OCCURRENCE_VIA_MAP_POSITION_OUT_OF_RANGE = {
 // (the NNNNN row).
 const QueryTestScenario INDEXED_COLUMN_SINGLE = {
    .name = "INDEXED_COLUMN_SINGLE",
-   .query = "default.group(by:={region}, aggs:={count:=count()})",
+   .query = "data.group(by:={region}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"region": "Asia", "count": 1},
       {"region": "Europe", "count": 3}
@@ -179,7 +179,7 @@ const QueryTestScenario INDEXED_COLUMN_SINGLE = {
 // the scan where `count` does not exist.
 const QueryTestScenario FILTER_ON_AGGREGATE_COUNT = {
    .name = "FILTER_ON_AGGREGATE_COUNT",
-   .query = "default.group(by:={region}, aggs:={count:=count()}).filter(count > 1)",
+   .query = "data.group(by:={region}, aggs:={count:=count()}).filter(count > 1)",
    .expected_query_result = nlohmann::json::parse(R"([
       {"region": "Europe", "count": 3}
    ])"),
@@ -187,7 +187,7 @@ const QueryTestScenario FILTER_ON_AGGREGATE_COUNT = {
 
 const QueryTestScenario FILTER_NOT_BY_COUNT_ON_AGGREGATE = {
    .name = "FILTER_NOT_BY_COUNT_ON_AGGREGATE",
-   .query = "default.group(by:={region}, aggs:={count:=count()}).filter(region = 'Europe')",
+   .query = "data.group(by:={region}, aggs:={count:=count()}).filter(region = 'Europe')",
    .expected_query_result = nlohmann::json::parse(R"([
       {"region": "Europe", "count": 3}
    ])"),
@@ -200,7 +200,7 @@ const QueryTestScenario FILTER_NOT_BY_COUNT_ON_AGGREGATE = {
 //   N -> Asia   x1   (the NNNNN row)
 const QueryTestScenario MIXED_SEQUENCE_AND_INDEXED_COLUMN = {
    .name = "MIXED_SEQUENCE_AND_INDEXED_COLUMN",
-   .query = "default.map({s1 := segment1.at(1)}).group(by:={s1, region}, aggs:={count:=count()})",
+   .query = "data.map({s1 := segment1.at(1)}).group(by:={s1, region}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "A", "region": "Europe", "count": 2},
       {"s1": "C", "region": "Europe", "count": 1},
@@ -213,7 +213,7 @@ const QueryTestScenario MIXED_SEQUENCE_AND_INDEXED_COLUMN = {
 // scan column directly -- only the output name differs (here `r`).
 const QueryTestScenario MAP_FIELD_REF_INDEXED_COLUMN = {
    .name = "MAP_FIELD_REF_INDEXED_COLUMN",
-   .query = "default.map({r := region}).group(by:={r}, aggs:={count:=count()})",
+   .query = "data.map({r := region}).group(by:={r}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"r": "Asia", "count": 1},
       {"r": "Europe", "count": 3}
@@ -227,8 +227,7 @@ const QueryTestScenario MAP_FIELD_REF_INDEXED_COLUMN = {
 // Country carries Germany x2, France x1, Japan x1.
 const QueryTestScenario MAP_FIELD_REF_PLAIN_STRING_COLUMN = {
    .name = "MAP_FIELD_REF_PLAIN_STRING_COLUMN",
-   .query =
-      "default.map({c := country}).group(by:={c}, aggs:={count:=count()}).order(by:={c.asc()})",
+   .query = "data.map({c := country}).group(by:={c}, aggs:={count:=count()}).order(by:={c.asc()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"c": "France", "count": 1},
       {"c": "Germany", "count": 2},
@@ -244,7 +243,7 @@ const QueryTestScenario MAP_FIELD_REF_PLAIN_STRING_COLUMN = {
 const QueryTestScenario MIXED_SEQUENCE_AND_FIELD_COLUMN = {
    .name = "MIXED_SEQUENCE_AND_FIELD_COLUMN",
    .query =
-      "default.map({s1 := segment1.at(1), c := country}).group(by:={s1, c}, "
+      "data.map({s1 := segment1.at(1), c := country}).group(by:={s1, c}, "
       "aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "A", "c": "France", "count": 1},
@@ -261,7 +260,7 @@ const QueryTestScenario MIXED_SEQUENCE_AND_FIELD_COLUMN = {
 const QueryTestScenario MIXED_SEQUENCE_AND_FIELD_COLUMN_WITH_FILTER = {
    .name = "MIXED_SEQUENCE_AND_FIELD_COLUMN_WITH_FILTER",
    .query =
-      "default.filter(region = 'Europe')"
+      "data.filter(region = 'Europe')"
       ".map({s1 := segment1.at(1), c := country})"
       ".group(by:={s1, c}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
@@ -279,7 +278,7 @@ const QueryTestScenario MIXED_SEQUENCE_AND_FIELD_COLUMN_WITH_FILTER = {
 const QueryTestScenario MAP_ISO_WEEK_EXPRESSION = {
    .name = "MAP_ISO_WEEK_EXPRESSION",
    .query =
-      "default.map({week := date.isoWeek()}).group(by:={week}, aggs:={count:=count()})"
+      "data.map({week := date.isoWeek()}).group(by:={week}, aggs:={count:=count()})"
       ".order(by:={asc(week)})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"week": "2021-W01", "count": 1},
@@ -297,7 +296,7 @@ const QueryTestScenario MAP_ISO_WEEK_EXPRESSION = {
 const QueryTestScenario MIXED_SEQUENCE_AND_ISO_WEEK = {
    .name = "MIXED_SEQUENCE_AND_ISO_WEEK",
    .query =
-      "default.map({s1 := segment1.at(1), week := date.isoWeek()})"
+      "data.map({s1 := segment1.at(1), week := date.isoWeek()})"
       ".group(by:={s1, week}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "A", "week": "2021-W01", "count": 1},
@@ -355,7 +354,7 @@ const QueryTestData NULL_TEST_DATA{
 const QueryTestScenario CO_OCCURRENCE_NULL_TWO_NUCLEOTIDE_POSITIONS = {
    .name = "CO_OCCURRENCE_NULL_TWO_NUCLEOTIDE_POSITIONS",
    .query =
-      "default.map({s1 := segment1.at(1), s2 := segment1.at(2)})"
+      "data.map({s1 := segment1.at(1), s2 := segment1.at(2)})"
       ".group(by:={s1, s2}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "A", "s2": "T", "count": 2},
@@ -369,7 +368,7 @@ const QueryTestScenario CO_OCCURRENCE_NULL_TWO_NUCLEOTIDE_POSITIONS = {
 // group rather than the (reference) N group.
 const QueryTestScenario CO_OCCURRENCE_NULL_REFERENCE_IS_MISSING = {
    .name = "CO_OCCURRENCE_NULL_REFERENCE_IS_MISSING",
-   .query = "default.map({s5 := segment1.at(5)}).group(by:={s5}, aggs:={count:=count()})",
+   .query = "data.map({s5 := segment1.at(5)}).group(by:={s5}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s5": "T", "count": 1},
       {"s5": "N", "count": 2},
@@ -381,7 +380,7 @@ const QueryTestScenario CO_OCCURRENCE_NULL_REFERENCE_IS_MISSING = {
 // for the one that does not.
 const QueryTestScenario CO_OCCURRENCE_NULL_AMINO_ACID = {
    .name = "CO_OCCURRENCE_NULL_AMINO_ACID",
-   .query = "default.map({aa := gene1.at(1)}).group(by:={aa}, aggs:={count:=count()})",
+   .query = "data.map({aa := gene1.at(1)}).group(by:={aa}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"aa": "M", "count": 3},
       {"aa": null, "count": 1}
@@ -396,7 +395,7 @@ const QueryTestScenario CO_OCCURRENCE_NULL_AMINO_ACID = {
 const QueryTestScenario CO_OCCURRENCE_NULL_MIXED_POSITIONS = {
    .name = "CO_OCCURRENCE_NULL_MIXED_POSITIONS",
    .query =
-      "default.map({s1 := segment1.at(1), aa := gene1.at(1)})"
+      "data.map({s1 := segment1.at(1), aa := gene1.at(1)})"
       ".group(by:={s1, aa}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "A", "aa": "M", "count": 2},
@@ -409,7 +408,7 @@ const QueryTestScenario CO_OCCURRENCE_NULL_MIXED_POSITIONS = {
 // form a trailing group after every value group, emitted as a null key.
 const QueryTestScenario INDEXED_COLUMN_NULL_GROUP = {
    .name = "INDEXED_COLUMN_NULL_GROUP",
-   .query = "default.group(by:={region}, aggs:={count:=count()})",
+   .query = "data.group(by:={region}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"region": "Europe", "count": 3},
       {"region": null, "count": 1}
@@ -423,7 +422,7 @@ const QueryTestScenario INDEXED_COLUMN_NULL_GROUP = {
 const QueryTestScenario CO_OCCURRENCE_NULL_CHUNKED_OUTPUT = {
    .name = "CO_OCCURRENCE_NULL_CHUNKED_OUTPUT",
    .query =
-      "default.map({s1 := segment1.at(1), s2 := segment1.at(2)})"
+      "data.map({s1 := segment1.at(1), s2 := segment1.at(2)})"
       ".group(by:={s1, s2}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "A", "s2": "T", "count": 2},
@@ -446,7 +445,7 @@ const QueryTestData AMBIGUITY_TEST_DATA{
 
 const QueryTestScenario CO_OCCURRENCE_AMBIGUOUS_CODES = {
    .name = "CO_OCCURRENCE_AMBIGUOUS_CODES",
-   .query = "default.map({s1 := segment1.at(1)}).group(by:={s1}, aggs:={count:=count()})",
+   .query = "data.map({s1 := segment1.at(1)}).group(by:={s1}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "A", "count": 1},
       {"s1": "R", "count": 2},
@@ -469,7 +468,7 @@ const QueryTestData ALL_MISSING_TEST_DATA{
 
 const QueryTestScenario ALL_ROWS_MISSING_AT_POSITION = {
    .name = "ALL_ROWS_MISSING_AT_POSITION",
-   .query = "default.map({s1 := segment1.at(1)}).group(by:={s1}, aggs:={count:=count()})",
+   .query = "data.map({s1 := segment1.at(1)}).group(by:={s1}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "N", "count": 3}
    ])")
@@ -496,7 +495,7 @@ const QueryTestData DELETION_RUN_TEST_DATA{
 
 const QueryTestScenario REFERENCE_ROW_BEFORE_DELETION_RUN = {
    .name = "REFERENCE_ROW_BEFORE_DELETION_RUN",
-   .query = "default.map({s1 := segment1.at(1)}).group(by:={s1}, aggs:={count:=count()})",
+   .query = "data.map({s1 := segment1.at(1)}).group(by:={s1}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s1": "-", "count": 49},
       {"s1": "A", "count": 1}
@@ -570,8 +569,7 @@ const QueryTestData SCALAR_TYPE_TEST_DATA{
 // written that way throughout.
 const QueryTestScenario GROUP_BY_MAPPED_INT32_COLUMN = {
    .name = "GROUP_BY_MAPPED_INT32_COLUMN",
-   .query =
-      "default.map({s := segment1.at(1), a := age}).group(by:={s, a}, aggs:={count:=count()})",
+   .query = "data.map({s := segment1.at(1), a := age}).group(by:={s, a}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s": "A", "a": 30, "count": 2},
       {"s": "A", "a": 41, "count": 1},
@@ -581,8 +579,7 @@ const QueryTestScenario GROUP_BY_MAPPED_INT32_COLUMN = {
 
 const QueryTestScenario GROUP_BY_MAPPED_INT64_COLUMN = {
    .name = "GROUP_BY_MAPPED_INT64_COLUMN",
-   .query =
-      "default.map({s := segment1.at(1), r := reads}).group(by:={s, r}, aggs:={count:=count()})",
+   .query = "data.map({s := segment1.at(1), r := reads}).group(by:={s, r}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s": "A", "r": 1000000000000, "count": 2},
       {"s": "A", "r": 2000000000000, "count": 1},
@@ -593,7 +590,7 @@ const QueryTestScenario GROUP_BY_MAPPED_INT64_COLUMN = {
 const QueryTestScenario GROUP_BY_MAPPED_FLOAT_COLUMN = {
    .name = "GROUP_BY_MAPPED_FLOAT_COLUMN",
    .query =
-      "default.map({s := segment1.at(1), c := coverage}).group(by:={s, c}, aggs:={count:=count()})",
+      "data.map({s := segment1.at(1), c := coverage}).group(by:={s, c}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s": "A", "c": 1.5, "count": 2},
       {"s": "A", "c": 2.5, "count": 1},
@@ -605,7 +602,7 @@ const QueryTestScenario GROUP_BY_MAPPED_FLOAT_COLUMN = {
 const QueryTestScenario GROUP_BY_MAPPED_BOOL_COLUMN = {
    .name = "GROUP_BY_MAPPED_BOOL_COLUMN",
    .query =
-      "default.map({s := segment1.at(1), p := passed}).group(by:={s, p}, aggs:={count:=count()})",
+      "data.map({s := segment1.at(1), p := passed}).group(by:={s, p}, aggs:={count:=count()})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"s": "A", "p": false, "count": 1},
       {"s": "A", "p": true, "count": 2},

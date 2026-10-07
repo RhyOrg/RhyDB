@@ -60,7 +60,7 @@ const QueryTestData TEST_DATA{
 
 const QueryTestScenario FLOAT_BETWEEN_WITH_FROM_AND_TO_SCENARIO = {
    .name = "FLOAT_BETWEEN_WITH_FROM_AND_TO_SCENARIO",
-   .query = "default.filter(float_value.between(0.5, 1.5)).project({primaryKey, float_value})",
+   .query = "data.filter(float_value.between(0.5, 1.5)).project({primaryKey, float_value})",
    .expected_query_result = nlohmann::json({
       {{"primaryKey", "id_0"}, {"float_value", 1.23}},
       {{"primaryKey", "id_1"}, {"float_value", 1.23}},
@@ -69,7 +69,7 @@ const QueryTestScenario FLOAT_BETWEEN_WITH_FROM_AND_TO_SCENARIO = {
 
 const QueryTestScenario NEGATED_FLOAT_BETWEEN_WITH_FROM_AND_TO_SCENARIO = {
    .name = "NEGATED_FLOAT_BETWEEN_WITH_FROM_AND_TO_SCENARIO",
-   .query = "default.filter(!(float_value.between(0.5, 1.5))).project({primaryKey, float_value})",
+   .query = "data.filter(!(float_value.between(0.5, 1.5))).project({primaryKey, float_value})",
    .expected_query_result = nlohmann::json({
       {{"primaryKey", "id_2"}, {"float_value", 0.345}},
       {{"primaryKey", "id_3"}, {"float_value", 2.345}},
@@ -79,7 +79,7 @@ const QueryTestScenario NEGATED_FLOAT_BETWEEN_WITH_FROM_AND_TO_SCENARIO = {
 
 const QueryTestScenario FLOAT_BETWEEN_WITH_FROM_SCENARIO = {
    .name = "FLOAT_BETWEEN_WITH_FROM_SCENARIO",
-   .query = "default.filter(float_value >= 0.5).project({primaryKey, float_value})",
+   .query = "data.filter(float_value >= 0.5).project({primaryKey, float_value})",
    .expected_query_result = nlohmann::json({
       {{"primaryKey", "id_0"}, {"float_value", 1.23}},
       {{"primaryKey", "id_1"}, {"float_value", 1.23}},
@@ -89,7 +89,7 @@ const QueryTestScenario FLOAT_BETWEEN_WITH_FROM_SCENARIO = {
 
 const QueryTestScenario NEGATED_FLOAT_BETWEEN_WITH_FROM_SCENARIO = {
    .name = "NEGATED_FLOAT_BETWEEN_WITH_FROM_SCENARIO",
-   .query = "default.filter(!(float_value >= 0.5)).project({primaryKey, float_value})",
+   .query = "data.filter(!(float_value >= 0.5)).project({primaryKey, float_value})",
    .expected_query_result = nlohmann::json({
       {{"primaryKey", "id_2"}, {"float_value", 0.345}},
       {{"primaryKey", "id_4"}, {"float_value", nullptr}},
@@ -98,7 +98,7 @@ const QueryTestScenario NEGATED_FLOAT_BETWEEN_WITH_FROM_SCENARIO = {
 
 const QueryTestScenario FLOAT_BETWEEN_WITH_TO_SCENARIO = {
    .name = "FLOAT_BETWEEN_WITH_TO_SCENARIO",
-   .query = "default.filter(float_value < 1.5).project({primaryKey, float_value})",
+   .query = "data.filter(float_value < 1.5).project({primaryKey, float_value})",
    .expected_query_result = nlohmann::json({
       {{"primaryKey", "id_0"}, {"float_value", 1.23}},
       {{"primaryKey", "id_1"}, {"float_value", 1.23}},
@@ -108,7 +108,7 @@ const QueryTestScenario FLOAT_BETWEEN_WITH_TO_SCENARIO = {
 
 const QueryTestScenario NEGATED_FLOAT_BETWEEN_WITH_TO_SCENARIO = {
    .name = "NEGATED_FLOAT_BETWEEN_WITH_TO_SCENARIO",
-   .query = "default.filter(!(float_value < 1.5)).project({primaryKey, float_value})",
+   .query = "data.filter(!(float_value < 1.5)).project({primaryKey, float_value})",
    .expected_query_result = nlohmann::json({
       {{"primaryKey", "id_3"}, {"float_value", 2.345}},
       {{"primaryKey", "id_4"}, {"float_value", nullptr}},
@@ -117,7 +117,7 @@ const QueryTestScenario NEGATED_FLOAT_BETWEEN_WITH_TO_SCENARIO = {
 
 const QueryTestScenario FLOAT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO = {
    .name = "FLOAT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO",
-   .query = "default.filter(float_value.isNotNull()).project({primaryKey, float_value})",
+   .query = "data.filter(float_value.isNotNull()).project({primaryKey, float_value})",
    .expected_query_result = nlohmann::json({
       {{"primaryKey", "id_0"}, {"float_value", 1.23}},
       {{"primaryKey", "id_1"}, {"float_value", 1.23}},
@@ -128,20 +128,20 @@ const QueryTestScenario FLOAT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO = {
 
 const QueryTestScenario NEGATED_FLOAT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO = {
    .name = "NEGATED_FLOAT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO",
-   .query = "default.filter(!(float_value.isNotNull())).project({primaryKey, float_value})",
+   .query = "data.filter(!(float_value.isNotNull())).project({primaryKey, float_value})",
    .expected_query_result = nlohmann::json({{{"primaryKey", "id_4"}, {"float_value", nullptr}}}),
 };
 
 const QueryTestScenario FLOAT_BETWEEN_WITH_INVALID_FROM_VALUE = {
    .name = "FLOAT_BETWEEN_WITH_INVALID_FROM_VALUE",
    .query =
-      "default.filter(float_value.between('something', 2)).project({primaryKey, float_value})",
+      "data.filter(float_value.between('something', 2)).project({primaryKey, float_value})",
    .expected_error_message = "expected integer literal at 1:36",
 };
 
 const QueryTestScenario FLOAT_BETWEEN_WITH_INVALID_TO_VALUE = {
    .name = "FLOAT_BETWEEN_WITH_INVALID_TO_VALUE",
-   .query = "default.filter(float_value.between(2, 'test')).project({primaryKey, float_value})",
+   .query = "data.filter(float_value.between(2, 'test')).project({primaryKey, float_value})",
    .expected_error_message = "expected integer literal at 1:39",
 };
 

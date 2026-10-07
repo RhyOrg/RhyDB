@@ -1,6 +1,6 @@
 {
   "testCaseName": "N-Of query requesting 2 of 3 mutations with details action where 2 fields are selected",
-  "query": "default.filter(nOf(2, {nucleotideEquals(position:=1, symbol:='-', sequenceName:='main'), nucleotideEquals(position:=2, symbol:='T', sequenceName:='main'), nucleotideEquals(position:=27542, symbol:='N', sequenceName:='main')})).project({age, pango_lineage}).order(by:={age, pango_lineage})",
+  "query": "data.filter(nOf(2, {nucleotideEquals(position:=1, symbol:='-', sequenceName:='main'), nucleotideEquals(position:=2, symbol:='T', sequenceName:='main'), nucleotideEquals(position:=27542, symbol:='N', sequenceName:='main')})).project({age, pango_lineage}).order(by:={age, pango_lineage})",
   "expectedQueryResult": [
     {
       "age": 50,

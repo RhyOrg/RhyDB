@@ -53,27 +53,27 @@ const QueryTestData TEST_DATA{
 
 const QueryTestScenario STRING_LESS_THAN = {
    .name = "STRING_LESS_THAN",
-   .query = "default.filter(stringField < 'banana').project(primaryKey)",
+   .query = "data.filter(stringField < 'banana').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_apple"}])"),
 };
 
 const QueryTestScenario STRING_LESS_EQUAL = {
    .name = "STRING_LESS_EQUAL",
-   .query = "default.filter(stringField <= 'banana').project(primaryKey)",
+   .query = "data.filter(stringField <= 'banana').project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_apple"},{"primaryKey":"id_banana"}])"),
 };
 
 const QueryTestScenario STRING_GREATER_THAN = {
    .name = "STRING_GREATER_THAN",
-   .query = "default.filter(stringField > 'banana').project(primaryKey)",
+   .query = "data.filter(stringField > 'banana').project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_cherry"},{"primaryKey":"id_long"}])"),
 };
 
 const QueryTestScenario STRING_GREATER_EQUAL = {
    .name = "STRING_GREATER_EQUAL",
-   .query = "default.filter(stringField >= 'banana').project(primaryKey)",
+   .query = "data.filter(stringField >= 'banana').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"id_banana"},{"primaryKey":"id_cherry"},{"primaryKey":"id_long"}])"
    ),
@@ -82,7 +82,7 @@ const QueryTestScenario STRING_GREATER_EQUAL = {
 // !(stringField < 'banana') keeps everything at/above the bound plus the null row.
 const QueryTestScenario STRING_NEGATED_LESS_THAN = {
    .name = "STRING_NEGATED_LESS_THAN",
-   .query = "default.filter(!(stringField < 'banana')).project(primaryKey)",
+   .query = "data.filter(!(stringField < 'banana')).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"id_banana"},{"primaryKey":"id_cherry"},{"primaryKey":"id_null"},{"primaryKey":"id_long"}])"
    ),
@@ -91,7 +91,7 @@ const QueryTestScenario STRING_NEGATED_LESS_THAN = {
 // Operand flip: `'banana' > stringField` must equal `stringField < 'banana'`.
 const QueryTestScenario STRING_FLIPPED_OPERANDS = {
    .name = "STRING_FLIPPED_OPERANDS",
-   .query = "default.filter('banana' > stringField).project(primaryKey)",
+   .query = "data.filter('banana' > stringField).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_apple"}])"),
 };
 
@@ -99,7 +99,7 @@ const QueryTestScenario STRING_FLIPPED_OPERANDS = {
 // lexicographic slow-path fall-back of the German-string comparison.
 const QueryTestScenario STRING_LONG_VALUE = {
    .name = "STRING_LONG_VALUE",
-   .query = "default.filter(stringField > 'watermelonwatermel').project(primaryKey)",
+   .query = "data.filter(stringField > 'watermelonwatermel').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_long"}])"),
 };
 
@@ -107,20 +107,20 @@ const QueryTestScenario STRING_LONG_VALUE = {
 
 const QueryTestScenario DICT_LESS_THAN = {
    .name = "DICT_LESS_THAN",
-   .query = "default.filter(dictField < 'banana').project(primaryKey)",
+   .query = "data.filter(dictField < 'banana').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_apple"}])"),
 };
 
 const QueryTestScenario DICT_LESS_EQUAL = {
    .name = "DICT_LESS_EQUAL",
-   .query = "default.filter(dictField <= 'banana').project(primaryKey)",
+   .query = "data.filter(dictField <= 'banana').project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_apple"},{"primaryKey":"id_banana"}])"),
 };
 
 const QueryTestScenario DICT_GREATER_EQUAL = {
    .name = "DICT_GREATER_EQUAL",
-   .query = "default.filter(dictField >= 'banana').project(primaryKey)",
+   .query = "data.filter(dictField >= 'banana').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"id_banana"},{"primaryKey":"id_cherry"},{"primaryKey":"id_long"}])"
    ),
@@ -130,7 +130,7 @@ const QueryTestScenario DICT_GREATER_EQUAL = {
 // dictionary bitmap but the negated selection re-adds it via null handling.
 const QueryTestScenario DICT_NEGATED_LESS_THAN = {
    .name = "DICT_NEGATED_LESS_THAN",
-   .query = "default.filter(!(dictField < 'banana')).project(primaryKey)",
+   .query = "data.filter(!(dictField < 'banana')).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"id_banana"},{"primaryKey":"id_cherry"},{"primaryKey":"id_null"},{"primaryKey":"id_long"}])"
    ),
@@ -138,13 +138,13 @@ const QueryTestScenario DICT_NEGATED_LESS_THAN = {
 
 const QueryTestScenario DICT_FLIPPED_OPERANDS = {
    .name = "DICT_FLIPPED_OPERANDS",
-   .query = "default.filter('banana' > dictField).project(primaryKey)",
+   .query = "data.filter('banana' > dictField).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_apple"}])"),
 };
 
 const QueryTestScenario STRING_UNKNOWN_COLUMN = {
    .name = "STRING_UNKNOWN_COLUMN",
-   .query = "default.filter(does_not_exist < 'banana').project(primaryKey)",
+   .query = "data.filter(does_not_exist < 'banana').project(primaryKey)",
    .expected_error_message =
       "the left side of a comparison references unknown column 'does_not_exist' at 1:16",
 };

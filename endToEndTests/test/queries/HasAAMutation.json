@@ -1,6 +1,6 @@
 {
   "testCaseName": "Amino acid mutation gene S",
-  "query": "default.filter(hasAAMutation(position:=28, sequenceName:='S')).group(by:={}, aggs:={count:=count()})",
+  "query": "data.filter(hasAAMutation(position:=28, sequenceName:='S')).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 1

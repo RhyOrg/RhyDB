@@ -1,6 +1,6 @@
 {
   "testCaseName": "Test sequence has exactly symbol R at position 2",
-  "query": "default.filter(exact(nucleotideEquals(position:=2, symbol:='R', sequenceName:='testSecondSequence'))).group(by:={}, aggs:={count:=count()})",
+  "query": "data.filter(exact(nucleotideEquals(position:=2, symbol:='R', sequenceName:='testSecondSequence'))).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 2

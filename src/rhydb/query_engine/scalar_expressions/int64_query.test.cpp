@@ -77,14 +77,14 @@ nlohmann::json row(const std::string& primaryKey, nlohmann::json value) {
 
 const QueryTestScenario INT64_EQUALS_VALUE_SCENARIO = {
    .name = "INT64_EQUALS_VALUE_SCENARIO",
-   .query = "default.filter(int64_value = 5000000000)",
+   .query = "data.filter(int64_value = 5000000000)",
    .expected_query_result =
       nlohmann::json({row("id_0", VALUE_IN_FILTER), row("id_1", VALUE_IN_FILTER)}),
 };
 
 const QueryTestScenario INT64_GREATER_EQUAL_SCENARIO = {
    .name = "INT64_GREATER_EQUAL_SCENARIO",
-   .query = "default.filter(int64_value >= 5000000000)",
+   .query = "data.filter(int64_value >= 5000000000)",
    .expected_query_result = nlohmann::json(
       {row("id_0", VALUE_IN_FILTER), row("id_1", VALUE_IN_FILTER), row("id_3", VALUE_ABOVE_FILTER)}
    ),
@@ -92,14 +92,14 @@ const QueryTestScenario INT64_GREATER_EQUAL_SCENARIO = {
 
 const QueryTestScenario INT64_BETWEEN_SCENARIO = {
    .name = "INT64_BETWEEN_SCENARIO",
-   .query = "default.filter(between(int64_value, 4000000000, 9000000000))",
+   .query = "data.filter(between(int64_value, 4000000000, 9000000000))",
    .expected_query_result =
       nlohmann::json({row("id_0", VALUE_IN_FILTER), row("id_1", VALUE_IN_FILTER)}),
 };
 
 const QueryTestScenario INT64_EQUALS_NULL_REJECTED_SCENARIO = {
    .name = "INT64_EQUALS_NULL_REJECTED_SCENARIO",
-   .query = "default.filter(int64_value = null)",
+   .query = "data.filter(int64_value = null)",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
       "a "
@@ -108,7 +108,7 @@ const QueryTestScenario INT64_EQUALS_NULL_REJECTED_SCENARIO = {
 
 const QueryTestScenario INT64_NEGATED_EQUALS_SCENARIO = {
    .name = "INT64_NEGATED_EQUALS_SCENARIO",
-   .query = "default.filter(!(int64_value = 5000000000))",
+   .query = "data.filter(!(int64_value = 5000000000))",
    .expected_query_result = nlohmann::json(
       {row("id_2", VALUE_BELOW_FILTER), row("id_3", VALUE_ABOVE_FILTER), row("id_4", nullptr)}
    ),
@@ -116,13 +116,13 @@ const QueryTestScenario INT64_NEGATED_EQUALS_SCENARIO = {
 
 const QueryTestScenario INT64_EQUALS_INT32_RANGE_VALUE_SCENARIO = {
    .name = "INT64_EQUALS_INT32_RANGE_VALUE_SCENARIO",
-   .query = "default.filter(int64_value = 100)",
+   .query = "data.filter(int64_value = 100)",
    .expected_query_result = nlohmann::json::array(),
 };
 
 const QueryTestScenario INT64_EQUALS_FUNCTION_CALL_VALUE_SCENARIO = {
    .name = "INT64_EQUALS_FUNCTION_CALL_VALUE_SCENARIO",
-   .query = "default.filter(int64_value = primaryKey.at(1))",
+   .query = "data.filter(int64_value = primaryKey.at(1))",
    .expected_error_message =
       "Unsupported value type in comparison with column 'int64_value': the value must be an int, "
       "float, date, string, or bool literal",

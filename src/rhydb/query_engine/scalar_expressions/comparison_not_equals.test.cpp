@@ -93,56 +93,56 @@ const QueryTestData TEST_DATA{
 
 const QueryTestScenario NOT_EQUALS_STRING_PLAIN = {
    .name = "NOT_EQUALS_STRING_PLAIN",
-   .query = "default.filter(stringField <> 'value1').project(primaryKey)",
+   .query = "data.filter(stringField <> 'value1').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_STRING_DICT = {
    .name = "NOT_EQUALS_STRING_DICT",
-   .query = "default.filter(dictField <> 'indexed1').project(primaryKey)",
+   .query = "data.filter(dictField <> 'indexed1').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_INT = {
    .name = "NOT_EQUALS_INT",
-   .query = "default.filter(intField <> 1).project(primaryKey)",
+   .query = "data.filter(intField <> 1).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_INT64 = {
    .name = "NOT_EQUALS_INT64",
-   .query = "default.filter(int64Field <> 5000000001).project(primaryKey)",
+   .query = "data.filter(int64Field <> 5000000001).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_FLOAT = {
    .name = "NOT_EQUALS_FLOAT",
-   .query = "default.filter(floatField <> 1.5).project(primaryKey)",
+   .query = "data.filter(floatField <> 1.5).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_DATE = {
    .name = "NOT_EQUALS_DATE",
-   .query = "default.filter(dateField <> '2021-01-01'::date).project(primaryKey)",
+   .query = "data.filter(dateField <> '2021-01-01'::date).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_BOOL_TRUE = {
    .name = "NOT_EQUALS_BOOL_TRUE",
-   .query = "default.filter(boolField <> true).project(primaryKey)",
+   .query = "data.filter(boolField <> true).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_BOOL_FALSE = {
    .name = "NOT_EQUALS_BOOL_FALSE",
-   .query = "default.filter(boolField <> false).project(primaryKey)",
+   .query = "data.filter(boolField <> false).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_VALUE_NOT_PRESENT = {
    .name = "NOT_EQUALS_VALUE_NOT_PRESENT",
-   .query = "default.filter(intField <> 999).project(primaryKey)",
+   .query = "data.filter(intField <> 999).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_1"},{"primaryKey":"id_3"}])"
       ),
@@ -150,7 +150,7 @@ const QueryTestScenario NOT_EQUALS_VALUE_NOT_PRESENT = {
 
 const QueryTestScenario NOT_EQUALS_DICT_VALUE_NOT_IN_DICTIONARY = {
    .name = "NOT_EQUALS_DICT_VALUE_NOT_IN_DICTIONARY",
-   .query = "default.filter(dictField <> 'never_indexed').project(primaryKey)",
+   .query = "data.filter(dictField <> 'never_indexed').project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_1"},{"primaryKey":"id_3"}])"
       ),
@@ -158,34 +158,34 @@ const QueryTestScenario NOT_EQUALS_DICT_VALUE_NOT_IN_DICTIONARY = {
 
 const QueryTestScenario NOT_EQUALS_DICT_EXCLUDES_MATCHING_VALUE = {
    .name = "NOT_EQUALS_DICT_EXCLUDES_MATCHING_VALUE",
-   .query = "default.filter(dictField <> 'indexed2').project(primaryKey)",
+   .query = "data.filter(dictField <> 'indexed2').project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_COLUMN_ON_RIGHT = {
    .name = "NOT_EQUALS_COLUMN_ON_RIGHT",
-   .query = "default.filter('value1' <> stringField).project(primaryKey)",
+   .query = "data.filter('value1' <> stringField).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_DICT_COLUMN_ON_RIGHT = {
    .name = "NOT_EQUALS_DICT_COLUMN_ON_RIGHT",
-   .query = "default.filter('indexed2' <> dictField).project(primaryKey)",
+   .query = "data.filter('indexed2' <> dictField).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_DICT_IN_CONJUNCTION = {
    .name = "NOT_EQUALS_DICT_IN_CONJUNCTION",
-   .query = "default.filter(dictField <> 'indexed2' && intField <> 999).project(primaryKey)",
+   .query = "data.filter(dictField <> 'indexed2' && intField <> 999).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_NULL_PLAIN = {
    .name = "NOT_EQUALS_NULL_PLAIN",
-   .query = "default.filter(stringField <> null).project(primaryKey)",
+   .query = "data.filter(stringField <> null).project(primaryKey)",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
       "a column reference, or a scalar function call at 1:31",
@@ -193,7 +193,7 @@ const QueryTestScenario NOT_EQUALS_NULL_PLAIN = {
 
 const QueryTestScenario NOT_EQUALS_NULL_DICT = {
    .name = "NOT_EQUALS_NULL_DICT",
-   .query = "default.filter(dictField <> null).project(primaryKey)",
+   .query = "data.filter(dictField <> null).project(primaryKey)",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
       "a column reference, or a scalar function call at 1:29",
@@ -204,7 +204,7 @@ const QueryTestScenario NOT_EQUALS_NULL_DICT = {
 
 const QueryTestScenario NEGATED_EQUALS_STILL_INCLUDES_NULLS = {
    .name = "NEGATED_EQUALS_STILL_INCLUDES_NULLS",
-   .query = "default.filter(!(stringField = 'value1')).project(primaryKey)",
+   .query = "data.filter(!(stringField = 'value1')).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_1"},{"primaryKey":"id_2"}])"),
 };
@@ -278,7 +278,7 @@ const QueryTestData SINGLE_VALUE_TEST_DATA{
 
 const QueryTestScenario NOT_EQUALS_DICT_MATCHES_NO_ROWS = {
    .name = "NOT_EQUALS_DICT_MATCHES_NO_ROWS",
-   .query = "default.filter(dictField <> 'only').project(primaryKey)",
+   .query = "data.filter(dictField <> 'only').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([])"),
 };
 }  // namespace
@@ -305,13 +305,13 @@ const QueryTestData NO_NULLS_TEST_DATA{
 
 const QueryTestScenario NOT_EQUALS_DICT_NO_NULLS = {
    .name = "NOT_EQUALS_DICT_NO_NULLS",
-   .query = "default.filter(dictField <> 'a').project(primaryKey)",
+   .query = "data.filter(dictField <> 'a').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_b"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_DICT_NO_NULLS_LITERAL_ABSENT = {
    .name = "NOT_EQUALS_DICT_NO_NULLS_LITERAL_ABSENT",
-   .query = "default.filter(dictField <> 'never_indexed').project(primaryKey)",
+   .query = "data.filter(dictField <> 'never_indexed').project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_a"},{"primaryKey":"id_b"}])"),
 };

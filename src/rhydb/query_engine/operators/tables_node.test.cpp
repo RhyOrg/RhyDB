@@ -60,7 +60,7 @@ const QueryTestScenario TABLES_SCENARIO = {
    .name = "TABLES",
    .query = "tables()",
    .expected_query_result =
-      nlohmann::json({{{"tableName", "default"}}, {{"tableName", "reference_genomes"}}}),
+      nlohmann::json({{{"tableName", "data"}}, {{"tableName", "reference_genomes"}}}),
 };
 
 const QueryTestScenario TABLES_SCHEMA_SCENARIO = {
@@ -71,7 +71,7 @@ const QueryTestScenario TABLES_SCHEMA_SCENARIO = {
 
 const QueryTestScenario TABLES_EXTRA_ARG_ERROR_SCENARIO = {
    .name = "TABLES_EXTRA_ARG_ERROR",
-   .query = "tables(default)",
+   .query = "tables(data)",
    .expected_error_message = "tables() received too many positional arguments",
 };
 

@@ -123,7 +123,7 @@ const QueryTestData NOF_TEST_DATA{
 const QueryTestScenario NOF_AT_LEAST_2_OF_3 = {
    .name = "NOF_AT_LEAST_2_OF_3",
    .query =
-      "default.filter(nOf(2, {country = 'Switzerland', country = 'Germany', region = "
+      "data.filter(nOf(2, {country = 'Switzerland', country = 'Germany', region = "
       "'Europe'})).project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -137,7 +137,7 @@ const QueryTestScenario NOF_AT_LEAST_2_OF_3 = {
 const QueryTestScenario NOF_AT_LEAST_3_OF_3 = {
    .name = "NOF_AT_LEAST_3_OF_3",
    .query =
-      "default"
+      "data"
       ".filter(nOf(3, {country = 'Switzerland', date = '2020-01-01'::date, region = 'Europe'}))"
       ".project({primaryKey})",
    .expected_query_result = nlohmann::json::parse(R"([
@@ -148,7 +148,7 @@ const QueryTestScenario NOF_AT_LEAST_3_OF_3 = {
 const QueryTestScenario NOF_AT_LEAST_3_OF_3_EMPTY = {
    .name = "NOF_AT_LEAST_3_OF_3_EMPTY",
    .query =
-      "default.filter(nOf(3, {country = 'Switzerland', country = 'Germany', region = 'Europe'}))"
+      "data.filter(nOf(3, {country = 'Switzerland', country = 'Germany', region = 'Europe'}))"
       ".project({primaryKey})",
    .expected_query_result = nlohmann::json::parse(R"([])"),
 };
@@ -156,7 +156,7 @@ const QueryTestScenario NOF_AT_LEAST_3_OF_3_EMPTY = {
 const QueryTestScenario NOF_AT_LEAST_1_OF_2 = {
    .name = "NOF_AT_LEAST_1_OF_2",
    .query =
-      "default.filter(nOf(1, {country = 'Switzerland', country = 'USA'}))"
+      "data.filter(nOf(1, {country = 'Switzerland', country = 'USA'}))"
       ".project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -170,7 +170,7 @@ const QueryTestScenario NOF_AT_LEAST_1_OF_2 = {
 const QueryTestScenario NOF_EXACTLY_1_OF_2 = {
    .name = "NOF_EXACTLY_1_OF_2",
    .query =
-      "default.filter(nOf(1, {country = 'Switzerland', region = 'Europe'}, matchExactly:=true))"
+      "data.filter(nOf(1, {country = 'Switzerland', region = 'Europe'}, matchExactly:=true))"
       ".project({primaryKey, country, region})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -183,7 +183,7 @@ const QueryTestScenario NOF_EXACTLY_1_OF_2 = {
 const QueryTestScenario NOF_EXACTLY_2_OF_2 = {
    .name = "NOF_EXACTLY_2_OF_2",
    .query =
-      "default.filter(nOf(2, {country = 'Switzerland', region = 'Europe'}, matchExactly:=true))"
+      "data.filter(nOf(2, {country = 'Switzerland', region = 'Europe'}, matchExactly:=true))"
       ".project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -196,7 +196,7 @@ const QueryTestScenario NOF_EXACTLY_2_OF_2 = {
 const QueryTestScenario NOF_AT_LEAST_0 = {
    .name = "NOF_AT_LEAST_0",
    .query =
-      "default.filter(nOf(0, {country = 'Switzerland', country = 'Germany'}))"
+      "data.filter(nOf(0, {country = 'Switzerland', country = 'Germany'}))"
       ".project({primaryKey})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -212,7 +212,7 @@ const QueryTestScenario NOF_AT_LEAST_0 = {
 const QueryTestScenario NOF_EXACTLY_0 = {
    .name = "NOF_EXACTLY_0",
    .query =
-      "default.filter(nOf(0, {country = 'Switzerland', region = 'Europe'}, matchExactly:=true))"
+      "data.filter(nOf(0, {country = 'Switzerland', region = 'Europe'}, matchExactly:=true))"
       ".project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -224,7 +224,7 @@ const QueryTestScenario NOF_EXACTLY_0 = {
 const QueryTestScenario NOF_WITH_NEGATION = {
    .name = "NOF_WITH_NEGATION",
    .query =
-      "default.filter(nOf(2, {country = 'Switzerland', !(country = 'USA')}))"
+      "data.filter(nOf(2, {country = 'Switzerland', !(country = 'USA')}))"
       ".project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -243,7 +243,7 @@ const QueryTestScenario NOF_WITH_NEGATION = {
 const QueryTestScenario NOF_OR_WITH_NEGATED_CHILD = {
    .name = "NOF_OR_WITH_NEGATED_CHILD",
    .query =
-      "default.filter(nOf(1, {country = 'Switzerland', !(country = 'Germany')}))"
+      "data.filter(nOf(1, {country = 'Switzerland', !(country = 'Germany')}))"
       ".project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -260,7 +260,7 @@ const QueryTestScenario NOF_OR_WITH_NEGATED_CHILD = {
 const QueryTestScenario NOF_EXACTLY_0_SINGLE_NON_NEGATED = {
    .name = "NOF_EXACTLY_0_SINGLE_NON_NEGATED",
    .query =
-      "default.filter(nOf(0, {country = 'Switzerland'}, matchExactly:=true))"
+      "data.filter(nOf(0, {country = 'Switzerland'}, matchExactly:=true))"
       ".project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -279,7 +279,7 @@ const QueryTestScenario NOF_EXACTLY_0_SINGLE_NON_NEGATED = {
 const QueryTestScenario NOF_EXACTLY_0_SINGLE_NEGATED = {
    .name = "NOF_EXACTLY_0_SINGLE_NEGATED",
    .query =
-      "default.filter(nOf(0, {!(country = 'Switzerland')}, matchExactly:=true))"
+      "data.filter(nOf(0, {!(country = 'Switzerland')}, matchExactly:=true))"
       ".project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -298,7 +298,7 @@ const QueryTestScenario NOF_EXACTLY_0_SINGLE_NEGATED = {
 const QueryTestScenario NOF_ALL_NEGATED_AND_CASE = {
    .name = "NOF_ALL_NEGATED_AND_CASE",
    .query =
-      "default.filter(nOf(2, {!(country = 'Switzerland'), !(country = 'USA')}))"
+      "data.filter(nOf(2, {!(country = 'Switzerland'), !(country = 'USA')}))"
       ".project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -316,7 +316,7 @@ const QueryTestScenario NOF_ALL_NEGATED_AND_CASE = {
 const QueryTestScenario NOF_EXACTLY_0_MIXED_NEGATED = {
    .name = "NOF_EXACTLY_0_MIXED_NEGATED",
    .query =
-      "default.filter(nOf(0, {country = 'Switzerland', !(country = 'USA')}, matchExactly:=true))"
+      "data.filter(nOf(0, {country = 'Switzerland', !(country = 'USA')}, matchExactly:=true))"
       ".project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -328,7 +328,7 @@ const QueryTestScenario NOF_EXACTLY_0_MIXED_NEGATED = {
 const QueryTestScenario NOF_EXACT_COUNT_EXCEEDS_CHILDREN = {
    .name = "NOF_EXACT_COUNT_EXCEEDS_CHILDREN",
    .query =
-      "default.filter(nOf(5, {country = 'Switzerland', country = 'USA'}, matchExactly:=true))"
+      "data.filter(nOf(5, {country = 'Switzerland', country = 'USA'}, matchExactly:=true))"
       ".project({primaryKey})",
    .expected_query_result = nlohmann::json::parse(R"([])"),
 };
@@ -336,7 +336,7 @@ const QueryTestScenario NOF_EXACT_COUNT_EXCEEDS_CHILDREN = {
 const QueryTestScenario NOF_AT_LEAST_COUNT_EXCEEDS_CHILDREN = {
    .name = "NOF_AT_LEAST_COUNT_EXCEEDS_CHILDREN",
    .query =
-      "default.filter(nOf(5, {country = 'Switzerland', country = 'USA'}))"
+      "data.filter(nOf(5, {country = 'Switzerland', country = 'USA'}))"
       ".project({primaryKey})",
    .expected_query_result = nlohmann::json::parse(R"([])"),
 };
@@ -345,7 +345,7 @@ const QueryTestScenario NOF_AT_LEAST_COUNT_EXCEEDS_CHILDREN = {
 // count=1, 1 child (negated) → Complement of IndexScan(Switzerland)
 const QueryTestScenario NOF_SINGLE_NEGATED_CHILD = {
    .name = "NOF_SINGLE_NEGATED_CHILD",
-   .query = "default.filter(nOf(1, {!(country = 'Switzerland')})).project({primaryKey, country})",
+   .query = "data.filter(nOf(1, {!(country = 'Switzerland')})).project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
 {"country":"Germany","primaryKey":"id_1"},
@@ -358,7 +358,7 @@ const QueryTestScenario NOF_SINGLE_NEGATED_CHILD = {
 // --- Coverage: count=1, 1 non-negated child → return child directly ---
 const QueryTestScenario NOF_SINGLE_NON_NEGATED_CHILD = {
    .name = "NOF_SINGLE_NON_NEGATED_CHILD",
-   .query = "default.filter(nOf(1, {country = 'Switzerland'})).project({primaryKey, country})",
+   .query = "data.filter(nOf(1, {country = 'Switzerland'})).project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
 {"country":"Switzerland","primaryKey":"id_0"},
@@ -377,7 +377,7 @@ const QueryTestScenario NOF_SINGLE_NON_NEGATED_CHILD = {
 const QueryTestScenario NOF_EXACTLY_1_OF_3_THRESHOLD = {
    .name = "NOF_EXACTLY_1_OF_3_THRESHOLD",
    .query =
-      "default.filter(nOf(1, {country = 'Switzerland', country = 'Germany', region = 'Europe'}, "
+      "data.filter(nOf(1, {country = 'Switzerland', country = 'Germany', region = 'Europe'}, "
       "matchExactly:=true)).project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -394,7 +394,7 @@ const QueryTestScenario NOF_EXACTLY_1_OF_3_THRESHOLD = {
 const QueryTestScenario NOF_MAYBE_EXACT_DECOMPOSITION = {
    .name = "NOF_MAYBE_EXACT_DECOMPOSITION",
    .query =
-      "default.filter(maybe(nOf(1, {country = 'Switzerland', region = 'Europe'}, "
+      "data.filter(maybe(nOf(1, {country = 'Switzerland', region = 'Europe'}, "
       "matchExactly:=true))).project({primaryKey, country, region})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -407,7 +407,7 @@ const QueryTestScenario NOF_MAYBE_EXACT_DECOMPOSITION = {
 // --- Coverage: all True children, count goes negative, !exact → Full ---
 const QueryTestScenario NOF_ALL_TRUE_CHILDREN = {
    .name = "NOF_ALL_TRUE_CHILDREN",
-   .query = "default.filter(nOf(2, {true, true, true})).project({primaryKey})",
+   .query = "data.filter(nOf(2, {true, true, true})).project({primaryKey})",
    .expected_query_result = nlohmann::json::parse(
       R"([
 {"primaryKey":"id_0"},
@@ -422,14 +422,14 @@ const QueryTestScenario NOF_ALL_TRUE_CHILDREN = {
 // --- Coverage: all True children, count goes negative, exact → Empty ---
 const QueryTestScenario NOF_ALL_TRUE_EXACT_EMPTY = {
    .name = "NOF_ALL_TRUE_EXACT_EMPTY",
-   .query = "default.filter(nOf(1, {true, true, true}, matchExactly:=true)).project({primaryKey})",
+   .query = "data.filter(nOf(1, {true, true, true}, matchExactly:=true)).project({primaryKey})",
    .expected_query_result = nlohmann::json::parse(R"([])"),
 };
 
 // --- Coverage: all False children → all skipped, count > 0 remaining → Empty
 const QueryTestScenario NOF_ALL_FALSE_CHILDREN = {
    .name = "NOF_ALL_FALSE_CHILDREN",
-   .query = "default.filter(nOf(2, {false, false, false})).project({primaryKey})",
+   .query = "data.filter(nOf(2, {false, false, false})).project({primaryKey})",
    .expected_query_result = nlohmann::json::parse(R"([])"),
 };
 
@@ -438,7 +438,7 @@ const QueryTestScenario NOF_ALL_FALSE_CHILDREN = {
 // count=0, !exact → Full → all rows
 const QueryTestScenario NOF_MIXED_TRIVIAL_AND_REAL = {
    .name = "NOF_MIXED_TRIVIAL_AND_REAL",
-   .query = "default.filter(nOf(1, {true, false, country = 'Switzerland'})).project({primaryKey})",
+   .query = "data.filter(nOf(1, {true, false, country = 'Switzerland'})).project({primaryKey})",
    .expected_query_result = nlohmann::json::parse(
       R"([
 {"primaryKey":"id_0"},
@@ -452,7 +452,7 @@ const QueryTestScenario NOF_MIXED_TRIVIAL_AND_REAL = {
 
 const QueryTestScenario NOF_NEGATIVE_COUNT = {
    .name = "NOF_NEGATIVE_COUNT",
-   .query = "default.filter(nOf(-1, {country = 'Switzerland'})).project({primaryKey})",
+   .query = "data.filter(nOf(-1, {country = 'Switzerland'})).project({primaryKey})",
    .expected_query_result = nlohmann::json::parse(
       R"([
 {"primaryKey":"id_0"},
@@ -467,7 +467,7 @@ const QueryTestScenario NOF_NEGATIVE_COUNT = {
 const QueryTestScenario NOF_NEGATIVE_COUNT_EXACT = {
    .name = "NOF_NEGATIVE_COUNT_EXACT",
    .query =
-      "default.filter(nOf(-1, {country = 'Switzerland'}, matchExactly:=true))"
+      "data.filter(nOf(-1, {country = 'Switzerland'}, matchExactly:=true))"
       ".project({primaryKey})",
    .expected_query_result = nlohmann::json::parse(R"([])"),
 };

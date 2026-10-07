@@ -1,6 +1,6 @@
 {
   "testCaseName": "BooleanEquals with Or",
-  "query": "default.filter((test_boolean_column.isNull()) || (pango_lineage.lineage('B.1.1', includeSublineages:=true))).group(by:={}, aggs:={count:=count()})",
+  "query": "data.filter((test_boolean_column.isNull()) || (pango_lineage.lineage('B.1.1', includeSublineages:=true))).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 68

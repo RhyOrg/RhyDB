@@ -1,6 +1,6 @@
 {
   "testCaseName": "query with invalid minProportions in Mutations action",
-  "query": "default.filter(true).mutations(minProportion:=-0.5)",
+  "query": "data.filter(true).mutations(minProportion:=-0.5)",
   "expectedError": {
     "error": "Bad request",
     "message": "Invalid proportion: minProportion must be in interval [0.0, 1.0]"
