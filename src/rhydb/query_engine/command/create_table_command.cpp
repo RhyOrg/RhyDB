@@ -60,15 +60,15 @@ const std::string REFERENCE_OPTION = "reference";
 const std::string DICTIONARY_OPTION = "dictionary";
 
 const FunctionSignature STRING_TYPE_SIGNATURE{
-   {ParameterDefinition{.name = GENERATE_INDEX_OPTION, .required = false, .positional = false}}
+   {ParameterDefinition{.name = GENERATE_INDEX_OPTION, .required = false, .positional = false}},
 };
 
 const FunctionSignature SEQUENCE_TYPE_SIGNATURE{
-   {ParameterDefinition{.name = REFERENCE_OPTION, .required = true, .positional = false}}
+   {ParameterDefinition{.name = REFERENCE_OPTION, .required = true, .positional = false}},
 };
 
 const FunctionSignature ZSTD_COMPRESSED_STRING_TYPE_SIGNATURE{
-   {ParameterDefinition{.name = DICTIONARY_OPTION, .required = true, .positional = false}}
+   {ParameterDefinition{.name = DICTIONARY_OPTION, .required = true, .positional = false}},
 };
 
 const FunctionSignature NO_OPTIONS_SIGNATURE{};
@@ -118,7 +118,7 @@ ColumnDefinition parseColumnDefinition(
          .name = column_name,
          .type = is_indexed ? ColumnType::DICTIONARY_ENCODED : ColumnType::STRING,
          .reference_name = std::nullopt,
-         .dictionary_query = std::nullopt
+         .dictionary_query = std::nullopt,
       };
    }
 
@@ -129,7 +129,7 @@ ColumnDefinition parseColumnDefinition(
          .name = column_name,
          .type = value_type->second,
          .reference_name = std::nullopt,
-         .dictionary_query = std::nullopt
+         .dictionary_query = std::nullopt,
       };
    }
 
@@ -139,7 +139,7 @@ ColumnDefinition parseColumnDefinition(
          .name = column_name,
          .type = sequence_type->second,
          .reference_name = extractIdentifierName(options.at(REFERENCE_OPTION)),
-         .dictionary_query = std::nullopt
+         .dictionary_query = std::nullopt,
       };
    }
 
@@ -151,7 +151,7 @@ ColumnDefinition parseColumnDefinition(
          .name = column_name,
          .type = ColumnType::ZSTD_COMPRESSED_STRING,
          .reference_name = std::nullopt,
-         .dictionary_query = convert_child(options.at(DICTIONARY_OPTION), tables)
+         .dictionary_query = convert_child(options.at(DICTIONARY_OPTION), tables),
       };
    }
 
