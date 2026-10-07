@@ -25,7 +25,7 @@ nlohmann::json createData(
       {"year", year},
       {"date", date},
       {"score", score},
-      {"active", active}
+      {"active", active},
    };
 }
 
@@ -68,7 +68,7 @@ const QueryTestData TEST_DATA{
          createData("id_4", "Brazil", "SouthAmerica", 2023, "2021-06-01", 2e-7, false),
       },
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 // The subquery yields a single country (Japan); the filter keeps rows whose country is in it.
@@ -77,7 +77,7 @@ const QueryTestScenario IN_SUBQUERY_SINGLE = {
    .query =
       "data.filter(country.in(data.filter(region = 'Asia').project({country})))"
       ".project({primaryKey})",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_2"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_2"}])"),
 };
 
 // The subquery yields {Germany, France}; matches all rows carrying either country.
@@ -88,7 +88,7 @@ const QueryTestScenario IN_SUBQUERY_MULTI = {
       ".project({primaryKey})",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_1"},{"primaryKey":"id_3"}])"
-      )
+      ),
 };
 
 // Japan's date is 2020-03-01, which id_0 shares.
@@ -98,7 +98,7 @@ const QueryTestScenario IN_SUBQUERY_DATE_COLUMN = {
       "data.filter(date.in(data.filter(region = 'Asia').project({date})))"
       ".project({primaryKey})",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_2"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_2"}])"),
 };
 
 // Brazil's score is 2e-7; id_1's 1e-7 must not match, even though both differ only beyond the
@@ -108,7 +108,7 @@ const QueryTestScenario IN_SUBQUERY_FLOAT_COLUMN = {
    .query =
       "data.filter(score.in(data.filter(region = 'SouthAmerica').project({score})))"
       ".project({primaryKey})",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_4"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_4"}])"),
 };
 
 // Both German rows are active, so the subquery yields {true, true}.
@@ -118,7 +118,7 @@ const QueryTestScenario IN_SUBQUERY_BOOL_COLUMN = {
       "data.filter(active.in(data.filter(country = 'Germany').project({active})))"
       ".project({primaryKey})",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"}])"),
 };
 
 // The subquery yields strings, which cannot be compared with the int column.
@@ -127,7 +127,7 @@ const QueryTestScenario IN_SUBQUERY_TYPE_MISMATCH = {
    .query =
       "data.filter(year.in(data.filter(region = 'Asia').project({country})))"
       ".project({primaryKey})",
-   .expected_error_message = "The column 'year' is not of type string"
+   .expected_error_message = "The column 'year' is not of type string",
 };
 
 // A bare scalar is neither a set literal nor a subquery.
@@ -136,7 +136,7 @@ const QueryTestScenario IN_SCALAR_VALUES_REJECTED = {
    .query = "data.filter(year.in(2020)).project({primaryKey})",
    .expected_error_message =
       "in() expects a set literal (e.g. {'a', 'b'}) or a subquery (e.g. "
-      "data.filter(...).project({column})), got 2020 at 1:21"
+      "data.filter(...).project({column})), got 2020 at 1:21",
 };
 
 // An empty subquery result matches no rows.
@@ -145,7 +145,7 @@ const QueryTestScenario IN_SUBQUERY_EMPTY = {
    .query =
       "data.filter(country.in(data.filter(region = 'Antarctica').project({country})))"
       ".project({primaryKey})",
-   .expected_query_result = nlohmann::json::array()
+   .expected_query_result = nlohmann::json::array(),
 };
 
 // in(<subquery>) is an ordinary scalar predicate, so it composes inside boolean expressions rather
@@ -156,7 +156,7 @@ const QueryTestScenario IN_SUBQUERY_NESTED_IN_OR = {
       "data.filter(primaryKey = 'id_0' || "
       "country.in(data.filter(region = 'Asia').project({country}))).project({primaryKey})",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_2"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_2"}])"),
 };
 
 // NOT: negating an in(<subquery>) keeps the rows whose value is not in the materialized set.
@@ -168,7 +168,7 @@ const QueryTestScenario IN_SUBQUERY_NEGATED = {
       ".project({primaryKey})",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"id_0"},{"primaryKey":"id_1"},{"primaryKey":"id_3"},{"primaryKey":"id_4"}])"
-   )
+   ),
 };
 
 // AND: in(<subquery>) combined with another predicate. Country in {Germany, France} and year 2020
@@ -179,7 +179,7 @@ const QueryTestScenario IN_SUBQUERY_NESTED_IN_AND = {
       "data.filter(country.in(data.filter(region = 'Europe').project({country})) && "
       "year = 2020).project({primaryKey})",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"}])"),
 };
 
 // Two independent subqueries (over different column types) materialized in one predicate: country
@@ -190,7 +190,7 @@ const QueryTestScenario IN_SUBQUERY_OR_OF_TWO_SUBQUERIES = {
       "data.filter(country.in(data.filter(region = 'SouthAmerica').project({country})) || "
       "year.in(data.filter(region = 'Asia').project({year}))).project({primaryKey})",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_2"},{"primaryKey":"id_4"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_2"},{"primaryKey":"id_4"}])"),
 };
 
 // The plain in(column, {set literal}) form must keep working alongside the subquery form.
@@ -198,7 +198,7 @@ const QueryTestScenario IN_SET_LITERAL_STILL_WORKS = {
    .name = "IN_SET_LITERAL_STILL_WORKS",
    .query = "data.filter(country.in({'Japan', 'Brazil'})).project({primaryKey})",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_2"},{"primaryKey":"id_4"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_2"},{"primaryKey":"id_4"}])"),
 };
 
 // `in` is type-agnostic: a set literal of integers on an int column works.
@@ -207,7 +207,7 @@ const QueryTestScenario IN_SET_LITERAL_INT_COLUMN = {
    .query = "data.filter(year.in({2020, 2023})).project({primaryKey})",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"},{"primaryKey":"id_4"}])"
-      )
+      ),
 };
 
 // A subquery over an int column: years occurring in Europe are {2020, 2021}, so any row with one of
@@ -219,7 +219,7 @@ const QueryTestScenario IN_SUBQUERY_INT_COLUMN = {
       ".project({primaryKey})",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_1"},{"primaryKey":"id_3"}])"
-      )
+      ),
 };
 
 }  // namespace
