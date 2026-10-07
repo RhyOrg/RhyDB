@@ -21,13 +21,12 @@ db = Database()
 # Or load from a saved state
 db = Database("/path/to/saved/database")
 
-# Create a nucleotide sequence table
-db.create_nucleotide_sequence_table(
-    table_name="sequences",
-    primary_key_name="id",
-    sequence_name="main",
-    reference_sequence="ACGT..."
+# Create a table with a nucleotide sequence column, whose reference is taken
+# from the built-in reference_genomes table
+db.append_data_from_string(
+    "reference_genomes", '{"name": "main", "type": "nucleotide", "sequence": "ACGT..."}'
 )
+db.query("createTable(sequences, {id := string, main := nucleotideSequence(reference := main)}, primaryKey := id)")
 
 # Append data from file
 db.append_data_from_file("sequences", "/path/to/data.ndjson")
