@@ -232,7 +232,7 @@ For `createTable`, the name of the created table:
 {"createdTable": "archive"}
 ```
 
-A successful response carries the same headers as one of [`POST /query`](#response-headers): the
+A successful response carries the same headers as [`POST /query`](#response-headers): the
 [`data-version`](#common-response-headers) header names the version the write produced, which is
 served once the directory watcher has picked it up, and the `result-ordering` header is `[]`, since
 the summary has no ordering. A failed write leaves the data version unchanged.

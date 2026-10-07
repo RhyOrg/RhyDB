@@ -62,7 +62,7 @@ void writeResult(
    if (status.IsIOError()) {
       SPDLOG_WARN(
          "The request {} encountered an IO Error when sending the response. We expect that the "
-         "user cancelled the request while the response was send and ignore the error",
+         "user cancelled the request while the response was sent and ignore the error",
          request_id
       );
       return;
