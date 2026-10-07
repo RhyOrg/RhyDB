@@ -162,11 +162,13 @@ void run() {
          {
             .name = "amplicon-sorted, ingestion clustering off",
             .dataset_path = SHORT_READ_AMPLICON_SORTED_NDJSON,
+            // NOLINTNEXTLINE(readability-trailing-comma): false positive on empty brace,llvm#223646
             .clustering = {},
          },
          {
             .name = "amplicon-shuffled, ingestion clustering off",
             .dataset_path = SHORT_READ_AMPLICON_SHUFFLED_NDJSON,
+            // NOLINTNEXTLINE(readability-trailing-comma): false positive on empty brace,llvm#223646
             .clustering = {},
          },
          {

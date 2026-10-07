@@ -104,6 +104,7 @@ std::shared_ptr<Database> buildDatabase(
       DatabaseConfig::getValidatedConfig(config()),
       ReferenceGenomes{{}, {}},
       lineage_trees,
+      // NOLINTNEXTLINE(readability-trailing-comma): false positive on empty brace, llvm#223646
       PhyloTree{},
       /*without_unaligned_sequences=*/true,
       *database
