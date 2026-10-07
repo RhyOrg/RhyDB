@@ -13,14 +13,26 @@ nlohmann::json createData(
    const std::string& primary_key,
    const std::string& country,
    const std::string& region,
-   int32_t year
+   int32_t year,
+   const std::string& date,
+   double score,
+   bool active
 ) {
-   return {{"primaryKey", primary_key}, {"country", country}, {"region", region}, {"year", year}};
+   return {
+      {"primaryKey", primary_key},
+      {"country", country},
+      {"region", region},
+      {"year", year},
+      {"date", date},
+      {"score", score},
+      {"active", active}
+   };
 }
 
 // `country` is dictionary-encoded (generateIndex), so `country.in(<subquery>)` exercises the
 // per-value bitmap union path; `region` is a plain string column; `year` is an int column used to
-// show `in` is not restricted to string columns.
+// show `in` is not restricted to string columns; `date`, `score` and `active` cover the remaining
+// scalar types a subquery column can have.
 const auto DATABASE_CONFIG =
    R"(
 schema:
@@ -35,6 +47,12 @@ schema:
      type: "string"
    - name: "year"
      type: "int"
+   - name: "date"
+     type: "date"
+   - name: "score"
+     type: "float"
+   - name: "active"
+     type: "boolean"
   primaryKey: "primaryKey"
 )";
 
@@ -43,11 +61,11 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{{}, {}};
 const QueryTestData TEST_DATA{
    .ndjson_input_data =
       {
-         createData("id_0", "Germany", "Europe", 2020),
-         createData("id_1", "France", "Europe", 2021),
-         createData("id_2", "Japan", "Asia", 2022),
-         createData("id_3", "Germany", "Europe", 2020),
-         createData("id_4", "Brazil", "SouthAmerica", 2023),
+         createData("id_0", "Germany", "Europe", 2020, "2020-03-01", 0.5, true),
+         createData("id_1", "France", "Europe", 2021, "2021-06-01", 1e-7, false),
+         createData("id_2", "Japan", "Asia", 2022, "2020-03-01", 0.5, false),
+         createData("id_3", "Germany", "Europe", 2020, "2022-01-15", 2.5, true),
+         createData("id_4", "Brazil", "SouthAmerica", 2023, "2021-06-01", 2e-7, false),
       },
    .database_config = DATABASE_CONFIG,
    .reference_genomes = REFERENCE_GENOMES
@@ -71,6 +89,45 @@ const QueryTestScenario IN_SUBQUERY_MULTI = {
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_1"},{"primaryKey":"id_3"}])"
       )
+};
+
+// Japan's date is 2020-03-01, which id_0 shares.
+const QueryTestScenario IN_SUBQUERY_DATE_COLUMN = {
+   .name = "IN_SUBQUERY_DATE_COLUMN",
+   .query =
+      "data.filter(date.in(data.filter(region = 'Asia').project({date})))"
+      ".project({primaryKey})",
+   .expected_query_result =
+      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_2"}])")
+};
+
+// Brazil's score is 2e-7; id_1's 1e-7 must not match, even though both differ only beyond the
+// sixth decimal place.
+const QueryTestScenario IN_SUBQUERY_FLOAT_COLUMN = {
+   .name = "IN_SUBQUERY_FLOAT_COLUMN",
+   .query =
+      "data.filter(score.in(data.filter(region = 'SouthAmerica').project({score})))"
+      ".project({primaryKey})",
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_4"}])")
+};
+
+// Both German rows are active, so the subquery yields {true, true}.
+const QueryTestScenario IN_SUBQUERY_BOOL_COLUMN = {
+   .name = "IN_SUBQUERY_BOOL_COLUMN",
+   .query =
+      "data.filter(active.in(data.filter(country = 'Germany').project({active})))"
+      ".project({primaryKey})",
+   .expected_query_result =
+      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"}])")
+};
+
+// The subquery yields strings, which cannot be compared with the int column.
+const QueryTestScenario IN_SUBQUERY_TYPE_MISMATCH = {
+   .name = "IN_SUBQUERY_TYPE_MISMATCH",
+   .query =
+      "data.filter(year.in(data.filter(region = 'Asia').project({country})))"
+      ".project({primaryKey})",
+   .expected_error_message = "The column 'year' is not of type string"
 };
 
 // A bare scalar is neither a set literal nor a subquery.
@@ -181,6 +238,10 @@ QUERY_TEST(
       IN_SET_LITERAL_STILL_WORKS,
       IN_SET_LITERAL_INT_COLUMN,
       IN_SUBQUERY_INT_COLUMN,
+      IN_SUBQUERY_DATE_COLUMN,
+      IN_SUBQUERY_FLOAT_COLUMN,
+      IN_SUBQUERY_BOOL_COLUMN,
+      IN_SUBQUERY_TYPE_MISMATCH,
       IN_SCALAR_VALUES_REJECTED
    )
 )
