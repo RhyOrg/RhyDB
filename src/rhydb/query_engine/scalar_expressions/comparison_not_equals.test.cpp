@@ -88,25 +88,25 @@ const QueryTestData TEST_DATA{
          createData("id_3", "value1", "indexed1", 1, INT64_VALUE, 1.5, "2021-01-01", true),
       },
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario NOT_EQUALS_STRING_PLAIN = {
    .name = "NOT_EQUALS_STRING_PLAIN",
    .query = "data.filter(stringField <> 'value1').project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_STRING_DICT = {
    .name = "NOT_EQUALS_STRING_DICT",
    .query = "data.filter(dictField <> 'indexed1').project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_INT = {
    .name = "NOT_EQUALS_INT",
    .query = "data.filter(intField <> 1).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_INT64 = {
@@ -118,26 +118,26 @@ const QueryTestScenario NOT_EQUALS_INT64 = {
 const QueryTestScenario NOT_EQUALS_FLOAT = {
    .name = "NOT_EQUALS_FLOAT",
    .query = "data.filter(floatField <> 1.5).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_DATE = {
    .name = "NOT_EQUALS_DATE",
    .query = "data.filter(dateField <> '2021-01-01'::date).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_BOOL_TRUE = {
    .name = "NOT_EQUALS_BOOL_TRUE",
    .query = "data.filter(boolField <> true).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_BOOL_FALSE = {
    .name = "NOT_EQUALS_BOOL_FALSE",
    .query = "data.filter(boolField <> false).project(primaryKey)",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_VALUE_NOT_PRESENT = {
@@ -145,7 +145,7 @@ const QueryTestScenario NOT_EQUALS_VALUE_NOT_PRESENT = {
    .query = "data.filter(intField <> 999).project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_1"},{"primaryKey":"id_3"}])"
-      )
+      ),
 };
 
 const QueryTestScenario NOT_EQUALS_DICT_VALUE_NOT_IN_DICTIONARY = {
@@ -153,7 +153,7 @@ const QueryTestScenario NOT_EQUALS_DICT_VALUE_NOT_IN_DICTIONARY = {
    .query = "data.filter(dictField <> 'never_indexed').project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_1"},{"primaryKey":"id_3"}])"
-      )
+      ),
 };
 
 const QueryTestScenario NOT_EQUALS_DICT_EXCLUDES_MATCHING_VALUE = {
@@ -166,21 +166,21 @@ const QueryTestScenario NOT_EQUALS_DICT_EXCLUDES_MATCHING_VALUE = {
 const QueryTestScenario NOT_EQUALS_COLUMN_ON_RIGHT = {
    .name = "NOT_EQUALS_COLUMN_ON_RIGHT",
    .query = "data.filter('value1' <> stringField).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_DICT_COLUMN_ON_RIGHT = {
    .name = "NOT_EQUALS_DICT_COLUMN_ON_RIGHT",
    .query = "data.filter('indexed2' <> dictField).project(primaryKey)",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_DICT_IN_CONJUNCTION = {
    .name = "NOT_EQUALS_DICT_IN_CONJUNCTION",
    .query = "data.filter(dictField <> 'indexed2' && intField <> 999).project(primaryKey)",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_NULL_PLAIN = {
@@ -188,7 +188,7 @@ const QueryTestScenario NOT_EQUALS_NULL_PLAIN = {
    .query = "data.filter(stringField <> null).project(primaryKey)",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
-      "a column reference, or a scalar function call at 1:28"
+      "a column reference, or a scalar function call at 1:28",
 };
 
 const QueryTestScenario NOT_EQUALS_NULL_DICT = {
@@ -196,7 +196,7 @@ const QueryTestScenario NOT_EQUALS_NULL_DICT = {
    .query = "data.filter(dictField <> null).project(primaryKey)",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
-      "a column reference, or a scalar function call at 1:26"
+      "a column reference, or a scalar function call at 1:26",
 };
 
 // --- `!` is a set complement, not SQL's NOT, so it keeps the null rows that `<>`
@@ -206,7 +206,7 @@ const QueryTestScenario NEGATED_EQUALS_STILL_INCLUDES_NULLS = {
    .name = "NEGATED_EQUALS_STILL_INCLUDES_NULLS",
    .query = "data.filter(!(stringField = 'value1')).project(primaryKey)",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_1"},{"primaryKey":"id_2"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_1"},{"primaryKey":"id_2"}])"),
 };
 
 }  // namespace
@@ -273,13 +273,13 @@ const QueryTestData SINGLE_VALUE_TEST_DATA{
          createSingleValueData("id_c", std::nullopt),
       },
    .database_config = SINGLE_VALUE_DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario NOT_EQUALS_DICT_MATCHES_NO_ROWS = {
    .name = "NOT_EQUALS_DICT_MATCHES_NO_ROWS",
    .query = "data.filter(dictField <> 'only').project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([])")
+   .expected_query_result = nlohmann::json::parse(R"([])"),
 };
 }  // namespace
 
@@ -300,20 +300,20 @@ const QueryTestData NO_NULLS_TEST_DATA{
          createSingleValueData("id_b", "b"),
       },
    .database_config = SINGLE_VALUE_DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario NOT_EQUALS_DICT_NO_NULLS = {
    .name = "NOT_EQUALS_DICT_NO_NULLS",
    .query = "data.filter(dictField <> 'a').project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_b"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_b"}])"),
 };
 
 const QueryTestScenario NOT_EQUALS_DICT_NO_NULLS_LITERAL_ABSENT = {
    .name = "NOT_EQUALS_DICT_NO_NULLS_LITERAL_ABSENT",
    .query = "data.filter(dictField <> 'never_indexed').project(primaryKey)",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_a"},{"primaryKey":"id_b"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_a"},{"primaryKey":"id_b"}])"),
 };
 }  // namespace
 

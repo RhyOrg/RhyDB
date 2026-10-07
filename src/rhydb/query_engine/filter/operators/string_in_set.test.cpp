@@ -49,7 +49,7 @@ makeTestDictionaryEncodedColumn(const std::vector<std::string>& values) {
 
 TEST(OperatorStringInSet, matchReturnsCorrectValuesForStringColumn) {
    const std::vector<std::string> values{
-      {"Switzerland", "Germany", "USA", "Switzerland", "France", "Germany"}
+      {"Switzerland", "Germany", "USA", "Switzerland", "France", "Germany"},
    };
    auto [metadata, test_column] = makeTestStringColumn(values);
    const auto row_layout = RowLayout::of(values.size());
@@ -68,7 +68,7 @@ TEST(OperatorStringInSet, matchReturnsCorrectValuesForStringColumn) {
 
 TEST(OperatorStringInSet, matchReturnsCorrectValuesForDictionaryEncodedColumn) {
    const std::vector<std::string> values{
-      {"Switzerland", "Germany", "USA", "Switzerland", "France", "Germany"}
+      {"Switzerland", "Germany", "USA", "Switzerland", "France", "Germany"},
    };
    auto [metadata, test_column] = makeTestDictionaryEncodedColumn(values);
    const auto row_layout = RowLayout::of(values.size());
@@ -87,7 +87,7 @@ TEST(OperatorStringInSet, matchReturnsCorrectValuesForDictionaryEncodedColumn) {
 
 TEST(OperatorStringInSet, matchReturnsEmptyForNoMatches) {
    const std::vector<std::string> values{
-      {"Switzerland", "Germany", "USA", "Switzerland", "France", "Germany"}
+      {"Switzerland", "Germany", "USA", "Switzerland", "France", "Germany"},
    };
    auto [metadata, test_column] = makeTestStringColumn(values);
    const auto row_layout = RowLayout::of(values.size());
@@ -106,7 +106,7 @@ TEST(OperatorStringInSet, matchReturnsEmptyForNoMatches) {
 
 TEST(OperatorStringInSet, matchReturnsEmptyForEmptySet) {
    const std::vector<std::string> values{
-      {"Switzerland", "Germany", "USA", "Switzerland", "France", "Germany"}
+      {"Switzerland", "Germany", "USA", "Switzerland", "France", "Germany"},
    };
    auto [metadata, test_column] = makeTestStringColumn(values);
    const auto row_layout = RowLayout::of(values.size());
@@ -123,7 +123,7 @@ TEST(OperatorStringInSet, matchReturnsEmptyForEmptySet) {
 
 TEST(OperatorStringInSet, negationWorksCorrectly) {
    const std::vector<std::string> values{
-      {"Switzerland", "Germany", "USA", "Switzerland", "France", "Germany"}
+      {"Switzerland", "Germany", "USA", "Switzerland", "France", "Germany"},
    };
    auto [metadata, test_column] = makeTestStringColumn(values);
    const auto row_layout = RowLayout::of(values.size());
@@ -145,7 +145,7 @@ TEST(OperatorStringInSet, negationWorksCorrectly) {
 
 TEST(OperatorStringInSet, notInComparatorWorksCorrectly) {
    const std::vector<std::string> values{
-      {"Switzerland", "Germany", "USA", "Switzerland", "France", "Germany"}
+      {"Switzerland", "Germany", "USA", "Switzerland", "France", "Germany"},
    };
    auto [metadata, test_column] = makeTestStringColumn(values);
    const auto row_layout = RowLayout::of(values.size());

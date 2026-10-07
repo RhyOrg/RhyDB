@@ -34,7 +34,7 @@ RhyDBDataSource getMostRecentOrSpecifiedDatabaseState(
    if (most_recent_data_directory == std::nullopt) {
       throw AppendError{
          "No data directory specified and the data directory does not contain any valid data "
-         "source."
+         "source.",
       };
    }
    return most_recent_data_directory.value();

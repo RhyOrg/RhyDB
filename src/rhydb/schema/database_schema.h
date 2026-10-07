@@ -41,7 +41,7 @@ enum class ValueType : uint8_t {
    INT64,
    FLOAT,
    NUCLEOTIDE_SEQUENCE,
-   AMINO_ACID_SEQUENCE
+   AMINO_ACID_SEQUENCE,
 };
 
 constexpr std::string_view columnTypeToString(ColumnType type) {

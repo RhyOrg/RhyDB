@@ -17,12 +17,19 @@ namespace {
 using rhydb::query_engine::operators::AggregateDefinition;
 using rhydb::query_engine::operators::AggregateFunction;
 
-std::string arrowFunctionName(AggregateFunction func, bool has_groups) {
-   switch (func) {
+std::string arrowFunctionName(const AggregateDefinition& agg, bool has_groups) {
+   switch (agg.function) {
       case AggregateFunction::COUNT:
+         if (agg.source_column.has_value()) {
+            return has_groups ? "hash_count" : "count";
+         }
          return has_groups ? "hash_count_all" : "count_all";
       case AggregateFunction::SUM:
          return has_groups ? "hash_sum" : "sum";
+      case AggregateFunction::MIN:
+         return has_groups ? "hash_min" : "min";
+      case AggregateFunction::MAX:
+         return has_groups ? "hash_max" : "max";
    }
    RHYDB_UNREACHABLE();
 }
@@ -43,16 +50,22 @@ arrow::acero::AggregateNodeOptions buildAggregateOptions(
 
       switch (agg.function) {
          case AggregateFunction::COUNT: {
-            // TODO(#1231) implement path including source column
-            CHECK_RHYDB_QUERY(
-               !agg.source_column.has_value(), "count(<column_ref>) not yet implemented"
-            );
-            options = std::make_shared<arrow::compute::CountOptions>(
-               arrow::compute::CountOptions::CountMode::ALL
-            );
+            if (agg.source_column.has_value()) {
+               // count(column) counts the non-null values of the column
+               source_refs.emplace_back(agg.source_column->name);
+               options = std::make_shared<arrow::compute::CountOptions>(
+                  arrow::compute::CountOptions::CountMode::ONLY_VALID
+               );
+            } else {
+               options = std::make_shared<arrow::compute::CountOptions>(
+                  arrow::compute::CountOptions::CountMode::ALL
+               );
+            }
             break;
          }
-         case AggregateFunction::SUM: {
+         case AggregateFunction::SUM:
+         case AggregateFunction::MIN:
+         case AggregateFunction::MAX: {
             RHYDB_ASSERT(agg.source_column.has_value());
             source_refs.emplace_back(agg.source_column->name);
             options = std::make_shared<arrow::compute::ScalarAggregateOptions>();
@@ -61,10 +74,7 @@ arrow::acero::AggregateNodeOptions buildAggregateOptions(
       }
 
       arrow_aggregates.emplace_back(
-         arrowFunctionName(agg.function, has_groups),
-         options,
-         std::move(source_refs),
-         agg.output_name
+         arrowFunctionName(agg, has_groups), options, std::move(source_refs), agg.output_name
       );
    }
 
@@ -102,6 +112,14 @@ ColumnType getType(const AggregateDefinition& aggregate_definition) {
                   aggregate_definition.source_column->name
                );
          }
+      case AggregateFunction::MIN:
+      case AggregateFunction::MAX:
+         RHYDB_ASSERT(aggregate_definition.source_column.has_value());
+         // The extremum is a plain value, not a column with a dictionary index
+         if (aggregate_definition.source_column->type == ColumnType::DICTIONARY_ENCODED) {
+            return ColumnType::STRING;
+         }
+         return aggregate_definition.source_column->type;
    }
    RHYDB_UNREACHABLE();
 }
@@ -116,6 +134,10 @@ std::string_view displayName(AggregateFunction aggregate) {
          return "COUNT";
       case AggregateFunction::SUM:
          return "SUM";
+      case AggregateFunction::MIN:
+         return "MIN";
+      case AggregateFunction::MAX:
+         return "MAX";
    }
    RHYDB_UNREACHABLE();
 }

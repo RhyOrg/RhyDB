@@ -156,7 +156,7 @@ std::tuple<OperatorVector, OperatorVector, filter::operators::PredicateVector> A
    return {
       std::move(non_negated_child_operators),
       std::move(negated_child_operators),
-      std::move(predicates)
+      std::move(predicates),
    };
 }
 

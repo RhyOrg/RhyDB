@@ -54,7 +54,8 @@ NodeValuesResult getNodeValuesFromTable(
       }
    }
    return NodeValuesResult{
-      .node_values = std::move(all_tree_node_ids), .missing_node_count = num_empty
+      .node_values = std::move(all_tree_node_ids),
+      .missing_node_count = num_empty,
    };
 }
 
@@ -91,7 +92,7 @@ arrow::Result<arrow::acero::ExecNode*> PhyloSubtreeNode::addToExecPlan(
    const std::map<schema::TableName, std::shared_ptr<storage::Table>>& /*tables*/,
    const config::QueryOptions& /*query_options*/
 ) const {
-   auto bitmap_filter = computeFilter(filter, *table);
+   auto bitmap_filter = compileFilter(filter, table)->evaluate();
 
    CHECK_RHYDB_QUERY(
       table->schema->getColumn(column_name).has_value(),
@@ -165,7 +166,7 @@ arrow::Result<arrow::acero::ExecNode*> PhyloSubtreeNode::addToExecPlan(
    const arrow::acero::SourceNodeOptions options{
       exec_node::columnsToArrowSchema(output_fields),
       std::move(producer),
-      arrow::Ordering::Implicit()
+      arrow::Ordering::Implicit(),
    };
    return arrow::acero::MakeExecNode("source", &plan, {}, options);
 }

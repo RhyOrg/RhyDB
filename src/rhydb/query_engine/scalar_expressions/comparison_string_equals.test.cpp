@@ -50,7 +50,7 @@ const QueryTestData TEST_DATA{
          createData("id_4", std::nullopt, std::nullopt),
       },
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario STRING_EQUALS_NULL_REJECTED_STRING_COLUMN = {
@@ -58,7 +58,7 @@ const QueryTestScenario STRING_EQUALS_NULL_REJECTED_STRING_COLUMN = {
    .query = "data.filter(stringField = null).project(primaryKey)",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
-      "a column reference, or a scalar function call at 1:27"
+      "a column reference, or a scalar function call at 1:27",
 };
 
 const QueryTestScenario STRING_EQUALS_NULL_REJECTED_DICTIONARY_ENCODED_COLUMN = {
@@ -66,7 +66,7 @@ const QueryTestScenario STRING_EQUALS_NULL_REJECTED_DICTIONARY_ENCODED_COLUMN = 
    .query = "data.filter(dictionaryEncodedStringField = null).project(primaryKey)",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
-      "a column reference, or a scalar function call at 1:44"
+      "a column reference, or a scalar function call at 1:44",
 };
 
 const QueryTestScenario STRING_EQUALS_NULL_REJECTED_NEGATED = {
@@ -74,25 +74,25 @@ const QueryTestScenario STRING_EQUALS_NULL_REJECTED_NEGATED = {
    .query = "data.filter(!(stringField = null)).project(primaryKey)",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
-      "a column reference, or a scalar function call at 1:29"
+      "a column reference, or a scalar function call at 1:29",
 };
 
 const QueryTestScenario STRING_EQUALS_VALUE = {
    .name = "STRING_EQUALS_VALUE",
    .query = "data.filter(stringField = 'value1').project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_0"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_0"}])"),
 };
 
 const QueryTestScenario STRING_EQUALS_INDEXED_VALUE = {
    .name = "STRING_EQUALS_INDEXED_VALUE",
    .query = "data.filter(dictionaryEncodedStringField = 'indexed1').project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_0"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_0"}])"),
 };
 
 const QueryTestScenario STRING_EQUALS_NO_MATCH = {
    .name = "STRING_EQUALS_NO_MATCH",
    .query = "data.filter(stringField = 'nonexistent').project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([])")
+   .expected_query_result = nlohmann::json::parse(R"([])"),
 };
 
 }  // namespace

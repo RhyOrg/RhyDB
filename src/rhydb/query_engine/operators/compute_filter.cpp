@@ -1,7 +1,7 @@
 #include "rhydb/query_engine/operators/compute_filter.h"
 
 #include <memory>
-#include <vector>
+#include <utility>
 
 #include "rhydb/common/bitmap.h"
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
@@ -11,10 +11,24 @@ namespace rhydb::query_engine::operators {
 
 using ScalarExpression = scalar_expressions::ScalarExpression;
 
-Bitmap computeFilter(const std::unique_ptr<ScalarExpression>& filter, const storage::Table& table) {
-   auto rewritten = filter->rewrite(table, ScalarExpression::AmbiguityMode::NONE);
-   auto compiled = rewritten->compile(table);
+CompiledFilter::CompiledFilter(
+   std::shared_ptr<const storage::Table> table,
+   const ScalarExpression& filter
+)
+    : table(std::move(table)),
+      compiled(
+         filter.rewrite(*this->table, ScalarExpression::AmbiguityMode::NONE)->compile(*this->table)
+      ) {}
+
+Bitmap CompiledFilter::evaluate() const {
    return compiled->evaluate();
+}
+
+std::shared_ptr<const CompiledFilter> compileFilter(
+   const std::unique_ptr<ScalarExpression>& filter,
+   std::shared_ptr<const storage::Table> table
+) {
+   return std::make_shared<const CompiledFilter>(std::move(table), *filter);
 }
 
 }  // namespace rhydb::query_engine::operators

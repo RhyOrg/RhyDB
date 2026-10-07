@@ -268,7 +268,7 @@ std::unique_ptr<filter::operators::Operator> MutationProfile<SymbolType>::compil
 ) const {
    throw QueryCompilationException{
       "{} MutationProfile expression must be eliminated in the query rewrite phase",
-      SymbolType::SYMBOL_NAME
+      SymbolType::SYMBOL_NAME,
    };
 }
 

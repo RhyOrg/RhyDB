@@ -60,7 +60,7 @@ operators::QueryNodePtr NodeResolutionPass::operator()(
          operators::MutationsNode<SymbolType>::SEQUENCE_FIELD_NAME,
          operators::MutationsNode<SymbolType>::PROPORTION_FIELD_NAME,
          operators::MutationsNode<SymbolType>::COVERAGE_FIELD_NAME,
-         operators::MutationsNode<SymbolType>::COUNT_FIELD_NAME
+         operators::MutationsNode<SymbolType>::COUNT_FIELD_NAME,
       };
    } else {
       for (const auto& field_str : node.fields) {
