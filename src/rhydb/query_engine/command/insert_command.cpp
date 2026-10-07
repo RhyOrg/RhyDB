@@ -4,8 +4,6 @@
 #include <set>
 #include <utility>
 
-#include <nlohmann/json.hpp>
-
 #include "rhydb/database.h"
 #include "rhydb/query_engine/command/table_insert_sink.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
@@ -39,7 +37,7 @@ InsertCommand::InsertCommand(operators::QueryNodePtr source_query, schema::Table
     : source_query_(std::move(source_query)),
       target_table_(std::move(target_table)) {}
 
-nlohmann::json InsertCommand::execute(
+arrow::Result<std::shared_ptr<arrow::Table>> InsertCommand::execute(
    Database& database,
    const config::QueryOptions& query_options,
    std::string_view request_id
@@ -67,7 +65,9 @@ nlohmann::json InsertCommand::execute(
    const size_t rows_after = target_table->row_layout.numRows();
    database.updateDataVersion();
 
-   return {{"insertedRows", rows_after - rows_before}};
+   return makeWriteSummary(
+      "insertedRows", arrow::MakeScalar(static_cast<int64_t>(rows_after - rows_before))
+   );
 }
 
 }  // namespace rhydb::query_engine::command

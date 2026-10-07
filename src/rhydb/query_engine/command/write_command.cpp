@@ -3,6 +3,10 @@
 #include <utility>
 #include <variant>
 
+#include <arrow/array/util.h>
+#include <arrow/compute/exec.h>
+#include <arrow/table.h>
+
 #include "rhydb/query_engine/command/create_table_command.h"
 #include "rhydb/query_engine/command/insert_command.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
@@ -17,6 +21,30 @@ using saneql::ChildConverter;
 using saneql::FunctionSignature;
 using saneql::ParameterDefinition;
 using saneql::Tables;
+
+arrow::Result<std::shared_ptr<arrow::Table>> makeWriteSummary(
+   const std::string& name,
+   const std::shared_ptr<arrow::Scalar>& value
+) {
+   ARROW_ASSIGN_OR_RAISE(auto array, arrow::MakeArrayFromScalar(*value, 1));
+   return arrow::Table::Make(arrow::schema({arrow::field(name, value->type)}), {std::move(array)});
+}
+
+arrow::Status writeToSink(
+   const arrow::Table& write_result,
+   exec_node::ArrowBatchSink& output_sink
+) {
+   arrow::TableBatchReader reader{write_result};
+   std::shared_ptr<arrow::RecordBatch> batch;
+   while (true) {
+      ARROW_RETURN_NOT_OK(reader.ReadNext(&batch));
+      if (batch == nullptr) {
+         break;
+      }
+      ARROW_RETURN_NOT_OK(output_sink.writeBatch(arrow::compute::ExecBatch{*batch}));
+   }
+   return output_sink.finish();
+}
 
 namespace {
 
@@ -48,11 +76,13 @@ WriteStatementRegistry::WriteStatementRegistry() {
    );
    registerStatement(
       "createTable",
-      FunctionSignature{{
-         ParameterDefinition{.name = "table"},
-         ParameterDefinition{.name = "columns"},
-         ParameterDefinition{.name = "primaryKey", .required = false, .positional = false},
-      }},
+      FunctionSignature{
+         {
+            ParameterDefinition{.name = "table"},
+            ParameterDefinition{.name = "columns"},
+            ParameterDefinition{.name = "primaryKey", .required = false, .positional = false},
+         },
+      },
       buildCreateTable
    );
 }

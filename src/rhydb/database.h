@@ -4,7 +4,7 @@
 #include <filesystem>
 #include <string_view>
 
-#include <nlohmann/json_fwd.hpp>
+#include <arrow/table.h>
 
 #include "rhydb/append/table_inserter.h"
 #include "rhydb/common/data_version.h"
@@ -115,7 +115,9 @@ class Database {
 
    [[nodiscard]] std::string executeQueryAsArrowIpc(const std::string& query_string) const;
 
-   nlohmann::json executeWrite(
+   /// Applies the write statement `query_string` and returns its result (see
+   /// `WriteCommand::execute`).
+   std::shared_ptr<arrow::Table> executeWrite(
       const std::string& query_string,
       const config::QueryOptions& query_options,
       std::string_view request_id

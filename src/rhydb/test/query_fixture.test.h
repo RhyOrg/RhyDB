@@ -77,6 +77,8 @@ nlohmann::json executeQueryToJsonArray(
    uint64_t timeout_in_seconds = 3
 );
 
+nlohmann::json writeResultToJson(const std::shared_ptr<arrow::Table>& write_result);
+
 template <typename DataContainer>
 class QueryTestFixture : public ::testing::TestWithParam<QueryTestScenario> {
   public:

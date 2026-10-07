@@ -39,7 +39,9 @@ rhydb::Database makeDatabaseWithReferenceGenomes() {
 }
 
 nlohmann::json executeWrite(rhydb::Database& database, const std::string& statement) {
-   return database.executeWrite(statement, rhydb::config::QueryOptions{}, "test_request_id");
+   return rhydb::test::writeResultToJson(
+      database.executeWrite(statement, rhydb::config::QueryOptions{}, "test_request_id")
+   );
 }
 
 nlohmann::json executeQuery(rhydb::Database& database, const std::string& query) {
