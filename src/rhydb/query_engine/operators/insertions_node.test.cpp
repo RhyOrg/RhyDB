@@ -17,7 +17,7 @@ nlohmann::json createData(
       {"primaryKey", primary_key},
       {"segment1", {{"sequence", "AAAA"}, {"insertions", segment1_insertions}}},
       {"segment2", {{"sequence", "GG"}, {"insertions", segment2_insertions}}},
-      {"gene1", {{"sequence", "MK"}, {"insertions", gene1_insertions}}}
+      {"gene1", {{"sequence", "MK"}, {"insertions", gene1_insertions}}},
    };
 }
 
@@ -35,14 +35,16 @@ const auto REFERENCE_GENOMES =
 
 const QueryTestData TEST_DATA{
    .ndjson_input_data =
-      {createData("s1", {"2:TT"}, {}, {}),
-       createData("s2", {"2:TT"}, {}, {}),
-       createData("s3", {"3:G"}, {"1:CC"}, {}),
-       createData("s4", {}, {"1:CC"}, {"1:W"}),
-       createData("s5", {"2:TT"}, {}, {"1:W"})},
+      {
+         createData("s1", {"2:TT"}, {}, {}),
+         createData("s2", {"2:TT"}, {}, {}),
+         createData("s3", {"3:G"}, {"1:CC"}, {}),
+         createData("s4", {}, {"1:CC"}, {"1:W"}),
+         createData("s5", {"2:TT"}, {}, {"1:W"}),
+      },
    .database_config = DATABASE_CONFIG,
    .reference_genomes = REFERENCE_GENOMES,
-   .without_unaligned_sequences = true
+   .without_unaligned_sequences = true,
 };
 
 // ---- nucleotide insertions() ----
@@ -54,7 +56,7 @@ const QueryTestScenario INSERTIONS_ALL_FIELDS = {
       {"position":2,"insertedSymbols":"TT","sequenceName":"segment1","count":3},
       {"position":3,"insertedSymbols":"G","sequenceName":"segment1","count":1},
       {"position":1,"insertedSymbols":"CC","sequenceName":"segment2","count":2}
-   ])")
+   ])"),
 };
 
 const QueryTestScenario INSERTIONS_SEQUENCE_NAMES_SELECTS = {
@@ -63,7 +65,7 @@ const QueryTestScenario INSERTIONS_SEQUENCE_NAMES_SELECTS = {
    .expected_query_result = nlohmann::json::parse(R"([
       {"position":2,"insertedSymbols":"TT","sequenceName":"segment1","count":3},
       {"position":3,"insertedSymbols":"G","sequenceName":"segment1","count":1}
-   ])")
+   ])"),
 };
 
 const QueryTestScenario INSERTIONS_WITH_INPUT_FILTER = {
@@ -73,27 +75,27 @@ const QueryTestScenario INSERTIONS_WITH_INPUT_FILTER = {
       ".insertions().order(by:={sequenceName, position})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"position":2,"insertedSymbols":"TT","sequenceName":"segment1","count":2}
-   ])")
+   ])"),
 };
 
 const QueryTestScenario INSERTIONS_ON_NON_SCAN = {
    .name = "INSERTIONS_ON_NON_SCAN",
    .query = "data.schema().insertions()",
-   .expected_error_message = "insertions() must be applied to a table scan"
+   .expected_error_message = "insertions() must be applied to a table scan",
 };
 
 const QueryTestScenario INSERTIONS_UNKNOWN_SEQUENCE_NAME = {
    .name = "INSERTIONS_UNKNOWN_SEQUENCE_NAME",
    .query = "data.insertions(sequenceNames:={unknownSegment})",
    .expected_error_message =
-      "The database does not contain the Nucleotide sequence 'unknownSegment'"
+      "The database does not contain the Nucleotide sequence 'unknownSegment'",
 };
 
 // gene1 exists but is an amino acid sequence
 const QueryTestScenario INSERTIONS_WRONG_TYPE_SEQUENCE_NAME = {
    .name = "INSERTIONS_WRONG_TYPE_SEQUENCE_NAME",
    .query = "data.insertions(sequenceNames:={gene1})",
-   .expected_error_message = "The database does not contain the Nucleotide sequence 'gene1'"
+   .expected_error_message = "The database does not contain the Nucleotide sequence 'gene1'",
 };
 
 // ---- amino acid aminoAcidInsertions() ----
@@ -103,7 +105,7 @@ const QueryTestScenario AA_INSERTIONS_ALL_FIELDS = {
    .query = "data.aminoAcidInsertions()",
    .expected_query_result = nlohmann::json::parse(R"([
       {"position":1,"insertedSymbols":"W","sequenceName":"gene1","count":2}
-   ])")
+   ])"),
 };
 
 const QueryTestScenario AA_INSERTIONS_SEQUENCE_NAMES_SELECTS = {
@@ -111,14 +113,14 @@ const QueryTestScenario AA_INSERTIONS_SEQUENCE_NAMES_SELECTS = {
    .query = "data.aminoAcidInsertions(sequenceNames:={gene1})",
    .expected_query_result = nlohmann::json::parse(R"([
       {"position":1,"insertedSymbols":"W","sequenceName":"gene1","count":2}
-   ])")
+   ])"),
 };
 
 // segment1 is a nucleotide sequence
 const QueryTestScenario AA_INSERTIONS_WRONG_TYPE_SEQUENCE_NAME = {
    .name = "AA_INSERTIONS_WRONG_TYPE_SEQUENCE_NAME",
    .query = "data.aminoAcidInsertions(sequenceNames:={segment1})",
-   .expected_error_message = "The database does not contain the AminoAcid sequence 'segment1'"
+   .expected_error_message = "The database does not contain the AminoAcid sequence 'segment1'",
 };
 
 }  // namespace

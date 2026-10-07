@@ -136,7 +136,7 @@ int mainWhichMayThrowExceptions(int argc, char** argv) {
                   SPDLOG_INFO("preprocessing_config = {}", preprocessing_config);
                   return runPreprocessor(preprocessing_config);
                },
-               [&](int32_t exit_code) { return exit_code; }
+               [&](int32_t exit_code) { return exit_code; },
             },
             rhydb::config::getConfig<rhydb::config::PreprocessingConfig>(args, env_allow_list)
          );
@@ -147,7 +147,7 @@ int mainWhichMayThrowExceptions(int argc, char** argv) {
                   SPDLOG_INFO("initialize_config = {}", initialize_config);
                   return runInitializer(initialize_config);
                },
-               [&](int32_t exit_code) { return exit_code; }
+               [&](int32_t exit_code) { return exit_code; },
             },
             rhydb::config::getConfig<rhydb::config::InitializeConfig>(args, env_allow_list)
          );
@@ -158,7 +158,7 @@ int mainWhichMayThrowExceptions(int argc, char** argv) {
                   SPDLOG_INFO("append_config = {}", append_config);
                   return runAppend(append_config);
                },
-               [&](int32_t exit_code) { return exit_code; }
+               [&](int32_t exit_code) { return exit_code; },
             },
             rhydb::config::getConfig<rhydb::config::AppendConfig>(args, env_allow_list)
          );
@@ -169,7 +169,7 @@ int mainWhichMayThrowExceptions(int argc, char** argv) {
                   SPDLOG_INFO("runtime_config = {}", runtime_config);
                   return runApi(runtime_config);
                },
-               [&](int32_t exit_code) { return exit_code; }
+               [&](int32_t exit_code) { return exit_code; },
             },
             rhydb::config::getConfig<rhydb::config::RuntimeConfig>(args, env_allow_list)
          );

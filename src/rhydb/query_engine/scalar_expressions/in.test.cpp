@@ -23,7 +23,7 @@ nlohmann::json createData(
       {"region", region},
       {"year", year},
       {"score", score},
-      {"date", date}
+      {"date", date},
    };
 }
 
@@ -62,14 +62,14 @@ const QueryTestData TEST_DATA{
          createData("id_4", "Brazil", "SouthAmerica", 2023, 1.0, "2023-12-31"),
       },
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario IN_SET_LITERAL_STRING = {
    .name = "IN_SET_LITERAL_STRING",
    .query = "data.filter(country.in({'Japan', 'Brazil'})).project({primaryKey})",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_2"},{"primaryKey":"id_4"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_2"},{"primaryKey":"id_4"}])"),
 };
 
 // A set literal of integers on an int column.
@@ -78,7 +78,7 @@ const QueryTestScenario IN_SET_LITERAL_INT_COLUMN = {
    .query = "data.filter(year.in({2020, 2023})).project({primaryKey})",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"},{"primaryKey":"id_4"}])"
-      )
+      ),
 };
 
 // A set literal of floats on a float column.
@@ -86,46 +86,46 @@ const QueryTestScenario IN_SET_LITERAL_FLOAT_COLUMN = {
    .name = "IN_SET_LITERAL_FLOAT_COLUMN",
    .query = "data.filter(score.in({0.0000002, 0.5})).project({primaryKey})",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_1"},{"primaryKey":"id_3"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_1"},{"primaryKey":"id_3"}])"),
 };
 
 const QueryTestScenario IN_SET_LITERAL_DATE_COLUMN = {
    .name = "IN_SET_LITERAL_DATE_COLUMN",
    .query = "data.filter(date.in({'2021-06-01'::date, '2023-12-31'::date})).project({primaryKey})",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_1"},{"primaryKey":"id_4"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_1"},{"primaryKey":"id_4"}])"),
 };
 
 const QueryTestScenario IN_DUPLICATE_VALUES = {
    .name = "IN_DUPLICATE_VALUES",
    .query = "data.filter(country.in({'Japan', 'Japan'})).project({primaryKey})",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_2"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_2"}])"),
 };
 
 const QueryTestScenario IN_NEGATED_INT_COLUMN = {
    .name = "IN_NEGATED_INT_COLUMN",
    .query = "data.filter(!year.in({2020, 2023})).project({primaryKey})",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_1"},{"primaryKey":"id_2"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"id_1"},{"primaryKey":"id_2"}])"),
 };
 
 // Every value is compared against the column's type, so one mismatching value fails the query.
 const QueryTestScenario IN_MIXED_TYPES = {
    .name = "IN_MIXED_TYPES",
    .query = "data.filter(country.in({2025, 'Germany'})).project({primaryKey})",
-   .expected_error_message = "The column 'country' is not of type int"
+   .expected_error_message = "The column 'country' is not of type int",
 };
 
 const QueryTestScenario IN_STRING_VALUE_ON_INT_COLUMN = {
    .name = "IN_STRING_VALUE_ON_INT_COLUMN",
    .query = "data.filter(year.in({'2020'})).project({primaryKey})",
-   .expected_error_message = "The column 'year' is not of type string"
+   .expected_error_message = "The column 'year' is not of type string",
 };
 
 const QueryTestScenario IN_INT_OUT_OF_RANGE = {
    .name = "IN_INT_OUT_OF_RANGE",
    .query = "data.filter(year.in({3000000000})).project({primaryKey})",
-   .expected_error_message = "Cannot cast 3000000000 to int32. Value out of range"
+   .expected_error_message = "Cannot cast 3000000000 to int32. Value out of range",
 };
 
 const QueryTestScenario IN_NESTED_SET_LITERAL = {
@@ -133,7 +133,7 @@ const QueryTestScenario IN_NESTED_SET_LITERAL = {
    .query = "data.filter(country.in({{'Germany'}})).project({primaryKey})",
    .expected_error_message =
       "in() value must be a literal value (int, float, string, bool, or date), a column reference, "
-      "or a scalar function call at 1:25"
+      "or a scalar function call at 1:25",
 };
 
 const QueryTestScenario IN_COMPARISON_AS_VALUE = {
@@ -141,7 +141,7 @@ const QueryTestScenario IN_COMPARISON_AS_VALUE = {
    .query = "data.filter(country.in({region = 'Europe'})).project({primaryKey})",
    .expected_error_message =
       "in() value must be a literal value (int, float, string, bool, or date), a column reference, "
-      "or a scalar function call at 1:32"
+      "or a scalar function call at 1:32",
 };
 
 // A column reference parses as a value, but `country = region` cannot be compiled to a filter.
@@ -150,20 +150,20 @@ const QueryTestScenario IN_COLUMN_REFERENCE_AS_VALUE = {
    .query = "data.filter(country.in({region})).project({primaryKey})",
    .expected_error_message =
       "A Comparison expression can only be compiled to a filter when exactly one side is a column "
-      "reference and the other a literal value"
+      "reference and the other a literal value",
 };
 
 const QueryTestScenario IN_UNKNOWN_COLUMN_REFERENCE_AS_VALUE = {
    .name = "IN_UNKNOWN_COLUMN_REFERENCE_AS_VALUE",
    .query = "data.filter(country.in({doesNotExist})).project({primaryKey})",
-   .expected_error_message = "in() value references unknown column 'doesNotExist' at 1:25"
+   .expected_error_message = "in() value references unknown column 'doesNotExist' at 1:25",
 };
 
 // The column is resolved even when the set is empty and the filter would be `false`.
 const QueryTestScenario IN_NONEXISTENT_COLUMN_EMPTY_SET = {
    .name = "IN_NONEXISTENT_COLUMN_EMPTY_SET",
    .query = "data.filter(doesNotExist.in({})).project({primaryKey})",
-   .expected_error_message = "The database does not contain the column 'doesNotExist'"
+   .expected_error_message = "The database does not contain the column 'doesNotExist'",
 };
 
 }  // namespace

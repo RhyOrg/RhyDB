@@ -93,7 +93,7 @@ TEST_F(BitmapBuilderByContainerTest, MultipleContainersDifferentTiles) {
       CONTAINER_SIZE + 10,
       CONTAINER_SIZE + 20,
       CONTAINER_SIZE + 30,
-      (2 * CONTAINER_SIZE) + 100
+      (2 * CONTAINER_SIZE) + 100,
    };
    EXPECT_EQ(result, expected);
 
@@ -168,7 +168,7 @@ TEST_F(BitmapBuilderByContainerTest, AscendingOrder) {
       CONTAINER_SIZE + 10,
       (2 * CONTAINER_SIZE) + 20,
       (3 * CONTAINER_SIZE) + 30,
-      (4 * CONTAINER_SIZE) + 40
+      (4 * CONTAINER_SIZE) + 40,
    };
    EXPECT_EQ(result, expected);
 }

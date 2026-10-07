@@ -16,7 +16,13 @@ TEST(ZstdCompressedStringColumn, insertValuesAndGetThemBack) {
    rhydb::storage::column::ZstdCompressedStringColumn under_test(&column_metadata);
 
    std::vector<std::optional<std::string>> values_to_add{
-      "2020-01-01", "2023-01-05", "2021-12-03", "2025-01-01", std::nullopt, "2021-03-21", "asd"
+      "2020-01-01",
+      "2023-01-05",
+      "2021-12-03",
+      "2025-01-01",
+      std::nullopt,
+      "2021-03-21",
+      "asd",
    };
    rhydb::storage::column::ZstdCompressedStringColumn::Builder builder;
    for (const auto& value : values_to_add) {
@@ -96,7 +102,7 @@ TEST(ZstdCompressedStringColumn, valuesSpanningMultipleAppendedChunks) {
    const std::vector<std::vector<std::optional<std::string>>> chunks{
       {"2020-01-01", "2023-01-05"},
       {std::nullopt, "2021-12-03", "2025-01-01", std::nullopt},
-      {"asd"}
+      {"asd"},
    };
    const auto num_chunks = static_cast<uint16_t>(chunks.size());
    for (const auto& chunk : chunks) {

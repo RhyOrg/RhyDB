@@ -229,7 +229,10 @@ TEST(TableChunkBuilder, givenObjectMissingInsertionsField_returnsColumnInsertErr
 
 TEST(TableChunkBuilder, givenValidSequenceCompressed_succeeds) {
    const std::vector<Nucleotide::Symbol> reference = {
-      Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::G, Nucleotide::Symbol::T
+      Nucleotide::Symbol::A,
+      Nucleotide::Symbol::C,
+      Nucleotide::Symbol::G,
+      Nucleotide::Symbol::T,
    };
    const std::string reference_str = "ACGT";
    const std::string encoded = compressAndBase64Encode("ACGT", reference_str);
@@ -245,7 +248,10 @@ TEST(TableChunkBuilder, givenValidSequenceCompressed_succeeds) {
 
 TEST(TableChunkBuilder, givenSequenceCompressedWithMutation_succeeds) {
    const std::vector<Nucleotide::Symbol> reference = {
-      Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::G, Nucleotide::Symbol::T
+      Nucleotide::Symbol::A,
+      Nucleotide::Symbol::C,
+      Nucleotide::Symbol::G,
+      Nucleotide::Symbol::T,
    };
    const std::string reference_str = "ACGT";
    // Sequence differs from reference at position 1 (C → T)
@@ -262,7 +268,10 @@ TEST(TableChunkBuilder, givenSequenceCompressedWithMutation_succeeds) {
 
 TEST(TableChunkBuilder, givenSequenceCompressedMultipleRows_succeeds) {
    std::vector<Nucleotide::Symbol> reference = {
-      Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::G, Nucleotide::Symbol::T
+      Nucleotide::Symbol::A,
+      Nucleotide::Symbol::C,
+      Nucleotide::Symbol::G,
+      Nucleotide::Symbol::T,
    };
    const std::string reference_str = "ACGT";
 
@@ -303,7 +312,10 @@ TEST(TableChunkBuilder, givenSequenceCompressedWithInvalidBase64_returnsError) {
 
 TEST(TableChunkBuilder, givenSequenceCompressedWithInvalidZstdData_returnsError) {
    const std::vector<Nucleotide::Symbol> reference = {
-      Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::G, Nucleotide::Symbol::T
+      Nucleotide::Symbol::A,
+      Nucleotide::Symbol::C,
+      Nucleotide::Symbol::G,
+      Nucleotide::Symbol::T,
    };
    // Valid base64 but the decoded bytes are not valid zstd-compressed data
    const std::string random_bytes = "\x01\x02\x03\x04\x05\x06\x07\x08";

@@ -18,7 +18,7 @@ enum Type : uint8_t {
    SELECTION,
    THRESHOLD,
    UNION,
-   BITMAP_PRODUCER
+   BITMAP_PRODUCER,
 };
 
 class Operator {

@@ -35,7 +35,7 @@ auto parseFilter(
 // Schema exposing a nucleotide sequence column, so that the sequence leaf expressions can
 // resolve their sequence name against the input schema at parse time.
 const std::vector<rhydb::schema::ColumnIdentifier> SEQUENCE_SCHEMA{
-   {.name = "segment1", .type = rhydb::schema::ColumnType::NUCLEOTIDE_SEQUENCE}
+   {.name = "segment1", .type = rhydb::schema::ColumnType::NUCLEOTIDE_SEQUENCE},
 };
 
 using Tables = std::map<rhydb::schema::TableName, std::shared_ptr<rhydb::storage::Table>>;
@@ -50,7 +50,7 @@ Tables makeTablesWithDefault() {
    ColumnIdentifier date_column{.name = "date", .type = ColumnType::DATE32};
    std::map<ColumnIdentifier, std::shared_ptr<ColumnMetadata>> col_meta{
       {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)},
-      {date_column, std::make_shared<ColumnMetadata>(date_column.name)}
+      {date_column, std::make_shared<ColumnMetadata>(date_column.name)},
    };
    auto schema = std::make_shared<rhydb::schema::TableSchema>(std::move(col_meta), primary_key);
    Tables tables;
@@ -71,7 +71,7 @@ Tables makeTablesWithDictionaryEncodedColumn() {
    ColumnIdentifier lineage_column{.name = "lineage", .type = ColumnType::DICTIONARY_ENCODED};
    std::map<ColumnIdentifier, std::shared_ptr<ColumnMetadata>> col_meta{
       {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)},
-      {lineage_column, std::make_shared<DictionaryEncodedColumnMetadata>(lineage_column.name)}
+      {lineage_column, std::make_shared<DictionaryEncodedColumnMetadata>(lineage_column.name)},
    };
    auto schema = std::make_shared<rhydb::schema::TableSchema>(std::move(col_meta), primary_key);
    Tables tables;
@@ -253,7 +253,7 @@ TEST(AstToQueryConvertToFilter, unsupportedExpressionTypeThrows) {
 
 TEST(AstToQueryConvertToFilter, booleanColumnReferenceBuildsFieldRef) {
    const std::vector<rhydb::schema::ColumnIdentifier> schema{
-      {.name = "isHuman", .type = rhydb::schema::ColumnType::BOOL}
+      {.name = "isHuman", .type = rhydb::schema::ColumnType::BOOL},
    };
    EXPECT_EQ(parseFilter("isHuman", schema)->toString(), "isHuman");
 }
@@ -271,14 +271,14 @@ TEST(AstToQueryConvertToFilter, unknownColumnReferenceThrows) {
 
 TEST(AstToQueryIntComparison, lessThanBuildsComparison) {
    const std::vector<rhydb::schema::ColumnIdentifier> schema{
-      {.name = "age", .type = rhydb::schema::ColumnType::INT32}
+      {.name = "age", .type = rhydb::schema::ColumnType::INT32},
    };
    EXPECT_EQ(parseFilter("age < 5", schema)->toString(), "age < 5");
 }
 
 TEST(AstToQueryIntComparison, greaterThanBuildsComparison) {
    const std::vector<rhydb::schema::ColumnIdentifier> schema{
-      {.name = "age", .type = rhydb::schema::ColumnType::INT32}
+      {.name = "age", .type = rhydb::schema::ColumnType::INT32},
    };
    EXPECT_EQ(parseFilter("age > 5", schema)->toString(), "age > 5");
 }
@@ -287,14 +287,14 @@ TEST(AstToQueryIntComparison, greaterThanBuildsComparison) {
 
 TEST(AstToQueryFloatComparison, lessEqualBuildsComparison) {
    const std::vector<rhydb::schema::ColumnIdentifier> schema{
-      {.name = "age", .type = rhydb::schema::ColumnType::FLOAT}
+      {.name = "age", .type = rhydb::schema::ColumnType::FLOAT},
    };
    EXPECT_EQ(parseFilter("age <= 5.0", schema)->toString(), "age <= 5");
 }
 
 TEST(AstToQueryFloatComparison, greaterThanBuildsComparison) {
    const std::vector<rhydb::schema::ColumnIdentifier> schema{
-      {.name = "age", .type = rhydb::schema::ColumnType::FLOAT}
+      {.name = "age", .type = rhydb::schema::ColumnType::FLOAT},
    };
    EXPECT_EQ(parseFilter("age > 5.0", schema)->toString(), "age > 5");
 }
@@ -303,14 +303,14 @@ TEST(AstToQueryFloatComparison, greaterThanBuildsComparison) {
 
 TEST(AstToQueryDateComparison, lessThanBuildsComparison) {
    const std::vector<rhydb::schema::ColumnIdentifier> schema{
-      {.name = "date", .type = rhydb::schema::ColumnType::DATE32}
+      {.name = "date", .type = rhydb::schema::ColumnType::DATE32},
    };
    EXPECT_EQ(parseFilter("date < '2020-01-01'::date", schema)->toString(), "date < '2020-01-01'");
 }
 
 TEST(AstToQueryDateComparison, greaterThanBuildsComparison) {
    const std::vector<rhydb::schema::ColumnIdentifier> schema{
-      {.name = "date", .type = rhydb::schema::ColumnType::DATE32}
+      {.name = "date", .type = rhydb::schema::ColumnType::DATE32},
    };
    EXPECT_EQ(parseFilter("date > '2020-01-01'::date", schema)->toString(), "date > '2020-01-01'");
 }
@@ -321,7 +321,7 @@ TEST(AstToQueryBinaryExpr, unsupportedValueTypeThrows) {
    // `a` is in the schema so that the right operand is the only invalid one and the
    // assertion cannot be satisfied by an error about the left side.
    const std::vector<rhydb::schema::ColumnIdentifier> schema{
-      {.name = "a", .type = rhydb::schema::ColumnType::INT32}
+      {.name = "a", .type = rhydb::schema::ColumnType::INT32},
    };
    EXPECT_THAT(
       [&]() { (void)parseFilter("a = {1, 2}", schema); },
@@ -361,7 +361,7 @@ TEST(AstToQueryBinaryExpr, notEqualsNoIdentifierBuildsComparison) {
 
 TEST(AstToQueryBinaryExpr, equalsNullThrows) {
    const std::vector<rhydb::schema::ColumnIdentifier> schema{
-      {.name = "age", .type = rhydb::schema::ColumnType::INT32}
+      {.name = "age", .type = rhydb::schema::ColumnType::INT32},
    };
    EXPECT_THAT(
       [&]() { (void)parseFilter("age = null", schema); },
@@ -373,7 +373,7 @@ TEST(AstToQueryBinaryExpr, equalsNullThrows) {
 
 TEST(AstToQueryBinaryExpr, nullOnLeftThrows) {
    const std::vector<rhydb::schema::ColumnIdentifier> schema{
-      {.name = "age", .type = rhydb::schema::ColumnType::INT32}
+      {.name = "age", .type = rhydb::schema::ColumnType::INT32},
    };
    EXPECT_THAT(
       [&]() { (void)parseFilter("null = age", schema); },
@@ -385,7 +385,7 @@ TEST(AstToQueryBinaryExpr, nullOnLeftThrows) {
 
 TEST(AstToQueryBinaryExpr, notEqualsNullThrows) {
    const std::vector<rhydb::schema::ColumnIdentifier> schema{
-      {.name = "age", .type = rhydb::schema::ColumnType::INT32}
+      {.name = "age", .type = rhydb::schema::ColumnType::INT32},
    };
    EXPECT_THAT(
       [&]() { (void)parseFilter("age <> null", schema); },
@@ -397,7 +397,7 @@ TEST(AstToQueryBinaryExpr, notEqualsNullThrows) {
 
 TEST(AstToQueryBinaryExpr, orderingAgainstNullThrows) {
    const std::vector<rhydb::schema::ColumnIdentifier> schema{
-      {.name = "age", .type = rhydb::schema::ColumnType::INT32}
+      {.name = "age", .type = rhydb::schema::ColumnType::INT32},
    };
    EXPECT_THAT(
       [&]() { (void)parseFilter("age < null", schema); },
@@ -409,14 +409,14 @@ TEST(AstToQueryBinaryExpr, orderingAgainstNullThrows) {
 
 TEST(AstToQueryBinaryExpr, equalsIdentifierOnRightBuildsComparison) {
    const std::vector<rhydb::schema::ColumnIdentifier> schema{
-      {.name = "age", .type = rhydb::schema::ColumnType::INT32}
+      {.name = "age", .type = rhydb::schema::ColumnType::INT32},
    };
    EXPECT_EQ(parseFilter("30 = age", schema)->toString(), "30 = age");
 }
 
 TEST(AstToQueryBinaryExpr, comparisonIdentifierOnRightBuildsComparison) {
    const std::vector<rhydb::schema::ColumnIdentifier> schema{
-      {.name = "age", .type = rhydb::schema::ColumnType::INT32}
+      {.name = "age", .type = rhydb::schema::ColumnType::INT32},
    };
    // Operands keep their written order; Comparison::compile flips the comparator when
    // the column is on the right, so `1 < age` stays `1 < age` at this stage.

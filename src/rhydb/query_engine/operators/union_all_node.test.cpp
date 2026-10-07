@@ -13,7 +13,7 @@ nlohmann::json createData(const std::string& primaryKey, const std::string& coun
       {"country", country},
       {"segment1", {{"sequence", "T"}, {"insertions", nlohmann::json::array()}}},
       {"gene1", nullptr},
-      {"unaligned_segment1", nullptr}
+      {"unaligned_segment1", nullptr},
    };
 }
 
@@ -44,7 +44,7 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{
 const QueryTestData TEST_DATA{
    .ndjson_input_data = DATA,
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 // Basic unionall of two filtered pipelines from the same table
@@ -54,12 +54,12 @@ const QueryTestScenario UNION_ALL_BASIC_SCENARIO = {
       data.filter(country='CH').project({primaryKey, country}),
       data.filter(country='DE').project({primaryKey, country})
    ).order(by:={asc(primaryKey)}))",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"country", "CH"}},
-       {{"primaryKey", "id_1"}, {"country", "DE"}},
-       {{"primaryKey", "id_2"}, {"country", "CH"}},
-       {{"primaryKey", "id_3"}, {"country", "DE"}}}
-   )
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"country", "CH"}},
+      {{"primaryKey", "id_1"}, {"country", "DE"}},
+      {{"primaryKey", "id_2"}, {"country", "CH"}},
+      {{"primaryKey", "id_3"}, {"country", "DE"}},
+   }),
 };
 
 // UnionAll produces duplicates (all rows from both sides)
@@ -69,16 +69,16 @@ const QueryTestScenario UNION_ALL_DUPLICATES_SCENARIO = {
       data.project({primaryKey}),
       data.project({primaryKey})
    ).order(by:={asc(primaryKey)}))",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}},
-       {{"primaryKey", "id_0"}},
-       {{"primaryKey", "id_1"}},
-       {{"primaryKey", "id_1"}},
-       {{"primaryKey", "id_2"}},
-       {{"primaryKey", "id_2"}},
-       {{"primaryKey", "id_3"}},
-       {{"primaryKey", "id_3"}}}
-   )
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}},
+      {{"primaryKey", "id_0"}},
+      {{"primaryKey", "id_1"}},
+      {{"primaryKey", "id_1"}},
+      {{"primaryKey", "id_2"}},
+      {{"primaryKey", "id_2"}},
+      {{"primaryKey", "id_3"}},
+      {{"primaryKey", "id_3"}},
+   }),
 };
 
 // UnionAll with downstream operations (group on the result)
@@ -89,7 +89,7 @@ const QueryTestScenario UNION_ALL_WITH_GROUPBY_SCENARIO = {
       data.filter(country='DE').project({country})
    ).group(by:={country}, aggs:={count := count()}).order(by:={asc(country)}))",
    .expected_query_result =
-      nlohmann::json({{{"country", "CH"}, {"count", 2}}, {{"country", "DE"}, {"count", 2}}})
+      nlohmann::json({{{"country", "CH"}, {"count", 2}}, {{"country", "DE"}, {"count", 2}}}),
 };
 
 // UnionAll where one child produces empty results
@@ -101,7 +101,7 @@ const QueryTestScenario UNION_ALL_EMPTY_CHILD_SCENARIO = {
    ).order(by:={asc(primaryKey)}))",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"country", "CH"}}, {{"primaryKey", "id_2"}, {"country", "CH"}}}
-   )
+   ),
 };
 
 // UnionAll with schema mismatch should error
@@ -115,7 +115,7 @@ const QueryTestScenario UNION_ALL_SCHEMA_MISMATCH_SCENARIO = {
    .expected_error_message =
       "unionall requires both inputs to have the same schema "
       "(same column names, types, and order). "
-      "Left schema: [primaryKey:STRING], right schema: [country:STRING]."
+      "Left schema: [primaryKey:STRING], right schema: [country:STRING].",
 };
 
 // Same column name but different types from map
@@ -129,7 +129,7 @@ const QueryTestScenario UNION_ALL_TYPE_MISMATCH_SCENARIO = {
    .expected_error_message =
       "unionall requires both inputs to have the same schema "
       "(same column names, types, and order). "
-      "Left schema: [primaryKey:STRING, x:INT64], right schema: [primaryKey:STRING, x:STRING]."
+      "Left schema: [primaryKey:STRING, x:INT64], right schema: [primaryKey:STRING, x:STRING].",
 };
 
 const QueryTestScenario UNION_ALL_DIFFERENT_COLUMN_ORDER_SCENARIO = {
@@ -143,7 +143,7 @@ const QueryTestScenario UNION_ALL_DIFFERENT_COLUMN_ORDER_SCENARIO = {
       "unionall requires both inputs to have the same schema "
       "(same column names, types, and order). "
       "Left schema: [primaryKey:STRING, country:STRING], "
-      "right schema: [country:STRING, primaryKey:STRING]."
+      "right schema: [country:STRING, primaryKey:STRING].",
 };
 
 // Nested unionall: unionall of two unionalls
@@ -159,16 +159,16 @@ const QueryTestScenario UNION_ALL_NESTED_SCENARIO = {
          data.filter(country='DE').project({primaryKey})
       )
    ).order(by:={asc(primaryKey)}))",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}},
-       {{"primaryKey", "id_0"}},
-       {{"primaryKey", "id_1"}},
-       {{"primaryKey", "id_1"}},
-       {{"primaryKey", "id_2"}},
-       {{"primaryKey", "id_2"}},
-       {{"primaryKey", "id_3"}},
-       {{"primaryKey", "id_3"}}}
-   )
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}},
+      {{"primaryKey", "id_0"}},
+      {{"primaryKey", "id_1"}},
+      {{"primaryKey", "id_1"}},
+      {{"primaryKey", "id_2"}},
+      {{"primaryKey", "id_2"}},
+      {{"primaryKey", "id_3"}},
+      {{"primaryKey", "id_3"}},
+   }),
 };
 
 const QueryTestScenario UNION_ALL_MUTATIONS_ON_UNION_SCENARIO = {
@@ -178,7 +178,7 @@ const QueryTestScenario UNION_ALL_MUTATIONS_ON_UNION_SCENARIO = {
       data.project({primaryKey})
    ).mutations(minProportion:=0.0))",
    .expected_query_result = {},
-   .expected_error_message = "mutations() must be applied to a table scan"
+   .expected_error_message = "mutations() must be applied to a table scan",
 };
 
 const QueryTestScenario UNION_ALL_OF_MUTATIONS_SCENARIO = {
@@ -189,7 +189,7 @@ const QueryTestScenario UNION_ALL_OF_MUTATIONS_SCENARIO = {
    ).order(by:={asc(mutationTo)}))",
    .expected_query_result = nlohmann::json(
       {{{"mutationTo", "T"}, {"proportion", 1.0}}, {{"mutationTo", "T"}, {"proportion", 1.0}}}
-   )
+   ),
 };
 
 // Piped syntax: left.unionall(right) instead of unionall(left, right)
@@ -200,12 +200,12 @@ const QueryTestScenario UNION_ALL_PIPED_SYNTAX_SCENARIO = {
          .unionall(data.filter(country='DE').project({primaryKey, country}))
          .order(by:={asc(primaryKey)})
    )",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"country", "CH"}},
-       {{"primaryKey", "id_1"}, {"country", "DE"}},
-       {{"primaryKey", "id_2"}, {"country", "CH"}},
-       {{"primaryKey", "id_3"}, {"country", "DE"}}}
-   )
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"country", "CH"}},
+      {{"primaryKey", "id_1"}, {"country", "DE"}},
+      {{"primaryKey", "id_2"}, {"country", "CH"}},
+      {{"primaryKey", "id_3"}, {"country", "DE"}},
+   }),
 };
 
 // Named arguments: unionall(left:=..., right:=...)
@@ -215,12 +215,12 @@ const QueryTestScenario UNION_ALL_NAMED_ARGS_SCENARIO = {
       left:=data.filter(country='CH').project({primaryKey, country}),
       right:=data.filter(country='DE').project({primaryKey, country})
    ).order(by:={asc(primaryKey)}))",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"country", "CH"}},
-       {{"primaryKey", "id_1"}, {"country", "DE"}},
-       {{"primaryKey", "id_2"}, {"country", "CH"}},
-       {{"primaryKey", "id_3"}, {"country", "DE"}}}
-   )
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"country", "CH"}},
+      {{"primaryKey", "id_1"}, {"country", "DE"}},
+      {{"primaryKey", "id_2"}, {"country", "CH"}},
+      {{"primaryKey", "id_3"}, {"country", "DE"}},
+   }),
 };
 
 // Filter above unionall is pushed into both children
@@ -230,12 +230,12 @@ const QueryTestScenario UNION_ALL_DOWNSTREAM_FILTER_SCENARIO = {
       data.project({primaryKey, country}),
       data.project({primaryKey, country})
    ).filter(country='CH').order(by:={asc(primaryKey)}))",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"country", "CH"}},
-       {{"primaryKey", "id_0"}, {"country", "CH"}},
-       {{"primaryKey", "id_2"}, {"country", "CH"}},
-       {{"primaryKey", "id_2"}, {"country", "CH"}}}
-   )
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"country", "CH"}},
+      {{"primaryKey", "id_0"}, {"country", "CH"}},
+      {{"primaryKey", "id_2"}, {"country", "CH"}},
+      {{"primaryKey", "id_2"}, {"country", "CH"}},
+   }),
 };
 // Filter on child AND filter above unionall both apply
 const QueryTestScenario UNION_ALL_COMBINED_FILTERS_SCENARIO = {
@@ -244,7 +244,7 @@ const QueryTestScenario UNION_ALL_COMBINED_FILTERS_SCENARIO = {
       data.filter(country='CH').project({primaryKey, country}),
       data.filter(country='DE').project({primaryKey, country})
    ).filter(primaryKey='id_0'))",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}, {"country", "CH"}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}, {"country", "CH"}}}),
 };
 }  // namespace
 

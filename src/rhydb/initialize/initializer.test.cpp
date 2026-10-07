@@ -25,9 +25,10 @@ TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
    const PhyloTree phylo_tree_file =
       PhyloTree::fromNewickFile("testBaseData/unitTestDummyDataset/phylogenetic_tree.nwk");
    const std::map<std::filesystem::path, LineageTreeAndIdMap> lineage_trees{
-      {"test_lineage_definition.yaml",
-       LineageTreeAndIdMap::fromLineageDefinitionFile(
-          rhydb::preprocessing::LineageDefinitionFile::fromYAMLString(R"(
+      {
+         "test_lineage_definition.yaml",
+         LineageTreeAndIdMap::fromLineageDefinitionFile(
+            rhydb::preprocessing::LineageDefinitionFile::fromYAMLString(R"(
 A:
   aliases:
   - X
@@ -41,7 +42,8 @@ A.11:
   parents:
   - A
 )")
-       )}
+         ),
+      },
    };
    auto table_schema = Initializer::createSchemaFromConfigFiles(
       database_config,
@@ -227,19 +229,21 @@ schema:
    const ReferenceGenomes reference_genomes =
       ReferenceGenomes::readFromFile("testBaseData/unitTestDummyDataset/reference_genomes.json");
    const std::map<std::filesystem::path, LineageTreeAndIdMap> lineage_trees{
-      {"test_lineage_definition.yaml",
-       LineageTreeAndIdMap::fromLineageDefinitionFile(
-          rhydb::preprocessing::LineageDefinitionFile::fromYAMLString(R"(
+      {
+         "test_lineage_definition.yaml",
+         LineageTreeAndIdMap::fromLineageDefinitionFile(
+            rhydb::preprocessing::LineageDefinitionFile::fromYAMLString(R"(
 A:
   parents: []
 A.1:
   parents:
   - A
 )")
-       )}
+         ),
+      },
    };
    auto table_schema = Initializer::createSchemaFromConfigFiles(
-      database_config, reference_genomes, lineage_trees, PhyloTree{}, false
+      database_config, reference_genomes, lineage_trees, PhyloTree(), false
    );
    auto* metadata =
       table_schema->getColumnMetadata<rhydb::storage::column::DictionaryEncodedColumn>("lineage")

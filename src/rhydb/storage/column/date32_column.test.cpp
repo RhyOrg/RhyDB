@@ -12,7 +12,11 @@ TEST(Date32Column, insertValues) {
    rhydb::storage::column::Date32Column under_test(&column_metadata);
 
    std::vector<std::string> values_to_add{
-      "2020-01-01", "2023-01-05", "2021-12-03", "2025-01-01", "2021-03-21"
+      "2020-01-01",
+      "2023-01-05",
+      "2021-12-03",
+      "2025-01-01",
+      "2021-03-21",
    };
    rhydb::storage::column::Date32Column::Builder builder;
    for (const auto& value : values_to_add) {

@@ -180,10 +180,10 @@ operators::QueryNodePtr MapPullupPass::operator()(operators::MapNode& node) {
    }
    // The upper map's assignments, with references to lower-produced columns now inlined.
    for (size_t i = 0; i < node.assignments.size(); ++i) {
-      merged.push_back(
-         {.output_column = node.assignments[i].output_column,
-          .expression = std::move(substituted_expressions[i])}
-      );
+      merged.push_back({
+         .output_column = node.assignments[i].output_column,
+         .expression = std::move(substituted_expressions[i]),
+      });
    }
 
    return std::make_unique<operators::MapNode>(std::move(lower.child), std::move(merged));

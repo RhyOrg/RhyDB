@@ -168,7 +168,7 @@ endToEndTests/node_modules: endToEndTests/package-lock.json
 
 .PHONY: format-cpp
 format-cpp:
-	find src app/src wasm/src -iname '*.h' -o -iname '*.hpp' -o -iname '*.cpp' | xargs $(CLANG_FORMAT) -i
+	find src performance app/src wasm/src -iname '*.h' -o -iname '*.hpp' -o -iname '*.cpp' | xargs $(CLANG_FORMAT) -i
 
 .PHONY: format-node
 format-node: endToEndTests/node_modules
@@ -180,7 +180,7 @@ format: format-cpp format-node
 
 .PHONY: check-format-cpp
 check-format-cpp:
-	find src app/src wasm/src -iname '*.h' -o -iname '*.hpp' -o -iname '*.cpp' | xargs $(CLANG_FORMAT) --dry-run --Werror
+	find src performance app/src wasm/src -iname '*.h' -o -iname '*.hpp' -o -iname '*.cpp' | xargs $(CLANG_FORMAT) --dry-run --Werror
 
 .PHONY: check-format-node
 check-format-node: endToEndTests/node_modules

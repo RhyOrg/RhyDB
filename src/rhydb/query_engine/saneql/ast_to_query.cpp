@@ -901,7 +901,9 @@ operators::AggregateDefinition parseAggregateDefinition(
       validateSumArguments(field, func, source_column);
    }
    return {
-      .output_name = field.name, .function = agg_func, .source_column = std::move(source_column)
+      .output_name = field.name,
+      .function = agg_func,
+      .source_column = std::move(source_column),
    };
 }
 
@@ -1096,12 +1098,12 @@ operators::QueryNodePtr wrapWithDecompressIfNeeded(
       auto reference =
          storage::column::visit(col.type, ColumnToReferenceSequenceVisitor{}, *table_schema, col);
       if (reference.has_value()) {
-         assignments.push_back(
-            {.output_column = {.name = col.name, .type = schema::ColumnType::STRING},
-             .expression = std::make_unique<scalar_expressions::ZstdDecompressScalar>(
-                std::make_unique<scalar_expressions::FieldRef>(col), std::move(reference).value()
-             )}
-         );
+         assignments.push_back({
+            .output_column = {.name = col.name, .type = schema::ColumnType::STRING},
+            .expression = std::make_unique<scalar_expressions::ZstdDecompressScalar>(
+               std::make_unique<scalar_expressions::FieldRef>(col), std::move(reference).value()
+            ),
+         });
       }
    }
    if (assignments.empty()) {
@@ -1252,7 +1254,7 @@ MapNode::Assignment parseMapAssignment(
    );
    return {
       .output_column = {.name = field.name, .type = expression->type()},
-      .expression = std::move(expression)
+      .expression = std::move(expression),
    };
 }
 
@@ -1781,7 +1783,7 @@ FunctionRegistry::FunctionRegistry() {
    registerFunction("map", {{pos("input"), pos("expressions")}}, handleMap);
 
    auto mutations_sig = FunctionSignature{
-      {pos("input"), named("minProportion"), named("sequenceNames", false), named("fields", false)}
+      {pos("input"), named("minProportion"), named("sequenceNames", false), named("fields", false)},
    };
    registerFunction(
       std::string{NUCLEOTIDE_MUTATIONS_FUNCTION_NAME}, mutations_sig, handleMutations
@@ -1814,10 +1816,14 @@ FunctionRegistry::FunctionRegistry() {
 
    registerFunction(
       "phyloSubtree",
-      {{pos("input"),
-        pos("column"),
-        named("printNodesNotInTree", false),
-        named("contractUnaryNodes", false)}},
+      {
+         {
+            pos("input"),
+            pos("column"),
+            named("printNodesNotInTree", false),
+            named("contractUnaryNodes", false),
+         },
+      },
       handlePhyloSubtree
    );
 
@@ -1829,11 +1835,15 @@ FunctionRegistry::FunctionRegistry() {
 
    registerFunction(
       "transitiveClosure",
-      {{pos("input"),
-        pos("from"),
-        pos("to"),
-        named("includeVertices", false),
-        named("startingFrom", false)}},
+      {
+         {
+            pos("input"),
+            pos("from"),
+            pos("to"),
+            named("includeVertices", false),
+            named("startingFrom", false),
+         },
+      },
       handleTransitiveClosure
    );
 }
@@ -1853,10 +1863,14 @@ ScalarFunctionRegistry::ScalarFunctionRegistry() {
 
    registerFunction(
       "lineage",
-      {{pos("column"),
-        pos("value"),
-        named("includeSublineages", false),
-        named("recombinantFollowingMode", false)}},
+      {
+         {
+            pos("column"),
+            pos("value"),
+            named("includeSublineages", false),
+            named("recombinantFollowingMode", false),
+         },
+      },
       handleLineage
    );
 
@@ -1888,13 +1902,15 @@ ScalarFunctionRegistry::ScalarFunctionRegistry() {
       "nOf", {{pos("count"), pos("children"), named("matchExactly", false)}}, handleNOf
    );
 
-   auto mutation_profile_sig = FunctionSignature{{
-      named("distance"),
-      named("sequenceName"),
-      named("querySequence", false),
-      named("sequenceId", false),
-      named("mutations", false),
-   }};
+   auto mutation_profile_sig = FunctionSignature{
+      {
+         named("distance"),
+         named("sequenceName"),
+         named("querySequence", false),
+         named("sequenceId", false),
+         named("mutations", false),
+      },
+   };
    registerFunction("nucleotideMutationProfile", mutation_profile_sig, handleMutationProfile<Nucleotide>);
    registerFunction("aminoAcidMutationProfile", mutation_profile_sig, handleMutationProfile<AminoAcid>);
 }

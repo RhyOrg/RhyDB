@@ -74,11 +74,13 @@ TEST(EnvironmentVariables, errorsOnWrongType) {
          (void)env_vars.verify(rhydb::config::ConfigSpecification{
             .program_name = "test",
             .attribute_specifications =
-               {rhydb::config::ConfigAttributeSpecification::createWithoutDefault(
-                  ConfigKeyPath::tryFrom({{"foo"}}).value(),
-                  rhydb::config::ConfigValueType::INT32,
-                  "some help text"
-               )}
+               {
+                  rhydb::config::ConfigAttributeSpecification::createWithoutDefault(
+                     ConfigKeyPath::tryFrom({{"foo"}}).value(),
+                     rhydb::config::ConfigValueType::INT32,
+                     "some help text"
+                  ),
+               },
          });
       },
       ThrowsMessage<rhydb::config::ConfigException>(::testing::HasSubstr("cannot parse 'bar' as i32"
@@ -95,16 +97,18 @@ TEST(EnvironmentVariables, parsesVariables) {
    ASSERT_NO_THROW((void)env_vars.verify(rhydb::config::ConfigSpecification{
       .program_name = "test",
       .attribute_specifications =
-         {rhydb::config::ConfigAttributeSpecification::createWithoutDefault(
-             ConfigKeyPath::tryFrom({{"foo"}}).value(),
-             rhydb::config::ConfigValueType::STRING,
-             "some help text"
-          ),
-          rhydb::config::ConfigAttributeSpecification::createWithoutDefault(
-             ConfigKeyPath::tryFrom({{"foo"}, {"int"}}).value(),
-             rhydb::config::ConfigValueType::INT32,
-             "some help text"
-          )}
+         {
+            rhydb::config::ConfigAttributeSpecification::createWithoutDefault(
+               ConfigKeyPath::tryFrom({{"foo"}}).value(),
+               rhydb::config::ConfigValueType::STRING,
+               "some help text"
+            ),
+            rhydb::config::ConfigAttributeSpecification::createWithoutDefault(
+               ConfigKeyPath::tryFrom({{"foo"}, {"int"}}).value(),
+               rhydb::config::ConfigValueType::INT32,
+               "some help text"
+            ),
+         },
    }));
 }
 
@@ -118,11 +122,13 @@ TEST(EnvironmentVariables, parsesVariablesWithDoubleEquals) {
          .verify(rhydb::config::ConfigSpecification{
             .program_name = "test",
             .attribute_specifications =
-               {rhydb::config::ConfigAttributeSpecification::createWithoutDefault(
-                  ConfigKeyPath::tryFrom({{"foo"}}).value(),
-                  rhydb::config::ConfigValueType::STRING,
-                  "some help text"
-               )}
+               {
+                  rhydb::config::ConfigAttributeSpecification::createWithoutDefault(
+                     ConfigKeyPath::tryFrom({{"foo"}}).value(),
+                     rhydb::config::ConfigValueType::STRING,
+                     "some help text"
+                  ),
+               },
          })
          .getString(ConfigKeyPath::tryFrom({{"foo"}}).value()),
       "bar=baz"

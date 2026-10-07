@@ -140,7 +140,7 @@ arrow::Result<Relation> buildRelation(
    return Relation{
       .vertex_names = std::move(vertex_names),
       .adjacency = std::move(adjacency),
-      .sources = std::move(sources)
+      .sources = std::move(sources),
    };
 }
 
@@ -321,7 +321,7 @@ arrow::Result<arrow::acero::ExecNode*> TransitiveClosureNode::addToExecPlan(
    const arrow::acero::SourceNodeOptions options{
       exec_node::columnsToArrowSchema(getOutputSchema()),
       std::move(producer),
-      arrow::Ordering::Implicit()
+      arrow::Ordering::Implicit(),
    };
    return arrow::acero::MakeExecNode("source", &plan, {}, options);
 }

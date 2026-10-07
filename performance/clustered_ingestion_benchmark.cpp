@@ -157,17 +157,27 @@ void run() {
    const std::string reference = readReferenceFromFile();
    SPDLOG_INFO("Read reference sequence of length {}", reference.size());
 
-   const std::array<Scenario, 3> scenarios{{
-      {.name = "amplicon-sorted, ingestion clustering off",
-       .dataset_path = SHORT_READ_AMPLICON_SORTED_NDJSON,
-       .clustering = {}},
-      {.name = "amplicon-shuffled, ingestion clustering off",
-       .dataset_path = SHORT_READ_AMPLICON_SHUFFLED_NDJSON,
-       .clustering = {}},
-      {.name = "amplicon-shuffled, 128-way clustered ingestion",
-       .dataset_path = SHORT_READ_AMPLICON_SHUFFLED_NDJSON,
-       .clustering = clusteredOptions()},
-   }};
+   const std::array<Scenario, 3> scenarios{
+      {
+         {
+            .name = "amplicon-sorted, ingestion clustering off",
+            .dataset_path = SHORT_READ_AMPLICON_SORTED_NDJSON,
+            // NOLINTNEXTLINE(readability-trailing-comma): false positive on empty brace,llvm#223646
+            .clustering = {},
+         },
+         {
+            .name = "amplicon-shuffled, ingestion clustering off",
+            .dataset_path = SHORT_READ_AMPLICON_SHUFFLED_NDJSON,
+            // NOLINTNEXTLINE(readability-trailing-comma): false positive on empty brace,llvm#223646
+            .clustering = {},
+         },
+         {
+            .name = "amplicon-shuffled, 128-way clustered ingestion",
+            .dataset_path = SHORT_READ_AMPLICON_SHUFFLED_NDJSON,
+            .clustering = clusteredOptions(),
+         },
+      },
+   };
 
    std::vector<ScenarioResult> results;
    for (const auto& scenario : scenarios) {
