@@ -7,6 +7,7 @@
 #include <ranges>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 #include "rhydb/common/bitmap.h"
@@ -76,9 +77,14 @@ inline std::string_view displayComparator(Comparator comparator) {
 
 template <storage::column::Column ColumnType>
 class CompareToValueSelection : public Predicate {
+   using OwnedValue = std::conditional_t<
+      std::is_same_v<typename ColumnType::value_type, std::string_view>,
+      std::string,
+      typename ColumnType::value_type>;
+
    const ColumnType& column;
    Comparator comparator;
-   ColumnType::value_type value;
+   OwnedValue value;
    bool with_nulls;
 
   public:

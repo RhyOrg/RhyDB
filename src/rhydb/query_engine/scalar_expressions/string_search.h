@@ -16,7 +16,7 @@ namespace rhydb::query_engine::scalar_expressions {
 class StringSearch : public ScalarExpression {
   private:
    schema::ColumnIdentifier column;
-   std::unique_ptr<re2::RE2> search_expression;
+   std::shared_ptr<const re2::RE2> search_expression;
 
   public:
    explicit StringSearch(
