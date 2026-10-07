@@ -128,7 +128,9 @@ const QueryTestScenario STRING_IN_SET_INVALID_COLUMN_TYPE_STRING = {
 const QueryTestScenario STRING_IN_SET_INVALID_VALUES_TYPE = {
    .name = "STRING_IN_SET_INVALID_VALUES_TYPE",
    .query = "data.filter(country.in('Switzerland'))",
-   .expected_error_message = "expected table reference or function call at 1:24"
+   .expected_error_message =
+      "in() expects a set literal (e.g. {'a', 'b'}) or a subquery (e.g. "
+      "data.filter(...).project({column})), got 'Switzerland' at 1:24"
 };
 
 const QueryTestScenario STRING_IN_SET_NONEXISTENT_COLUMN = {

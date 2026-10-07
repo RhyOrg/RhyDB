@@ -362,8 +362,16 @@ ScalarExpressionPtr handleIn(
          value_literals.push_back(convertToScalar(*elem, schema, "in() value", context));
       }
    } else {
-      // Anything else runs through the generic query-tree conversion (which validates that it is a
-      // table reference or pipeline expression) and is executed; its single column becomes the set.
+      // A subquery (a table reference or pipeline) runs through the generic query-tree conversion
+      // and is executed; its single column becomes the set.
+      CHECK_RHYDB_QUERY(
+         std::holds_alternative<ast::Identifier>(values_expr.value) ||
+            std::holds_alternative<ast::FunctionCall>(values_expr.value),
+         "in() expects a set literal (e.g. {{'a', 'b'}}) or a subquery (e.g. "
+         "data.filter(...).project({{column}})), got {} at {}",
+         values_expr.toString(),
+         values_expr.location.toString()
+      );
       CHECK_RHYDB_QUERY(
          context.tables != nullptr && context.convert_child != nullptr,
          "in(<subquery>) is not supported in this context; pass a set literal instead."

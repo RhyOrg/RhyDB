@@ -73,6 +73,15 @@ const QueryTestScenario IN_SUBQUERY_MULTI = {
       )
 };
 
+// A bare scalar is neither a set literal nor a subquery.
+const QueryTestScenario IN_SCALAR_VALUES_REJECTED = {
+   .name = "IN_SCALAR_VALUES_REJECTED",
+   .query = "data.filter(year.in(2020)).project({primaryKey})",
+   .expected_error_message =
+      "in() expects a set literal (e.g. {'a', 'b'}) or a subquery (e.g. "
+      "data.filter(...).project({column})), got 2020 at 1:21"
+};
+
 // An empty subquery result matches no rows.
 const QueryTestScenario IN_SUBQUERY_EMPTY = {
    .name = "IN_SUBQUERY_EMPTY",
@@ -171,6 +180,7 @@ QUERY_TEST(
       IN_SUBQUERY_OR_OF_TWO_SUBQUERIES,
       IN_SET_LITERAL_STILL_WORKS,
       IN_SET_LITERAL_INT_COLUMN,
-      IN_SUBQUERY_INT_COLUMN
+      IN_SUBQUERY_INT_COLUMN,
+      IN_SCALAR_VALUES_REJECTED
    )
 )
