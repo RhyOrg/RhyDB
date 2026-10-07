@@ -416,13 +416,13 @@ namespace {
 
 const std::vector<nlohmann::json> ISO_WEEK_NULL_DATA = {
    createData("id_0", 1, "short"),
-   createData("id_1", 2, "short", nullptr, nullptr, "2020-12-31")
+   createData("id_1", 2, "short", nullptr, nullptr, "2020-12-31"),
 };
 
 const QueryTestData ISO_WEEK_NULL_TEST_DATA{
    .ndjson_input_data = ISO_WEEK_NULL_DATA,
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario MAP_ISO_WEEK_NULL_SCENARIO = {
@@ -430,7 +430,7 @@ const QueryTestScenario MAP_ISO_WEEK_NULL_SCENARIO = {
    .query = "data.map({week := date.isoWeek()}).project({primaryKey, week})",
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "id_0"}, {"week", nullptr}}, {{"primaryKey", "id_1"}, {"week", "2020-W53"}}}
-   )
+   ),
 };
 
 // An isNull() predicate on a map-produced column, executed as an Arrow filter above the map. Only
@@ -438,7 +438,7 @@ const QueryTestScenario MAP_ISO_WEEK_NULL_SCENARIO = {
 const QueryTestScenario FILTER_ISNULL_ABOVE_MAP_SCENARIO = {
    .name = "FILTER_ISNULL_ABOVE_MAP",
    .query = "data.map({week := date.isoWeek()}).filter(week.isNull()).project({primaryKey})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}}),
 };
 
 // Negation above a map runs on the Arrow (subexpression) path, which deliberately rejects negation
@@ -449,7 +449,7 @@ const QueryTestScenario FILTER_NEGATION_ABOVE_MAP_NULL_REJECTED_SCENARIO = {
    .expected_error_message =
       "Error when planning query execution: NotImplemented: negation ('!') is not yet supported in "
       "filters on subexpressions (see GitHub issue #1525); apply the negation in a filter that is "
-      "pushed into the table scan instead"
+      "pushed into the table scan instead",
 };
 
 // The same negation pushed into the table scan runs on the native bitmap path, which is unaffected
@@ -457,7 +457,7 @@ const QueryTestScenario FILTER_NEGATION_ABOVE_MAP_NULL_REJECTED_SCENARIO = {
 const QueryTestScenario FILTER_NEGATION_KEEPS_NULL_PUSHED_DOWN_SCENARIO = {
    .name = "FILTER_NEGATION_KEEPS_NULL_PUSHED_DOWN",
    .query = "data.filter(!(date = '2020-12-31'::date)).project({primaryKey})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}})
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}}),
 };
 
 }  // namespace

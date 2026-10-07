@@ -102,14 +102,12 @@ const QueryTestData TEST_DATA{
 const QueryTestScenario TRANSITIVE_CLOSURE_SCENARIO = {
    .name = "TRANSITIVE_CLOSURE_SCENARIO",
    .query = "pango_lineage_indexed.transitiveClosure(parent, lineage).order(by:={from, to})",
-   .expected_query_result = nlohmann::json(
-      {
-         {{"from", "BASE.1"}, {"to", "CHILD"}},
-         {{"from", "BASE.1"}, {"to", "CHILD.2"}},
-         {{"from", "BASE.1"}, {"to", "GRANDCHILD"}},
-         {{"from", "CHILD"}, {"to", "GRANDCHILD"}},
-      }
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"from", "BASE.1"}, {"to", "CHILD"}},
+      {{"from", "BASE.1"}, {"to", "CHILD.2"}},
+      {{"from", "BASE.1"}, {"to", "GRANDCHILD"}},
+      {{"from", "CHILD"}, {"to", "GRANDCHILD"}},
+   }),
 };
 
 // Reflexive-transitive closure: additionally pairs every lineage with itself.
