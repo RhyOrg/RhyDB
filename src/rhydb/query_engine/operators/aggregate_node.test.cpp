@@ -13,45 +13,51 @@ const nlohmann::json MAIN_SEQUENCE = {
 };
 
 // Per country: Switzerland has two complete rows, Germany one complete row and one row that is null
-// in every numeric column, France only such a null row, and one row has no country at all. `reads`
-// exceeds the int32 range, and the float values are exactly representable so their sums print
-// without rounding ambiguity.
+// in every numeric and boolean column, France only such a null row, and one row has no country at
+// all. `reads` exceeds the int32 range, and the float values are exactly representable so their
+// sums print without rounding ambiguity.
 const std::vector<nlohmann::json> DATA = {
    {{"primaryKey", "id_0"},
     {"country", "Switzerland"},
     {"age", 5},
     {"reads", 3000000000},
     {"coverage", 0.5},
+    {"vaccinated", true},
     {"main", MAIN_SEQUENCE}},
    {{"primaryKey", "id_1"},
     {"country", "Switzerland"},
     {"age", 7},
     {"reads", 3000000000},
     {"coverage", 1.25},
+    {"vaccinated", false},
     {"main", MAIN_SEQUENCE}},
    {{"primaryKey", "id_2"},
     {"country", "Germany"},
     {"age", nullptr},
     {"reads", nullptr},
     {"coverage", nullptr},
+    {"vaccinated", nullptr},
     {"main", MAIN_SEQUENCE}},
    {{"primaryKey", "id_3"},
     {"country", "Germany"},
     {"age", 10},
     {"reads", 1},
     {"coverage", 2.0},
+    {"vaccinated", true},
     {"main", MAIN_SEQUENCE}},
    {{"primaryKey", "id_4"},
     {"country", nullptr},
     {"age", 1},
     {"reads", 2},
     {"coverage", 0.25},
+    {"vaccinated", false},
     {"main", MAIN_SEQUENCE}},
    {{"primaryKey", "id_5"},
     {"country", "France"},
     {"age", nullptr},
     {"reads", nullptr},
     {"coverage", nullptr},
+    {"vaccinated", nullptr},
     {"main", MAIN_SEQUENCE}},
 };
 
@@ -70,6 +76,8 @@ schema:
       type: "int64"
     - name: "coverage"
       type: "float"
+    - name: "vaccinated"
+      type: "boolean"
   primaryKey: "primaryKey"
 )";
 
@@ -272,6 +280,20 @@ const QueryTestScenario MIN_MAX_OF_STRING_COLUMN = {
    .expected_query_result = nlohmann::json::parse(R"([{"first": "France", "last": "Switzerland"}])")
 };
 
+// false < true; Switzerland has both values, so its extrema differ
+const QueryTestScenario MIN_MAX_OF_BOOL_COLUMN = {
+   .name = "MIN_MAX_OF_BOOL_COLUMN",
+   .query =
+      "default.group(by:={country}, aggs:={min_vaccinated:=min(vaccinated), "
+      "max_vaccinated:=max(vaccinated)}).order(by:={country})",
+   .expected_query_result = nlohmann::json::parse(R"([
+      {"country": null, "min_vaccinated": false, "max_vaccinated": false},
+      {"country": "France", "min_vaccinated": null, "max_vaccinated": null},
+      {"country": "Germany", "min_vaccinated": true, "max_vaccinated": true},
+      {"country": "Switzerland", "min_vaccinated": false, "max_vaccinated": true}
+   ])")
+};
+
 const QueryTestScenario MAX_WITHOUT_COLUMN = {
    .name = "MAX_WITHOUT_COLUMN",
    .query = "default.group(by:={}, aggs:={oldest:=max()})",
@@ -284,7 +306,12 @@ const QueryTestScenario MAX_WITHOUT_COLUMN = {
 QUERY_TEST(
    AggregateMinMax,
    TEST_DATA,
-   ::testing::Values(MIN_MAX_PER_GROUP, MIN_MAX_OF_STRING_COLUMN, MAX_WITHOUT_COLUMN)
+   ::testing::Values(
+      MIN_MAX_PER_GROUP,
+      MIN_MAX_OF_STRING_COLUMN,
+      MIN_MAX_OF_BOOL_COLUMN,
+      MAX_WITHOUT_COLUMN
+   )
 );
 
 QUERY_TEST(
