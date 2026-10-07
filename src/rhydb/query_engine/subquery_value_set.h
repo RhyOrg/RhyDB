@@ -13,10 +13,7 @@
 namespace rhydb::query_engine {
 
 /// Plans and executes an uncorrelated `subquery` and materializes its single output column into a
-/// list of distinct scalar literals, one per non-null value, typed according to the column
-/// (string/int/float/date/bool). Used to turn the right-hand side of `column.in(<subquery>)` into a
-/// set of equality comparisons — a bitmap union on an indexed column — regardless of the column's
-/// type. Throws a query error if the subquery does not produce exactly one supported scalar column.
+/// list of scalar literals
 [[nodiscard]] std::vector<std::unique_ptr<scalar_expressions::ScalarExpression>>
 materializeSubqueryColumnLiterals(
    operators::QueryNodePtr subquery,

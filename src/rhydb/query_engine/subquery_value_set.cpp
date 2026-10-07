@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -26,33 +25,24 @@ namespace {
 namespace se = scalar_expressions;
 using ScalarExpressionPtr = std::unique_ptr<se::ScalarExpression>;
 
-/// Turns the values of a subquery's single output column into typed scalar literals, deduplicating
-/// by a per-value string key. Each supported Arrow array type maps to the matching RhyDB literal,
-/// so `in(<subquery>)` stays type-agnostic.
+/// Turns the values of a subquery's single output column into typed scalar literals. Each supported
+/// Arrow array type maps to the matching RhyDB literal, so `in(<subquery>)` stays type-agnostic.
 class LiteralCollectingVisitor : public arrow::ArrayVisitor {
    std::vector<ScalarExpressionPtr>& literals;
-   std::unordered_set<std::string>& seen;
 
    template <typename LiteralType, typename ValueType>
-   void add(std::string key, ValueType value) {
-      if (seen.insert(std::move(key)).second) {
-         literals.push_back(std::make_unique<LiteralType>(value));
-      }
+   void add(ValueType value) {
+      literals.push_back(std::make_unique<LiteralType>(value));
    }
 
   public:
-   LiteralCollectingVisitor(
-      std::vector<ScalarExpressionPtr>& literals,
-      std::unordered_set<std::string>& seen
-   )
-       : literals(literals),
-         seen(seen) {}
+   explicit LiteralCollectingVisitor(std::vector<ScalarExpressionPtr>& literals)
+       : literals(literals) {}
 
    arrow::Status Visit(const arrow::StringArray& array) override {
       for (int64_t i = 0; i < array.length(); ++i) {
          if (!array.IsNull(i)) {
-            std::string value{array.GetView(i)};
-            add<se::StringLiteral>(value, value);
+            add<se::StringLiteral>(std::string{array.GetView(i)});
          }
       }
       return arrow::Status::OK();
@@ -61,7 +51,7 @@ class LiteralCollectingVisitor : public arrow::ArrayVisitor {
    arrow::Status Visit(const arrow::Int32Array& array) override {
       for (int64_t i = 0; i < array.length(); ++i) {
          if (!array.IsNull(i)) {
-            add<se::Int64Literal>(std::to_string(array.Value(i)), array.Value(i));
+            add<se::Int64Literal>(array.Value(i));
          }
       }
       return arrow::Status::OK();
@@ -70,7 +60,7 @@ class LiteralCollectingVisitor : public arrow::ArrayVisitor {
    arrow::Status Visit(const arrow::Int64Array& array) override {
       for (int64_t i = 0; i < array.length(); ++i) {
          if (!array.IsNull(i)) {
-            add<se::Int64Literal>(std::to_string(array.Value(i)), array.Value(i));
+            add<se::Int64Literal>(array.Value(i));
          }
       }
       return arrow::Status::OK();
@@ -79,7 +69,7 @@ class LiteralCollectingVisitor : public arrow::ArrayVisitor {
    arrow::Status Visit(const arrow::DoubleArray& array) override {
       for (int64_t i = 0; i < array.length(); ++i) {
          if (!array.IsNull(i)) {
-            add<se::FloatLiteral>(std::to_string(array.Value(i)), array.Value(i));
+            add<se::FloatLiteral>(array.Value(i));
          }
       }
       return arrow::Status::OK();
@@ -88,7 +78,7 @@ class LiteralCollectingVisitor : public arrow::ArrayVisitor {
    arrow::Status Visit(const arrow::FloatArray& array) override {
       for (int64_t i = 0; i < array.length(); ++i) {
          if (!array.IsNull(i)) {
-            add<se::FloatLiteral>(std::to_string(array.Value(i)), array.Value(i));
+            add<se::FloatLiteral>(array.Value(i));
          }
       }
       return arrow::Status::OK();
@@ -98,7 +88,7 @@ class LiteralCollectingVisitor : public arrow::ArrayVisitor {
       for (int64_t i = 0; i < array.length(); ++i) {
          if (!array.IsNull(i)) {
             // common::Date32 is an int32 day count, which is exactly Date32Array's storage.
-            add<se::DateLiteral>(std::to_string(array.Value(i)), array.Value(i));
+            add<se::DateLiteral>(array.Value(i));
          }
       }
       return arrow::Status::OK();
@@ -107,7 +97,7 @@ class LiteralCollectingVisitor : public arrow::ArrayVisitor {
    arrow::Status Visit(const arrow::BooleanArray& array) override {
       for (int64_t i = 0; i < array.length(); ++i) {
          if (!array.IsNull(i)) {
-            add<se::BoolLiteral>(array.Value(i) ? "true" : "false", array.Value(i));
+            add<se::BoolLiteral>(array.Value(i));
          }
       }
       return arrow::Status::OK();
@@ -178,8 +168,7 @@ std::vector<ScalarExpressionPtr> materializeSubqueryColumnLiterals(
    );
 
    std::vector<ScalarExpressionPtr> literals;
-   std::unordered_set<std::string> seen;
-   LiteralCollectingVisitor visitor{literals, seen};
+   LiteralCollectingVisitor visitor{literals};
    LiteralCollectingSink sink{visitor};
    constexpr uint64_t TIMEOUT_SECONDS = 120;
    query_plan.executeAndWrite(sink, TIMEOUT_SECONDS);
