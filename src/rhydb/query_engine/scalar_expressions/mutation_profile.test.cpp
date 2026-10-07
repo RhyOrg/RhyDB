@@ -250,8 +250,7 @@ const QueryTestScenario AA_INVALID_SEQUENCE_NAME = {
 // No sequenceName provided → error (a sequence name is always required)
 const QueryTestScenario AA_NO_SEQUENCE_NAME = {
    .name = "AA_NO_SEQUENCE_NAME",
-   .query =
-      "data.filter(aminoAcidMutationProfile(distance:=0, mutations:={})).project(primaryKey)",
+   .query = "data.filter(aminoAcidMutationProfile(distance:=0, mutations:={})).project(primaryKey)",
    .expected_error_message = "aminoAcidMutationProfile() requires argument 'sequenceName'",
 };
 

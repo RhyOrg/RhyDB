@@ -122,7 +122,7 @@ const QueryTestScenario UNKNOWN_COLUMN = {
    .name = "INT_UNKNOWN_COLUMN",
    .query = "data.filter(does_not_exist < 3).project(primaryKey)",
    .expected_error_message =
-      "the left side of a comparison references unknown column 'does_not_exist' at 1:16",
+      "the left side of a comparison references unknown column 'does_not_exist' at 1:13",
 };
 
 const QueryTestScenario TWO_COLUMNS = {

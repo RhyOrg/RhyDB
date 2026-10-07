@@ -109,8 +109,7 @@ const QueryTestScenario STRING_IN_SET_WITH_AND = {
 
 const QueryTestScenario STRING_IN_SET_NEGATED = {
    .name = "STRING_IN_SET_NEGATED",
-   .query =
-      "data.filter(!(country.in({'Switzerland', 'Germany'}))).project({primaryKey, country})",
+   .query = "data.filter(!(country.in({'Switzerland', 'Germany'}))).project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([{"country":"USA","primaryKey":"id_2"},{"country":"France","primaryKey":"id_4"}])"
    ),
@@ -119,19 +118,19 @@ const QueryTestScenario STRING_IN_SET_NEGATED = {
 const QueryTestScenario STRING_IN_SET_INVALID_COLUMN_TYPE_INTEGER = {
    .name = "STRING_IN_SET_INVALID_COLUMN_TYPE_INTEGER",
    .query = "data.filter(in(123, {'Switzerland'}))",
-   .expected_error_message = "expected identifier at 1:19",
+   .expected_error_message = "expected identifier at 1:16",
 };
 
 const QueryTestScenario STRING_IN_SET_INVALID_COLUMN_TYPE_STRING = {
    .name = "STRING_IN_SET_INVALID_COLUMN_TYPE_STRING",
    .query = "data.filter('string'.in({'Switzerland'}))",
-   .expected_error_message = "expected identifier at 1:16",
+   .expected_error_message = "expected identifier at 1:13",
 };
 
 const QueryTestScenario STRING_IN_SET_INVALID_VALUES_TYPE = {
    .name = "STRING_IN_SET_INVALID_VALUES_TYPE",
    .query = "data.filter(country.in('Switzerland'))",
-   .expected_error_message = "in() expects a set literal argument at 1:27",
+   .expected_error_message = "in() expects a set literal argument at 1:24",
 };
 
 const QueryTestScenario STRING_IN_SET_NONEXISTENT_COLUMN = {

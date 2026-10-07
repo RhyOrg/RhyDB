@@ -146,7 +146,7 @@ const QueryTestScenario STRING_UNKNOWN_COLUMN = {
    .name = "STRING_UNKNOWN_COLUMN",
    .query = "data.filter(does_not_exist < 'banana').project(primaryKey)",
    .expected_error_message =
-      "the left side of a comparison references unknown column 'does_not_exist' at 1:16",
+      "the left side of a comparison references unknown column 'does_not_exist' at 1:13",
 };
 
 }  // namespace

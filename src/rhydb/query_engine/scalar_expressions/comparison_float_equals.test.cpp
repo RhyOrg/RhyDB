@@ -82,7 +82,7 @@ const QueryTestScenario FLOAT_EQUALS_NULL_REJECTED_SCENARIO = {
    .query = "data.filter(float_value = null).project({primaryKey, float_value})",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
-      "a column reference, or a scalar function call at 1:30",
+      "a column reference, or a scalar function call at 1:27",
 };
 
 const QueryTestScenario NEGATED_FLOAT_EQUALS_NULL_REJECTED_SCENARIO = {
@@ -90,7 +90,7 @@ const QueryTestScenario NEGATED_FLOAT_EQUALS_NULL_REJECTED_SCENARIO = {
    .query = "data.filter(!(float_value = null)).project({primaryKey, float_value})",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
-      "a column reference, or a scalar function call at 1:32",
+      "a column reference, or a scalar function call at 1:29",
 };
 
 const QueryTestScenario FLOAT_EQUALS_WITH_INVALID_VALUE = {

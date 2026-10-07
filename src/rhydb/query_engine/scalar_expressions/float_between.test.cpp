@@ -134,15 +134,14 @@ const QueryTestScenario NEGATED_FLOAT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO = {
 
 const QueryTestScenario FLOAT_BETWEEN_WITH_INVALID_FROM_VALUE = {
    .name = "FLOAT_BETWEEN_WITH_INVALID_FROM_VALUE",
-   .query =
-      "data.filter(float_value.between('something', 2)).project({primaryKey, float_value})",
-   .expected_error_message = "expected integer literal at 1:36",
+   .query = "data.filter(float_value.between('something', 2)).project({primaryKey, float_value})",
+   .expected_error_message = "expected integer literal at 1:33",
 };
 
 const QueryTestScenario FLOAT_BETWEEN_WITH_INVALID_TO_VALUE = {
    .name = "FLOAT_BETWEEN_WITH_INVALID_TO_VALUE",
    .query = "data.filter(float_value.between(2, 'test')).project({primaryKey, float_value})",
-   .expected_error_message = "expected integer literal at 1:39",
+   .expected_error_message = "expected integer literal at 1:36",
 };
 
 }  // namespace

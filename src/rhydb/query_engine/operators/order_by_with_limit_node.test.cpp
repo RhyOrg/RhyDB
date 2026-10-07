@@ -89,8 +89,7 @@ const QueryTestScenario DESC_LIMIT_SCENARIO = {
 // A limit larger than the input returns every row, still fully ordered.
 const QueryTestScenario LIMIT_LARGER_THAN_INPUT_SCENARIO = {
    .name = "ORDER_BY_WITH_LIMIT_LARGER_THAN_INPUT",
-   .query =
-      "data.project({primaryKey, date}).order(by:={date.asc(), primaryKey.asc()}).limit(100)",
+   .query = "data.project({primaryKey, date}).order(by:={date.asc(), primaryKey.asc()}).limit(100)",
    .expected_query_result = nlohmann::json({
       {{"primaryKey", "id_0"}, {"date", nullptr}},
       {{"primaryKey", "id_2"}, {"date", nullptr}},

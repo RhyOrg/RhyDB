@@ -101,8 +101,7 @@ const QueryTestScenario INSERTION_CONTAINS_WITH_UNKNOWN_SEGMENT_SCENARIO = {
 
 const QueryTestScenario INSERTION_CONTAINS_POSITION_OUT_OF_RANGE = {
    .name = "INSERTION_CONTAINS_POSITION_OUT_OF_RANGE",
-   .query =
-      "data.filter(insertionContains(position:=100, value:='A', sequenceName:='segment2'))",
+   .query = "data.filter(insertionContains(position:=100, value:='A', sequenceName:='segment2'))",
    .expected_error_message =
       "the requested insertion position (100) is larger than the length of the reference sequence "
       "(32) for sequence 'segment2'",

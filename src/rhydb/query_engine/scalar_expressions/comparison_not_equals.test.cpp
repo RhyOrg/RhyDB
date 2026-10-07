@@ -188,7 +188,7 @@ const QueryTestScenario NOT_EQUALS_NULL_PLAIN = {
    .query = "data.filter(stringField <> null).project(primaryKey)",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
-      "a column reference, or a scalar function call at 1:31",
+      "a column reference, or a scalar function call at 1:28",
 };
 
 const QueryTestScenario NOT_EQUALS_NULL_DICT = {
@@ -196,7 +196,7 @@ const QueryTestScenario NOT_EQUALS_NULL_DICT = {
    .query = "data.filter(dictField <> null).project(primaryKey)",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
-      "a column reference, or a scalar function call at 1:29",
+      "a column reference, or a scalar function call at 1:26",
 };
 
 // --- `!` is a set complement, not SQL's NOT, so it keeps the null rows that `<>`
