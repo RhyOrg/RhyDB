@@ -85,7 +85,8 @@ std::string generateNdjson(const std::vector<std::string>& names, size_t num_row
    std::string out;
    for (size_t i = 0; i < num_rows; ++i) {
       const nlohmann::json line{
-         {"primaryKey", fmt::format("id_{}", i)}, {"pango_lineage", names.at(dist(rng))}
+         {"primaryKey", fmt::format("id_{}", i)},
+         {"pango_lineage", names.at(dist(rng))},
       };
       out += line.dump();
       out += '\n';
@@ -165,7 +166,7 @@ void run() {
    const auto lineage_tree =
       LineageTreeAndIdMap::fromLineageDefinitionFilePath(LINEAGE_DEFINITION_PATH);
    const std::map<std::filesystem::path, LineageTreeAndIdMap> lineage_trees{
-      {LINEAGE_TREE_NAME, lineage_tree}
+      {LINEAGE_TREE_NAME, lineage_tree},
    };
    const std::vector<std::string> names = loadLineageNames();
    SPDLOG_INFO("Loaded {} lineages from {}", names.size(), LINEAGE_DEFINITION_PATH.string());
