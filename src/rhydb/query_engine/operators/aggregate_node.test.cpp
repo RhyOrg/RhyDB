@@ -13,9 +13,9 @@ const nlohmann::json MAIN_SEQUENCE = {
 };
 
 // Per country: Switzerland has two complete rows, Germany one complete row and one row that is null
-// in every numeric column, France only such a null row, and one row has no country at all. `reads`
-// exceeds the int32 range, and the float values are exactly representable so their sums print
-// without rounding ambiguity.
+// in every numeric and boolean column, France only such a null row, and one row has no country at
+// all. `reads` exceeds the int32 range, and the float values are exactly representable so their
+// sums print without rounding ambiguity.
 const std::vector<nlohmann::json> DATA = {
    {
       {"primaryKey", "id_0"},
@@ -23,6 +23,7 @@ const std::vector<nlohmann::json> DATA = {
       {"age", 5},
       {"reads", 3000000000},
       {"coverage", 0.5},
+      {"vaccinated", true},
       {"main", MAIN_SEQUENCE},
    },
    {
@@ -31,6 +32,7 @@ const std::vector<nlohmann::json> DATA = {
       {"age", 7},
       {"reads", 3000000000},
       {"coverage", 1.25},
+      {"vaccinated", false},
       {"main", MAIN_SEQUENCE},
    },
    {
@@ -39,6 +41,7 @@ const std::vector<nlohmann::json> DATA = {
       {"age", nullptr},
       {"reads", nullptr},
       {"coverage", nullptr},
+      {"vaccinated", nullptr},
       {"main", MAIN_SEQUENCE},
    },
    {
@@ -47,6 +50,7 @@ const std::vector<nlohmann::json> DATA = {
       {"age", 10},
       {"reads", 1},
       {"coverage", 2.0},
+      {"vaccinated", true},
       {"main", MAIN_SEQUENCE},
    },
    {
@@ -55,6 +59,7 @@ const std::vector<nlohmann::json> DATA = {
       {"age", 1},
       {"reads", 2},
       {"coverage", 0.25},
+      {"vaccinated", false},
       {"main", MAIN_SEQUENCE},
    },
    {
@@ -63,6 +68,7 @@ const std::vector<nlohmann::json> DATA = {
       {"age", nullptr},
       {"reads", nullptr},
       {"coverage", nullptr},
+      {"vaccinated", nullptr},
       {"main", MAIN_SEQUENCE},
    },
 };
@@ -82,6 +88,8 @@ schema:
       type: "int64"
     - name: "coverage"
       type: "float"
+    - name: "vaccinated"
+      type: "boolean"
   primaryKey: "primaryKey"
 )";
 
@@ -223,16 +231,100 @@ const QueryTestScenario COUNT_PER_GROUP_WITH_CUSTOM_NAME = {
    ])"),
 };
 
-// count(<column>) is not yet implemented. Without grouping keys this used to be silently rewritten
-// into a full count(*) (returning the wrong result); it must surface the same error the grouped
-// case already gives.
-const QueryTestScenario COUNT_OF_COLUMN_WITHOUT_GROUPS = {
-   .name = "COUNT_OF_COLUMN_WITHOUT_GROUPS",
-   .query = "data.group(by:={}, aggs:={n := count(country)})",
-   .expected_error_message = "count(<column_ref>) not yet implemented",
+// count(column) only counts the rows whose value in the column is not null, unlike count()
+const QueryTestScenario COUNT_COLUMN_PER_GROUP = {
+   .name = "COUNT_COLUMN_PER_GROUP",
+   .query =
+      "data.group(by:={country}, aggs:={n:=count(), with_age:=count(age), "
+      "with_coverage:=count(coverage)}).order(by:={country})",
+   .expected_query_result = nlohmann::json::parse(R"([
+      {"country": null, "n": 1, "with_age": 1, "with_coverage": 1},
+      {"country": "France", "n": 1, "with_age": 0, "with_coverage": 0},
+      {"country": "Germany", "n": 2, "with_age": 1, "with_coverage": 1},
+      {"country": "Switzerland", "n": 2, "with_age": 2, "with_coverage": 2}
+   ])"),
+};
+
+const QueryTestScenario COUNT_COLUMN_WITHOUT_GROUPS = {
+   .name = "COUNT_COLUMN_WITHOUT_GROUPS",
+   .query = "data.group(by:={}, aggs:={with_country:=count(country), with_reads:=count(reads)})",
+   .expected_query_result = nlohmann::json::parse(R"([{"with_country": 5, "with_reads": 4}])"),
+};
+
+const QueryTestScenario COUNT_COLUMN_OVER_NO_ROWS = {
+   .name = "COUNT_COLUMN_OVER_NO_ROWS",
+   .query = "data.filter(country = 'Italy').group(by:={}, aggs:={with_age:=count(age)})",
+   .expected_query_result = nlohmann::json::parse(R"([{"with_age": 0}])"),
+};
+
+const QueryTestScenario COUNT_OF_TWO_COLUMNS = {
+   .name = "COUNT_OF_TWO_COLUMNS",
+   .query = "data.group(by:={}, aggs:={n:=count(age, reads)})",
+   .expected_error_message =
+      "aggregate 'n': count expects no argument or exactly one column argument, e.g. count() or "
+      "count(age)",
+};
+
+const QueryTestScenario COUNT_OF_UNKNOWN_COLUMN = {
+   .name = "COUNT_OF_UNKNOWN_COLUMN",
+   .query = "data.group(by:={}, aggs:={n:=count(weight)})",
+   .expected_error_message = "source column weight is not present in the input's output schema",
+};
+
+// Null values are skipped; France has no non-null value, so its extrema are null
+const QueryTestScenario MIN_MAX_PER_GROUP = {
+   .name = "MIN_MAX_PER_GROUP",
+   .query =
+      "data.group(by:={country}, aggs:={youngest:=min(age), oldest:=max(age), "
+      "least_reads:=min(reads), max_coverage:=max(coverage)}).order(by:={country})",
+   .expected_query_result = nlohmann::json::parse(R"([
+      {"country": null, "youngest": 1, "oldest": 1, "least_reads": 2, "max_coverage": 0.25},
+      {"country": "France", "youngest": null, "oldest": null, "least_reads": null, "max_coverage": null},
+      {"country": "Germany", "youngest": 10, "oldest": 10, "least_reads": 1, "max_coverage": 2.0},
+      {"country": "Switzerland", "youngest": 5, "oldest": 7, "least_reads": 3000000000, "max_coverage": 1.25}
+   ])"),
+};
+
+const QueryTestScenario MIN_MAX_OF_STRING_COLUMN = {
+   .name = "MIN_MAX_OF_STRING_COLUMN",
+   .query = "data.group(by:={}, aggs:={first:=min(country), last:=max(country)})",
+   .expected_query_result =
+      nlohmann::json::parse(R"([{"first": "France", "last": "Switzerland"}])"),
+};
+
+// false < true; Switzerland has both values, so its extrema differ
+const QueryTestScenario MIN_MAX_OF_BOOL_COLUMN = {
+   .name = "MIN_MAX_OF_BOOL_COLUMN",
+   .query =
+      "data.group(by:={country}, aggs:={min_vaccinated:=min(vaccinated), "
+      "max_vaccinated:=max(vaccinated)}).order(by:={country})",
+   .expected_query_result = nlohmann::json::parse(R"([
+      {"country": null, "min_vaccinated": false, "max_vaccinated": false},
+      {"country": "France", "min_vaccinated": null, "max_vaccinated": null},
+      {"country": "Germany", "min_vaccinated": true, "max_vaccinated": true},
+      {"country": "Switzerland", "min_vaccinated": false, "max_vaccinated": true}
+   ])"),
+};
+
+const QueryTestScenario MAX_WITHOUT_COLUMN = {
+   .name = "MAX_WITHOUT_COLUMN",
+   .query = "data.group(by:={}, aggs:={oldest:=max()})",
+   .expected_error_message =
+      "aggregate 'oldest': max expects exactly one column argument, e.g. max(age)",
 };
 
 }  // namespace
+
+QUERY_TEST(
+   AggregateMinMax,
+   TEST_DATA,
+   ::testing::Values(
+      MIN_MAX_PER_GROUP,
+      MIN_MAX_OF_STRING_COLUMN,
+      MIN_MAX_OF_BOOL_COLUMN,
+      MAX_WITHOUT_COLUMN
+   )
+);
 
 QUERY_TEST(
    AggregateSum,
@@ -260,6 +352,10 @@ QUERY_TEST(
    ::testing::Values(
       COUNT_STAR_WITH_CUSTOM_NAME,
       COUNT_PER_GROUP_WITH_CUSTOM_NAME,
-      COUNT_OF_COLUMN_WITHOUT_GROUPS
+      COUNT_COLUMN_PER_GROUP,
+      COUNT_COLUMN_WITHOUT_GROUPS,
+      COUNT_COLUMN_OVER_NO_ROWS,
+      COUNT_OF_TWO_COLUMNS,
+      COUNT_OF_UNKNOWN_COLUMN
    )
 );

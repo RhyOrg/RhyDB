@@ -128,13 +128,17 @@ Currently supported aggregate functions:
 | Function | Result |
 |----------|--------|
 | `count()` | The number of rows in the group (an `int64`). |
+| `count(column)` | The number of rows in the group whose value in `column` is not null (an `int64`). |
 | `sum(column)` | The sum of a numeric column over the rows in the group. Sums of `int` and `int64` columns are `int64`, sums of `float` columns are `float`. Null values are skipped; a group with no non-null value (or no rows at all, when there are no `by` columns) sums to null. |
+| `min(column)` / `max(column)` | The smallest / largest value of a numeric, date, string or boolean column over the rows in the group, of the column's type. Null values are skipped; a group with no non-null value is null. |
 
 ```
 data.group(by:={}, aggs:={count:=count()})
 data.group(by:={pango_lineage}, aggs:={count:=count()})
 data.group(by:={country, pango_lineage}, aggs:={count:=count()})
 data.group(by:={country}, aggs:={count:=count(), total_age:=sum(age)})
+data.group(by:={country}, aggs:={count:=count(), with_age:=count(age)})
+data.group(by:={}, aggs:={youngest:=min(age), oldest:=max(age)})
 ```
 
 **Output:** one row per group, containing the named aggregation fields and the `by` columns. Rows where a `by` column is null form their own group with a null value for that column.
