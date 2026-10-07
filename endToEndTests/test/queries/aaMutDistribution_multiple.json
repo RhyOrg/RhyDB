@@ -1,6 +1,6 @@
 {
   "testCaseName": "The distribution of Amino Acid Mutations action for multiple sequences",
-  "query": "default.aminoAcidMutations(minProportion:=0.3, sequenceNames:={S, N})",
+  "query": "data.aminoAcidMutations(minProportion:=0.3, sequenceNames:={S, N})",
   "expectedQueryResult": [
     {
       "count": 37,

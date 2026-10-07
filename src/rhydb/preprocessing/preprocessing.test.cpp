@@ -162,7 +162,7 @@ schema:
 })",
    .assertion{
       .expected_row_count = 2,
-      .query = "default.project({accessionVersion, someShortGene, secondSegment, "
+      .query = "data.project({accessionVersion, someShortGene, secondSegment, "
                "country}).order(by:={accessionVersion})",
       .expected_query_result = nlohmann::json::parse(R"(
    [{
@@ -176,8 +176,8 @@ schema:
       "country": "Germany",
       "someShortGene": null,
       "secondSegment": null
-   }])")
-   }
+   }])"),
+   },
 };
 
 const Scenario<Success> NDJSON_WITH_SQL_KEYWORD_AS_FIELD = {
@@ -228,14 +228,14 @@ schema:
 })",
    .assertion{
       .expected_row_count = 2,
-      .query = "default.group(by:={group},aggs:={count:=count()}).order(by:={group})",
+      .query = "data.group(by:={group},aggs:={count:=count()}).order(by:={group})",
       .expected_query_result = nlohmann::json::parse(
          R"([
          {"count": 1, "group": null},
          {"count": 1, "group": "dummyValue"}
    ])"
-      )
-   }
+      ),
+   },
 };
 
 const Scenario<Success> NDJSON_WITH_NUMERIC_NAMES = {
@@ -301,14 +301,14 @@ schema:
 })",
    .assertion{
       .expected_row_count = 2,
-      .query = R"(default.group(by:={"2"},aggs:={count:=count()}).order(by:={"2"}))",
+      .query = R"(data.group(by:={"2"},aggs:={count:=count()}).order(by:={"2"}))",
       .expected_query_result = nlohmann::json::parse(
          R"([
          {"count": 1, "2": null},
          {"count": 1, "2": "google.com"}
    ])"
-      )
-   }
+      ),
+   },
 };
 
 const Scenario<Success> EMPTY_INPUT_NDJSON = {
@@ -353,10 +353,10 @@ schema:
    .lineage_trees = {{"test_lineage_definition.yaml", "main: ~\n"}},
    .assertion{
       .expected_row_count = 0,
-      .query = "default",
+      .query = "data",
       .expected_query_result = nlohmann::json::parse(R"(
-[])")
-   }
+[])"),
+   },
 };
 
 const Scenario<Success> EMPTY_INPUT_NDJSON_UNPARTITIONED = {
@@ -398,10 +398,10 @@ schema:
 })",
    .assertion{
       .expected_row_count = 0,
-      .query = "default",
+      .query = "data",
       .expected_query_result = nlohmann::json::parse(R"(
-[])")
-   }
+[])"),
+   },
 };
 
 const Scenario<Success> NO_GENES = {
@@ -443,10 +443,10 @@ schema:
 })",
    .assertion{
       .expected_row_count = 100,
-      .query = "default.group(by:={}, aggs:={count:=count()})",
+      .query = "data.group(by:={}, aggs:={count:=count()})",
       .expected_query_result = nlohmann::json::parse(R"(
-[{"count":100}])")
-   }
+[{"count":100}])"),
+   },
 };
 
 const Scenario<Success> NO_NUCLEOTIDE_SEQUENCES = {
@@ -487,10 +487,10 @@ schema:
 })",
    .assertion{
       .expected_row_count = 100,
-      .query = "default.group(by:={}, aggs:={count:=count()})",
+      .query = "data.group(by:={}, aggs:={count:=count()})",
       .expected_query_result = nlohmann::json::parse(R"(
-[{"count":100}])")
-   }
+[{"count":100}])"),
+   },
 };
 
 const Scenario<Success> NO_SEQUENCES = {
@@ -526,10 +526,10 @@ schema:
 )",
    .assertion{
       .expected_row_count = 100,
-      .query = "default.group(by:={}, aggs:={count:=count()})",
+      .query = "data.group(by:={}, aggs:={count:=count()})",
       .expected_query_result = nlohmann::json::parse(R"(
-[{"count":100}])")
-   }
+[{"count":100}])"),
+   },
 };
 
 const Scenario<Success> DIVERSE_SEQUENCE_NAMES_NDJSON = {
@@ -651,10 +651,10 @@ schema:
 })",
    .assertion{
       .expected_row_count = 2,
-      .query = "default.group(by:={}, aggs:={count:=count()})",
+      .query = "data.group(by:={}, aggs:={count:=count()})",
       .expected_query_result = nlohmann::json::parse(R"(
-[{"count":2}])")
-   }
+[{"count":2}])"),
+   },
 };
 
 const Scenario<Success> PREVENT_LATE_AUTO_CASTING = {
@@ -689,10 +689,11 @@ schema:
 })",
    .assertion{
       .expected_row_count = 3,
-      .query = "default.order(by:={accessionVersion})",
+      .query = "data.order(by:={accessionVersion})",
       .expected_query_result = nlohmann::json::parse(R"(
-[{"accessionVersion":"0"},{"accessionVersion":"0.12"},{"accessionVersion":"text_without_quotes"}])")
-   }
+[{"accessionVersion":"0"},{"accessionVersion":"0.12"},{"accessionVersion":"text_without_quotes"}])"
+      ),
+   },
 };
 
 const Scenario<Success> DATE_COLUMN_VALID_DATES = {
@@ -719,13 +720,13 @@ schema:
    .reference_genomes = R"({"nucleotideSequences": [], "genes": []})",
    .assertion{
       .expected_row_count = 3,
-      .query = "default.order(by:={accessionVersion})",
+      .query = "data.order(by:={accessionVersion})",
       .expected_query_result = nlohmann::json::parse(R"([
          {"accessionVersion": "1", "theDate": "1969-12-31"},
          {"accessionVersion": "2", "theDate": "2021-03-15"},
          {"accessionVersion": "3", "theDate": null}
-      ])")
-   }
+      ])"),
+   },
 };
 
 const Scenario<Success> TWO_LINEAGE_SYSTEMS = {
@@ -767,26 +768,34 @@ schema:
   "genes": []
 })",
    .lineage_trees =
-      {{"lineage_definition_1.yaml", R"(
+      {
+         {
+            "lineage_definition_1.yaml",
+            R"(
 root_1: ~
 child_1:
   parents:
     - root_1
-  )"},
-       {"lineage_definition_2.yaml", R"(
+  )",
+         },
+         {
+            "lineage_definition_2.yaml",
+            R"(
 root_2: ~
 child_2:
   parents:
-    - root_2)"}},
+    - root_2)",
+         },
+      },
    .assertion{
       .expected_row_count = 3,
-      .query = "default.filter(lineage_1.lineage('root_1', includeSublineages:=true))"
+      .query = "data.filter(lineage_1.lineage('root_1', includeSublineages:=true))"
                ".order(by:={accessionVersion})",
       .expected_query_result = nlohmann::json::parse(R"([
 {"accessionVersion":"0","lineage_1":"root_1","lineage_2":"root_2"},
 {"accessionVersion":"1","lineage_1":"child_1","lineage_2":null}
-])")
-   }
+])"),
+   },
 };
 
 // A schema with `primaryKey: ~` declares no primary key, so the uniqueness validation that
@@ -818,13 +827,13 @@ schema:
 })",
    .assertion{
       .expected_row_count = 4,
-      .query = "default.group(by:={accessionVersion},aggs:={count:=count()}).order(by:={"
+      .query = "data.group(by:={accessionVersion},aggs:={count:=count()}).order(by:={"
                "accessionVersion})",
       .expected_query_result = nlohmann::json::parse(R"([
          {"count": 2, "accessionVersion": "id_1"},
          {"count": 2, "accessionVersion": "id_2"}
-      ])")
-   }
+      ])"),
+   },
 };
 
 class PreprocessorTestFixture : public ::testing::TestWithParam<Scenario<Success>> {};
@@ -899,7 +908,7 @@ schema:
   "nucleotideSequences": [],
   "genes": []
 })",
-   .assertion = {.error_message = "Found duplicate primary key id_1"}
+   .assertion = {.error_message = "Found duplicate primary key id_1"},
 };
 
 const Scenario<Error> MISSING_NUCLEOTIDE_SEQUENCE_INPUT = {
@@ -937,17 +946,19 @@ schema:
 )",
    .assertion{
       .error_message =
-         R"(preprocessing - exception when appending data: the column 'someSequence' is not contained in the object - current line: {"accessionVersion":"0.1"})"
-   }
+         R"(preprocessing - exception when appending data: the column 'someSequence' is not contained in the object - current line: {"accessionVersion":"0.1"})",
+   },
 };
 
 const Scenario<Error> TYPE_ERROR = {
    .test_name = "TYPE_ERROR",
    .input_data =
       [] {
-         std::vector<nlohmann::json> result{nlohmann::json::parse(R"({
+         std::vector<nlohmann::json> result{
+            nlohmann::json::parse(R"({
 "accessionVersion": 0
-})")};
+})"),
+         };
          return result;
       },
    .database_config =
@@ -967,19 +978,21 @@ schema:
 )",
    .assertion{
       .error_message =
-         R"(preprocessing - exception when appending data: error inserting into column 'accessionVersion': error getting value as string: 0. INCORRECT_TYPE: The JSON element does not have the requested type. - current line: {"accessionVersion":0})"
-   }
+         R"(preprocessing - exception when appending data: error inserting into column 'accessionVersion': error getting value as string: 0. INCORRECT_TYPE: The JSON element does not have the requested type. - current line: {"accessionVersion":0})",
+   },
 };
 
 const Scenario<Error> SEQUENCE_ILLEGAL_SYMBOL = {
    .test_name = "SEQUENCE_ILLEGAL_SYMBOL",
    .input_data =
       [] {
-         std::vector<nlohmann::json> result{nlohmann::json::parse(R"({
+         std::vector<nlohmann::json> result{
+            nlohmann::json::parse(R"({
 "accessionVersion": "1.3",
 "main": {"sequence": "ACET", "insertions": []},
 "unaligned_main": "ACGT"
-})")};
+})"),
+         };
          return result;
       },
    .database_config =
@@ -1003,8 +1016,8 @@ schema:
 })",
    .assertion{
       .error_message =
-         R"(preprocessing - exception when appending data: illegal character 'E' at position 2 in the input sequence)"
-   }
+         R"(preprocessing - exception when appending data: illegal character 'E' at position 2 in the input sequence)",
+   },
 };
 
 const Scenario<Error> NDJSON_FILE_WITH_SOME_MISSING_KEYS = {
@@ -1063,8 +1076,8 @@ schema:
 })",
    .assertion{
       .error_message =
-         R"(preprocessing - exception when appending data: Did not find the field 'country' in the given json - current line: {"accessionVersion":"1.3"})"
-   }
+         R"(preprocessing - exception when appending data: Did not find the field 'country' in the given json - current line: {"accessionVersion":"1.3"})",
+   },
 };
 
 const Scenario<Error> DATE_WRONG_FORMAT = {
@@ -1072,7 +1085,7 @@ const Scenario<Error> DATE_WRONG_FORMAT = {
    .input_data =
       [] {
          return std::vector<nlohmann::json>{
-            nlohmann::json::parse(R"({"accessionVersion": "1", "theDate": "2020/01/01"})")
+            nlohmann::json::parse(R"({"accessionVersion": "1", "theDate": "2020/01/01"})"),
          };
       },
    .database_config =
@@ -1089,8 +1102,8 @@ schema:
    .reference_genomes = R"({"nucleotideSequences": [], "genes": []})",
    .assertion{
       .error_message =
-         R"(error inserting into column 'theDate': Invalid date format '2020/01/01': expected exactly YYYY-MM-DD)"
-   }
+         R"(error inserting into column 'theDate': Invalid date format '2020/01/01': expected exactly YYYY-MM-DD)",
+   },
 };
 
 const Scenario<Error> DATE_INVALID_CALENDAR_DATE = {
@@ -1098,7 +1111,7 @@ const Scenario<Error> DATE_INVALID_CALENDAR_DATE = {
    .input_data =
       [] {
          return std::vector<nlohmann::json>{
-            nlohmann::json::parse(R"({"accessionVersion": "1", "theDate": "2023-02-30"})")
+            nlohmann::json::parse(R"({"accessionVersion": "1", "theDate": "2023-02-30"})"),
          };
       },
    .database_config =
@@ -1115,8 +1128,8 @@ schema:
    .reference_genomes = R"({"nucleotideSequences": [], "genes": []})",
    .assertion{
       .error_message =
-         R"(error inserting into column 'theDate': Invalid calendar date '2023-02-30')"
-   }
+         R"(error inserting into column 'theDate': Invalid calendar date '2023-02-30')",
+   },
 };
 
 const Scenario<Error> SEQUENCE_LONGER_THAN_REFERENCE = {
@@ -1152,8 +1165,8 @@ schema:
 })",
    .assertion{
       .error_message =
-         R"(preprocessing - exception when appending data: the sequence 'ACGTA' which was inserted with an offset 0 is larger than the length of the reference genome: 4)"
-   }
+         R"(preprocessing - exception when appending data: the sequence 'ACGTA' which was inserted with an offset 0 is larger than the length of the reference genome: 4)",
+   },
 };
 
 INSTANTIATE_TEST_SUITE_P(PreprocessorTest, InvalidPreprocessorTestFixture, ::testing::Values(DUPLICATE_PRIMARY_KEY, MISSING_NUCLEOTIDE_SEQUENCE_INPUT, TYPE_ERROR, SEQUENCE_ILLEGAL_SYMBOL, NDJSON_FILE_WITH_SOME_MISSING_KEYS, SEQUENCE_LONGER_THAN_REFERENCE, DATE_WRONG_FORMAT, DATE_INVALID_CALENDAR_DATE), printTestName<Error>);
@@ -1164,7 +1177,7 @@ TEST_P(InvalidPreprocessorTestFixture, shouldNotProcessData) {
    auto preprocessing_config = prepareInputDirAndPreprocessorForScenario(scenario);
    EXPECT_THAT(
       // NOLINTNEXTLINE(clang-diagnostic-error)
-      [&]() { rhydb::preprocessing::preprocessing(preprocessing_config); },
+      [&] { rhydb::preprocessing::preprocessing(preprocessing_config); },
       ThrowsMessage<PreprocessingException>(::testing::HasSubstr(scenario.assertion.error_message))
    );
    std::filesystem::remove_all(preprocessing_config.initialization_files.directory);

@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "rhydb/common/nucleotide_symbols.h"
@@ -64,10 +65,12 @@ std::shared_ptr<rhydb::storage::Table> tableWithColumns() {
       {INT64_COLUMN, std::make_shared<ColumnMetadata>(INT64_COLUMN.name)},
       {FLOAT_COLUMN, std::make_shared<ColumnMetadata>(FLOAT_COLUMN.name)},
       {BOOL_COLUMN, std::make_shared<ColumnMetadata>(BOOL_COLUMN.name)},
-      {NUC_COLUMN,
-       std::make_shared<SequenceColumnMetadata<Nucleotide>>(
-          NUC_COLUMN.name, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::A}
-       )}
+      {
+         NUC_COLUMN,
+         std::make_shared<SequenceColumnMetadata<Nucleotide>>(
+            NUC_COLUMN.name, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::A}
+         ),
+      },
    };
    auto schema = std::make_shared<rhydb::schema::TableSchema>(std::move(col_meta), ID_COLUMN);
    return std::make_shared<rhydb::storage::Table>(rhydb::schema::TableName::getDefault(), schema);
@@ -88,12 +91,12 @@ operators::QueryNodePtr makeMapWithAt(
    const ColumnIdentifier& at_column
 ) {
    std::vector<operators::MapNode::Assignment> assignments;
-   assignments.push_back(
-      {.output_column = {.name = field, .type = ColumnType::STRING},
-       .expression = std::make_unique<scalar_expressions::At>(
-          std::make_unique<scalar_expressions::FieldRef>(at_column), 1
-       )}
-   );
+   assignments.push_back({
+      .output_column = {.name = field, .type = ColumnType::STRING},
+      .expression = std::make_unique<scalar_expressions::At>(
+         std::make_unique<scalar_expressions::FieldRef>(at_column), 1
+      ),
+   });
    return std::make_unique<operators::MapNode>(std::move(child), std::move(assignments));
 }
 
@@ -104,12 +107,12 @@ operators::QueryNodePtr makeMapWithIsoWeek(
    const ColumnIdentifier& date_column
 ) {
    std::vector<operators::MapNode::Assignment> assignments;
-   assignments.push_back(
-      {.output_column = {.name = field, .type = ColumnType::STRING},
-       .expression = std::make_unique<scalar_expressions::IsoWeek>(
-          std::make_unique<scalar_expressions::FieldRef>(date_column)
-       )}
-   );
+   assignments.push_back({
+      .output_column = {.name = field, .type = ColumnType::STRING},
+      .expression = std::make_unique<scalar_expressions::IsoWeek>(
+         std::make_unique<scalar_expressions::FieldRef>(date_column)
+      ),
+   });
    return std::make_unique<operators::MapNode>(std::move(child), std::move(assignments));
 }
 
@@ -121,10 +124,10 @@ operators::QueryNodePtr makeMapWithFieldRef(
    ColumnType output_type = ColumnType::STRING
 ) {
    std::vector<operators::MapNode::Assignment> assignments;
-   assignments.push_back(
-      {.output_column = {.name = field, .type = output_type},
-       .expression = std::make_unique<scalar_expressions::FieldRef>(source_column)}
-   );
+   assignments.push_back({
+      .output_column = {.name = field, .type = output_type},
+      .expression = std::make_unique<scalar_expressions::FieldRef>(source_column),
+   });
    return std::make_unique<operators::MapNode>(std::move(child), std::move(assignments));
 }
 
@@ -132,12 +135,12 @@ operators::QueryNodePtr makeMapWithFieldRef(
 /// sequence-position key next to whatever the map already computes.
 operators::QueryNodePtr withSequencePosition(operators::QueryNodePtr map) {
    auto& map_node = dynamic_cast<operators::MapNode&>(*map);
-   map_node.assignments.push_back(
-      {.output_column = {.name = "s", .type = ColumnType::STRING},
-       .expression = std::make_unique<scalar_expressions::At>(
-          std::make_unique<scalar_expressions::FieldRef>(NUC_COLUMN), 1
-       )}
-   );
+   map_node.assignments.push_back({
+      .output_column = {.name = "s", .type = ColumnType::STRING},
+      .expression = std::make_unique<scalar_expressions::At>(
+         std::make_unique<scalar_expressions::FieldRef>(NUC_COLUMN), 1
+      ),
+   });
    return map;
 }
 
@@ -148,10 +151,10 @@ operators::QueryNodePtr makeMapOverridingColumn(
    const ColumnIdentifier& column
 ) {
    std::vector<operators::MapNode::Assignment> assignments;
-   assignments.push_back(
-      {.output_column = column,
-       .expression = std::make_unique<scalar_expressions::StringLiteral>("overridden")}
-   );
+   assignments.push_back({
+      .output_column = column,
+      .expression = std::make_unique<scalar_expressions::StringLiteral>("overridden"),
+   });
    return std::make_unique<operators::MapNode>(std::move(child), std::move(assignments));
 }
 
@@ -168,9 +171,11 @@ operators::QueryNodePtr makeGroupByCount(
       group_by.push_back({.name = field, .type = ColumnType::STRING});
    }
    std::vector<operators::AggregateDefinition> aggregates{
-      {.output_name = "count",
-       .function = operators::AggregateFunction::COUNT,
-       .source_column = std::move(count_source)}
+      {
+         .output_name = "count",
+         .function = operators::AggregateFunction::COUNT,
+         .source_column = std::move(count_source),
+      },
    };
    return std::make_unique<operators::AggregateNode>(
       std::move(child), std::move(group_by), std::move(aggregates)
@@ -304,6 +309,55 @@ TEST(BitmapAggregationRewritePass, declinesWhenGroupingOnNonIndexedColumn) {
 // A count with a source column is not the bare count() the rewrite recognizes, so it declines.
 TEST(BitmapAggregationRewritePass, declinesWhenAggregateIsNotBareCount) {
    auto node = makeGroupByCount(makeMapWithAt(makeScan(), "s", NUC_COLUMN), {"s"}, NUC_COLUMN);
+
+   auto result = BitmapAggregationRewritePass::run(std::move(node));
+
+   EXPECT_EQ(result->kind(), operators::NodeKind::AGGREGATE);
+}
+
+// --- bare count(*) with no grouping keys -> CountFilterNode ---
+
+// A full count(*) directly over a scan is the filter's cardinality: replaced by a CountFilterNode
+// that carries the query-assigned output name.
+TEST(BitmapAggregationRewritePass, rewritesBareCountOverScanToCountFilter) {
+   auto node = makeGroupByCount(makeScan(), {});
+
+   auto result = BitmapAggregationRewritePass::run(std::move(node));
+
+   ASSERT_EQ(result->kind(), operators::NodeKind::COUNT_FILTER);
+   EXPECT_THAT(
+      result->getOutputSchema(),
+      ::testing::ElementsAre(ColumnIdentifier{.name = "count", .type = ColumnType::INT64})
+   );
+}
+
+// The map that `data` inserts to decompress sequence columns is row-preserving and reads no
+// column the count needs, so a count(*) over such a map still collapses to a CountFilterNode.
+TEST(BitmapAggregationRewritePass, rewritesBareCountOverMapToCountFilter) {
+   auto node = makeGroupByCount(makeMapWithFieldRef(makeScan(), "k", ID_COLUMN), {});
+
+   auto result = BitmapAggregationRewritePass::run(std::move(node));
+
+   EXPECT_EQ(result->kind(), operators::NodeKind::COUNT_FILTER);
+}
+
+// A bare count(*) that does not sit on a (map over a) scan is left for the generic pipeline.
+TEST(BitmapAggregationRewritePass, declinesBareCountOverNonScan) {
+   auto filtered_scan = std::make_unique<operators::FilterNode>(
+      makeScan(), std::make_unique<scalar_expressions::BoolLiteral>(true)
+   );
+   auto node = makeGroupByCount(std::move(filtered_scan), {});
+
+   operators::QueryNodePtr result;
+   ASSERT_NO_THROW(result = BitmapAggregationRewritePass::run(std::move(node)));
+   EXPECT_EQ(result->kind(), operators::NodeKind::AGGREGATE);
+}
+
+// count(<column>) without grouping keys is not the bare count(*) the rewrite handles: it must stay
+// an AggregateNode so the generic path reports it as not-yet-implemented rather than the rewrite
+// silently turning it into a count(*).
+TEST(BitmapAggregationRewritePass, declinesBareCountWithSourceColumn) {
+   auto node = makeGroupByCount(makeScan(), {}, ID_COLUMN);
 
    auto result = BitmapAggregationRewritePass::run(std::move(node));
 

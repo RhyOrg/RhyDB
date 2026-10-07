@@ -22,7 +22,7 @@ struct RowId {
    static constexpr RowId fromGlobal(uint32_t global_row_id) {
       return {
          .chunk_id = static_cast<uint16_t>(global_row_id >> 16),
-         .row_in_chunk = static_cast<uint16_t>(global_row_id & 0xFFFF)
+         .row_in_chunk = static_cast<uint16_t>(global_row_id & 0xFFFF),
       };
    }
 

@@ -1,6 +1,6 @@
 {
   "testCaseName": "An invalid orderByField for the Aggregated Action",
-  "query": "default.group(by:={pango_lineage},aggs:={count:=count()}).order(by:={age})",
+  "query": "data.group(by:={pango_lineage},aggs:={count:=count()}).order(by:={age})",
   "expectedError": {
     "error": "Bad request",
     "message": "OrderByField age is not contained in the result of this operation. Allowed values are pango_lineage, count."

@@ -18,7 +18,7 @@ nlohmann::json createData(
       {"segment1", nullptr},
       {"gene1", nullptr},
       {"unaligned_segment1", nullptr},
-      {"date", date_value}
+      {"date", date_value},
    };
 }
 
@@ -31,7 +31,7 @@ const std::vector<nlohmann::json> DATA = {
    createData("id_2", 1, nullptr),
    createData("id_3", 1, "2023-01-01"),
    createData("id_4", 2, nullptr),
-   createData("id_5", 2, "2023-01-01")
+   createData("id_5", 2, "2023-01-01"),
 };
 
 const auto DATABASE_CONFIG =
@@ -56,20 +56,20 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{
 const QueryTestData TEST_DATA{
    .ndjson_input_data = DATA,
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 // order ascending + limit: the three smallest rows, nulls (smallest) first.
 const QueryTestScenario ASC_LIMIT_SCENARIO = {
    .name = "ORDER_BY_WITH_LIMIT_ASC",
    .query =
-      "default.project({primaryKey, int_value, date}).order(by:={int_value.asc(), "
+      "data.project({primaryKey, int_value, date}).order(by:={int_value.asc(), "
       "date.asc()}).limit(3)",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
-       {{"primaryKey", "id_1"}, {"int_value", nullptr}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}}}
-   )
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
+      {{"primaryKey", "id_1"}, {"int_value", nullptr}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}},
+   }),
 };
 
 // order descending + limit: the three largest rows, nulls (smallest) sort last so they do not
@@ -77,60 +77,59 @@ const QueryTestScenario ASC_LIMIT_SCENARIO = {
 const QueryTestScenario DESC_LIMIT_SCENARIO = {
    .name = "ORDER_BY_WITH_LIMIT_DESC",
    .query =
-      "default.project({primaryKey, int_value, date}).order(by:={int_value.desc(), "
+      "data.project({primaryKey, int_value, date}).order(by:={int_value.desc(), "
       "date.desc()}).limit(3)",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_5"}, {"int_value", 2}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_4"}, {"int_value", 2}, {"date", nullptr}},
-       {{"primaryKey", "id_3"}, {"int_value", 1}, {"date", "2023-01-01"}}}
-   )
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_5"}, {"int_value", 2}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_4"}, {"int_value", 2}, {"date", nullptr}},
+      {{"primaryKey", "id_3"}, {"int_value", 1}, {"date", "2023-01-01"}},
+   }),
 };
 
 // A limit larger than the input returns every row, still fully ordered.
 const QueryTestScenario LIMIT_LARGER_THAN_INPUT_SCENARIO = {
    .name = "ORDER_BY_WITH_LIMIT_LARGER_THAN_INPUT",
-   .query =
-      "default.project({primaryKey, date}).order(by:={date.asc(), primaryKey.asc()}).limit(100)",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"date", nullptr}},
-       {{"primaryKey", "id_2"}, {"date", nullptr}},
-       {{"primaryKey", "id_4"}, {"date", nullptr}},
-       {{"primaryKey", "id_1"}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_3"}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_5"}, {"date", "2023-01-01"}}}
-   )
+   .query = "data.project({primaryKey, date}).order(by:={date.asc(), primaryKey.asc()}).limit(100)",
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"date", nullptr}},
+      {{"primaryKey", "id_2"}, {"date", nullptr}},
+      {{"primaryKey", "id_4"}, {"date", nullptr}},
+      {{"primaryKey", "id_1"}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_3"}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_5"}, {"date", "2023-01-01"}},
+   }),
 };
 
 // A filter applied to the *output* of a limit must run after the limit, not be pushed below it.
 const QueryTestScenario FILTER_ABOVE_LIMIT_SCENARIO = {
    .name = "FILTER_ABOVE_LIMIT_NOT_PUSHED_BELOW",
    .query =
-      "default.project({primaryKey, int_value, date}).order(by:={int_value.asc(), "
+      "data.project({primaryKey, int_value, date}).order(by:={int_value.asc(), "
       "date.asc()}).limit(3).filter(int_value = 1)",
    .expected_query_result =
-      nlohmann::json({{{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}}})
+      nlohmann::json({{{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}}}),
 };
 
 // The same barrier for a plain FetchNode (a `limit` with no preceding `order`, so no top-k
 // rewrite).
 const QueryTestScenario FILTER_ABOVE_PLAIN_LIMIT_SCENARIO = {
    .name = "FILTER_ABOVE_PLAIN_LIMIT_NOT_PUSHED_BELOW",
-   .query = "default.project({primaryKey, int_value}).limit(3).filter(int_value = 1)",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_2"}, {"int_value", 1}}})
+   .query = "data.project({primaryKey, int_value}).limit(3).filter(int_value = 1)",
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_2"}, {"int_value", 1}}}),
 };
 
 // Same query with multiple batches
 const QueryTestScenario MULTI_BATCH_SCENARIO = {
    .name = "ORDER_BY_WITH_LIMIT_MULTI_BATCH",
    .query =
-      "default.project({primaryKey, int_value, date}).order(by:={int_value.asc(), "
+      "data.project({primaryKey, int_value, date}).order(by:={int_value.asc(), "
       "date.asc()}).limit(3)",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
-       {{"primaryKey", "id_1"}, {"int_value", nullptr}, {"date", "2023-01-01"}},
-       {{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}}}
-   ),
-   .query_options = rhydb::config::QueryOptions{.materialization_cutoff = 2}
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"int_value", nullptr}, {"date", nullptr}},
+      {{"primaryKey", "id_1"}, {"int_value", nullptr}, {"date", "2023-01-01"}},
+      {{"primaryKey", "id_2"}, {"int_value", 1}, {"date", nullptr}},
+   }),
+   .query_options = rhydb::config::QueryOptions{.materialization_cutoff = 2},
 };
 
 // An empty input must not crash the sort+limit path (See
@@ -138,10 +137,10 @@ const QueryTestScenario MULTI_BATCH_SCENARIO = {
 const QueryTestScenario EMPTY_INPUT_SCENARIO = {
    .name = "ORDER_BY_WITH_LIMIT_EMPTY_INPUT",
    .query =
-      "default.filter(int_value = 999).project({primaryKey, "
+      "data.filter(int_value = 999).project({primaryKey, "
       "int_value}).order(by:={int_value.asc()})"
       ".limit(3)",
-   .expected_query_result = nlohmann::json::array()
+   .expected_query_result = nlohmann::json::array(),
 };
 
 }  // namespace

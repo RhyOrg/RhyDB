@@ -1,6 +1,6 @@
 {
   "testCaseName": "amino acid insertions contains filter",
-  "query": "default.filter(aminoAcidInsertionContains(position:=214, value:='E.*E', sequenceName:='S')).project(primary_key).order(by:={primary_key})",
+  "query": "data.filter(aminoAcidInsertionContains(position:=214, value:='E.*E', sequenceName:='S')).project(primary_key).order(by:={primary_key})",
   "expectedQueryResult": [
     {
       "primary_key": "key_29"

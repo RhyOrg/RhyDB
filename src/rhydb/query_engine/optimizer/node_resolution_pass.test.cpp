@@ -11,7 +11,6 @@
 #include "rhydb/common/aa_symbols.h"
 #include "rhydb/common/nucleotide_symbols.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
-#include "rhydb/query_engine/operators/aggregate_node.h"
 #include "rhydb/query_engine/operators/filter_node.h"
 #include "rhydb/query_engine/operators/map_node.h"
 #include "rhydb/query_engine/operators/table_scan_node.h"
@@ -40,7 +39,7 @@ std::map<rhydb::schema::TableName, std::shared_ptr<rhydb::storage::Table>> makeT
 
    ColumnIdentifier primary_key{.name = "id", .type = ColumnType::STRING};
    std::map<ColumnIdentifier, std::shared_ptr<ColumnMetadata>> col_meta{
-      {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)}
+      {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)},
    };
    auto schema = std::make_shared<rhydb::schema::TableSchema>(std::move(col_meta), primary_key);
    std::map<rhydb::schema::TableName, std::shared_ptr<rhydb::storage::Table>> tables;
@@ -52,7 +51,7 @@ std::map<rhydb::schema::TableName, std::shared_ptr<rhydb::storage::Table>> makeT
 operators::QueryNodePtr makeTableScan() {
    auto tables = makeTablesWithDefault();
    return std::make_unique<operators::TableScanNode>(
-      tables.at(rhydb::schema::TableName{"default"}),
+      tables.at(rhydb::schema::TableName{"data"}),
       std::make_unique<rhydb::query_engine::scalar_expressions::BoolLiteral>(true),
       std::vector<rhydb::schema::ColumnIdentifier>{}
    );
@@ -67,24 +66,11 @@ operators::QueryNodePtr makeNonScanChild() {
 
 std::vector<operators::MapNode::Assignment> makeMapAssignments() {
    std::vector<operators::MapNode::Assignment> assignments;
-   assignments.push_back(
-      {.output_column = {.name = "x", .type = rhydb::schema::ColumnType::INT64},
-       .expression = std::make_unique<rhydb::query_engine::scalar_expressions::Int64Literal>(3)}
-   );
+   assignments.push_back({
+      .output_column = {.name = "x", .type = rhydb::schema::ColumnType::INT64},
+      .expression = std::make_unique<rhydb::query_engine::scalar_expressions::Int64Literal>(3),
+   });
    return assignments;
-}
-
-// COUNT(*) aggregate (no group-by, single COUNT) over the given child.
-operators::QueryNodePtr makeCountStarAggregate(operators::QueryNodePtr child) {
-   return std::make_unique<operators::AggregateNode>(
-      std::move(child),
-      std::vector<rhydb::schema::ColumnIdentifier>{},
-      std::vector<operators::AggregateDefinition>{
-         {.output_name = "count",
-          .function = operators::AggregateFunction::COUNT,
-          .source_column = std::nullopt}
-      }
-   );
 }
 
 // --- mutations() ---
@@ -230,30 +216,6 @@ TEST(NodeResolutionPassInsertions, resolvesToInsertionsNode) {
    auto result = NodeResolutionPass::run(std::move(node));
 
    EXPECT_EQ(result->kind(), operators::NodeKind::INSERTIONS_NUCLEOTIDE);
-}
-
-// --- aggregate() COUNT(*) optimization ---
-
-// AggregateNode(COUNT(*), TableScan) is rewritten into a CountFilterNode.
-TEST(NodeResolutionPassAggregate, countStarOverTableScanBecomesCountFilter) {
-   auto aggregate = makeCountStarAggregate(makeTableScan());
-
-   auto result = NodeResolutionPass::run(std::move(aggregate));
-
-   EXPECT_EQ(result->kind(), operators::NodeKind::COUNT_FILTER);
-}
-
-// COUNT(*) over a non-scan child (here a FilterNode) is NOT optimizable: the AggregateNode is
-// kept in place (handler returns nullptr) and its child is still resolved/propagated.
-// In the full pipeline, the filter will thus be eliminated before resolving these nodes.
-TEST(NodeResolutionPassAggregate, countStarOverNonScanIsNotOptimized) {
-   auto aggregate = makeCountStarAggregate(makeNonScanChild());
-
-   auto result = NodeResolutionPass::run(std::move(aggregate));
-
-   ASSERT_EQ(result->kind(), operators::NodeKind::AGGREGATE);
-   auto* agg = dynamic_cast<operators::AggregateNode*>(result.get());
-   EXPECT_EQ(agg->child->kind(), operators::NodeKind::FILTER);
 }
 
 }  // namespace

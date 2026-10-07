@@ -1,6 +1,6 @@
 {
   "testCaseName": "StringSearch with a regex matching the prefix",
-  "query": "default.filter(primary_key.like('^key_')).group(by:={}, aggs:={count:=count()})",
+  "query": "data.filter(primary_key.like('^key_')).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 100

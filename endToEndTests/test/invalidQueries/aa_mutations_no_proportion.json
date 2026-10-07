@@ -1,6 +1,6 @@
 {
   "testCaseName": "AminoAcidMutations action without minProportion",
-  "query": "default.filter(false).aminoAcidMutations()",
+  "query": "data.filter(false).aminoAcidMutations()",
   "expectedError": {
     "error": "Bad request",
     "message": "aminoAcidMutations() requires argument 'minProportion'"

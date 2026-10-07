@@ -16,7 +16,7 @@ nlohmann::json createData(
       {"primaryKey", primary_key},
       {"segment1", {{"sequence", nucleotide_sequence}, {"insertions", nlohmann::json::array()}}},
       {"gene1", {{"sequence", amino_acid_sequence}, {"insertions", nlohmann::json::array()}}},
-      {"gene2", nullptr}
+      {"gene2", nullptr},
    };
 }
 
@@ -49,16 +49,16 @@ const auto REFERENCE_GENOMES =
 const QueryTestData TEST_DATA{
    .ndjson_input_data =
       {
-         createData("seq_ref", "ATGCN", "M*"),       // 0 diffs from reference profile
-         createData("seq_1mut", "CTGCN", "C*"),      // 1 diff from reference profile (pos1)
-         createData("seq_2mut", "CTCCN", "M*"),      // 2 diffs from reference profile (pos1, pos3)
-         createData("seq_3mut", "CTCTN", "M*"),      // 3 diffs from reference profile (pos1,3,4)
-         createData("seq_all_n", "NNNNN", "M*"),     // 0 conservative diffs (N is compatible)
-         createData("seq_mixed_amb", "RTGCN", "M*")  // 0 diffs: R∈AMBIGUITY[A], conservative
+         createData("seq_ref", "ATGCN", "M*"),        // 0 diffs from reference profile
+         createData("seq_1mut", "CTGCN", "C*"),       // 1 diff from reference profile (pos1)
+         createData("seq_2mut", "CTCCN", "M*"),       // 2 diffs from reference profile (pos1, pos3)
+         createData("seq_3mut", "CTCTN", "M*"),       // 3 diffs from reference profile (pos1,3,4)
+         createData("seq_all_n", "NNNNN", "M*"),      // 0 conservative diffs (N is compatible)
+         createData("seq_mixed_amb", "RTGCN", "M*"),  // 0 diffs: R∈AMBIGUITY[A], conservative
       },
    .database_config = DATABASE_CONFIG,
    .reference_genomes = REFERENCE_GENOMES,
-   .without_unaligned_sequences = true
+   .without_unaligned_sequences = true,
 };
 
 // ------ Tests using mutations input method ------
@@ -68,33 +68,33 @@ const QueryTestData TEST_DATA{
 const QueryTestScenario MUTATIONS_DISTANCE_0 = {
    .name = "MUTATIONS_DISTANCE_0",
    .query =
-      "default.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
+      "data.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
       "mutations:={})).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"seq_ref"},{"primaryKey":"seq_all_n"},{"primaryKey":"seq_mixed_amb"}])"
-   )
+   ),
 };
 
 // Profile = reference, distance=1 → matches 0 or 1 difference
 const QueryTestScenario MUTATIONS_DISTANCE_1 = {
    .name = "MUTATIONS_DISTANCE_1",
    .query =
-      "default.filter(nucleotideMutationProfile(distance:=1, sequenceName:='segment1', "
+      "data.filter(nucleotideMutationProfile(distance:=1, sequenceName:='segment1', "
       "mutations:={})).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"seq_ref"},{"primaryKey":"seq_1mut"},{"primaryKey":"seq_all_n"},{"primaryKey":"seq_mixed_amb"}])"
-   )
+   ),
 };
 
 // Profile = reference, distance=2 → matches 0, 1, or 2 differences
 const QueryTestScenario MUTATIONS_DISTANCE_2 = {
    .name = "MUTATIONS_DISTANCE_2",
    .query =
-      "default.filter(nucleotideMutationProfile(distance:=2, sequenceName:='segment1', "
+      "data.filter(nucleotideMutationProfile(distance:=2, sequenceName:='segment1', "
       "mutations:={})).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"seq_ref"},{"primaryKey":"seq_1mut"},{"primaryKey":"seq_2mut"},{"primaryKey":"seq_all_n"},{"primaryKey":"seq_mixed_amb"}])"
-   )
+   ),
 };
 
 // Profile with explicit mutation C at 1-based position 1, distance=0
@@ -103,10 +103,10 @@ const QueryTestScenario MUTATIONS_DISTANCE_2 = {
 const QueryTestScenario MUTATIONS_WITH_PROFILE_DISTANCE_0 = {
    .name = "MUTATIONS_WITH_PROFILE_DISTANCE_0",
    .query =
-      "default.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
+      "data.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
       "mutations:={{position:=1, symbol:='C'}})).project(primaryKey)",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"seq_1mut"},{"primaryKey":"seq_all_n"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"seq_1mut"},{"primaryKey":"seq_all_n"}])"),
 };
 
 // ------ Tests using querySequence input method ------
@@ -116,22 +116,22 @@ const QueryTestScenario MUTATIONS_WITH_PROFILE_DISTANCE_0 = {
 const QueryTestScenario QUERY_SEQUENCE_DISTANCE_0 = {
    .name = "QUERY_SEQUENCE_DISTANCE_0",
    .query =
-      "default.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
+      "data.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
       "querySequence:='ATGCN')).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"seq_ref"},{"primaryKey":"seq_all_n"},{"primaryKey":"seq_mixed_amb"}])"
-   )
+   ),
 };
 
 // querySequence wrong length
 const QueryTestScenario QUERY_SEQUENCE_WRONG_LENGTH = {
    .name = "QUERY_SEQUENCE_WRONG_LENGTH",
    .query =
-      "default.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
+      "data.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
       "querySequence:='ATG')).project(primaryKey)",
    .expected_error_message =
       "querySequence length 3 does not match the reference sequence length 5 for Nucleotide "
-      "MutationProfile"
+      "MutationProfile",
 };
 
 // ------ Tests using sequenceId input method ------
@@ -141,42 +141,42 @@ const QueryTestScenario QUERY_SEQUENCE_WRONG_LENGTH = {
 const QueryTestScenario SEQUENCE_ID_DISTANCE_0 = {
    .name = "SEQUENCE_ID_DISTANCE_0",
    .query =
-      "default.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
+      "data.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
       "sequenceId:='seq_1mut')).project(primaryKey)",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"seq_1mut"},{"primaryKey":"seq_all_n"}])")
+      nlohmann::json::parse(R"([{"primaryKey":"seq_1mut"},{"primaryKey":"seq_all_n"}])"),
 };
 
 // sequenceId not found
 const QueryTestScenario SEQUENCE_ID_NOT_FOUND = {
    .name = "SEQUENCE_ID_NOT_FOUND",
    .query =
-      "default.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
+      "data.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
       "sequenceId:='nonexistent_id')).project(primaryKey)",
    .expected_error_message =
-      "No sequence found with primary key 'nonexistent_id' in Nucleotide MutationProfile"
+      "No sequence found with primary key 'nonexistent_id' in Nucleotide MutationProfile",
 };
 
 // No input method provided
 const QueryTestScenario NO_INPUT_METHOD = {
    .name = "NO_INPUT_METHOD",
    .query =
-      "default.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1'))."
+      "data.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1'))."
       "project(primaryKey)",
    .expected_error_message =
       "Exactly one of 'querySequence', 'sequenceId', or 'mutations' must be provided in a "
-      "Nucleotide MutationProfile expression, but 0 were provided"
+      "Nucleotide MutationProfile expression, but 0 were provided",
 };
 
 // Two input methods provided
 const QueryTestScenario TWO_INPUT_METHODS = {
    .name = "TWO_INPUT_METHODS",
    .query =
-      "default.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
+      "data.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
       "mutations:={}, querySequence:='ATGCN')).project(primaryKey)",
    .expected_error_message =
       "Exactly one of 'querySequence', 'sequenceId', or 'mutations' must be provided in a "
-      "Nucleotide MutationProfile expression, but 2 were provided"
+      "Nucleotide MutationProfile expression, but 2 were provided",
 };
 
 // ------ AminoAcid tests ------
@@ -187,11 +187,11 @@ const QueryTestScenario TWO_INPUT_METHODS = {
 const QueryTestScenario AA_MUTATIONS_REFERENCE_DISTANCE_0 = {
    .name = "AA_MUTATIONS_REFERENCE_DISTANCE_0",
    .query =
-      "default.filter(aminoAcidMutationProfile(distance:=0, sequenceName:='gene1', "
+      "data.filter(aminoAcidMutationProfile(distance:=0, sequenceName:='gene1', "
       "mutations:={})).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"seq_ref"},{"primaryKey":"seq_2mut"},{"primaryKey":"seq_3mut"},{"primaryKey":"seq_all_n"},{"primaryKey":"seq_mixed_amb"}])"
-   )
+   ),
 };
 
 // Profile = gene1 reference, distance=1
@@ -199,11 +199,11 @@ const QueryTestScenario AA_MUTATIONS_REFERENCE_DISTANCE_0 = {
 const QueryTestScenario AA_MUTATIONS_REFERENCE_DISTANCE_1 = {
    .name = "AA_MUTATIONS_REFERENCE_DISTANCE_1",
    .query =
-      "default.filter(aminoAcidMutationProfile(distance:=1, sequenceName:='gene1', "
+      "data.filter(aminoAcidMutationProfile(distance:=1, sequenceName:='gene1', "
       "mutations:={})).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"seq_ref"},{"primaryKey":"seq_1mut"},{"primaryKey":"seq_2mut"},{"primaryKey":"seq_3mut"},{"primaryKey":"seq_all_n"},{"primaryKey":"seq_mixed_amb"}])"
-   )
+   ),
 };
 
 // Profile = "C*" via mutations=[{pos:1, sym:"C"}], distance=0
@@ -211,9 +211,9 @@ const QueryTestScenario AA_MUTATIONS_REFERENCE_DISTANCE_1 = {
 const QueryTestScenario AA_MUTATIONS_WITH_PROFILE_DISTANCE_0 = {
    .name = "AA_MUTATIONS_WITH_PROFILE_DISTANCE_0",
    .query =
-      "default.filter(aminoAcidMutationProfile(distance:=0, sequenceName:='gene1', "
+      "data.filter(aminoAcidMutationProfile(distance:=0, sequenceName:='gene1', "
       "mutations:={{position:=1, symbol:='C'}})).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"seq_1mut"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"seq_1mut"}])"),
 };
 
 // querySequence = "M*" (same as gene1 reference), distance=0 — exercises querySequence parsing for
@@ -221,11 +221,11 @@ const QueryTestScenario AA_MUTATIONS_WITH_PROFILE_DISTANCE_0 = {
 const QueryTestScenario AA_QUERY_SEQUENCE_DISTANCE_0 = {
    .name = "AA_QUERY_SEQUENCE_DISTANCE_0",
    .query =
-      "default.filter(aminoAcidMutationProfile(distance:=0, sequenceName:='gene1', "
+      "data.filter(aminoAcidMutationProfile(distance:=0, sequenceName:='gene1', "
       "querySequence:='M*')).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
       R"([{"primaryKey":"seq_ref"},{"primaryKey":"seq_2mut"},{"primaryKey":"seq_3mut"},{"primaryKey":"seq_all_n"},{"primaryKey":"seq_mixed_amb"}])"
-   )
+   ),
 };
 
 // sequenceId = "seq_1mut" → reconstructed profile is "C*", distance=0
@@ -233,36 +233,35 @@ const QueryTestScenario AA_QUERY_SEQUENCE_DISTANCE_0 = {
 const QueryTestScenario AA_SEQUENCE_ID_DISTANCE_0 = {
    .name = "AA_SEQUENCE_ID_DISTANCE_0",
    .query =
-      "default.filter(aminoAcidMutationProfile(distance:=0, sequenceName:='gene1', "
+      "data.filter(aminoAcidMutationProfile(distance:=0, sequenceName:='gene1', "
       "sequenceId:='seq_1mut')).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"seq_1mut"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"seq_1mut"}])"),
 };
 
 // sequenceName refers to a gene that does not exist in the schema → error
 const QueryTestScenario AA_INVALID_SEQUENCE_NAME = {
    .name = "AA_INVALID_SEQUENCE_NAME",
    .query =
-      "default.filter(aminoAcidMutationProfile(distance:=0, sequenceName:='nonexistent_gene', "
+      "data.filter(aminoAcidMutationProfile(distance:=0, sequenceName:='nonexistent_gene', "
       "mutations:={})).project(primaryKey)",
-   .expected_error_message = "The database does not contain the column 'nonexistent_gene'"
+   .expected_error_message = "The database does not contain the column 'nonexistent_gene'",
 };
 
 // No sequenceName provided → error (a sequence name is always required)
 const QueryTestScenario AA_NO_SEQUENCE_NAME = {
    .name = "AA_NO_SEQUENCE_NAME",
-   .query =
-      "default.filter(aminoAcidMutationProfile(distance:=0, mutations:={})).project(primaryKey)",
-   .expected_error_message = "aminoAcidMutationProfile() requires argument 'sequenceName'"
+   .query = "data.filter(aminoAcidMutationProfile(distance:=0, mutations:={})).project(primaryKey)",
+   .expected_error_message = "aminoAcidMutationProfile() requires argument 'sequenceName'",
 };
 
 // Mutation position is outside the bounds of the specified AA sequence → error
 const QueryTestScenario AA_MUTATION_OUT_OF_BOUNDS = {
    .name = "AA_MUTATION_OUT_OF_BOUNDS",
    .query =
-      "default.filter(aminoAcidMutationProfile(distance:=0, sequenceName:='gene1', "
+      "data.filter(aminoAcidMutationProfile(distance:=0, sequenceName:='gene1', "
       "mutations:={{position:=123456, symbol:='C'}})).project(primaryKey)",
    .expected_error_message =
-      "AminoAcid MutationProfile mutation position 123456 is out of bounds (reference length 2)"
+      "AminoAcid MutationProfile mutation position 123456 is out of bounds (reference length 2)",
 };
 
 // ------ Tests on a table that declares no primary key ------
@@ -278,7 +277,7 @@ nlohmann::json createDataWithoutPrimaryKey(
       {"name", name},
       {"segment1", {{"sequence", nucleotide_sequence}, {"insertions", nlohmann::json::array()}}},
       {"gene1", {{"sequence", amino_acid_sequence}, {"insertions", nlohmann::json::array()}}},
-      {"gene2", nullptr}
+      {"gene2", nullptr},
    };
 }
 
@@ -293,31 +292,33 @@ schema:
 
 const QueryTestData TEST_DATA_WITHOUT_PRIMARY_KEY{
    .ndjson_input_data =
-      {createDataWithoutPrimaryKey("seq_ref", "ATGCN", "M*"),
-       createDataWithoutPrimaryKey("seq_1mut", "CTGCN", "C*")},
+      {
+         createDataWithoutPrimaryKey("seq_ref", "ATGCN", "M*"),
+         createDataWithoutPrimaryKey("seq_1mut", "CTGCN", "C*"),
+      },
    .database_config = DATABASE_CONFIG_WITHOUT_PRIMARY_KEY,
    .reference_genomes = REFERENCE_GENOMES,
-   .without_unaligned_sequences = true
+   .without_unaligned_sequences = true,
 };
 
 // sequenceId lookup without a primary key → error
 const QueryTestScenario NO_PRIMARY_KEY_SEQUENCE_ID = {
    .name = "NO_PRIMARY_KEY_SEQUENCE_ID",
    .query =
-      "default.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
+      "data.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
       "sequenceId:='seq_1mut')).project(name)",
    .expected_error_message =
-      "Nucleotide MutationProfile sequenceId lookup requires the table to declare a primary key"
+      "Nucleotide MutationProfile sequenceId lookup requires the table to declare a primary key",
 };
 
 // Same for amino acids
 const QueryTestScenario NO_PRIMARY_KEY_AA_SEQUENCE_ID = {
    .name = "NO_PRIMARY_KEY_AA_SEQUENCE_ID",
    .query =
-      "default.filter(aminoAcidMutationProfile(distance:=0, sequenceName:='gene1', "
+      "data.filter(aminoAcidMutationProfile(distance:=0, sequenceName:='gene1', "
       "sequenceId:='seq_1mut')).project(name)",
    .expected_error_message =
-      "AminoAcid MutationProfile sequenceId lookup requires the table to declare a primary key"
+      "AminoAcid MutationProfile sequenceId lookup requires the table to declare a primary key",
 };
 
 // mutations input method remains usable without a primary key.
@@ -325,9 +326,9 @@ const QueryTestScenario NO_PRIMARY_KEY_AA_SEQUENCE_ID = {
 const QueryTestScenario NO_PRIMARY_KEY_MUTATIONS = {
    .name = "NO_PRIMARY_KEY_MUTATIONS",
    .query =
-      "default.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
+      "data.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
       "mutations:={})).project(name)",
-   .expected_query_result = nlohmann::json::parse(R"([{"name":"seq_ref"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"name":"seq_ref"}])"),
 };
 
 // querySequence input method remains usable without a primary key.
@@ -335,18 +336,18 @@ const QueryTestScenario NO_PRIMARY_KEY_MUTATIONS = {
 const QueryTestScenario NO_PRIMARY_KEY_QUERY_SEQUENCE = {
    .name = "NO_PRIMARY_KEY_QUERY_SEQUENCE",
    .query =
-      "default.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
+      "data.filter(nucleotideMutationProfile(distance:=0, sequenceName:='segment1', "
       "querySequence:='CTGCN')).project(name)",
-   .expected_query_result = nlohmann::json::parse(R"([{"name":"seq_1mut"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"name":"seq_1mut"}])"),
 };
 
 // querySequence on the amino acid side, to confirm AA profiles work without a primary key too.
 const QueryTestScenario NO_PRIMARY_KEY_AA_QUERY_SEQUENCE = {
    .name = "NO_PRIMARY_KEY_AA_QUERY_SEQUENCE",
    .query =
-      "default.filter(aminoAcidMutationProfile(distance:=0, sequenceName:='gene1', "
+      "data.filter(aminoAcidMutationProfile(distance:=0, sequenceName:='gene1', "
       "querySequence:='M*')).project(name)",
-   .expected_query_result = nlohmann::json::parse(R"([{"name":"seq_ref"}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"name":"seq_ref"}])"),
 };
 
 }  // namespace

@@ -39,10 +39,8 @@ arrow::Result<QueryPlan> planQueryOrError(
 
 }  // namespace
 
-QueryPlan Planner::planQuery(
+operators::QueryNodePtr Planner::optimize(
    operators::QueryNodePtr node,
-   const std::map<schema::TableName, std::shared_ptr<storage::Table>>& tables,
-   const config::QueryOptions& query_options,
    std::string_view request_id
 ) {
    auto log_plan = [&](std::string_view phase) {
@@ -69,6 +67,16 @@ QueryPlan Planner::planQuery(
    log_plan("after BitmapAggregationRewritePass");
    node = NodeResolutionPass::run(std::move(node));
    log_plan("after NodeResolutionPass");
+   return node;
+}
+
+QueryPlan Planner::planQuery(
+   operators::QueryNodePtr node,
+   const std::map<schema::TableName, std::shared_ptr<storage::Table>>& tables,
+   const config::QueryOptions& query_options,
+   std::string_view request_id
+) {
+   node = optimize(std::move(node), request_id);
    auto result = planQueryOrError(*node, tables, query_options, request_id);
    if (!result.ok()) {
       throw std::runtime_error(

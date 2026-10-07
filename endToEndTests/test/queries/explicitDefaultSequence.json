@@ -1,6 +1,6 @@
 {
   "testCaseName": "Explicit default sequence",
-  "query": "default.filter(nucleotideEquals(position:=13, symbol:='T', sequenceName:='main')).group(by:={}, aggs:={count:=count()})",
+  "query": "data.filter(nucleotideEquals(position:=13, symbol:='T', sequenceName:='main')).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 12

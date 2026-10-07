@@ -183,7 +183,7 @@ class SequencePositionGrouper : public KeyGroups {
       return ChunkMutationContainers{
          .views = std::move(mutation_views),
          .except_missing = std::move(except_missing),
-         .except_reference_and_missing = std::move(except_reference_and_missing)
+         .except_reference_and_missing = std::move(except_reference_and_missing),
       };
    }
 
@@ -250,7 +250,7 @@ class SequencePositionGrouper : public KeyGroups {
             }
          } else if (is_missing) {
             group = CopyOnWriteContainer{
-               filter_view - RoaringContainerView{covered}
+               filter_view - RoaringContainerView{covered},
             };  // not covered here ...
             if (mutations.views[symbol].has_value()) {
                // ... plus any explicit missing mutation (bounded by the filter) ...
@@ -267,7 +267,7 @@ class SequencePositionGrouper : public KeyGroups {
             // ... and carrying no other mutation.
             group = CopyOnWriteContainer{
                RoaringContainerView{covered_in_filter} -
-               mutations.except_reference_and_missing.view()
+                  mutations.except_reference_and_missing.view(),
             };
          }
          if (!group.empty()) {
@@ -490,7 +490,7 @@ arrow::Result<std::shared_ptr<arrow::Array>> evaluateExpressionForRows(
    ARROW_RETURN_NOT_OK(
       batch_builder.appendEntries(table, Bitmap::fromContainerViews({{chunk_id, chunk_rows}}))
    );
-   ARROW_ASSIGN_OR_RAISE(auto batch, batch_builder.finishBatch());
+   ARROW_ASSIGN_OR_RAISE(auto batch, batch_builder.finishBatch(row_count));
 
    ARROW_ASSIGN_OR_RAISE(
       auto datum, arrow::compute::ExecuteScalarExpression(bound_expression, batch, &exec_context)
@@ -934,7 +934,7 @@ arrow::Result<arrow::acero::ExecNode*> BitmapAggregationNode::addToExecPlan(
    const std::map<schema::TableName, std::shared_ptr<storage::Table>>& /*tables*/,
    const config::QueryOptions& query_options
 ) const {
-   auto filter_bitmap = computeFilter(filter, *table);
+   auto filter_bitmap = compileFilter(filter, table)->evaluate();
 
    // Resolve each dimension against the table into a grouper that produces its groups per 2^16
    // chunk (this also validates, e.g. a sequence position out of range throws here). The groups are
@@ -990,7 +990,7 @@ arrow::Result<arrow::acero::ExecNode*> BitmapAggregationNode::addToExecPlan(
    const arrow::acero::SourceNodeOptions options{
       exec_node::columnsToArrowSchema(getOutputSchema()),
       std::move(producer),
-      arrow::Ordering::Implicit()
+      arrow::Ordering::Implicit(),
    };
    return arrow::acero::MakeExecNode("source", &plan, {}, options);
 }

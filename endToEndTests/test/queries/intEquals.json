@@ -1,6 +1,6 @@
 {
   "testCaseName": "IntEquals for column",
-  "query": "default.filter(age = 55).group(by:={}, aggs:={count:=count()})",
+  "query": "data.filter(age = 55).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
       "count": 8

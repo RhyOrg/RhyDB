@@ -64,7 +64,7 @@ std::unique_ptr<filter::operators::Operator> InsertionContains<SymbolType>::comp
       valid_sequence_name
    );
    return std::make_unique<filter::operators::BitmapProducer>(
-      [&]() {
+      [&sequence_store, position_idx = position_idx, value = value]() {
          try {
             auto search_result = sequence_store.insertion_index.search(position_idx, value);
             return Bitmap(std::move(*search_result));

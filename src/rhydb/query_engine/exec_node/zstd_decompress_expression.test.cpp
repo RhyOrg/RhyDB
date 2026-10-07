@@ -28,10 +28,10 @@ arrow::Result<std::shared_ptr<arrow::Table>> setupTestTable(
    std::vector<std::optional<std::string>> values,
    std::string_view dictionary_string
 ) {
-   std::shared_ptr<arrow::Schema> schema = arrow::schema(
-      {arrow::field("id", arrow::int32()),
-       arrow::field("some_zstd_compressed_column", arrow::binary())}
-   );
+   std::shared_ptr<arrow::Schema> schema = arrow::schema({
+      arrow::field("id", arrow::int32()),
+      arrow::field("some_zstd_compressed_column", arrow::binary()),
+   });
 
    auto dictionary = std::make_shared<rhydb::ZstdCDictionary>(dictionary_string, 3);
    rhydb::ZstdCompressor compressor{dictionary};
@@ -66,12 +66,12 @@ std::shared_ptr<arrow::Table> runValuesThroughProjection(
    auto* node =
       arrow::acero::MakeExecNode("table_source", arrow_plan.get(), {}, source_options).ValueOrDie();
 
-   arrow::acero::ProjectNodeOptions project_options(
-      {arrow::compute::field_ref("id"),
-       ZstdDecompressExpression::make(
-          arrow::compute::field_ref("some_zstd_compressed_column"), dictionary_string
-       )}
-   );
+   arrow::acero::ProjectNodeOptions project_options({
+      arrow::compute::field_ref("id"),
+      ZstdDecompressExpression::make(
+         arrow::compute::field_ref("some_zstd_compressed_column"), dictionary_string
+      ),
+   });
    node =
       arrow::acero::MakeExecNode("project", arrow_plan.get(), {node}, project_options).ValueOrDie();
 

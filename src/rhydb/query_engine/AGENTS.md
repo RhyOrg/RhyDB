@@ -58,7 +58,7 @@ const rhydb::test::QueryTestData TEST_DATA{
 
 const rhydb::test::QueryTestScenario MY_SCENARIO = {
    .name = "MY_TEST_NAME",
-   .query = R"(default.filter(country='CH').project({primaryKey}))",
+   .query = R"(data.filter(country='CH').project({primaryKey}))",
    .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}})
 };
 

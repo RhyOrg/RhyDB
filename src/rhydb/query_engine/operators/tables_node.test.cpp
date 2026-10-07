@@ -17,16 +17,20 @@ using rhydb::test::QueryTestData;
 using rhydb::test::QueryTestScenario;
 
 const std::vector<nlohmann::json> DATA = {
-   {{"primaryKey", "id_0"},
-    {"country", "CH"},
-    {"segment1", nullptr},
-    {"gene1", nullptr},
-    {"unaligned_segment1", nullptr}},
-   {{"primaryKey", "id_1"},
-    {"country", "DE"},
-    {"segment1", nullptr},
-    {"gene1", nullptr},
-    {"unaligned_segment1", nullptr}},
+   {
+      {"primaryKey", "id_0"},
+      {"country", "CH"},
+      {"segment1", nullptr},
+      {"gene1", nullptr},
+      {"unaligned_segment1", nullptr},
+   },
+   {
+      {"primaryKey", "id_1"},
+      {"country", "DE"},
+      {"segment1", nullptr},
+      {"gene1", nullptr},
+      {"unaligned_segment1", nullptr},
+   },
 };
 
 const auto DATABASE_CONFIG =
@@ -49,14 +53,14 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{
 const QueryTestData TEST_DATA{
    .ndjson_input_data = DATA,
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario TABLES_SCENARIO = {
    .name = "TABLES",
    .query = "tables()",
    .expected_query_result =
-      nlohmann::json({{{"tableName", "default"}}, {{"tableName", "reference_genomes"}}}),
+      nlohmann::json({{{"tableName", "data"}}, {{"tableName", "reference_genomes"}}}),
 };
 
 const QueryTestScenario TABLES_SCHEMA_SCENARIO = {
@@ -67,7 +71,7 @@ const QueryTestScenario TABLES_SCHEMA_SCENARIO = {
 
 const QueryTestScenario TABLES_EXTRA_ARG_ERROR_SCENARIO = {
    .name = "TABLES_EXTRA_ARG_ERROR",
-   .query = "tables(default)",
+   .query = "tables(data)",
    .expected_error_message = "tables() received too many positional arguments",
 };
 

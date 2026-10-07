@@ -39,7 +39,7 @@ LineageDefinition entryToLineageDefinition(const YAML::detail::iterator_value& e
       return {
          .lineage_name = lineage_name,
          .aliases = std::vector<LineageName>{},
-         .parents = std::vector<LineageName>{}
+         .parents = std::vector<LineageName>{},
       };
    }
    if (!entry.second.IsMap()) {

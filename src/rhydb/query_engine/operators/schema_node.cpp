@@ -71,7 +71,7 @@ arrow::Result<arrow::acero::ExecNode*> SchemaNode::addToExecPlan(
    const arrow::acero::SourceNodeOptions options{
       exec_node::columnsToArrowSchema(getOutputSchema()),
       std::move(producer),
-      arrow::Ordering::Implicit()
+      arrow::Ordering::Implicit(),
    };
    return arrow::acero::MakeExecNode("source", &plan, {}, options);
 }

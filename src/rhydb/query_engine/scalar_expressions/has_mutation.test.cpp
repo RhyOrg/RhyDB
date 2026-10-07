@@ -21,7 +21,7 @@ nlohmann::json createDataWithSequences(
       {"primaryKey", "id_" + to_string(primary_key)},
       {"unaligned_segment1", {}},
       {"segment1", {{"sequence", nucleotideSequence}, {"insertions", nlohmann::json::array()}}},
-      {"gene1", {{"sequence", aminoAcidSequence}, {"insertions", nlohmann::json::array()}}}
+      {"gene1", {{"sequence", aminoAcidSequence}, {"insertions", nlohmann::json::array()}}},
    };
 }
 
@@ -49,78 +49,78 @@ const QueryTestData TEST_DATA{
    .ndjson_input_data =
       {DATA_SAME_AS_REFERENCE, DATA_SAME_AS_REFERENCE2, DATA_WITH_ALL_N, DATA_WITH_ALL_MUTATED},
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario HAS_NUCLEOTIDE_MUTATION = {
    .name = "HAS_NUCLEOTIDE_MUTATION",
    .query =
-      "default.filter(hasMutation(position:=1, "
+      "data.filter(hasMutation(position:=1, "
       "sequenceName:='segment1')).group(by:={}, aggs:={count:=count()})",
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])"),
 };
 
 const QueryTestScenario HAS_AMINO_ACID_MUTATION = {
    .name = "HAS_AMINO_ACID_MUTATION",
    .query =
-      "default.filter(hasAAMutation(position:=1, sequenceName:='gene1')).group(by:={}, aggs:="
+      "data.filter(hasAAMutation(position:=1, sequenceName:='gene1')).group(by:={}, aggs:="
       "{count:=count()})",
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])"),
 };
 
 const QueryTestScenario HAS_NUCLEOTIDE_MUTATION_OUT_OF_RANGE = {
    .name = "HAS_NUCLEOTIDE_MUTATION_OUT_OF_RANGE",
    .query =
-      "default.filter(hasMutation(position:=2000, "
+      "data.filter(hasMutation(position:=2000, "
       "sequenceName:='segment1')).group(by:={}, aggs:={count:=count()})",
-   .expected_error_message = "HasNucleotideMutation position is out of bounds 2000 > 5"
+   .expected_error_message = "HasNucleotideMutation position is out of bounds 2000 > 5",
 };
 
 const QueryTestScenario HAS_NUCLEOTIDE_MUTATION_OUT_OF_RANGE_EDGE_LOW = {
    .name = "HAS_NUCLEOTIDE_MUTATION_OUT_OF_RANGE_EDGE_LOW",
    .query =
-      "default.filter(hasMutation(position:=0, "
+      "data.filter(hasMutation(position:=0, "
       "sequenceName:='segment1')).group(by:={}, aggs:={count:=count()})",
-   .expected_error_message = "The field 'position' is 1-indexed. Value of 0 not allowed."
+   .expected_error_message = "The field 'position' is 1-indexed. Value of 0 not allowed.",
 };
 
 const QueryTestScenario HAS_NUCLEOTIDE_MUTATION_OUT_OF_RANGE_EDGE_HIGH = {
    .name = "HAS_NUCLEOTIDE_MUTATION_OUT_OF_RANGE_EDGE_HIGH",
    .query =
-      "default.filter(hasMutation(position:=6, "
+      "data.filter(hasMutation(position:=6, "
       "sequenceName:='segment1')).group(by:={}, aggs:={count:=count()})",
-   .expected_error_message = "HasNucleotideMutation position is out of bounds 6 > 5"
+   .expected_error_message = "HasNucleotideMutation position is out of bounds 6 > 5",
 };
 
 const QueryTestScenario HAS_NUCLEOTIDE_MUTATION_IN_RANGE_EDGE = {
    .name = "HAS_NUCLEOTIDE_MUTATION_IN_RANGE_EDGE",
    .query =
-      "default.filter(hasMutation(position:=5, "
+      "data.filter(hasMutation(position:=5, "
       "sequenceName:='segment1')).group(by:={}, aggs:={count:=count()})",
-   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])")
+   .expected_query_result = nlohmann::json::parse(R"([{"count": 1}])"),
 };
 
 const QueryTestScenario HAS_AMINO_ACID_MUTATION_OUT_OF_RANGE = {
    .name = "HAS_AMINO_ACID_MUTATION_OUT_OF_RANGE",
    .query =
-      "default.filter(hasAAMutation(position:=1000, "
+      "data.filter(hasAAMutation(position:=1000, "
       "sequenceName:='gene1')).group(by:={}, aggs:={count:=count()})",
-   .expected_error_message = "HasAminoAcidMutation position is out of bounds 1000 > 2"
+   .expected_error_message = "HasAminoAcidMutation position is out of bounds 1000 > 2",
 };
 
 // A sequence name is always required; there is no implicit default even though the reference genome
 // has only a single nucleotide sequence.
 const QueryTestScenario HAS_NUCLEOTIDE_MUTATION_WITHOUT_SEQUENCE_NAME = {
    .name = "HAS_NUCLEOTIDE_MUTATION_WITHOUT_SEQUENCE_NAME",
-   .query = "default.filter(hasMutation(position:=1)).group(by:={}, aggs:={count:=count()})",
-   .expected_error_message = "hasMutation() requires argument 'sequenceName'"
+   .query = "data.filter(hasMutation(position:=1)).group(by:={}, aggs:={count:=count()})",
+   .expected_error_message = "hasMutation() requires argument 'sequenceName'",
 };
 
 // Amino acid filters always require a sequence name.
 const QueryTestScenario HAS_AMINO_ACID_MUTATION_WITHOUT_SEQUENCE_NAME = {
    .name = "HAS_AMINO_ACID_MUTATION_WITHOUT_SEQUENCE_NAME",
-   .query = "default.filter(hasAAMutation(position:=1)).group(by:={}, aggs:={count:=count()})",
-   .expected_error_message = "hasAAMutation() requires argument 'sequenceName'"
+   .query = "data.filter(hasAAMutation(position:=1)).group(by:={}, aggs:={count:=count()})",
+   .expected_error_message = "hasAAMutation() requires argument 'sequenceName'",
 };
 
 }  // namespace

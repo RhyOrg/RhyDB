@@ -70,17 +70,17 @@ WriteStatementRegistry::WriteStatementRegistry() {
    registerStatement(
       "insertInto",
       FunctionSignature{
-         {ParameterDefinition{.name = "input"}, ParameterDefinition{.name = "target"}}
+         {ParameterDefinition{.name = "input"}, ParameterDefinition{.name = "target"}},
       },
       buildInsertInto
    );
    registerStatement(
       "createTable",
-      FunctionSignature{
-         {ParameterDefinition{.name = "table"},
-          ParameterDefinition{.name = "columns"},
-          ParameterDefinition{.name = "primaryKey", .required = false, .positional = false}}
-      },
+      FunctionSignature{{
+         ParameterDefinition{.name = "table"},
+         ParameterDefinition{.name = "columns"},
+         ParameterDefinition{.name = "primaryKey", .required = false, .positional = false},
+      }},
       buildCreateTable
    );
 }

@@ -14,7 +14,7 @@ tableName
   .operator2(...)
 ```
 
-The table holding the sequences and their metadata is named `default`.
+The table holding the sequences and their metadata is named `data`.
 
 Additional tables exist if the database config declares columns with `lineageIndexType: table` or
 `both`: each such column gets a companion table named after the column, holding the edges of its
@@ -34,7 +34,7 @@ Every operator takes a table as input and produces a table as output. Internally
 Simple example — count all sequences from Switzerland:
 
 ```
-default
+data
   .filter(country = 'Switzerland')
   .group(by:={}, aggs:={count:=count()})
 ```
@@ -114,10 +114,10 @@ After the first named argument is given, no more positional arguments are accept
 Keeps only rows where the boolean `condition` is true. Passes all input columns through unchanged.
 
 ```
-default.filter(country = 'USA' && age > 30)
+data.filter(country = 'USA' && age > 30)
 ```
 
-A boolean column can be used directly as a predicate: `default.filter(isHuman)` is equivalent to `default.filter(isHuman = true)`, and `default.filter(!isHuman)` negates it (a set complement that also keeps rows where `isHuman` is null, matching `!(isHuman = true)`). Only boolean columns may be used this way; a bare reference to a non-boolean column is rejected.
+A boolean column can be used directly as a predicate: `data.filter(isHuman)` is equivalent to `data.filter(isHuman = true)`, and `data.filter(!isHuman)` negates it (a set complement that also keeps rows where `isHuman` is null, matching `!(isHuman = true)`). Only boolean columns may be used this way; a bare reference to a non-boolean column is rejected.
 
 ### `group(by, aggs)`
 
@@ -128,13 +128,17 @@ Currently supported aggregate functions:
 | Function | Result |
 |----------|--------|
 | `count()` | The number of rows in the group (an `int64`). |
+| `count(column)` | The number of rows in the group whose value in `column` is not null (an `int64`). |
 | `sum(column)` | The sum of a numeric column over the rows in the group. Sums of `int` and `int64` columns are `int64`, sums of `float` columns are `float`. Null values are skipped; a group with no non-null value (or no rows at all, when there are no `by` columns) sums to null. |
+| `min(column)` / `max(column)` | The smallest / largest value of a numeric, date, string or boolean column over the rows in the group, of the column's type. Null values are skipped; a group with no non-null value is null. |
 
 ```
-default.group(by:={}, aggs:={count:=count()})
-default.group(by:={pango_lineage}, aggs:={count:=count()})
-default.group(by:={country, pango_lineage}, aggs:={count:=count()})
-default.group(by:={country}, aggs:={count:=count(), total_age:=sum(age)})
+data.group(by:={}, aggs:={count:=count()})
+data.group(by:={pango_lineage}, aggs:={count:=count()})
+data.group(by:={country, pango_lineage}, aggs:={count:=count()})
+data.group(by:={country}, aggs:={count:=count(), total_age:=sum(age)})
+data.group(by:={country}, aggs:={count:=count(), with_age:=count(age)})
+data.group(by:={}, aggs:={youngest:=min(age), oldest:=max(age)})
 ```
 
 **Output:** one row per group, containing the named aggregation fields and the `by` columns. Rows where a `by` column is null form their own group with a null value for that column.
@@ -149,8 +153,8 @@ default.group(by:={country}, aggs:={count:=count(), total_age:=sum(age)})
 Returns only the specified columns. `expressions` is a set of column names (or a single name without braces). At least one column must be kept (an empty projection is rejected).
 
 ```
-default.project({primary_key, country, date, pango_lineage, qc_value})
-default.project(division)
+data.project({primary_key, country, date, pango_lineage, qc_value})
+data.project(division)
 ```
 
 Sequence data columns use the naming convention `<sequenceName>` for aligned sequences and `unaligned_<sequenceName>` for unaligned sequences.
@@ -166,8 +170,8 @@ Sequence data columns use the naming convention `<sequenceName>` for aligned seq
 The complement of [`project`](#projectexpressions): returns all columns except the specified ones. `remove` is a set of column names (or a single name without braces). All named columns must exist in the input's output schema, and at least one column must remain.
 
 ```
-default.projectout({date, qc_value})
-default.projectout(division)
+data.projectout({date, qc_value})
+data.projectout(division)
 ```
 
 **Output:** one row per input row containing all input columns except the removed ones, in their original order.
@@ -177,8 +181,8 @@ default.projectout(division)
 Adds columns to the table. `expressions` is a record of `name := value` assignments. Each value may be a literal (integers, floats, single-quoted strings, or booleans), a field reference, or a call to a non-boolean [scalar function](#scalar-functions) such as [`at`](#atcolumn-position).
 
 ```
-default.map({x := 3, label := 'cohort A', active := true, copy := country})
-default.map({second_char := primary_key.at(2)})
+data.map({x := 3, label := 'cohort A', active := true, copy := country})
+data.map({second_char := primary_key.at(2)})
 ```
 
 All input columns are passed through unchanged and the new columns are appended. An assignment whose name matches an existing column replaces that column in place.
@@ -195,9 +199,9 @@ Integer literals become `INT64`, floats become `FLOAT`, single-quoted literals b
 Sorts results. `by` is a set of sort keys; each key is either a bare name (ascending) or a `asc(name)` / `desc(name)` call. Passes all input columns through unchanged.
 
 ```
-default.order(by:={primary_key})
-default.order(by:={count.desc(), pango_lineage})
-default.order(by:={asc(date), desc(age)})
+data.order(by:={primary_key})
+data.order(by:={count.desc(), pango_lineage})
+data.order(by:={asc(date), desc(age)})
 ```
 
 ### `limit(count)`
@@ -205,7 +209,7 @@ default.order(by:={asc(date), desc(age)})
 Returns at most `count` rows. Must be a positive integer. Passes all input columns through unchanged.
 
 ```
-default.limit(100)
+data.limit(100)
 ```
 
 ### `offset(count)`
@@ -213,7 +217,7 @@ default.limit(100)
 Skips the first `count` rows. Passes all input columns through unchanged.
 
 ```
-default.order(by:={primary_key}).offset(10).limit(10)
+data.order(by:={primary_key}).offset(10).limit(10)
 ```
 
 ### `randomize([seed:=n])`
@@ -221,8 +225,8 @@ default.order(by:={primary_key}).offset(10).limit(10)
 Returns rows in random order. An optional integer seed makes the result reproducible. Passes all input columns through unchanged.
 
 ```
-default.randomize()
-default.randomize(seed:=42)
+data.randomize()
+data.randomize(seed:=42)
 ```
 
 ### `mutations(minProportion:=p [, sequenceNames:={...}] [, fields:={...}])`
@@ -230,8 +234,8 @@ default.randomize(seed:=42)
 Returns nucleotide mutation statistics for the filtered rows. `minProportion` (0.0–1.0) is the minimum frequency threshold. Only valid on a table or direct filters of a table.
 
 ```
-default.filter(pango_lineage = 'B.1.1.7').mutations(minProportion:=0.05)
-default.mutations(minProportion:=0.9, sequenceNames:={main, S})
+data.filter(pango_lineage = 'B.1.1.7').mutations(minProportion:=0.05)
+data.mutations(minProportion:=0.9, sequenceNames:={main, S})
 ```
 
 **Output:** one row per mutation meeting the threshold. The field set can be narrowed via `fields:={...}`.
@@ -255,7 +259,7 @@ default.mutations(minProportion:=0.9, sequenceNames:={main, S})
 Same as `mutations` but for amino acid sequences. Output schema is identical. Only valid on a table or direct filters of a table.
 
 ```
-default.aminoAcidMutations(minProportion:=0.3, sequenceNames:={S})
+data.aminoAcidMutations(minProportion:=0.3, sequenceNames:={S})
 ```
 
 ### `insertions([sequenceNames:={...}])`
@@ -263,8 +267,8 @@ default.aminoAcidMutations(minProportion:=0.3, sequenceNames:={S})
 Returns nucleotide insertions aggregated by insertion value. Only valid on a table or direct filters of a table.
 
 ```
-default.insertions()
-default.insertions(sequenceNames:={main})
+data.insertions()
+data.insertions(sequenceNames:={main})
 ```
 
 **Output:** one row per unique insertion observed across the filtered sequences.
@@ -285,7 +289,7 @@ default.insertions(sequenceNames:={main})
 Same as `insertions` but for amino acid sequences. Output schema is identical. Only valid on a table or direct filters of a table.
 
 ```
-default.aminoAcidInsertions()
+data.aminoAcidInsertions()
 ```
 
 ### `mostRecentCommonAncestor(column [, printNodesNotInTree:=bool])`
@@ -293,7 +297,7 @@ default.aminoAcidInsertions()
 Finds the most recent common ancestor in a phylogenetic tree column for the filtered sequences. Only valid on a table or direct filters of a table.
 
 ```
-default.filter(country = 'Germany').mostRecentCommonAncestor('usherTree')
+data.filter(country = 'Germany').mostRecentCommonAncestor('usherTree')
 ```
 
 **Output:** a single row.
@@ -315,7 +319,7 @@ default.filter(country = 'Germany').mostRecentCommonAncestor('usherTree')
 Returns the phylogenetic subtree for the filtered sequences. Only valid on a table or direct filters of a table.
 
 ```
-default.filter(pango_lineage = 'B.1.1.7').phyloSubtree('usherTree')
+data.filter(pango_lineage = 'B.1.1.7').phyloSubtree('usherTree')
 ```
 
 **Output:** a single row.
@@ -338,8 +342,8 @@ The `on` argument is an equality between a left column and a right column. Multi
 
 ```
 join(
-  default.project({primaryKey, country}),
-  default.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
+  data.project({primaryKey, country}),
+  data.map({pk := primaryKey, ctry := country}).project({pk, ctry}),
   primaryKey = pk
 )
 ```
@@ -347,8 +351,8 @@ join(
 Or equivalently using piped syntax:
 
 ```
-default.project({primaryKey, country})
-  .join(default.map({pk := primaryKey, ctry := country}).project({pk, ctry}), primaryKey = pk)
+data.project({primaryKey, country})
+  .join(data.map({pk := primaryKey, ctry := country}).project({pk, ctry}), primaryKey = pk)
 ```
 
 Named arguments are also supported:
@@ -388,8 +392,8 @@ join(<left>, <right>, primaryKey = pk, type := left)
 
 ```
 join(
-  default.project({primaryKey, country}),
-  default.project({primaryKey, country}),
+  data.project({primaryKey, country}),
+  data.project({primaryKey, country}),
   primaryKey = primaryKey
 )
 ```
@@ -400,8 +404,8 @@ join(
 
 ```
 join(
-  default.filter(country='CH').project({primaryKey, country}),
-  default.map({pk := primaryKey}).project({pk}),
+  data.filter(country='CH').project({primaryKey, country}),
+  data.map({pk := primaryKey}).project({pk}),
   primaryKey = pk
 )
 ```
@@ -418,16 +422,16 @@ All rows from both inputs are included — duplicates are preserved (UNION ALL, 
 
 ```
 unionall(
-  default.filter(division='Aargau').project({division}),
-  default.filter(division='Bern').project({division})
+  data.filter(division='Aargau').project({division}),
+  data.filter(division='Bern').project({division})
 )
 ```
 
 Or equivalently using piped syntax:
 
 ```
-default.filter(division='Aargau').project({division})
-  .unionall(default.filter(division='Bern').project({division}))
+data.filter(division='Aargau').project({division})
+  .unionall(data.filter(division='Bern').project({division}))
 ```
 
 Named arguments are also supported:
@@ -440,8 +444,8 @@ The result can be piped into downstream operators:
 
 ```
 unionall(
-  default.filter(division='Aargau').project({division}),
-  default.filter(division='Bern').project({division})
+  data.filter(division='Aargau').project({division}),
+  data.filter(division='Bern').project({division})
 ).group(by:={division}, aggs:={count:=count()})
  .order(by:={asc(division)})
 ```
@@ -463,8 +467,8 @@ Filters above a `unionall` are automatically pushed into both children:
 
 ```
 unionall(
-  default.project({primaryKey, country}),
-  default.project({primaryKey, country})
+  data.project({primaryKey, country}),
+  data.project({primaryKey, country})
 ).filter(country='CH')
 ```
 
@@ -472,8 +476,8 @@ is equivalent to:
 
 ```
 unionall(
-  default.filter(country='CH').project({primaryKey, country}),
-  default.filter(country='CH').project({primaryKey, country})
+  data.filter(country='CH').project({primaryKey, country}),
+  data.filter(country='CH').project({primaryKey, country})
 )
 ```
 
@@ -485,9 +489,9 @@ Describes the output schema of whatever it is applied to — a table or the resu
 It does not read or return any data; it only reports the fields that the input would produce.
 
 ```
-default.schema()
-default.filter(country='CH').group(by:={age}, aggs:={count:=count()}).schema()
-default.mutations(minProportion:=0.1).schema()
+data.schema()
+data.filter(country='CH').group(by:={age}, aggs:={count:=count()}).schema()
+data.mutations(minProportion:=0.1).schema()
 ```
 
 **Output:** one row per field of the described result, with two columns:
@@ -562,12 +566,12 @@ sequences):
 
 ```
 pango_lineage.transitiveClosure(parent, lineage, includeVertices:=true)
-  .join(default, to = lineage_column)
+  .join(data, to = lineage_column)
   .group(by:={from}, aggs:={count := count()})
   .order(by:={from})
 ```
 
-Here `lineage_column` is a `STRING` column of `default` holding each sequence's lineage. Because
+Here `lineage_column` is a `STRING` column of `data` holding each sequence's lineage. Because
 `join` requires both key columns to have the same type and the closure emits `STRING` columns,
 the joined-against column must itself be `STRING` (a lineage column configured with an index is
 dictionary-encoded and cannot be used as the join key directly).
@@ -579,7 +583,7 @@ instead of one per vertex in the relation:
 
 ```
 pango_lineage.transitiveClosure(parent, lineage, includeVertices:=true, startingFrom:={'B.1.1.7'})
-  .join(default, to = lineage_column)
+  .join(data, to = lineage_column)
   .group(by:={from}, aggs:={count := count()})
 ```
 
@@ -657,7 +661,7 @@ createTable(covid, {
 }, primaryKey := primaryKey)
 ```
 
-The table name is an identifier made of letters, digits, `_` and `-`, other than `database_schema` and `data_version`. 
+The table name is an identifier made of letters, digits, `_` and `-`, other than `database_schema` and `data_version`.
 It must not name an existing table (built-in tables such as `reference_genomes` included).
 
 `columns` is a record mapping each column name to its type. A type is written either as a bare name
@@ -716,8 +720,8 @@ Extracts the single character of a string `column` at the 1-based `position`, re
 The square-bracket notation `column[position]` is shorthand for `column.at(position)`.
 
 ```
-default.map({second_char := primary_key.at(2)})
-default.map({second_char := primary_key[2]})
+data.map({second_char := primary_key.at(2)})
+data.map({second_char := primary_key[2]})
 ```
 
 ### `isoWeek(column)`
@@ -725,7 +729,7 @@ default.map({second_char := primary_key[2]})
 Maps a date `column` to its ISO 8601 week date, formatted as `<ISO-year>-W<ISO-week>` (e.g. `2026-W12`), as a string. The ISO week-numbering year is used, so it can differ from the calendar year around January (e.g. `2021-01-01` is `2020-W53`); the zero-padded week keeps the value chronologically sortable within a year. `column` must be a date column. A `null` date yields `null`. Use it inside [`map()`](#mapexpressions).
 
 ```
-default.map({week := date.isoWeek()})
+data.map({week := date.isoWeek()})
 ```
 
 ### `between(column, from, to)`
@@ -934,7 +938,7 @@ aminoAcidMutationProfile(distance:=2, sequenceName:='S', mutations:={
 ### Count sequences by country, ordered by count
 
 ```
-default
+data
   .group(by:={country}, aggs:={count:=count()})
   .order(by:={count.desc()})
 ```
@@ -942,7 +946,7 @@ default
 ### Sequences with a specific mutation, showing details
 
 ```
-default
+data
   .filter(hasMutation(position:=23403))
   .project({primary_key, country, date, pango_lineage})
   .order(by:={date})
@@ -952,7 +956,7 @@ default
 ### Mutations above 5% prevalence in a lineage
 
 ```
-default
+data
   .filter(pango_lineage.lineage('B.1.1.7', includeSublineages:=true))
   .mutations(minProportion:=0.05, sequenceNames:={main})
 ```
@@ -960,7 +964,7 @@ default
 ### Date range filter with null exclusion
 
 ```
-default
+data
   .filter(date.between('2021-01-01'::date, '2021-06-30'::date))
   .group(by:={pango_lineage}, aggs:={count:=count()})
   .order(by:={pango_lineage})
@@ -969,7 +973,7 @@ default
 ### Complex filter combining multiple conditions
 
 ```
-default
+data
   .filter(
     country = 'Germany'
     && age > 18
@@ -986,7 +990,7 @@ default
 ### Paginated results
 
 ```
-default
+data
   .order(by:={primary_key})
   .offset(50)
   .limit(25)
@@ -996,7 +1000,7 @@ default
 ### Amino acid insertions with a filter
 
 ```
-default
+data
   .filter(aminoAcidInsertionContains(position:=214, value:='.*PE', sequenceName:='S'))
   .aminoAcidInsertions()
   .order(by:={insertedSymbols, position})
@@ -1006,8 +1010,8 @@ default
 
 ```
 unionall(
-  default.filter(division='Aargau').project({division}),
-  default.filter(division='Bern').project({division})
+  data.filter(division='Aargau').project({division}),
+  data.filter(division='Bern').project({division})
 ).group(by:={division}, aggs:={count:=count()})
  .order(by:={asc(division)})
 ```

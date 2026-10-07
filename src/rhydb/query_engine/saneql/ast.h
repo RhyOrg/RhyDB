@@ -35,7 +35,7 @@ enum class BinaryOp : uint8_t {
    LESS_THAN,
    LESS_EQUAL,
    GREATER_THAN,
-   GREATER_EQUAL
+   GREATER_EQUAL,
 };
 
 [[nodiscard]] std::string binaryOpToString(BinaryOp op);

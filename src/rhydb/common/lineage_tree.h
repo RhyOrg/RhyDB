@@ -39,7 +39,7 @@ enum class RecombinantEdgeFollowingMode : uint8_t {
 const std::vector<RecombinantEdgeFollowingMode> ALL_RECOMBINANT_EDGE_FOLLOWING_MODES{
    RecombinantEdgeFollowingMode::DO_NOT_FOLLOW,
    RecombinantEdgeFollowingMode::FOLLOW_IF_FULLY_CONTAINED_IN_CLADE,
-   RecombinantEdgeFollowingMode::ALWAYS_FOLLOW
+   RecombinantEdgeFollowingMode::ALWAYS_FOLLOW,
 };
 
 // The tree is allowed to be disconnected
