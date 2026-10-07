@@ -49,11 +49,14 @@ $(SRC_FILE_LIST): FORCE
 	@cmp -s $@ $@.tmp && rm $@.tmp || mv $@.tmp $@
 .PHONY: FORCE
 
-# CMake files that affect a (re)configure. A CMake-only edit Make would
-# consider the executables up to date and skip the `cmake --build` step, so Ninja
-# would never run and the stale artifacts would be reused.
-NATIVE_CMAKE_FILES=CMakeLists.txt app/CMakeLists.txt performance/CMakeLists.txt python/CMakeLists.txt
-WASM_CMAKE_FILES=CMakeLists.txt wasm/CMakeLists.txt
+# CMake files that affect a (re)configure.
+# A CMake-only edit Make would consider the executables up to date and skip the `cmake --build` step,
+# so Ninja would never run and the stale artifacts would be reused.
+#
+# $(wildcard ...) drops files that are absent from the current checkout. Some
+# build contexts only copy a subset of the tree into Docker containers.
+NATIVE_CMAKE_FILES=$(wildcard CMakeLists.txt app/CMakeLists.txt performance/CMakeLists.txt performance/BenchmarkData.cmake python/CMakeLists.txt)
+WASM_CMAKE_FILES=$(wildcard CMakeLists.txt wasm/CMakeLists.txt)
 
 build/Debug/build.ninja: ${DEPENDENCIES_FLAG} $(SRC_FILE_LIST) $(NATIVE_CMAKE_FILES)
 	$(CMAKE) -G Ninja -B build/Debug -D CMAKE_BUILD_TYPE=Debug
