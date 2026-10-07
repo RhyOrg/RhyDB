@@ -11,7 +11,7 @@ description: >
 Use `queryLocalSilo.sh` (in this skill's directory) to send SaneQL queries to the local RhyDB API (port 8081):
 
 ```bash
-.agents/skills/query-silo/queryLocalSilo.sh "default.group(by:={}, aggs:={count:=count()})"
+.agents/skills/query-silo/queryLocalSilo.sh "data.group(by:={}, aggs:={count:=count()})"
 ```
 
 The script sends a `POST /query` with `Content-Type: text/plain` and prints the NDJSON response followed by the HTTP status code.
@@ -19,7 +19,7 @@ The script sends a `POST /query` with `Content-Type: text/plain` and prints the 
 ### Status code only
 
 ```bash
-.agents/skills/query-silo/queryLocalSilo.sh -s "default.filter(country='CH').project({primaryKey})"
+.agents/skills/query-silo/queryLocalSilo.sh -s "data.filter(country='CH').project({primaryKey})"
 ```
 
 ### Query language
@@ -27,17 +27,17 @@ The script sends a `POST /query` with `Content-Type: text/plain` and prints the 
 Queries use **SaneQL**. Common patterns:
 
 ```
-default                                          -- full table scan
-default.filter(column='value')                   -- filter rows
-default.project({col1, col2})                    -- select columns
-default.group(by:={col}, aggs:={count:=count()})         -- aggregate
-default.map({new_col := expression})             -- add computed column
-default.order(by:={asc(col)})                      -- sort
-default.mutations(minProportion:=0.5)            -- nucleotide mutations
+data                                             -- full table scan
+data.filter(column='value')                      -- filter rows
+data.project({col1, col2})                       -- select columns
+data.group(by:={col}, aggs:={count:=count()})            -- aggregate
+data.map({new_col := expression})                -- add computed column
+data.order(by:={asc(col)})                         -- sort
+data.mutations(minProportion:=0.5)               -- nucleotide mutations
 unionall(pipeline1, pipeline2)                   -- concatenate two pipelines
 ```
 
-Chaining: `default.filter(...).project({...}).group(by:={}, aggs:={...}).order(by:={...})`
+Chaining: `data.filter(...).project({...}).group(by:={}, aggs:={...}).order(by:={...})`
 
 ### Error responses
 

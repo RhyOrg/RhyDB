@@ -8,12 +8,14 @@ using rhydb::test::QueryTestData;
 using rhydb::test::QueryTestScenario;
 
 const std::vector<nlohmann::json> DATA = {
-   {{"primaryKey", "id_0"},
-    {"segment1", nullptr},
-    {"segment2", nullptr},
-    {"gene1", nullptr},
-    {"unaligned_segment1", nullptr},
-    {"unaligned_segment2", nullptr}}
+   {
+      {"primaryKey", "id_0"},
+      {"segment1", nullptr},
+      {"segment2", nullptr},
+      {"gene1", nullptr},
+      {"unaligned_segment1", nullptr},
+      {"unaligned_segment2", nullptr},
+   },
 };
 
 const auto DATABASE_CONFIG =
@@ -34,7 +36,7 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{
 const QueryTestData TEST_DATA{
    .ndjson_input_data = DATA,
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 const QueryTestScenario ALL_REFERENCE_GENOMES = {
@@ -44,7 +46,7 @@ const QueryTestScenario ALL_REFERENCE_GENOMES = {
       {"name": "gene1", "type": "amino_acid", "sequence": "MYK*"},
       {"name": "segment1", "type": "nucleotide", "sequence": "ACGT"},
       {"name": "segment2", "type": "nucleotide", "sequence": "TTTT"}
-   ])")
+   ])"),
 };
 
 const QueryTestScenario FILTER_BY_TYPE = {
@@ -53,7 +55,7 @@ const QueryTestScenario FILTER_BY_TYPE = {
    .expected_query_result = nlohmann::json::parse(R"([
       {"name": "segment1"},
       {"name": "segment2"}
-   ])")
+   ])"),
 };
 
 }  // namespace

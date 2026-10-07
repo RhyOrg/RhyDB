@@ -145,6 +145,7 @@ build/Release/rhydb_test
 For linting we use clang-tidy. The config is stored in `.clang-tidy`.
 
 When pushing to GitHub, the linter will run on all changed files in the dependencies image, which has clang-tidy installed.
+To run the same changed-files lint path locally, use `make lint-changes`.
 
 On main, or if requested using the `trigger-linter` label, the linter will run on all files. This builds a separate Docker image, which runs the formatter. (This was a workaround, because
 building with clang-tidy under alpine was not possible yet. Should be changed in [#1167](https://github.com/RhyOrg/RhyDB/issues/1167))

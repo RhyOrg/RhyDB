@@ -10,7 +10,6 @@
 
 #include <gtest/gtest.h>
 
-#include "sequence_generator.h"
 #include "rhydb/append/table_inserter.h"
 #include "rhydb/initialize/initializer.h"
 #include "rhydb/query_engine/exec_node/ndjson_sink.h"
@@ -24,6 +23,7 @@
 #include "rhydb/query_engine/scalar_expressions/literal.h"
 #include "rhydb/query_engine/scalar_expressions/or.h"
 #include "rhydb/query_engine/scalar_expressions/string_in_set.h"
+#include "sequence_generator.h"
 
 namespace {
 
@@ -50,7 +50,8 @@ std::unique_ptr<ScalarExpression> makeStringEquals(
 ) {
    return std::make_unique<Comparison>(
       std::make_unique<FieldRef>(rhydb::schema::ColumnIdentifier{
-         .name = column, .type = rhydb::schema::ColumnType::DICTIONARY_ENCODED
+         .name = column,
+         .type = rhydb::schema::ColumnType::DICTIONARY_ENCODED,
       }),
       std::make_unique<StringLiteral>(value),
       rhydb::query_engine::filter::operators::Comparator::EQUALS
@@ -79,6 +80,7 @@ schema:
          database_config,
          std::move(reference_genomes),
          {},
+         // NOLINTNEXTLINE(readability-trailing-comma): false positive on empty brace, llvm#223646
          rhydb::common::PhyloTree{},
          /*without_unaligned_sequences=*/true
       )
@@ -133,7 +135,8 @@ std::unique_ptr<ScalarExpression> buildStringInSet(
    const std::vector<std::string>& values
 ) {
    const rhydb::schema::ColumnIdentifier column_identifier{
-      .name = column, .type = rhydb::schema::ColumnType::STRING
+      .name = column,
+      .type = rhydb::schema::ColumnType::STRING,
    };
    std::unordered_set<std::string> value_set(values.begin(), values.end());
    return std::make_unique<StringInSet>(column_identifier, std::move(value_set));
@@ -150,7 +153,7 @@ void executeCountWithFilter(
    );
    auto filter_node = std::make_unique<FilterNode>(std::move(scan), std::move(filter));
    std::vector<AggregateDefinition> aggregates{
-      {.output_name = "count", .function = AggregateFunction::COUNT, .source_column = std::nullopt}
+      {.output_name = "count", .function = AggregateFunction::COUNT, .source_column = std::nullopt},
    };
    auto root = std::make_unique<AggregateNode>(
       std::move(filter_node), std::vector<rhydb::schema::ColumnIdentifier>{}, std::move(aggregates)
@@ -200,7 +203,7 @@ BenchmarkResult runBenchmark(
    return BenchmarkResult{
       .avg_ms = static_cast<double>(sum) / static_cast<double>(iterations) / 1000.0,
       .min_ms = static_cast<double>(min_val) / 1000.0,
-      .max_ms = static_cast<double>(max_val) / 1000.0
+      .max_ms = static_cast<double>(max_val) / 1000.0,
    };
 }
 

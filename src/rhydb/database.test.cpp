@@ -161,7 +161,7 @@ namespace {
 // Counts the rows of the default table matching `filter` by running a SaneQL count aggregation.
 int64_t countWhere(rhydb::Database& database, const std::string& filter) {
    auto query_plan = rhydb::query_engine::Planner::planSaneqlQuery(
-      fmt::format("default.filter({}).group(by:={{}}, aggs:={{count:=count()}})", filter),
+      fmt::format("data.filter({}).group(by:={{}}, aggs:={{count:=count()}})", filter),
       database.tables,
       rhydb::config::QueryOptions{},
       "count_query"
@@ -281,15 +281,20 @@ TEST(DatabaseTest, canCreateMultipleTablesAndAddData) {
    ColumnIdentifier primary_key{.name = "key", .type = ColumnType::STRING};
    ColumnIdentifier sequence_column{.name = "sequence", .type = ColumnType::NUCLEOTIDE_SEQUENCE};
    std::vector<Nucleotide::Symbol> reference_sequence{
-      Nucleotide::Symbol::A, Nucleotide::Symbol::C, Nucleotide::Symbol::G, Nucleotide::Symbol::T
+      Nucleotide::Symbol::A,
+      Nucleotide::Symbol::C,
+      Nucleotide::Symbol::G,
+      Nucleotide::Symbol::T,
    };
 
    const std::map<ColumnIdentifier, std::shared_ptr<ColumnMetadata>> column_metadata{
       {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)},
-      {sequence_column,
-       std::make_shared<SequenceColumnMetadata<Nucleotide>>(
-          sequence_column.name, std::move(reference_sequence)
-       )},
+      {
+         sequence_column,
+         std::make_shared<SequenceColumnMetadata<Nucleotide>>(
+            sequence_column.name, std::move(reference_sequence)
+         ),
+      },
    };
    const rhydb::schema::TableName first_table_name{"first"};
    database.createTable(

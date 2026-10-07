@@ -89,7 +89,7 @@ ConfigSpecification InitializeConfig::getConfigSpecification() {
             ConfigValue::fromBool(false),
             "Whether unaligned sequences should be omitted for each aligned nucleotide sequence."
          ),
-      }
+      },
    };
 }
 

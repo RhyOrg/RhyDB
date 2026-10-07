@@ -39,34 +39,55 @@ const std::string& reference() {
 constexpr auto DATASETS = std::to_array<Dataset>({
    // Short reads: 100k for nof_sequence_filter, 5M shared by many_short_read_filters and the large
    // nof_sequence_filter case.
-   {.name = SHORT_READ_SMALL_NDJSON,
-    .write = [](std::ostream& out
-             ) { writeShortReadNdjson(out, reference(), DEFAULT_FULL_SEQ_COUNT); }},
-   {.name = SHORT_READ_LARGE_NDJSON,
-    .write = [](std::ostream& out) { writeShortReadNdjson(out, reference(), DEFAULT_READ_COUNT); }},
+   {
+
+      .name = SHORT_READ_SMALL_NDJSON,
+      .write = [](std::ostream& out
+               ) { writeShortReadNdjson(out, reference(), DEFAULT_FULL_SEQ_COUNT); },
+   },
+   {
+      .name = SHORT_READ_LARGE_NDJSON,
+      .write = [](std::ostream& out
+               ) { writeShortReadNdjson(out, reference(), DEFAULT_READ_COUNT); },
+   },
    // Amplicon-coverage short reads for many_short_read_filters, emitted both amplicon-sorted and
    // randomly shuffled. The two files hold the same reads, so ingesting either builds the same
    // database; only their on-disk order (and hence the coverage layout ingestion sees) differs.
-   {.name = SHORT_READ_AMPLICON_SORTED_NDJSON,
-    .write = [](std::ostream& out
-             ) { writeAmpliconShortReadNdjson(out, reference(), /*shuffle=*/false); }},
-   {.name = SHORT_READ_AMPLICON_SHUFFLED_NDJSON,
-    .write = [](std::ostream& out
-             ) { writeAmpliconShortReadNdjson(out, reference(), /*shuffle=*/true); }},
+   {
+      .name = SHORT_READ_AMPLICON_SORTED_NDJSON,
+      .write = [](std::ostream& out
+               ) { writeAmpliconShortReadNdjson(out, reference(), /*shuffle=*/false); },
+   },
+   {
+      .name = SHORT_READ_AMPLICON_SHUFFLED_NDJSON,
+      .write = [](std::ostream& out
+               ) { writeAmpliconShortReadNdjson(out, reference(), /*shuffle=*/true); },
+   },
    // Full-length sequences for nof_sequence_filter, and the same with N runs for
    // sequence_column_insert.
-   {.name = FULL_SEQUENCE_NDJSON,
-    .write = [](std::ostream& out) { writeFullSequenceNdjson(out, reference()); }},
-   {.name = SEQUENCE_COLUMN_NDJSON,
-    .write = [](std::ostream& out) { writeNRunSequenceNdjson(out, reference()); }},
+   {
+      .name = FULL_SEQUENCE_NDJSON,
+      .write = [](std::ostream& out) { writeFullSequenceNdjson(out, reference()); },
+   },
+   {
+      .name = SEQUENCE_COLUMN_NDJSON,
+      .write = [](std::ostream& out) { writeNRunSequenceNdjson(out, reference()); },
+   },
    // Synthetic short reads for mutation_benchmark (uses its own repeated ACGT reference).
-   {.name = MUTATION_READS_NDJSON,
-    .write = [](std::ostream& out) { writeMutationBenchmarkNdjson(out); }},
+   {
+      .name = MUTATION_READS_NDJSON,
+      .write = [](std::ostream& out) { writeMutationBenchmarkNdjson(out); },
+   },
    // Accession/country records for many_string_equals.
-   {.name = STRING_EQUALS_NDJSON, .write = [](std::ostream& out) { writeStringEqualsNdjson(out); }},
+   {
+      .name = STRING_EQUALS_NDJSON,
+      .write = [](std::ostream& out) { writeStringEqualsNdjson(out); },
+   },
    // Random sequences for co_occurrence_benchmark (uses its own short random reference).
-   {.name = CO_OCCURRENCE_NDJSON,
-    .write = [](std::ostream& out) { writeCoOccurrenceNdjson(out, makeCoOccurrenceReference()); }},
+   {
+      .name = CO_OCCURRENCE_NDJSON,
+      .write = [](std::ostream& out) { writeCoOccurrenceNdjson(out, makeCoOccurrenceReference()); },
+   },
 });
 
 void writeDataset(std::string_view name) {

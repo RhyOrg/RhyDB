@@ -35,7 +35,7 @@ class MutationsNode final : public QueryNode {
       SEQUENCE_FIELD_NAME,
       PROPORTION_FIELD_NAME,
       COVERAGE_FIELD_NAME,
-      COUNT_FIELD_NAME
+      COUNT_FIELD_NAME,
    };
 
    std::shared_ptr<storage::Table> table;

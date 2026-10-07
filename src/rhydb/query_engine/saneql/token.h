@@ -35,7 +35,7 @@ enum class TokenType : uint8_t {
    LEFT_BRACKET,
    RIGHT_BRACKET,
    COMMA,
-   END_OF_FILE
+   END_OF_FILE,
 };
 
 [[nodiscard]] std::string tokenTypeToString(TokenType type);

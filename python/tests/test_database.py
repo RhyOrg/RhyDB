@@ -850,18 +850,18 @@ class TestUpdateColumnOnLoadedDatabase:
 
     @staticmethod
     def _column(database, name):
-        return database.query(f'default.project({{{name}}})').to_pydict()[name]
+        return database.query(f'data.project({{{name}}})').to_pydict()[name]
 
     @staticmethod
     def _count(database, filter_expression):
-        return len(database.get_filtered_bitmap("default", filter_expression))
+        return len(database.get_filtered_bitmap("data", filter_expression))
 
     def test_update_int_column_all_rows(self, loaded_database):
         """Updating without a filter assigns the value to every row."""
         total = self._count(loaded_database, "true")
         assert total > 0
 
-        loaded_database.update_column("default", "age", "42")
+        loaded_database.update_column("data", "age", "42")
 
         assert self._count(loaded_database, "age = 42") == total
         assert all(age == 42 for age in self._column(loaded_database, "age"))
@@ -872,7 +872,7 @@ class TestUpdateColumnOnLoadedDatabase:
         total = self._count(loaded_database, "true")
         assert 0 < matching < total
 
-        loaded_database.update_column("default", "age", "100", "age = 4")
+        loaded_database.update_column("data", "age", "100", "age = 4")
 
         assert self._count(loaded_database, "age = 4") == 0
         assert self._count(loaded_database, "age = 100") == matching
@@ -881,17 +881,17 @@ class TestUpdateColumnOnLoadedDatabase:
 
     def test_update_float_column(self, loaded_database):
         """Float literals are assigned to a float column."""
-        loaded_database.update_column("default", "qc_value", "0.5")
+        loaded_database.update_column("data", "qc_value", "0.5")
         assert all(abs(value - 0.5) < 1e-9 for value in self._column(loaded_database, "qc_value"))
 
     def test_update_bool_column(self, loaded_database):
         """Boolean literals are assigned to a bool column (including rows that were null)."""
-        loaded_database.update_column("default", "test_boolean_column", "false")
+        loaded_database.update_column("data", "test_boolean_column", "false")
         assert all(value is False for value in self._column(loaded_database, "test_boolean_column"))
 
     def test_update_date_column(self, loaded_database):
         """SaneQL date literals are assigned to a date column."""
-        loaded_database.update_column("default", "date", "'2000-01-01'::date")
+        loaded_database.update_column("data", "date", "'2000-01-01'::date")
         assert all(
             value == datetime.date(2000, 1, 1) for value in self._column(loaded_database, "date")
         )
@@ -902,14 +902,14 @@ class TestUpdateColumnOnLoadedDatabase:
         nulls_before = self._count(loaded_database, "age.isNull()")
         assert matching > 0
 
-        loaded_database.update_column("default", "age", "null", "age = 4")
+        loaded_database.update_column("data", "age", "null", "age = 4")
 
         assert self._count(loaded_database, "age = 4") == 0
         assert self._count(loaded_database, "age.isNull()") == nulls_before + matching
 
     def test_update_does_not_persist_to_disk(self, loaded_database):
         """Updating the in-memory database must not modify the on-disk repo state."""
-        loaded_database.update_column("default", "age", "999")
+        loaded_database.update_column("data", "age", "999")
         assert self._count(loaded_database, "age = 999") > 0
 
         from rhydb import Database

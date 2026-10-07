@@ -136,7 +136,7 @@ std::optional<operators::GroupingDimension> matchSequencePositionDimension(
       column.value(),
       key->position - 1,
       column->type == schema::ColumnType::NUCLEOTIDE_SEQUENCE,
-      group_by_field.name
+      group_by_field.name,
    };
 }
 
@@ -241,7 +241,9 @@ std::optional<operators::GroupingDimension> matchScalarExpressionDimension(
       return std::nullopt;
    }
    return operators::ScalarExpressionDimension{
-      expression.clone(), expression.type(), group_by_field.name
+      expression.clone(),
+      expression.type(),
+      group_by_field.name,
    };
 }
 
@@ -287,7 +289,7 @@ operators::QueryNodePtr BitmapAggregationRewritePass::operator()(operators::Aggr
    // A full `count(*)` with no grouping keys is the filter's cardinality: read it straight off the
    // scan's filter bitmap. The map (if any) only decompresses columns nobody reads here and does
    // not change the row count, so it is dropped. This is the fast path for
-   // `default.group(aggs:={n := count()}, by:={})`.
+   // `data.group(aggs:={n := count()}, by:={})`.
    if (node.group_by_fields.empty()) {
       return std::make_unique<operators::CountFilterNode>(
          std::move(source->scan.table),

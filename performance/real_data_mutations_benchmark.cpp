@@ -92,7 +92,7 @@ std::string buildQuery(const std::vector<uint32_t>& positions) {
       group_keys += fmt::format("s{}", i);
    }
    return fmt::format(
-      "default.map({{{}}}).group(by:={{{}}}, aggs:={{count:=count()}})", assignments, group_keys
+      "data.map({{{}}}).group(by:={{{}}}, aggs:={{count:=count()}})", assignments, group_keys
    );
 }
 
@@ -117,6 +117,7 @@ schema:
          database_config,
          reference_genomes,
          {},
+         // NOLINTNEXTLINE(readability-trailing-comma): false positive on empty brace, llvm#223646
          rhydb::common::PhyloTree{},
          /*without_unaligned_sequences=*/true
       )
@@ -228,5 +229,5 @@ TEST_F(RealDataMutations, coverageGroupByOverWastewaterReads) {
 
 TEST_F(RealDataMutations, bareCountGroupByOverWastewaterReads) {
    const auto query_options = rhydb::config::RuntimeConfig::withDefaults().query_options;
-   timeQuery("bareCount", "default.group(by := {}, aggs := {n := count()})", *database, query_options);
+   timeQuery("bareCount", "data.group(by := {}, aggs := {n := count()})", *database, query_options);
 }

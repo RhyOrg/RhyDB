@@ -1,6 +1,6 @@
 {
   "testCaseName": "Details action with negative offset",
-  "query": "default.filter((country = 'Switzerland') && (pango_lineage.lineage('B.1.1.7', includeSublineages:=true))).order(by:={primary_key}).offset(-1231)",
+  "query": "data.filter((country = 'Switzerland') && (pango_lineage.lineage('B.1.1.7', includeSublineages:=true))).order(by:={primary_key}).offset(-1231)",
   "expectedError": {
     "error": "Bad request",
     "message": "Cannot cast -1231 to uint32. Value out of range"

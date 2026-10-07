@@ -342,7 +342,7 @@ std::unique_ptr<ScalarExpression> stringEquals(
 TEST(OrToString, shouldHandleNestedStringEquals) {
    ColumnIdentifier primary_key{.name = "key", .type = ColumnType::STRING};
    const std::map<ColumnIdentifier, std::shared_ptr<ColumnMetadata>> column_metadata{
-      {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)}
+      {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)},
    };
    const storage::Table table(
       schema::TableName::getDefault(),
@@ -369,7 +369,7 @@ TEST(OrToString, shouldHandleNestedStringEquals) {
 TEST(OrToString, shouldHandleObufscatedNestedStringEquals) {
    ColumnIdentifier primary_key{.name = "key", .type = ColumnType::STRING};
    const std::map<ColumnIdentifier, std::shared_ptr<ColumnMetadata>> column_metadata{
-      {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)}
+      {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)},
    };
    const storage::Table table(
       schema::TableName::getDefault(),
@@ -450,21 +450,23 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{
 
 const QueryTestData TEST_DATA{
    .ndjson_input_data =
-      {createData("id_0", "Switzerland"),
-       createData("id_1", "Germany"),
-       createData("id_2", "USA"),
-       createData("id_3", "Switzerland"),
-       createData("id_4", "France"),
-       createData("id_5", "Germany")},
+      {
+         createData("id_0", "Switzerland"),
+         createData("id_1", "Germany"),
+         createData("id_2", "USA"),
+         createData("id_3", "Switzerland"),
+         createData("id_4", "France"),
+         createData("id_5", "Germany"),
+      },
    .database_config = DATABASE_CONFIG,
    .reference_genomes = REFERENCE_GENOMES,
-   .without_unaligned_sequences = true
+   .without_unaligned_sequences = true,
 };
 
 const QueryTestScenario NESTED_OR_SAME_COLUMN = {
    .name = "NESTED_OR_SAME_COLUMN",
    .query =
-      "default.filter((country = 'Switzerland' || country = 'Germany') || country = "
+      "data.filter((country = 'Switzerland' || country = 'Germany') || country = "
       "'France').project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -474,13 +476,13 @@ const QueryTestScenario NESTED_OR_SAME_COLUMN = {
 {"country":"France","primaryKey":"id_4"},
 {"country":"Germany","primaryKey":"id_5"
 }])"
-   )
+   ),
 };
 
 const QueryTestScenario DEEPLY_NESTED_OR = {
    .name = "DEEPLY_NESTED_OR",
    .query =
-      "default.filter(country = 'Switzerland' || country = 'Germany').project({primaryKey, "
+      "data.filter(country = 'Switzerland' || country = 'Germany').project({primaryKey, "
       "country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -489,21 +491,21 @@ const QueryTestScenario DEEPLY_NESTED_OR = {
 {"country":"Switzerland","primaryKey":"id_3"},
 {"country":"Germany","primaryKey":"id_5"}
 ])"
-   )
+   ),
 };
 
 const QueryTestScenario OR_SINGLE_CHILD_UNWRAPPED = {
    .name = "OR_SINGLE_CHILD_UNWRAPPED",
-   .query = "default.filter(country = 'Switzerland').project({primaryKey, country})",
+   .query = "data.filter(country = 'Switzerland').project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([{"country":"Switzerland","primaryKey":"id_0"},{"country":"Switzerland","primaryKey":"id_3"}])"
-   )
+   ),
 };
 
 const QueryTestScenario OR_STRING_EQUALS_MERGED = {
    .name = "OR_STRING_EQUALS_MERGED",
    .query =
-      "default.filter(country = 'Switzerland' || country = 'Germany' || country = "
+      "data.filter(country = 'Switzerland' || country = 'Germany' || country = "
       "'France').project({primaryKey, country})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -513,13 +515,13 @@ const QueryTestScenario OR_STRING_EQUALS_MERGED = {
 {"country":"France","primaryKey":"id_4"},
 {"country":"Germany","primaryKey":"id_5"}
 ])"
-   )
+   ),
 };
 
 const QueryTestScenario OR_MIXED_COLUMNS = {
    .name = "OR_MIXED_COLUMNS",
    .query =
-      "default.filter(country = 'USA' || region = 'Europe').project({primaryKey, country, region})",
+      "data.filter(country = 'USA' || region = 'Europe').project({primaryKey, country, region})",
    .expected_query_result = nlohmann::json::parse(
       R"([
 {"country":"Switzerland","primaryKey":"id_0","region":"Europe"},
@@ -529,13 +531,13 @@ const QueryTestScenario OR_MIXED_COLUMNS = {
 {"country":"France","primaryKey":"id_4","region":"Europe"},
 {"country":"Germany","primaryKey":"id_5","region":"Europe"}
 ])"
-   )
+   ),
 };
 
 const QueryTestScenario OR_WITH_AND = {
    .name = "OR_WITH_AND",
    .query =
-      "default.filter((country = 'Switzerland' && region = 'Europe') || country = "
+      "data.filter((country = 'Switzerland' && region = 'Europe') || country = "
       "'USA').project({primaryKey, country, region})",
    .expected_query_result = nlohmann::json::parse(
       R"([
@@ -543,13 +545,13 @@ const QueryTestScenario OR_WITH_AND = {
 {"country":"USA","primaryKey":"id_2","region":"Americas"},
 {"country":"Switzerland","primaryKey":"id_3","region":"Europe"}
 ])"
-   )
+   ),
 };
 
 const QueryTestScenario OR_EMPTY_CHILDREN = {
    .name = "OR_EMPTY_CHILDREN",
-   .query = "default.filter(false).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(R"([])")
+   .query = "data.filter(false).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(R"([])"),
 };
 
 }  // namespace

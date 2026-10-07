@@ -61,6 +61,7 @@ schema:
          database_config,
          reference_genomes,
          {},
+         // NOLINTNEXTLINE(readability-trailing-comma): false positive on empty brace, llvm#223646
          rhydb::common::PhyloTree{},
          /*without_unaligned_sequences=*/true
       )
@@ -83,7 +84,7 @@ std::string buildQuery() {
       group_keys += fmt::format("s{}", i);
    }
    return fmt::format(
-      "default.map({{{}}}).group(by:={{{}}}, aggs:={{count:=count()}})", assignments, group_keys
+      "data.map({{{}}}).group(by:={{{}}}, aggs:={{count:=count()}})", assignments, group_keys
    );
 }
 

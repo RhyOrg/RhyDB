@@ -65,7 +65,7 @@ class HorizontalCoverageIndex {
       const RowId row_id = RowId::fromGlobal(global_row_id);
       return {
          starts.at(row_id.chunk_id).at(row_id.row_in_chunk),
-         ends.at(row_id.chunk_id).at(row_id.row_in_chunk)
+         ends.at(row_id.chunk_id).at(row_id.row_in_chunk),
       };
    }
 

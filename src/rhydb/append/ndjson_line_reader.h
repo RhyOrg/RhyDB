@@ -40,7 +40,7 @@ class NdjsonLineReader {
             simdjson::simdjson_result<simdjson::ondemand::document_reference>(
                stream->json_document_buffer, stream->error
             ),
-            stream->line_buffer
+            stream->line_buffer,
          };
       }
 

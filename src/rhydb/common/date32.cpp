@@ -12,7 +12,7 @@ namespace rhydb::common {
 std::expected<Date32, std::string> stringToDate32(std::string_view value) {
    if (value.size() != 10 || value[4] != '-' || value[7] != '-') {
       return std::unexpected{
-         fmt::format("Invalid date format '{}': expected exactly YYYY-MM-DD", value)
+         fmt::format("Invalid date format '{}': expected exactly YYYY-MM-DD", value),
       };
    }
    const std::string_view year_sv = value.substr(0, 4);
@@ -40,7 +40,7 @@ std::expected<Date32, std::string> stringToDate32(std::string_view value) {
    const std::chrono::year_month_day ymd{
       std::chrono::year{year},
       std::chrono::month{static_cast<unsigned>(month)},
-      std::chrono::day{static_cast<unsigned>(day)}
+      std::chrono::day{static_cast<unsigned>(day)},
    };
    if (!ymd.ok()) {
       return std::unexpected{fmt::format("Invalid calendar date '{}'", value)};

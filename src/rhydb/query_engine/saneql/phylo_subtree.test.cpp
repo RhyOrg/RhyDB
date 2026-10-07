@@ -26,18 +26,18 @@ Tables makeTablesWithDefault() {
 
    ColumnIdentifier primary_key{.name = "id", .type = ColumnType::STRING};
    std::map<ColumnIdentifier, std::shared_ptr<ColumnMetadata>> col_meta{
-      {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)}
+      {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)},
    };
    auto schema = std::make_shared<rhydb::schema::TableSchema>(std::move(col_meta), primary_key);
    Tables tables;
-   const rhydb::schema::TableName table_name("default");
+   const rhydb::schema::TableName table_name("data");
    tables[table_name] = std::make_shared<rhydb::storage::Table>(table_name, schema);
    return tables;
 }
 
 TEST(PhyloSubtree, contractUnaryNodesDefaultsToTrue) {
    auto tables = makeTablesWithDefault();
-   auto node = parseAndConvertToQueryTree("default.phyloSubtree(column:='id')", tables);
+   auto node = parseAndConvertToQueryTree("data.phyloSubtree(column:='id')", tables);
    const auto* phylo = dynamic_cast<const operators::UnresolvedPhyloSubtreeNode*>(node.get());
    ASSERT_NE(phylo, nullptr);
    EXPECT_TRUE(phylo->contract_unary_nodes);
@@ -46,7 +46,7 @@ TEST(PhyloSubtree, contractUnaryNodesDefaultsToTrue) {
 TEST(PhyloSubtree, contractUnaryNodesCanBeSetToFalse) {
    auto tables = makeTablesWithDefault();
    auto node = parseAndConvertToQueryTree(
-      "default.phyloSubtree(column:='id', contractUnaryNodes:=false)", tables
+      "data.phyloSubtree(column:='id', contractUnaryNodes:=false)", tables
    );
    const auto* phylo = dynamic_cast<const operators::UnresolvedPhyloSubtreeNode*>(node.get());
    ASSERT_NE(phylo, nullptr);

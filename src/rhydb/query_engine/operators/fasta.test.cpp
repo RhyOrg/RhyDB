@@ -21,7 +21,7 @@ nlohmann::json createDataWithUnalignedSequences(
       {"unaligned_segment1", segment1},
       {"unaligned_segment2", segment2},
       {"gene1", nullptr},
-      {"gene2", nullptr}
+      {"gene2", nullptr},
    };
 }
 
@@ -32,7 +32,7 @@ const std::vector<nlohmann::json> DATA = {
    createDataWithUnalignedSequences("noSegment", "2024-08-08", nullptr, nullptr),
    createDataWithUnalignedSequences("1", "2024-08-05", nullptr, "A"),
    createDataWithUnalignedSequences("2", "2024-08-03", nullptr, nullptr),
-   createDataWithUnalignedSequences("3", "2024-08-02", nullptr, "AA")
+   createDataWithUnalignedSequences("3", "2024-08-02", nullptr, "AA"),
 };
 
 const auto DATABASE_CONFIG =
@@ -55,12 +55,12 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{
 const QueryTestData TEST_DATA{
    .ndjson_input_data = DATA,
    .database_config = DATABASE_CONFIG,
-   .reference_genomes = REFERENCE_GENOMES
+   .reference_genomes = REFERENCE_GENOMES,
 };
 
 std::string createFastaQuery(const std::string& primaryKey) {
    return fmt::format(
-      "default.filter(primaryKey = '{}').project({{primaryKey, unaligned_segment1, "
+      "data.filter(primaryKey = '{}').project({{primaryKey, unaligned_segment1, "
       "unaligned_segment2}})",
       primaryKey
    );
@@ -71,62 +71,78 @@ const QueryTestScenario SEQUENCE_WITH_BOTH_SEGMENTS_SCENARIO = {
    .query = createFastaQuery("bothSegments"),
    .expected_query_result = nlohmann::json(
       {{{"primaryKey", "bothSegments"}, {"unaligned_segment1", "A"}, {"unaligned_segment2", "G"}}}
-   )
+   ),
 };
 
 const QueryTestScenario SEQUENCE_WITH_ONLY_FIRST_SEGMENT_SCENARIO = {
    .name = "SEQUENCE_WITH_ONLY_FIRST_SEGMENT_SCENARIO",
    .query = createFastaQuery("onlySegment1"),
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "onlySegment1"}, {"unaligned_segment1", "T"}, {"unaligned_segment2", nullptr}
-      }}
-   )
+   .expected_query_result = nlohmann::json({
+      {
+         {"primaryKey", "onlySegment1"},
+         {"unaligned_segment1", "T"},
+         {"unaligned_segment2", nullptr},
+      },
+   }),
 };
 
 const QueryTestScenario SEQUENCE_WITH_ONLY_SECOND_SEGMENT_SCENARIO = {
    .name = "SEQUENCE_WITH_ONLY_SECOND_SEGMENT_SCENARIO",
    .query = createFastaQuery("onlySegment2"),
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "onlySegment2"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", "T"}
-      }}
-   )
+   .expected_query_result = nlohmann::json({
+      {
+         {"primaryKey", "onlySegment2"},
+         {"unaligned_segment1", nullptr},
+         {"unaligned_segment2", "T"},
+      },
+   }),
 };
 
 const QueryTestScenario SEQUENCE_WITH_NO_SEGMENT_SCENARIO = {
    .name = "SEQUENCE_WITH_NO_SEGMENT_SCENARIO",
    .query = createFastaQuery("noSegment"),
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "noSegment"},
-        {"unaligned_segment1", nullptr},
-        {"unaligned_segment2", nullptr}}}
-   )
+   .expected_query_result = nlohmann::json({
+      {
+         {"primaryKey", "noSegment"},
+         {"unaligned_segment1", nullptr},
+         {"unaligned_segment2", nullptr},
+      },
+   }),
 };
 
 const QueryTestScenario DOWNLOAD_ALL_SEQUENCES_SCENARIO = {
    .name = "DOWNLOAD_ALL_SEQUENCES_SCENARIO",
    .query =
-      "default.project({primaryKey, unaligned_segment1, "
+      "data.project({primaryKey, unaligned_segment1, "
       "unaligned_segment2}).order(by:={primaryKey})",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "1"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", "A"}},
-       {{"primaryKey", "2"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", nullptr}},
-       {{"primaryKey", "3"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", "AA"}},
-       {{"primaryKey", "bothSegments"}, {"unaligned_segment1", "A"}, {"unaligned_segment2", "G"}},
-       {{"primaryKey", "noSegment"},
-        {"unaligned_segment1", nullptr},
-        {"unaligned_segment2", nullptr}},
-       {{"primaryKey", "onlySegment1"}, {"unaligned_segment1", "T"}, {"unaligned_segment2", nullptr}
-       },
-       {{"primaryKey", "onlySegment2"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", "T"}
-       }}
-   ),
-   .query_options = rhydb::config::QueryOptions{.materialization_cutoff = 0}
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "1"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", "A"}},
+      {{"primaryKey", "2"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", nullptr}},
+      {{"primaryKey", "3"}, {"unaligned_segment1", nullptr}, {"unaligned_segment2", "AA"}},
+      {{"primaryKey", "bothSegments"}, {"unaligned_segment1", "A"}, {"unaligned_segment2", "G"}},
+      {
+         {"primaryKey", "noSegment"},
+         {"unaligned_segment1", nullptr},
+         {"unaligned_segment2", nullptr},
+      },
+      {
+         {"primaryKey", "onlySegment1"},
+         {"unaligned_segment1", "T"},
+         {"unaligned_segment2", nullptr},
+      },
+      {
+         {"primaryKey", "onlySegment2"},
+         {"unaligned_segment1", nullptr},
+         {"unaligned_segment2", "T"},
+      },
+   }),
+   .query_options = rhydb::config::QueryOptions{.materialization_cutoff = 0},
 };
 
 const QueryTestScenario DOWNLOAD_ALL_DATA = {
    .name = "DOWNLOAD_ALL_DATA",
    .query =
-      "default.project({primaryKey, unaligned_segment1, unaligned_segment2, date})"
+      "data.project({primaryKey, unaligned_segment1, unaligned_segment2, date})"
       ".order(by:={primaryKey})",
    .expected_query_result = nlohmann::json::parse(R"(
 [{"date":"2024-08-05","primaryKey":"1","unaligned_segment1":null,"unaligned_segment2":"A"},
@@ -136,13 +152,13 @@ const QueryTestScenario DOWNLOAD_ALL_DATA = {
 {"date":"2024-08-08","primaryKey":"noSegment","unaligned_segment1":null,"unaligned_segment2":null},
 {"date":"2024-08-03","primaryKey":"onlySegment1","unaligned_segment1":"T","unaligned_segment2":null},
 {"date":"2024-08-02","primaryKey":"onlySegment2","unaligned_segment1":null,"unaligned_segment2":"T"}])"
-   )
+   ),
 };
 
 const QueryTestScenario DUPLICATE_FIELDS = {
    .name = "DUPLICATE_FIELDS",
    .query =
-      "default.project({primaryKey, unaligned_segment1, unaligned_segment2, unaligned_segment1, "
+      "data.project({primaryKey, unaligned_segment1, unaligned_segment2, unaligned_segment1, "
       "date, date}).order(by:={primaryKey})",
    .expected_query_result = nlohmann::json::parse(R"(
 [{"date":"2024-08-05","primaryKey":"1","unaligned_segment1":null,"unaligned_segment2":"A"},
@@ -152,21 +168,21 @@ const QueryTestScenario DUPLICATE_FIELDS = {
 {"date":"2024-08-08","primaryKey":"noSegment","unaligned_segment1":null,"unaligned_segment2":null},
 {"date":"2024-08-03","primaryKey":"onlySegment1","unaligned_segment1":"T","unaligned_segment2":null},
 {"date":"2024-08-02","primaryKey":"onlySegment2","unaligned_segment1":null,"unaligned_segment2":"T"}])"
-   )
+   ),
 };
 
 const QueryTestScenario ORDER_BY_NOT_IN_OUTPUT = {
    .name = "ORDER_BY_NOT_IN_OUTPUT",
-   .query = "default.project({primaryKey, unaligned_segment1}).order(by:={date.desc()})",
+   .query = "data.project({primaryKey, unaligned_segment1}).order(by:={date.desc()})",
    .expected_error_message =
       "OrderByField date is not contained in the result of this operation. "
-      "Allowed values are primaryKey, unaligned_segment1."
+      "Allowed values are primaryKey, unaligned_segment1.",
 };
 
 const QueryTestScenario ORDER_BY_ADDITIONAL_FIELD = {
    .name = "ORDER_BY_ADDITIONAL_FIELD",
    .query =
-      "default.project({primaryKey, unaligned_segment1, unaligned_segment2, date})"
+      "data.project({primaryKey, unaligned_segment1, unaligned_segment2, date})"
       ".order(by:={date.asc()})",
    .expected_query_result = nlohmann::json::parse(R"(
 [{"date":"2024-08-01","primaryKey":"bothSegments","unaligned_segment1":"A","unaligned_segment2":"G"},
@@ -176,7 +192,7 @@ const QueryTestScenario ORDER_BY_ADDITIONAL_FIELD = {
 {"date":"2024-08-03","primaryKey":"2","unaligned_segment1":null,"unaligned_segment2":null},
 {"date":"2024-08-05","primaryKey":"1","unaligned_segment1":null,"unaligned_segment2":"A"},
 {"date":"2024-08-08","primaryKey":"noSegment","unaligned_segment1":null,"unaligned_segment2":null}])"
-   )
+   ),
 };
 
 }  // namespace

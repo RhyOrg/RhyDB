@@ -1,5 +1,5 @@
 {
   "testCaseName": "Mutations action without sequence and empty result",
-  "query": "default.filter(false).mutations(minProportion:=1)",
+  "query": "data.filter(false).mutations(minProportion:=1)",
   "expectedQueryResult": []
 }

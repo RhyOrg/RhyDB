@@ -132,7 +132,8 @@ void postAdminQuery(
    request.in_stream << query;
 
    rhydb_app::RhyDBRequestHandlerFactory factory{
-      configWithAdminEndpoint(data_directory, allow_admin_endpoint), handle
+      configWithAdminEndpoint(data_directory, allow_admin_endpoint),
+      handle,
    };
    std::unique_ptr<Poco::Net::HTTPRequestHandler> handler{factory.createRequestHandler(request)};
    handler->handleRequest(request, response);
@@ -372,7 +373,8 @@ TEST(AdminQueryHandler, serializesConcurrentWrites) {
    auto handle = makeActiveDatabaseWithSourceData(data_directory.path());
 
    rhydb_app::RhyDBRequestHandlerFactory factory{
-      configWithAdminEndpoint(data_directory.path(), true), handle
+      configWithAdminEndpoint(data_directory.path(), true),
+      handle,
    };
 
    constexpr size_t NUMBER_OF_THREADS = 4;
@@ -390,7 +392,7 @@ TEST(AdminQueryHandler, serializesConcurrentWrites) {
             request.in_stream << "source.filter(country='CH').insertInto(archive)";
 
             std::unique_ptr<Poco::Net::HTTPRequestHandler> handler{
-               factory.createRequestHandler(request)
+               factory.createRequestHandler(request),
             };
             handler->handleRequest(request, response);
 
@@ -430,7 +432,8 @@ TEST(QueryHandler, rejectsInsertQueryOnReadOnlyEndpointWithBadRequest) {
    request.in_stream << "source.filter(country='CH').insertInto(archive)";
 
    rhydb_app::RhyDBRequestHandlerFactory factory{
-      configWithAdminEndpoint(data_directory.path(), true), handle
+      configWithAdminEndpoint(data_directory.path(), true),
+      handle,
    };
    std::unique_ptr<Poco::Net::HTTPRequestHandler> handler{factory.createRequestHandler(request)};
    handler->handleRequest(request, response);

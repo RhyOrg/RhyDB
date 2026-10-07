@@ -106,7 +106,7 @@ TableName::TableName(std::string name)
 
 namespace {
 
-TableName default_table_name{"default"};
+TableName default_table_name{"data"};
 
 }
 

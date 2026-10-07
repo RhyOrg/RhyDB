@@ -36,9 +36,13 @@ extractCoverageAndMutationsFromSequence(
       const char character = sequence_data[char_in_sequence];
       const auto symbol = SymbolType::charToSymbol(character);
       if (!symbol.has_value()) {
-         return std::unexpected{fmt::format(
-            "illegal character '{}' at position {} in the input sequence", character, position_idx
-         )};
+         return std::unexpected{
+            fmt::format(
+               "illegal character '{}' at position {} in the input sequence",
+               character,
+               position_idx
+            ),
+         };
       }
       if (symbol == SymbolType::SYMBOL_MISSING) {
          coverage.missing_positions.push_back(position_idx);

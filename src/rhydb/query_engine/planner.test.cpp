@@ -68,10 +68,12 @@ tablesWithSequenceColumnFirst() {
    const ColumnIdentifier sequence{.name = "E", .type = ColumnType::AMINO_ACID_SEQUENCE};
    const ColumnIdentifier primary_key{.name = "id", .type = ColumnType::STRING};
    std::map<ColumnIdentifier, std::shared_ptr<ColumnMetadata>> col_meta{
-      {sequence,
-       std::make_shared<SequenceColumnMetadata<AminoAcid>>(
-          sequence.name, std::vector<AminoAcid::Symbol>{AminoAcid::Symbol::A}
-       )},
+      {
+         sequence,
+         std::make_shared<SequenceColumnMetadata<AminoAcid>>(
+            sequence.name, std::vector<AminoAcid::Symbol>{AminoAcid::Symbol::A}
+         ),
+      },
       {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)},
    };
    auto schema = std::make_shared<rhydb::schema::TableSchema>(std::move(col_meta), primary_key);
@@ -87,7 +89,7 @@ tablesWithSequenceColumnFirst() {
 TEST(PlannerOptimize, bareCountOverSequenceFirstTableBecomesCountFilter) {
    auto tables = tablesWithSequenceColumnFirst();
    auto node = rhydb::query_engine::saneql::parseAndConvertToQueryTree(
-      "default.group(by:={}, aggs:={n := count()})", tables
+      "data.group(by:={}, aggs:={n := count()})", tables
    );
 
    auto optimized = Planner::optimize(std::move(node), "test");

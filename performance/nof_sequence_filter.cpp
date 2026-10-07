@@ -73,7 +73,7 @@ BenchmarkResult runBenchmark(
 // sequence).  This exercises the single-pass NOf optimisation at large scale.
 std::string buildMutationProfileQuery(const std::string& query_sequence, uint32_t distance) {
    return fmt::format(
-      "default.filter(nucleotideMutationProfile(distance:={}, sequenceName:='main', "
+      "data.filter(nucleotideMutationProfile(distance:={}, sequenceName:='main', "
       "querySequence:='{}'))"
       ".group(by:={{}}, aggs:={{count:=count()}})",
       distance,

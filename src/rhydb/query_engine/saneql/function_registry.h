@@ -94,10 +94,19 @@ class FunctionRegistry {
 
 using ScalarExpressionPtr = std::unique_ptr<scalar_expressions::ScalarExpression>;
 
+/// Ambient state a scalar handler may need beyond its arguments and input schema: the database's
+/// tables, and, when scalar conversion happens inside a table-function handler, the converter for
+/// relational arguments (e.g. a subquery). `convert_child` is null outside a table-function handler
+/// (the public convertToFilter entry point). A scalar handler that needs neither ignores this.
+struct ScalarConversionContext {
+   const Tables* tables = nullptr;
+   const ChildConverter* convert_child = nullptr;
+};
+
 using ScalarFunctionHandler = std::function<ScalarExpressionPtr(
    const BoundArguments& args,
    const std::vector<schema::ColumnIdentifier>& schema,
-   const Tables& tables
+   const ScalarConversionContext& context
 )>;
 
 class ScalarFunctionRegistry {

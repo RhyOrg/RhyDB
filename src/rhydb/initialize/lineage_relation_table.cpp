@@ -28,12 +28,12 @@ std::vector<LineageRelationRow> buildLineageRelationRows(
       if (parents.empty()) {
          // A root: no parent edge, but the lineage still needs a row so the walk can terminate and
          // so a lineage carrying no sequences is still present in the table.
-         rows.push_back(
-            {.lineage = std::move(lineage),
-             .parent = std::nullopt,
-             .is_recombinant_edge = false,
-             .recombinant_clade_ancestor = std::nullopt}
-         );
+         rows.push_back({
+            .lineage = std::move(lineage),
+            .parent = std::nullopt,
+            .is_recombinant_edge = false,
+            .recombinant_clade_ancestor = std::nullopt,
+         });
          continue;
       }
 
@@ -46,12 +46,12 @@ std::vector<LineageRelationRow> buildLineageRelationRows(
          }
       }
       for (const Idx parent_id : parents) {
-         rows.push_back(
-            {.lineage = lineage,
-             .parent = std::string{names.getValue(parent_id)},
-             .is_recombinant_edge = is_recombinant,
-             .recombinant_clade_ancestor = recombinant_clade_ancestor}
-         );
+         rows.push_back({
+            .lineage = lineage,
+            .parent = std::string{names.getValue(parent_id)},
+            .is_recombinant_edge = is_recombinant,
+            .recombinant_clade_ancestor = recombinant_clade_ancestor,
+         });
       }
    }
    return rows;
