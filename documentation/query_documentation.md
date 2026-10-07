@@ -749,7 +749,7 @@ Alternatively, use comparison operators:
 date >= '2021-01-01'::date && date <= '2021-12-31'::date
 ```
 
-### `in(column, {values})`
+### `in(column, {values})` / `in(column, subquery)`
 
 True if the column value is one of the given values. Works for string, integer, float, date, and boolean columns; every value must be a literal of the column's type. An empty set `{}` matches no rows.
 
@@ -758,6 +758,12 @@ country.in({'Germany', 'France', 'Italy'})
 year.in({2020, 2021})
 qc_value.in({0.5, 1.0})
 date.in({'2021-01-01'::date, '2021-06-01'::date})
+```
+
+Instead of a set literal, the values may be given by a subquery: any table expression with exactly one column of the column's type. The subquery is uncorrelated — it cannot refer to the row being filtered — and is executed once while the query is planned; its non-null values then act like a set literal. A subquery is only supported where the predicate belongs to a `filter` or `map`.
+
+```
+data.filter(country.in(data.filter(region = 'Asia').project({country})))
 ```
 
 ### `isNull(column)`
