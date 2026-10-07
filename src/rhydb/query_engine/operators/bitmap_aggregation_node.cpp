@@ -934,7 +934,7 @@ arrow::Result<arrow::acero::ExecNode*> BitmapAggregationNode::addToExecPlan(
    const std::map<schema::TableName, std::shared_ptr<storage::Table>>& /*tables*/,
    const config::QueryOptions& query_options
 ) const {
-   auto filter_bitmap = computeFilter(filter, *table);
+   auto filter_bitmap = compileFilter(filter, table)->evaluate();
 
    // Resolve each dimension against the table into a grouper that produces its groups per 2^16
    // chunk (this also validates, e.g. a sequence position out of range throws here). The groups are
