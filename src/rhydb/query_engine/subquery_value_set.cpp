@@ -31,8 +31,8 @@ class LiteralCollectingVisitor : public arrow::ArrayVisitor {
    std::vector<ScalarExpressionPtr>& literals;
 
    template <typename LiteralType, typename ValueType>
-   void add(ValueType value) {
-      literals.push_back(std::make_unique<LiteralType>(value));
+   void add(ValueType&& value) {
+      literals.push_back(std::make_unique<LiteralType>(std::forward<ValueType>(value)));
    }
 
   public:
