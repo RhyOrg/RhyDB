@@ -83,7 +83,7 @@ const QueryTestData TEST_DATA{
 
 // Mutation co-occurrence is an optimizer-only feature: it is expressed with the generic `at` scalar
 // function (a `map` assigns the per-position symbols and `group` groups on them), and the
-// BitmapAggregationRewritePass recognizes that shape and routes it through the dedicated
+// AggregationRewritePass recognizes that shape and routes it through the dedicated
 // bitmap-based engine. Combinations are emitted depth-first in nucleotide SYMBOLS order (A before C
 // before N).
 const QueryTestScenario CO_OCCURRENCE_VIA_MAP_TWO_POSITIONS = {
