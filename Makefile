@@ -94,9 +94,6 @@ benchmarks: generateTestData
 	$(CMAKE) --build build/Release --parallel $(CMAKE_BUILD_PARALLEL_LEVEL) --target rhydb_benchmark
 	${RHYDB_BENCHMARK_EXECUTABLE}
 
-# Only the compiled sources trigger a rebuild; the wasm CMake files are already
-# prerequisites of build/wasm/build.ninja.
-# Non-source assets (wasm/example, wasm/README.md, ...) intentionally do not force a rebuild.
 ${RHYDB_WASM_EXECUTABLE}: build/wasm/build.ninja $(shell find src wasm/src -type f)
 	# Emscripten's --emit-tsd (see wasm/CMakeLists.txt) invokes `tsc`; make the
 	# repo-local TypeScript (devDependency) discoverable on PATH for the link step.
