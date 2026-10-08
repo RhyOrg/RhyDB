@@ -9,7 +9,9 @@ class AggregateNode;
 
 namespace rhydb::query_engine::optimizer {
 
-/// Optimization pass that recognizes a `group` with a single bare `count()` (no source column)
+/// Optimization pass for aggregation nodes.
+///
+/// Recognizes a `group` with a single bare `count()` (no source column)
 /// and turns it into a dedicated, far cheaper node:
 ///
 ///   * With no grouping keys (a full `count(*)`) the result is just the filter's cardinality, so
@@ -50,9 +52,9 @@ namespace rhydb::query_engine::optimizer {
 /// resolve each grouping key against the table schema. It also runs after MapPullupPass, so at most
 /// one `MapNode` sits between the aggregate and the scan. Traversal into every other node is
 /// provided by PipelinePassBase; only `AggregateNode` needs custom handling.
-class BitmapAggregationRewritePass : public PipelinePassBase<BitmapAggregationRewritePass> {
+class AggregationRewritePass : public PipelinePassBase<AggregationRewritePass> {
   public:
-   using PipelinePassBase<BitmapAggregationRewritePass>::operator();
+   using PipelinePassBase<AggregationRewritePass>::operator();
 
    // Shadowing the PipelinePassBase defaults is the intended way to customize a pass.
    // NOLINTBEGIN(bugprone-derived-method-shadowing-base-method)

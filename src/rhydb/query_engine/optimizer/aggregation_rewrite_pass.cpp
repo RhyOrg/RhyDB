@@ -1,4 +1,4 @@
-#include "rhydb/query_engine/optimizer/bitmap_aggregation_rewrite_pass.h"
+#include "rhydb/query_engine/optimizer/aggregation_rewrite_pass.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -272,7 +272,7 @@ bool isBitmapBacked(const operators::GroupingDimension& dimension) {
 }  // namespace
 
 // NOLINTNEXTLINE(misc-no-recursion)
-operators::QueryNodePtr BitmapAggregationRewritePass::operator()(operators::AggregateNode& node) {
+operators::QueryNodePtr AggregationRewritePass::operator()(operators::AggregateNode& node) {
    propagateToNode(node.child);
 
    if (!isBareCount(node)) {
