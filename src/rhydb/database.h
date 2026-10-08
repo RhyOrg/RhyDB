@@ -55,22 +55,6 @@ class Database {
       const append::ClusteredBufferingOptions& clustering_options = {}
    );
 
-   void createNucleotideSequenceTable(
-      const std::string& table_name,
-      const std::string& primary_key_name,
-      const std::string& sequence_name,
-      const std::string& reference_sequence,
-      const std::vector<std::string>& extra_string_columns = {}
-   );
-
-   void createGeneTable(
-      const std::string& table_name,
-      const std::string& primary_key_name,
-      const std::string& sequence_name,
-      const std::string& reference_sequence,
-      const std::vector<std::string>& extra_string_columns = {}
-   );
-
    void appendDataFromFile(const std::string& table_name, const std::string& file_path);
 
    void appendDataFromString(const std::string& table_name, std::string json_string);
@@ -113,7 +97,7 @@ class Database {
 
    [[nodiscard]] virtual DataVersion::Timestamp getDataVersionTimestamp() const;
 
-   [[nodiscard]] std::string executeQueryAsArrowIpc(const std::string& query_string) const;
+   [[nodiscard]] std::string executeQueryAsArrowIpc(const std::string& query_string);
 
    /// Applies the write statement `query_string` and returns its result (see
    /// `WriteCommand::execute`).

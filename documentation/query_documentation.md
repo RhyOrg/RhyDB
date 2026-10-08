@@ -704,7 +704,8 @@ column without `generateIndex`.
 
 Fill the new table with [`insertInto`](#insertintoquery-expression-table-symbol), or append to it
 through the regular append path. The statement bumps the data version and, like `insertInto`, is only
-available through [`POST /admin/query`](api.md#post-adminquery).
+available through [`POST /admin/query`](api.md#post-adminquery) over the API, or through `query()` of
+the [Python bindings](python_bindings.md).
 
 ---
 

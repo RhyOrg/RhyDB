@@ -17,8 +17,6 @@ cdef extern from "rhydb/database.h" namespace "rhydb":
     cdef cppclass Database:
         Database() except +
         Database(const Database&) except +  # Copy constructor
-        void createNucleotideSequenceTable(string table_name, string primary_key_name, string sequence_name, string reference_sequence, vector[string] extra_string_columns) except +
-        void createGeneTable(string table_name, string primary_key_name, string sequence_name, string reference_sequence, vector[string] extra_string_columns) except +
         void appendDataFromFile(string table_name, string file_name) except +
         void appendDataFromString(string table_name, string json_string) except +
         void printAllData(string table_name) except +
