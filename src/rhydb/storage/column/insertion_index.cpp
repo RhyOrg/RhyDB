@@ -1,6 +1,7 @@
 #include "rhydb/storage/column/insertion_index.h"
 
 #include <functional>
+#include <memory>
 #include <optional>
 #include <string_view>
 #include <unordered_set>
@@ -69,6 +70,39 @@ size_t ThreeMerHash<SymbolType>::operator()(
       boost::hash_combine(seed, std::hash<typename SymbolType::Symbol>{}(one_mer));
    }
    return seed;
+}
+
+template <typename SymbolType>
+InsertionSearchPattern<SymbolType>::InsertionSearchPattern(
+   std::vector<std::array<typename SymbolType::Symbol, 3>> three_mers,
+   std::unique_ptr<const RE2> regex
+)
+    : three_mers(std::move(three_mers)),
+      regex(std::move(regex)) {}
+
+template <typename SymbolType>
+InsertionSearchPattern<SymbolType> InsertionSearchPattern<SymbolType>::make(
+   const std::string& search_pattern
+) {
+   auto three_mers = extractThreeMers<SymbolType>(search_pattern);
+   auto regex = std::make_unique<const RE2>(search_pattern);
+   if (!regex->ok()) {
+      throw InsertionFormatException(
+         "Invalid regex in insertion search pattern '{}': {}", search_pattern, regex->error()
+      );
+   }
+   return {std::move(three_mers), std::move(regex)};
+}
+
+template <typename SymbolType>
+const std::vector<std::array<typename SymbolType::Symbol, 3>>& InsertionSearchPattern<
+   SymbolType>::getThreeMers() const {
+   return three_mers;
+}
+
+template <typename SymbolType>
+const RE2& InsertionSearchPattern<SymbolType>::getRegex() const {
+   return *regex;
 }
 
 template <typename SymbolType>
@@ -221,16 +255,13 @@ void InsertionPosition<AminoAcid>::buildThreeMerIndex() {
 
 template <typename SymbolType>
 std::unique_ptr<roaring::Roaring> InsertionPosition<SymbolType>::search(
-   const std::string& search_pattern
+   const InsertionSearchPattern<SymbolType>& search_pattern
 ) const {
-   const auto search_three_mers = extractThreeMers<SymbolType>(search_pattern);
-   const RE2 regex_search_pattern(search_pattern);
-
-   if (!search_three_mers.empty()) {
+   if (!search_pattern.getThreeMers().empty()) {
       // We can only use the ThreeMerIndex if there is at least one 3-mer in the search pattern
-      return searchWithThreeMerIndex(search_three_mers, regex_search_pattern);
+      return searchWithThreeMerIndex(search_pattern.getThreeMers(), search_pattern.getRegex());
    }
-   return searchWithRegex(regex_search_pattern);
+   return searchWithRegex(search_pattern.getRegex());
 }
 
 template <typename SymbolType>
@@ -279,7 +310,7 @@ const std::unordered_map<uint32_t, InsertionPosition<SymbolType>>& InsertionInde
 template <typename SymbolType>
 std::unique_ptr<roaring::Roaring> InsertionIndex<SymbolType>::search(
    uint32_t position_idx,
-   const std::string& search_pattern
+   const InsertionSearchPattern<SymbolType>& search_pattern
 ) const {
    const auto insertion_pos_it = insertion_positions.find(position_idx);
    if (insertion_pos_it == insertion_positions.end()) {
@@ -290,6 +321,9 @@ std::unique_ptr<roaring::Roaring> InsertionIndex<SymbolType>::search(
 
 template class ThreeMerHash<Nucleotide>;
 template class ThreeMerHash<AminoAcid>;
+
+template class InsertionSearchPattern<Nucleotide>;
+template class InsertionSearchPattern<AminoAcid>;
 
 template class InsertionIndex<Nucleotide>;
 template class InsertionIndex<AminoAcid>;

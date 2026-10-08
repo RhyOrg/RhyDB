@@ -20,6 +20,25 @@ class ThreeMerHash {
    size_t operator()(const std::array<typename SymbolType::Symbol, 3>& three_mer) const;
 };
 
+template <typename SymbolType>
+class InsertionSearchPattern {
+   std::vector<std::array<typename SymbolType::Symbol, 3>> three_mers;
+   std::unique_ptr<const re2::RE2> regex;
+
+   InsertionSearchPattern(
+      std::vector<std::array<typename SymbolType::Symbol, 3>> three_mers,
+      std::unique_ptr<const re2::RE2> regex
+   );
+
+  public:
+   [[nodiscard]] static InsertionSearchPattern make(const std::string& search_pattern);
+
+   [[nodiscard]] const std::vector<std::array<typename SymbolType::Symbol, 3>>& getThreeMers(
+   ) const;
+
+   [[nodiscard]] const re2::RE2& getRegex() const;
+};
+
 using InsertionIds = std::vector<uint32_t>;
 
 class Insertion {
@@ -73,7 +92,9 @@ class InsertionPosition {
 
    void buildThreeMerIndex();
 
-   [[nodiscard]] std::unique_ptr<roaring::Roaring> search(const std::string& search_pattern) const;
+   [[nodiscard]] std::unique_ptr<roaring::Roaring> search(
+      const InsertionSearchPattern<SymbolType>& search_pattern
+   ) const;
 };
 
 template <typename SymbolType>
@@ -102,7 +123,7 @@ class InsertionIndex {
 
    [[nodiscard]] std::unique_ptr<roaring::Roaring> search(
       uint32_t position_idx,
-      const std::string& search_pattern
+      const InsertionSearchPattern<SymbolType>& search_pattern
    ) const;
 };
 
