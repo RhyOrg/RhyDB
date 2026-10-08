@@ -72,7 +72,7 @@ std::expected<simdjson::ondemand::value, std::string> findFieldManual(
       );
       if (unescaped_key == column_identifier.name) {
          static std::once_flag warn_once;
-         std::call_once(warn_once, [&]() {
+         std::call_once(warn_once, [&] {
             SPDLOG_WARN(
                "The key '{}' which requires unescaping does not use the same unescaping in the "
                "current line ('{}') as in the first line of the ndjson file. This leads to worse "
@@ -101,7 +101,7 @@ std::expected<simdjson::ondemand::value, std::string> findFieldWithFallbacks(
    error = object.find_field_unordered(sniffed_field.escaped_key).get(column_value);
    if (!error) {
       static std::once_flag warn_once;
-      std::call_once(warn_once, [&]() {
+      std::call_once(warn_once, [&] {
          SPDLOG_WARN(
             "The key '{}' was ordered differently in the current line than in the first line of "
             "the file. "
@@ -148,7 +148,7 @@ std::expected<simdjson::ondemand::object, std::string> iterateToObject(
 
 TableInserter::TableInserter(
    std::shared_ptr<storage::Table> table,
-   ClusteredBufferingOptions options
+   const ClusteredBufferingOptions& options
 )
     : table(std::move(table)),
       driver_column(
@@ -157,7 +157,7 @@ TableInserter::TableInserter(
             : std::nullopt
       ),
       input_buffer{*this->table},
-      null_buffer{storage::TableChunkBuilder{*this->table}, std::nullopt} {
+      null_buffer{.builder = storage::TableChunkBuilder{*this->table}, .range = std::nullopt} {
    if (driver_column.has_value()) {
       const size_t genome_length = genomeLengthOf(*this->table, *driver_column);
       growth_threshold = static_cast<uint32_t>(
@@ -166,9 +166,10 @@ TableInserter::TableInserter(
       const size_t num_buffers = std::max<size_t>(1, options.num_buffers);
       output_buffers.reserve(num_buffers);
       for (size_t i = 0; i < num_buffers; ++i) {
-         output_buffers.push_back(
-            ClusterBuffer{storage::TableChunkBuilder{*this->table}, std::nullopt}
-         );
+         output_buffers.push_back(ClusterBuffer{
+            .builder = storage::TableChunkBuilder{*this->table},
+            .range = std::nullopt,
+         });
       }
    }
 }
@@ -253,7 +254,8 @@ std::expected<std::vector<TableInserter::SniffedField>, std::string> TableInsert
          continue;
       }
       order_in_json_line.push_back(SniffedField{
-         .column_identifier = *maybe_column_metadata, .escaped_key = std::string{raw_key_sv}
+         .column_identifier = *maybe_column_metadata,
+         .escaped_key = std::string{raw_key_sv},
       });
    }
    for (const auto& column_metadata : columns_in_table) {
@@ -390,10 +392,10 @@ void NdjsonInsertStream::insertAll(NdjsonLineReader& input_data) {
 TableInserter::Commit appendDataToTable(
    std::shared_ptr<storage::Table> table,
    NdjsonLineReader& input_data,
-   ClusteredBufferingOptions options
+   const ClusteredBufferingOptions& options
 ) {
    EVOBENCH_SCOPE("TableInserter", "appendDataToTable");
-   TableInserter table_inserter(std::move(table), std::move(options));
+   TableInserter table_inserter(std::move(table), options);
 
    NdjsonInsertStream insert_stream{table_inserter};
    insert_stream.insertAll(input_data);

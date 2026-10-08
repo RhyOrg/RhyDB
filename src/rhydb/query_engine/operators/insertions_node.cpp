@@ -26,6 +26,7 @@
 #include "rhydb/storage/table.h"
 
 namespace rhydb::query_engine::operators {
+namespace {
 struct PositionAndInsertionKey {
    uint32_t position_idx;
    std::string_view insertion_value;
@@ -34,6 +35,7 @@ struct PositionAndInsertionKey {
       return position_idx == other.position_idx && insertion_value == other.insertion_value;
    }
 };
+}  // namespace
 }  // namespace rhydb::query_engine::operators
 
 template <>
@@ -128,7 +130,7 @@ arrow::Result<arrow::acero::ExecNode*> InsertionsNode<SymbolType>::addToExecPlan
        output_fields,
        bitmap_filter,
        sequence_columns_handle,
-       already_produced = false]() mutable -> arrow::Future<std::optional<arrow::ExecBatch>> {
+       already_produced = false] mutable -> arrow::Future<std::optional<arrow::ExecBatch>> {
       if (already_produced) {
          const std::optional<arrow::ExecBatch> result = std::nullopt;
          return arrow::Future{result};

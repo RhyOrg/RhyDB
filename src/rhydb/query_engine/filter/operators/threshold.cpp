@@ -45,7 +45,7 @@ Threshold::~Threshold() noexcept = default;
 std::string Threshold::toString() const {
    std::string res = "Threshold(";
    if (match_exactly) {
-      res += "=";
+      res += '=';
    } else {
       res += ">=";
    }
@@ -53,7 +53,7 @@ std::string Threshold::toString() const {
 
    res += "non_negated: (" + joinWithLimit(non_negated_children) + ") ";
    res += "negated: (" + joinWithLimit(negated_children) + ") ";
-   res += ")";
+   res += ')';
    return res;
 }
 

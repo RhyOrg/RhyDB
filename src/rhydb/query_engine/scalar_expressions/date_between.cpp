@@ -36,7 +36,7 @@ std::string DateBetween::toString() const {
    res += (date_from.has_value() ? date32ToString(date_from.value()) : "unbounded");
    res += " and ";
    res += (date_to.has_value() ? date32ToString(date_to.value()) : "unbounded");
-   res += "]";
+   res += ']';
    return res;
 }
 
@@ -113,14 +113,14 @@ std::vector<RangeSelection::Range> DateBetween::computeRangesOfSortedColumn(
 
       const auto chunk_size = value_buffer.chunkSize(static_cast<uint16_t>(chunk_idx));
       const RowId start_row =
-         (lower_index == chunk_size)
+         std::cmp_equal(lower_index, chunk_size)
             ? RowId{.chunk_id = static_cast<uint16_t>(chunk_idx + 1), .row_in_chunk = 0}
             : RowId{
                  .chunk_id = static_cast<uint16_t>(chunk_idx),
                  .row_in_chunk = static_cast<uint16_t>(lower_index),
               };
       const RowId end_row =
-         (upper_index == chunk_size)
+         std::cmp_equal(upper_index, chunk_size)
             ? RowId{.chunk_id = static_cast<uint16_t>(chunk_idx + 1), .row_in_chunk = 0}
             : RowId{
                  .chunk_id = static_cast<uint16_t>(chunk_idx),

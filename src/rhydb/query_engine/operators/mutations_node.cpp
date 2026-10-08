@@ -31,10 +31,10 @@ namespace {
 using rhydb::storage::column::VerticalSequenceIndex;
 
 template <typename SymbolType>
-using SequenceDiffKey = typename VerticalSequenceIndex<SymbolType>::SequenceDiffKey;
+using SequenceDiffKey = VerticalSequenceIndex<SymbolType>::SequenceDiffKey;
 
 template <typename SymbolType>
-using SequenceDiff = typename VerticalSequenceIndex<SymbolType>::SequenceDiff;
+using SequenceDiff = VerticalSequenceIndex<SymbolType>::SequenceDiff;
 
 __attribute__((noinline)) void initializeCountsWithSequenceCount(
    std::vector<uint32_t>& count_per_local_reference_position,
@@ -389,7 +389,7 @@ arrow::Result<arrow::acero::ExecNode*> MutationsNode<SymbolType>::addToExecPlan(
        output_fields,
        bitmap_filter = std::move(bitmap_filter),
        sequence_column_identifiers,
-       already_produced = false]() mutable -> arrow::Future<std::optional<arrow::ExecBatch>> {
+       already_produced = false] mutable -> arrow::Future<std::optional<arrow::ExecBatch>> {
       if (already_produced) {
          const std::optional<arrow::ExecBatch> result = std::nullopt;
          return arrow::Future{result};

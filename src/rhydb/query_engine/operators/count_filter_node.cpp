@@ -43,7 +43,7 @@ arrow::Result<arrow::acero::ExecNode*> CountFilterNode::addToExecPlan(
 
    std::function<arrow::Future<std::optional<arrow::ExecBatch>>()> producer =
       [filter_bitmap = std::move(filter_bitmap),
-       already_produced = false]() mutable -> arrow::Future<std::optional<arrow::ExecBatch>> {
+       already_produced = false] mutable -> arrow::Future<std::optional<arrow::ExecBatch>> {
       if (already_produced) {
          const std::optional<arrow::ExecBatch> result = std::nullopt;
          return arrow::Future{result};

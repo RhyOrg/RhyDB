@@ -23,7 +23,7 @@ Union::~Union() noexcept = default;
 std::string Union::toString() const {
    std::string res = "(";
    res += joinWithLimit(children, " | ");
-   res += ")";
+   res += ')';
    return res;
 }
 

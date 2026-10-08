@@ -144,12 +144,12 @@ void Database::createTable(
 void Database::appendData(
    const schema::TableName& table_name,
    std::istream& input_stream,
-   append::ClusteredBufferingOptions clustering_options
+   const append::ClusteredBufferingOptions& clustering_options
 ) {
    rhydb::append::NdjsonLineReader input_data{input_stream};
    RHYDB_ASSERT(tables.contains(table_name));
    auto& table = tables.at(table_name);
-   rhydb::append::appendDataToTable(table, input_data, std::move(clustering_options));
+   rhydb::append::appendDataToTable(table, input_data, clustering_options);
    updateDataVersion();
    SPDLOG_INFO("Database info: {}", getDatabaseInfo());
 }

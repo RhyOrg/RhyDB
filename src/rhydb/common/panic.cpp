@@ -27,9 +27,8 @@ namespace {
    if (do_abort) {
       std::cerr << full_msg << "\n" << std::flush;
       abort();
-   } else {
-      throw std::runtime_error(full_msg);
    }
+   throw std::runtime_error(full_msg);
 }
 
 }  // namespace

@@ -115,8 +115,8 @@ class SequencePositionGrouper : public KeyGroups {
 
    const storage::column::SequenceColumn<SymbolType>& column;
    uint32_t position_idx;
-   typename SymbolType::Symbol reference_symbol;
-   typename SymbolType::Symbol missing_symbol = SymbolType::SYMBOL_MISSING;
+   SymbolType::Symbol reference_symbol;
+   SymbolType::Symbol missing_symbol = SymbolType::SYMBOL_MISSING;
 
    // The position's vertical mutation containers, bucketed by 2^16 chunk so the per-chunk work is a
    // lookup rather than a rescan of the position's whole diff range. Views into the stored index.
@@ -187,6 +187,7 @@ class SequencePositionGrouper : public KeyGroups {
       };
    }
 
+   // NOLINTNEXTLINE(readability-function-cognitive-complexity)
    [[nodiscard]] KeyGroupsInChunk keyGroups(uint16_t chunk_id, RoaringContainerView filter_view)
       const override {
       const auto& coverage = column.horizontal_coverage_index;
@@ -541,7 +542,7 @@ ScalarGroupData buildScalarGroups(
       const std::shared_ptr<arrow::Array> array = orThrowQuery(evaluateExpressionForRows(
          table, referenced, bound_expression, output_type, chunk_id, filter_view, exec_context
       ));
-      const auto& typed = static_cast<const typename Traits::ArrayType&>(*array);
+      const auto& typed = static_cast<const Traits::ArrayType&>(*array);
       CHECK_RHYDB_QUERY(
          typed.length() == filter_view.getCardinality(),
          "scalar expression produced {} values for {} rows",
@@ -785,6 +786,7 @@ std::vector<GroupCombination> computeCombinations(
 }
 
 /// Materializes one chunk of this operator's output: the group keys and aggregation output (count)
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 arrow::Result<arrow::ExecBatch> buildBatch(
    const std::vector<GroupCombination>& combinations,
    const std::vector<std::shared_ptr<arrow::Array>>& values_per_dimension,
@@ -974,7 +976,7 @@ arrow::Result<arrow::acero::ExecNode*> BitmapAggregationNode::addToExecPlan(
        values_per_dimension = std::move(values_per_dimension),
        dimension_count,
        batch_size,
-       begin = size_t{0}]() mutable -> arrow::Future<std::optional<arrow::ExecBatch>> {
+       begin = size_t{0}] mutable -> arrow::Future<std::optional<arrow::ExecBatch>> {
       if (begin >= combinations.size()) {
          return arrow::Future<std::optional<arrow::ExecBatch>>::MakeFinished(std::nullopt);
       }

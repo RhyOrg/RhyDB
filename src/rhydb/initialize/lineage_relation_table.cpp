@@ -69,11 +69,11 @@ std::vector<LineageAliasRow> buildLineageAliasRows(
    const auto& names = lineage_tree_and_id_map.lineage_id_lookup_map;
    std::vector<LineageAliasRow> rows;
    for (size_t index = 0; index < names.size(); ++index) {
-      const auto id = static_cast<Idx>(index);
-      const Idx canonical_id = tree.resolveAlias(id);
-      if (canonical_id != id) {
+      const auto value_id = static_cast<Idx>(index);
+      const Idx canonical_id = tree.resolveAlias(value_id);
+      if (canonical_id != value_id) {
          rows.push_back({
-            .alias = std::string{names.getValue(id)},
+            .alias = std::string{names.getValue(value_id)},
             .lineage = std::string{names.getValue(canonical_id)},
          });
       }

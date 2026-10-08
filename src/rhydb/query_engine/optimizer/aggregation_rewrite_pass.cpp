@@ -69,20 +69,21 @@ struct SequencePositionKey {
 std::optional<SequencePositionKey> asSequencePositionKey(
    const operators::MapNode::Assignment& assignment
 ) {
-   const auto* at =
+   const auto* at_expression =
       scalar_expressions::dynCast<scalar_expressions::At>(assignment.expression.get());
-   if (at == nullptr) {
+   if (at_expression == nullptr) {
       return std::nullopt;
    }
-   const auto* decompress =
-      scalar_expressions::dynCast<scalar_expressions::ZstdDecompressScalar>(at->input.get());
+   const auto* decompress = scalar_expressions::dynCast<scalar_expressions::ZstdDecompressScalar>(
+      at_expression->input.get()
+   );
    const auto* field_ref = scalar_expressions::dynCast<scalar_expressions::FieldRef>(
-      decompress != nullptr ? decompress->input.get() : at->input.get()
+      decompress != nullptr ? decompress->input.get() : at_expression->input.get()
    );
    if (field_ref == nullptr) {
       return std::nullopt;
    }
-   return SequencePositionKey{.column = field_ref->column, .position = at->position};
+   return SequencePositionKey{.column = field_ref->column, .position = at_expression->position};
 }
 
 /// The plan beneath a candidate aggregate: the table scan the grouping reads from, and the single
@@ -195,11 +196,16 @@ bool isGroupableScalarType(schema::ColumnType type) {
 /// (non-sequence) scalar columns, literals, `at` and `isoWeek`. This deliberately excludes anything
 /// sequence- or decompression-specific (those are grouped by the dedicated sequence-position path),
 /// so the rewrite only claims expressions the node can actually execute.
+// NOLINTNEXTLINE(misc-no-recursion)
 bool isEvaluableGroupableExpression(
    const scalar_expressions::ScalarExpression& expression,
    const schema::TableSchema& table_schema
 ) {
-   using namespace scalar_expressions;
+   using scalar_expressions::At;
+   using scalar_expressions::dynCast;
+   using scalar_expressions::FieldRef;
+   using scalar_expressions::IsoWeek;
+   using scalar_expressions::ScalarExpression;
    switch (expression.kind()) {
       case ScalarExpression::Kind::FIELD_REF: {
          const auto* field_ref = dynCast<FieldRef>(&expression);

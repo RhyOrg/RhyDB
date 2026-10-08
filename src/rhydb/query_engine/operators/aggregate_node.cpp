@@ -17,7 +17,7 @@ namespace {
 using rhydb::query_engine::operators::AggregateDefinition;
 using rhydb::query_engine::operators::AggregateFunction;
 
-std::string arrowFunctionName(const AggregateDefinition& agg, bool has_groups) {
+std::string_view arrowFunctionName(const AggregateDefinition& agg, bool has_groups) {
    switch (agg.function) {
       case AggregateFunction::COUNT:
          if (agg.source_column.has_value()) {
@@ -74,7 +74,10 @@ arrow::acero::AggregateNodeOptions buildAggregateOptions(
       }
 
       arrow_aggregates.emplace_back(
-         arrowFunctionName(agg, has_groups), options, std::move(source_refs), agg.output_name
+         std::string{arrowFunctionName(agg, has_groups)},
+         options,
+         std::move(source_refs),
+         agg.output_name
       );
    }
 

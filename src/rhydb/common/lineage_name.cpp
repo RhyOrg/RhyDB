@@ -2,8 +2,8 @@
 
 #include <cstddef>
 
-namespace std {
 using rhydb::common::LineageName;
+namespace std {
 std::size_t std::hash<LineageName>::operator()(const LineageName& lineage_name) const {
    return std::hash<std::string>()(lineage_name.string);
 }
