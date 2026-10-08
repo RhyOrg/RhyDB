@@ -81,7 +81,7 @@ void Initializer::createTableInDatabase(
 
    fillReferenceGenomesTable(reference_genomes, database);
 
-   // Materialize a companion lineage relation table for every column configured with
+   // Materialize the companion lineage relation and alias tables for every column configured with
    // `lineageIndexType` 'table' or 'both'. The tree name is resolved against the loaded lineage
    // definitions the same way the column's in-memory index is.
    for (const auto& config_metadata : database_config.schema.metadata) {
@@ -103,6 +103,7 @@ void Initializer::createTableInDatabase(
          );
       }
       createLineageRelationTable(config_metadata.name, lineage_tree.value(), database);
+      createLineageAliasTable(config_metadata.name, lineage_tree.value(), database);
    }
 }
 
@@ -237,6 +238,50 @@ void Initializer::createLineageRelationTable(
    rhydb::append::NdjsonLineReader ndjson_reader{ndjson_stream};
    rhydb::append::appendDataToTable(database.tables.at(table_name), ndjson_reader);
    SPDLOG_INFO("Built lineage relation table '{}' with {} rows", table_name_string, rows.size());
+}
+
+void Initializer::createLineageAliasTable(
+   std::string_view column_name,
+   const common::LineageTreeAndIdMap& lineage_tree,
+   Database& database
+) {
+   const std::string table_name_string = lineageAliasTableName(column_name);
+   const schema::TableName table_name{table_name_string};
+   if (database.tables.contains(table_name)) {
+      throw InitializeException(
+         "Cannot create lineage alias table '{}': a table with that name already exists.",
+         table_name_string
+      );
+   }
+
+   // Every alias occurs once, so it serves as the primary key.
+   const schema::ColumnIdentifier alias_column{.name = "alias", .type = schema::ColumnType::STRING};
+   // The canonical lineage that `alias` stands for.
+   const schema::ColumnIdentifier lineage_column{
+      .name = "lineage",
+      .type = schema::ColumnType::STRING,
+   };
+   auto table_schema = std::make_shared<schema::TableSchema>();
+   table_schema->column_metadata.emplace(
+      alias_column, std::make_shared<storage::column::StringColumnMetadata>(alias_column.name)
+   );
+   table_schema->column_metadata.emplace(
+      lineage_column, std::make_shared<storage::column::StringColumnMetadata>(lineage_column.name)
+   );
+   table_schema->primary_key = alias_column;
+   database.createTable(table_name, std::move(table_schema));
+
+   const auto rows = buildLineageAliasRows(lineage_tree);
+   std::string ndjson;
+   for (const auto& row : rows) {
+      const nlohmann::json line{{"alias", row.alias}, {"lineage", row.lineage}};
+      ndjson += line.dump();
+      ndjson += '\n';
+   }
+   std::stringstream ndjson_stream{ndjson};
+   rhydb::append::NdjsonLineReader ndjson_reader{ndjson_stream};
+   rhydb::append::appendDataToTable(database.tables.at(table_name), ndjson_reader);
+   SPDLOG_INFO("Built lineage alias table '{}' with {} rows", table_name_string, rows.size());
 }
 
 namespace {

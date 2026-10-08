@@ -100,8 +100,8 @@ config. The `lineageIndexType` option of that column controls how it is made ava
 
 - `columnMetadata` (default): the lineage tree lives in the column's metadata and is used by the
   `lineage(...)` filter, documented in [query_documentation.md](query_documentation.md).
-- `table`: preprocessing materializes the tree as a separate table, and the column carries no
-  lineage tree — `lineage(...)` is not available on it.
+- `table`: preprocessing materializes the tree as separate relation and alias tables (see below),
+  and the column carries no lineage tree — `lineage(...)` is not available on it.
 - `both`: both of the above.
 
 For `table` and `both`, the materialized table is named after the column, so a column
@@ -135,4 +135,14 @@ pango_lineage
 - **Derived from the definition, not the data.** The rows come from the lineage definition file, so
   every canonical lineage appears whether or not any sequence carries it.
 - **Aliases are not rows.** An alias resolves to its canonical lineage; only canonical lineage names
-  appear in `lineage` and `parent`.
+  appear in `lineage` and `parent`. Aliases are listed in the alias table below.
+
+### Alias Table
+
+Next to the relation table, a table named after the column with an `_aliases` suffix (e.g.
+`pango_lineage_aliases`) holds one row per alias in the lineage definition:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `alias` | string | Primary key. The alias |
+| `lineage` | string | The canonical lineage that `alias` stands for |

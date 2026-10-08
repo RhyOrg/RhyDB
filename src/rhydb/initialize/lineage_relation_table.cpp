@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "rhydb/common/types.h"
@@ -51,6 +52,29 @@ std::vector<LineageRelationRow> buildLineageRelationRows(
             .parent = std::string{names.getValue(parent_id)},
             .is_recombinant_edge = is_recombinant,
             .recombinant_clade_ancestor = recombinant_clade_ancestor,
+         });
+      }
+   }
+   return rows;
+}
+
+std::string lineageAliasTableName(std::string_view column_name) {
+   return std::string{column_name} + "_aliases";
+}
+
+std::vector<LineageAliasRow> buildLineageAliasRows(
+   const common::LineageTreeAndIdMap& lineage_tree_and_id_map
+) {
+   const auto& tree = lineage_tree_and_id_map.lineage_tree;
+   const auto& names = lineage_tree_and_id_map.lineage_id_lookup_map;
+   std::vector<LineageAliasRow> rows;
+   for (size_t index = 0; index < names.size(); ++index) {
+      const auto value_id = static_cast<Idx>(index);
+      const Idx canonical_id = tree.resolveAlias(value_id);
+      if (canonical_id != value_id) {
+         rows.push_back({
+            .alias = std::string{names.getValue(value_id)},
+            .lineage = std::string{names.getValue(canonical_id)},
          });
       }
    }
