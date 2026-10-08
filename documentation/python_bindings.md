@@ -63,20 +63,25 @@ with Database("path/to/rhydb-dir") as db:
 
 ### Building a database in memory
 
-Two helpers create a table with a primary key, a sequence column, and optional **string** columns. Scalar (int/float/date/bool) columns cannot be created through these helpers; they come from a preprocessed database that you load.
-
-**`create_nucleotide_sequence_table(table_name, primary_key_name, sequence_name, reference_sequence, extra_columns=None)`**
-**`create_gene_table(table_name, primary_key_name, gene_name, reference_sequence, extra_columns=None)`**
+Tables are created with the SaneQL [`createTable`](query_documentation.md#createtabletable-symbol-columns-record-primarykey-symbol)
+statement, run through `query()` like any other query. All column types of `createTable` are
+available. Sequence columns take their reference from the built-in `reference_genomes` table, so
+append the reference there first:
 
 ```python
 db = Database()
-db.create_nucleotide_sequence_table(
-    table_name="sequences",
-    primary_key_name="primary_key",
-    sequence_name="main",
-    reference_sequence="ACGT...",
-    extra_columns=["country", "lineage"],   # string columns
+db.append_data_from_string(
+    "reference_genomes",
+    '{"name": "main", "type": "nucleotide", "sequence": "ACGT..."}',
 )
+db.query("""
+createTable(sequences, {
+   primary_key := string,
+   main := nucleotideSequence(reference := main),
+   country := string(generateIndex := true),
+   age := int
+}, primaryKey := primary_key)
+""")
 ```
 
 Data is then appended in [NDJSON format](input_format.md):
@@ -96,6 +101,8 @@ db.append_data_from_string(
 
 **`query(query_string)`** → `pyarrow.Table`
 Executes a [SaneQL](query_documentation.md) query. The leading identifier is the table name.
+Write statements (`createTable(...)`, `<query>.insertInto(<table>)`) are applied to the in-memory
+database in place and return a single-row summary, e.g. `{createdTable: "sequences"}`.
 
 ```python
 result = db.query("data.filter(age >= 18).project({primaryKey, age, country})")

@@ -99,7 +99,7 @@ std::expected<void, std::string> registerPhyloNodes(
       if (!value.has_value()) {
          continue;
       }
-      auto child_it = (metadata->phylo_tree->nodes).find(TreeNodeId{*value});
+      auto child_it = metadata->phylo_tree->nodes.find(TreeNodeId{*value});
       if (child_it == metadata->phylo_tree->nodes.end()) {
          continue;
       }

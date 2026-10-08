@@ -98,12 +98,10 @@ class SelectK : public arrow::acero::ExecNode {
       inputs_[0]->ResumeProducing(this, counter);
    }
 
-   arrow::Status StopProducingImpl() override { return arrow::Status::OK(); }
-
    arrow::Status InputReceived(arrow::acero::ExecNode* /*input*/, arrow::ExecBatch batch) override {
       ARROW_ASSIGN_OR_RAISE(auto record_batch, batch.ToRecordBatch(output_schema_));
       {
-         std::lock_guard<std::mutex> lock(mutex_);
+         std::scoped_lock lock(mutex_);
          batches_.push_back(std::move(record_batch));
       }
       // Every batch is buffered before Increment(), so when the counter reports completion the
@@ -124,6 +122,8 @@ class SelectK : public arrow::acero::ExecNode {
    }
 
   protected:
+   arrow::Status StopProducingImpl() override { return arrow::Status::OK(); }
+
    [[nodiscard]] std::string ToStringExtra(int /*indent*/) const override {
       std::stringstream stream;
       stream << "ordering=" << ordering_.ToString() << " offset=" << offset_ << " limit=" << limit_;
@@ -136,7 +136,7 @@ class SelectK : public arrow::acero::ExecNode {
    arrow::Status doFinish() {
       std::vector<std::shared_ptr<arrow::RecordBatch>> batches;
       {
-         std::lock_guard<std::mutex> lock(mutex_);
+         std::scoped_lock lock(mutex_);
          batches = std::move(batches_);
       }
       ARROW_ASSIGN_OR_RAISE(auto table, arrow::Table::FromRecordBatches(output_schema_, batches));
@@ -181,7 +181,7 @@ class SelectK : public arrow::acero::ExecNode {
          }
          const int index = batch_index++;
          plan_->query_context()->ScheduleTask(
-            [this, batch = std::move(next), index]() -> arrow::Status {
+            [this, batch = std::move(next), index] -> arrow::Status {
                arrow::ExecBatch exec_batch(*batch);
                exec_batch.index = index;
                return output_->InputReceived(this, std::move(exec_batch));
@@ -204,7 +204,7 @@ class SelectK : public arrow::acero::ExecNode {
 // Register the factory with Acero's default registry exactly once per process.
 void registerSelectKFactory() {
    static std::once_flag registered;
-   std::call_once(registered, []() {
+   std::call_once(registered, [] {
       const arrow::Status status = arrow::acero::default_exec_factory_registry()->AddFactory(
          std::string{SELECT_K_FACTORY_NAME}, SelectK::make
       );

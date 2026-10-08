@@ -83,10 +83,8 @@ TreeNodeId parseAuspiceTree(
    node->node_id = TreeNodeId{json.at("name").get<std::string>()};
    node->parent = std::move(parent);
    node->depth = depth;
-   if (json.contains("node_attrs")) {
-      if (json["node_attrs"].contains("div")) {
-         node->branch_length = json["node_attrs"]["div"].get<float>();
-      }
+   if (json.contains("node_attrs") && json["node_attrs"].contains("div")) {
+      node->branch_length = json["node_attrs"]["div"].get<float>();
    }
 
    const auto& children = json.contains("children") ? json["children"] : nlohmann::json::array();
@@ -416,11 +414,10 @@ roaring::Roaring PhyloTree::getDescendants(const TreeNodeId& node_id) const {
             fmt::format("Node '{}' is null - this is an internal error.", current.string)
          );
       }
-      if (current_node->second->isLeaf()) {
-         if (current_node->second->row_index.has_value()) {
-            result_bitmap.add(current_node->second->row_index.value());
-         }
+      if (current_node->second->isLeaf() && current_node->second->row_index.has_value()) {
+         result_bitmap.add(current_node->second->row_index.value());
       }
+
       for (const auto& child : current_node->second->children) {
          dfs(child);
       }

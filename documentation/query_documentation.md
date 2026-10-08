@@ -18,7 +18,8 @@ The table holding the sequences and their metadata is named `data`.
 
 Additional tables exist if the database config declares columns with `lineageIndexType: table` or
 `both`: each such column gets a companion table named after the column, holding the edges of its
-lineage tree. These are queried like any other table — see
+lineage tree, and one named after the column with an `_aliases` suffix, holding its aliases. These
+are queried like any other table — see
 [lineage_definitions.md](lineage_definitions.md#lineage-relation-tables) for their schema.
 
 Some tables are **built-in**: every database contains them, so queries can always rely on their
@@ -703,7 +704,8 @@ column without `generateIndex`.
 
 Fill the new table with [`insertInto`](#insertintoquery-expression-table-symbol), or append to it
 through the regular append path. The statement bumps the data version and, like `insertInto`, is only
-available through [`POST /admin/query`](api.md#post-adminquery).
+available through [`POST /admin/query`](api.md#post-adminquery) over the API, or through `query()` of
+the [Python bindings](python_bindings.md).
 
 ---
 

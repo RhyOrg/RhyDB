@@ -29,7 +29,7 @@ Or::Or(ScalarExpressionVector&& children)
 std::string Or::toString() const {
    std::string res = "Or(";
    res += joinWithLimit(children, " | ");
-   res += ")";
+   res += ')';
    return res;
 }
 

@@ -235,12 +235,12 @@ VerifiedConfigAttributes YamlFile::verify(const ConfigSpecification& config_spec
    // Check the ones given, collect erroneous ones in foo.bar syntax
    std::vector<std::string> invalid_config_keys;
    std::unordered_map<ConfigKeyPath, ConfigValue> provided_config_values;
-   for (const auto& [key, yamlNode] : getYamlFields()) {
+   for (const auto& [key, yaml_node] : getYamlFields()) {
       auto attribute_spec = config_specification.getAttributeSpecification(key);
       if (!attribute_spec.has_value()) {
          invalid_config_keys.push_back(configKeyPathToString(key));
       } else {
-         const ConfigValue value = yamlNodeToConfigValue(attribute_spec.value(), yamlNode);
+         const ConfigValue value = yamlNodeToConfigValue(attribute_spec.value(), yaml_node);
          provided_config_values.emplace(key, value);
       }
    }

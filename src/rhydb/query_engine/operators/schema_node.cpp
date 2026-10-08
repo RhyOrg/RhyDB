@@ -56,7 +56,7 @@ arrow::Result<arrow::acero::ExecNode*> SchemaNode::addToExecPlan(
 ) const {
    std::function<arrow::Future<std::optional<arrow::ExecBatch>>()> producer =
       [input_schema = child->getOutputSchema(),
-       already_produced = false]() mutable -> arrow::Future<std::optional<arrow::ExecBatch>> {
+       already_produced = false] mutable -> arrow::Future<std::optional<arrow::ExecBatch>> {
       if (already_produced) {
          const std::optional<arrow::ExecBatch> result = std::nullopt;
          return arrow::Future{result};

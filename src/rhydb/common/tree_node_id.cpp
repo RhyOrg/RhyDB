@@ -2,12 +2,11 @@
 
 #include <cstddef>
 
-namespace std {
-using rhydb::common::TreeNodeId;
-std::size_t std::hash<TreeNodeId>::operator()(const TreeNodeId& tree_node_id) const {
+std::size_t std::hash<rhydb::common::TreeNodeId>::operator()(
+   const rhydb::common::TreeNodeId& tree_node_id
+) const {
    return std::hash<std::string>()(tree_node_id.string);
 }
-}  // namespace std
 
 namespace rhydb::common {
 

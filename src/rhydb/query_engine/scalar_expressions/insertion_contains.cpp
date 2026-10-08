@@ -54,8 +54,7 @@ std::unique_ptr<filter::operators::Operator> InsertionContains<SymbolType>::comp
 ) const {
    const auto valid_sequence_name = validateSequenceName<SymbolType>(column.name, *table.schema);
 
-   const storage::column::SequenceColumn<SymbolType>& sequence_store =
-      table.getColumn<typename SymbolType::Column>(valid_sequence_name);
+   const auto& sequence_store = table.getColumn<typename SymbolType::Column>(valid_sequence_name);
    const size_t reference_sequence_size = sequence_store.metadata->reference_sequence.size();
    CHECK_RHYDB_QUERY(
       position_idx <= reference_sequence_size,
@@ -83,11 +82,11 @@ std::unique_ptr<filter::operators::Operator> InsertionContains<SymbolType>::comp
       );
    }
    return std::make_unique<filter::operators::BitmapProducer>(
-      [&sequence_store, position_idx = position_idx, search_pattern]() {
-         auto search_result = sequence_store.insertion_index.search(position_idx, *search_pattern);
-         return Bitmap(std::move(*search_result));
-      },
-      table.row_layout
+     [&sequence_store, position_idx = position_idx, search_pattern]() {
+        auto search_result = sequence_store.insertion_index.search(position_idx, *search_pattern);
+        return Bitmap(std::move(*search_result));
+     },
+     table.row_layout
    );
 }
 

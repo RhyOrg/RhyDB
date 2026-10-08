@@ -33,6 +33,7 @@ using scalar_expressions::ScalarExpression;
 /// merge. A leaf constant, or any expression that references none of the produced columns, is
 /// cloned unchanged; recognising "references no produced column" via `freeIUs()` keeps this robust
 /// to expression kinds (new literal types, predicates) it has no explicit case for.
+// NOLINTNEXTLINE(misc-no-recursion)
 std::unique_ptr<ScalarExpression> substituteColumns(
    const ScalarExpression& expression,
    const std::unordered_map<std::string, const ScalarExpression*>& produced
@@ -45,11 +46,12 @@ std::unique_ptr<ScalarExpression> substituteColumns(
          return replacement != produced.end() ? replacement->second->clone() : expression.clone();
       }
       case Kind::AT: {
-         const auto& at = static_cast<const scalar_expressions::At&>(expression);
-         auto input = substituteColumns(*at.input, produced);
-         return input == nullptr
-                   ? nullptr
-                   : std::make_unique<scalar_expressions::At>(std::move(input), at.position);
+         const auto& at_expression = static_cast<const scalar_expressions::At&>(expression);
+         auto input = substituteColumns(*at_expression.input, produced);
+         return input == nullptr ? nullptr
+                                 : std::make_unique<scalar_expressions::At>(
+                                      std::move(input), at_expression.position
+                                   );
       }
       case Kind::ISO_WEEK: {
          const auto& iso_week = static_cast<const scalar_expressions::IsoWeek&>(expression);

@@ -7,8 +7,8 @@ namespace rhydb::common {
 
 template <typename Unit = std::chrono::microseconds, typename Clock = std::chrono::steady_clock>
 struct [[nodiscard]] BlockTimer {
-   using time_point_t = typename Clock::time_point;
-   using output_t = typename Clock::rep;
+   using time_point_t = Clock::time_point;
+   using output_t = Clock::rep;
 
    output_t& output_reference;
    time_point_t start;

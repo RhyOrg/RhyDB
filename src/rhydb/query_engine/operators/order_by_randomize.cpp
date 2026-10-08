@@ -74,8 +74,9 @@ arrow::Result<arrow::acero::ExecNode*> addRandomizeColumn(
    size_t start_of_batch = 0;
    arrow::AsyncGenerator<std::optional<arrow::ExecBatch>> sequenced_batches_with_hash_id =
       // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-      [sequenced_batches, start_of_batch, randomize_seed](
-      ) mutable -> arrow::Future<std::optional<arrow::ExecBatch>> {
+      [sequenced_batches,
+       start_of_batch,
+       randomize_seed] mutable -> arrow::Future<std::optional<arrow::ExecBatch>> {
       SPDLOG_TRACE("randomize column projection awaits the next batch");
       auto future = sequenced_batches();
 

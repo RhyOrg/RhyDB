@@ -87,7 +87,7 @@ class TableInserter {
 
    explicit TableInserter(
       std::shared_ptr<storage::Table> table,
-      ClusteredBufferingOptions options = {}
+      const ClusteredBufferingOptions& options = {}
    );
 
    struct SniffedField {
@@ -135,7 +135,7 @@ class NdjsonInsertStream {
 TableInserter::Commit appendDataToTable(
    std::shared_ptr<rhydb::storage::Table> table,
    NdjsonLineReader& input_data,
-   ClusteredBufferingOptions options = {}
+   const ClusteredBufferingOptions& options = {}
 );
 
 }  // namespace rhydb::append

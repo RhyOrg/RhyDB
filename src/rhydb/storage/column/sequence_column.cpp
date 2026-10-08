@@ -270,7 +270,7 @@ void SequenceColumn<SymbolType>::flushBuffer() {
 template <typename SymbolType>
 size_t SequenceColumn<SymbolType>::computeVerticalBitmapsSize() const {
    size_t result = 0;
-   for (const auto& [_pos, sequence_diff] : vertical_sequence_index.vertical_bitmaps) {
+   for (const auto& [pos, sequence_diff] : vertical_sequence_index.vertical_bitmaps) {
       result += sequence_diff.sizeInBytes();
    }
    return result;
@@ -279,7 +279,7 @@ size_t SequenceColumn<SymbolType>::computeVerticalBitmapsSize() const {
 template <typename SymbolType>
 size_t SequenceColumn<SymbolType>::computeHorizontalBitmapsSize() const {
    size_t result = 0;
-   for (const auto& [_pos, bitmap] : horizontal_coverage_index.horizontal_bitmaps) {
+   for (const auto& [pos, bitmap] : horizontal_coverage_index.horizontal_bitmaps) {
       result += bitmap.getSizeInBytes(false);
    }
    return result;

@@ -10,13 +10,13 @@ using rhydb::RhyDBDataSource;
 using rhydb::RhyDBDirectory;
 using rhydb::config::AppendConfig;
 
+namespace {
+
 class AppendError : public std::runtime_error {
   public:
    explicit AppendError(const std::string& error_message)
        : std::runtime_error(error_message) {}
 };
-
-namespace {
 
 RhyDBDataSource getMostRecentOrSpecifiedDatabaseState(
    const RhyDBDirectory& rhydb_directory,

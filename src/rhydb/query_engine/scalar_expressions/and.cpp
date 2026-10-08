@@ -31,7 +31,7 @@ And::And(ScalarExpressionVector&& children)
 std::string And::toString() const {
    std::string res = "And(";
    res += joinWithLimit(children, " & ");
-   res += ")";
+   res += ')';
    return res;
 }
 

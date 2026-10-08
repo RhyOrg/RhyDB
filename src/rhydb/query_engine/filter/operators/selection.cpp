@@ -91,6 +91,7 @@ Type Selection::type() const {
    return SELECTION;
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 Bitmap Selection::evaluate() const {
    EVOBENCH_SCOPE("Selection", "evaluate");
    RHYDB_ASSERT(!predicates.empty());

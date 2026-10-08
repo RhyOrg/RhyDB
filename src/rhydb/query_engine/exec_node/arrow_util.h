@@ -88,6 +88,6 @@ struct ArrowBuilderSelector<storage::column::Date32Column> {
 };
 
 template <storage::column::Column ColumnType>
-using ArrowBuilder = typename ArrowBuilderSelector<ColumnType>::builder_type;
+using ArrowBuilder = ArrowBuilderSelector<ColumnType>::builder_type;
 
 }  // namespace rhydb::query_engine::exec_node

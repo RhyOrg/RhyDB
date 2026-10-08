@@ -81,7 +81,7 @@ void Initializer::createTableInDatabase(
 
    fillReferenceGenomesTable(reference_genomes, database);
 
-   // Materialize a companion lineage relation table for every column configured with
+   // Materialize the companion lineage relation and alias tables for every column configured with
    // `lineageIndexType` 'table' or 'both'. The tree name is resolved against the loaded lineage
    // definitions the same way the column's in-memory index is.
    for (const auto& config_metadata : database_config.schema.metadata) {
@@ -103,6 +103,7 @@ void Initializer::createTableInDatabase(
          );
       }
       createLineageRelationTable(config_metadata.name, lineage_tree.value(), database);
+      createLineageAliasTable(config_metadata.name, lineage_tree.value(), database);
    }
 }
 
@@ -127,7 +128,9 @@ void Initializer::fillReferenceGenomesTable(
                             ) {
       for (size_t index = 0; index < names.size(); ++index) {
          const nlohmann::json line{
-            {"name", names.at(index)}, {"type", type}, {"sequence", sequences.at(index)}
+            {"name", names.at(index)},
+            {"type", type},
+            {"sequence", sequences.at(index)},
          };
          ndjson += line.dump();
          ndjson += '\n';
@@ -170,21 +173,25 @@ void Initializer::createLineageRelationTable(
 
    const schema::ColumnIdentifier id_column{.name = "id", .type = schema::ColumnType::STRING};
    const schema::ColumnIdentifier lineage_column{
-      .name = "lineage", .type = schema::ColumnType::STRING
+      .name = "lineage",
+      .type = schema::ColumnType::STRING,
    };
    // The direct parent of `lineage` (null for a root). The transitive ancestry is walked from
    // these edges at query time rather than materialized.
    const schema::ColumnIdentifier parent_column{
-      .name = "parent", .type = schema::ColumnType::STRING
+      .name = "parent",
+      .type = schema::ColumnType::STRING,
    };
    // True when `lineage` has more than one direct parent (an edge into a recombinant node).
    const schema::ColumnIdentifier is_recombinant_edge_column{
-      .name = "is_recombinant_edge", .type = schema::ColumnType::BOOL
+      .name = "is_recombinant_edge",
+      .type = schema::ColumnType::BOOL,
    };
    // For a recombinant `lineage`, the most-recent common ancestor of its parents; null
    // otherwise.
    const schema::ColumnIdentifier recombinant_clade_ancestor_column{
-      .name = "recombinant_clade_ancestor", .type = schema::ColumnType::STRING
+      .name = "recombinant_clade_ancestor",
+      .type = schema::ColumnType::STRING,
    };
    auto table_schema = std::make_shared<schema::TableSchema>();
    table_schema->column_metadata.emplace(
@@ -217,10 +224,12 @@ void Initializer::createLineageRelationTable(
          {"lineage", row.lineage},
          {"parent", row.parent.has_value() ? nlohmann::json(*row.parent) : nlohmann::json(nullptr)},
          {"is_recombinant_edge", row.is_recombinant_edge},
-         {"recombinant_clade_ancestor",
-          row.recombinant_clade_ancestor.has_value()
-             ? nlohmann::json(*row.recombinant_clade_ancestor)
-             : nlohmann::json(nullptr)}
+         {
+            "recombinant_clade_ancestor",
+            row.recombinant_clade_ancestor.has_value()
+               ? nlohmann::json(*row.recombinant_clade_ancestor)
+               : nlohmann::json(nullptr),
+         },
       };
       ndjson += line.dump();
       ndjson += '\n';
@@ -230,6 +239,52 @@ void Initializer::createLineageRelationTable(
    rhydb::append::appendDataToTable(database.tables.at(table_name), ndjson_reader);
    SPDLOG_INFO("Built lineage relation table '{}' with {} rows", table_name_string, rows.size());
 }
+
+void Initializer::createLineageAliasTable(
+   std::string_view column_name,
+   const common::LineageTreeAndIdMap& lineage_tree,
+   Database& database
+) {
+   const std::string table_name_string = lineageAliasTableName(column_name);
+   const schema::TableName table_name{table_name_string};
+   if (database.tables.contains(table_name)) {
+      throw InitializeException(
+         "Cannot create lineage alias table '{}': a table with that name already exists.",
+         table_name_string
+      );
+   }
+
+   // Every alias occurs once, so it serves as the primary key.
+   const schema::ColumnIdentifier alias_column{.name = "alias", .type = schema::ColumnType::STRING};
+   // The canonical lineage that `alias` stands for.
+   const schema::ColumnIdentifier lineage_column{
+      .name = "lineage",
+      .type = schema::ColumnType::STRING,
+   };
+   auto table_schema = std::make_shared<schema::TableSchema>();
+   table_schema->column_metadata.emplace(
+      alias_column, std::make_shared<storage::column::StringColumnMetadata>(alias_column.name)
+   );
+   table_schema->column_metadata.emplace(
+      lineage_column, std::make_shared<storage::column::StringColumnMetadata>(lineage_column.name)
+   );
+   table_schema->primary_key = alias_column;
+   database.createTable(table_name, std::move(table_schema));
+
+   const auto rows = buildLineageAliasRows(lineage_tree);
+   std::string ndjson;
+   for (const auto& row : rows) {
+      const nlohmann::json line{{"alias", row.alias}, {"lineage", row.lineage}};
+      ndjson += line.dump();
+      ndjson += '\n';
+   }
+   std::stringstream ndjson_stream{ndjson};
+   rhydb::append::NdjsonLineReader ndjson_reader{ndjson_stream};
+   rhydb::append::appendDataToTable(database.tables.at(table_name), ndjson_reader);
+   SPDLOG_INFO("Built lineage alias table '{}' with {} rows", table_name_string, rows.size());
+}
+
+namespace {
 
 struct ColumnMetadataInitializer {
    template <storage::column::Column ColumnType>
@@ -335,8 +390,6 @@ void ColumnMetadataInitializer::operator()(
    metadata = std::make_shared<typename ColumnType::Metadata>(config_metadata.name);
 }
 
-namespace {
-
 void assertPrimaryKeyInMetadata(const rhydb::config::DatabaseConfig& database_config) {
    if (!database_config.schema.primary_key.has_value()) {
       return;
@@ -397,7 +450,8 @@ std::shared_ptr<schema::TableSchema> Initializer::createSchemaFromConfigFiles(
       column_metadata;
    for (const auto& config_metadata : database_config.schema.metadata) {
       const schema::ColumnIdentifier column_identifier{
-         .name = config_metadata.name, .type = config_metadata.getColumnType()
+         .name = config_metadata.name,
+         .type = config_metadata.getColumnType(),
       };
       std::shared_ptr<storage::column::ColumnMetadata> metadata;
       storage::column::visit(
@@ -417,7 +471,8 @@ std::shared_ptr<schema::TableSchema> Initializer::createSchemaFromConfigFiles(
       const auto& sequence_name = reference_genomes.nucleotide_sequence_names.at(sequence_idx);
       const auto& reference_sequence = reference_genomes.raw_nucleotide_sequences.at(sequence_idx);
       const schema::ColumnIdentifier column_identifier{
-         .name = sequence_name, .type = schema::ColumnType::NUCLEOTIDE_SEQUENCE
+         .name = sequence_name,
+         .type = schema::ColumnType::NUCLEOTIDE_SEQUENCE,
       };
       auto metadata = std::make_shared<storage::column::SequenceColumnMetadata<Nucleotide>>(
          sequence_name, ReferenceGenomes::stringToVector<Nucleotide>(reference_sequence)
@@ -427,7 +482,7 @@ std::shared_ptr<schema::TableSchema> Initializer::createSchemaFromConfigFiles(
       if (!without_unaligned_sequences) {
          const schema::ColumnIdentifier column_identifier_unaligned{
             .name = UNALIGNED_NUCLEOTIDE_SEQUENCE_PREFIX + sequence_name,
-            .type = schema::ColumnType::ZSTD_COMPRESSED_STRING
+            .type = schema::ColumnType::ZSTD_COMPRESSED_STRING,
          };
          auto metadata_unaligned =
             std::make_shared<storage::column::ZstdCompressedStringColumnMetadata>(
@@ -442,7 +497,8 @@ std::shared_ptr<schema::TableSchema> Initializer::createSchemaFromConfigFiles(
       const auto& sequence_name = reference_genomes.aa_sequence_names.at(sequence_idx);
       const auto& reference_sequence = reference_genomes.raw_aa_sequences.at(sequence_idx);
       const schema::ColumnIdentifier column_identifier{
-         .name = sequence_name, .type = schema::ColumnType::AMINO_ACID_SEQUENCE
+         .name = sequence_name,
+         .type = schema::ColumnType::AMINO_ACID_SEQUENCE,
       };
       auto metadata = std::make_shared<storage::column::SequenceColumnMetadata<AminoAcid>>(
          sequence_name, ReferenceGenomes::stringToVector<AminoAcid>(reference_sequence)

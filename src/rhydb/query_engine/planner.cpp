@@ -6,7 +6,7 @@
 #include <fmt/format.h>
 #include <nlohmann/json.hpp>
 
-#include "rhydb/query_engine/optimizer/bitmap_aggregation_rewrite_pass.h"
+#include "rhydb/query_engine/optimizer/aggregation_rewrite_pass.h"
 #include "rhydb/query_engine/optimizer/column_narrowing_pass.h"
 #include "rhydb/query_engine/optimizer/filter_pushdown_pass.h"
 #include "rhydb/query_engine/optimizer/map_pullup_pass.h"
@@ -19,7 +19,7 @@ namespace rhydb::query_engine {
 
 namespace {
 
-using optimizer::BitmapAggregationRewritePass;
+using optimizer::AggregationRewritePass;
 using optimizer::ColumnNarrowingPass;
 using optimizer::FilterPushdownPass;
 using optimizer::MapPullupPass;
@@ -63,8 +63,8 @@ operators::QueryNodePtr Planner::optimize(
    log_plan("after MapPullupPass");
    node = SelectKRewritePass::run(std::move(node));
    log_plan("after SelectKRewritePass");
-   node = BitmapAggregationRewritePass::run(std::move(node));
-   log_plan("after BitmapAggregationRewritePass");
+   node = AggregationRewritePass::run(std::move(node));
+   log_plan("after AggregationRewritePass");
    node = NodeResolutionPass::run(std::move(node));
    log_plan("after NodeResolutionPass");
    return node;
