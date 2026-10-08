@@ -20,15 +20,15 @@
 
 namespace {
 
-using Operator = rhydb::query_engine::filter::operators::Operator;
-using OperatorVector = rhydb::query_engine::filter::operators::OperatorVector;
-using Empty = rhydb::query_engine::filter::operators::Empty;
-using Full = rhydb::query_engine::filter::operators::Full;
-using Complement = rhydb::query_engine::filter::operators::Complement;
-using Intersection = rhydb::query_engine::filter::operators::Intersection;
-using Union = rhydb::query_engine::filter::operators::Union;
-using Threshold = rhydb::query_engine::filter::operators::Threshold;
-using RowLayout = rhydb::storage::column::RowLayout;
+using rhydb::query_engine::filter::operators::Complement;
+using rhydb::query_engine::filter::operators::Empty;
+using rhydb::query_engine::filter::operators::Full;
+using rhydb::query_engine::filter::operators::Intersection;
+using rhydb::query_engine::filter::operators::Operator;
+using rhydb::query_engine::filter::operators::OperatorVector;
+using rhydb::query_engine::filter::operators::Threshold;
+using rhydb::query_engine::filter::operators::Union;
+using rhydb::storage::column::RowLayout;
 
 std::unique_ptr<Operator> handleTrivialCases(
    const int updated_number_of_matchers,
@@ -166,7 +166,7 @@ std::string NOf::toString() const {
       res = "[" + std::to_string(number_of_matchers) + "-of:";
    }
    res += joinWithLimit(children);
-   res += "]";
+   res += ']';
    return res;
 }
 

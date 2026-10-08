@@ -7,12 +7,17 @@
 
 namespace rhydb {
 
-struct ThousandSeparator : std::numpunct<char> {
+namespace {
+
+class ThousandSeparator : public std::numpunct<char> {
+  protected:
    // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
    [[nodiscard]] char_type do_thousands_sep() const override { return '\''; }
    // NOLINTNEXTLINE(readability-convert-member-functions-to-static)
    [[nodiscard]] string_type do_grouping() const override { return "\3"; }
 };
+
+}  // namespace
 
 std::string formatNumber(uint64_t number) {
    std::ostringstream oss;

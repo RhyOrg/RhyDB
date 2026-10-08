@@ -75,7 +75,7 @@ operators::QueryNodePtr ColumnNarrowingPass::operator()(operators::ProjectNode& 
          narrowed_fields.push_back(field);
       }
    }
-   node.fields = narrowed_fields;
+   node.fields = std::move(narrowed_fields);
 
    required = node.fields;
    propagateToNode(node.child);

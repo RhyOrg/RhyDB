@@ -18,7 +18,7 @@
 namespace rhydb::query_engine::scalar_expressions {
 
 template <typename SymbolType>
-SymbolOrDot<SymbolType>::SymbolOrDot(typename SymbolType::Symbol symbol)
+SymbolOrDot<SymbolType>::SymbolOrDot(SymbolType::Symbol symbol)
     : value(symbol) {}
 
 template <typename SymbolType>
@@ -32,8 +32,8 @@ char SymbolOrDot<SymbolType>::asChar() const {
 }
 
 template <typename SymbolType>
-typename SymbolType::Symbol SymbolOrDot<SymbolType>::getSymbolOrReplaceDotWith(
-   typename SymbolType::Symbol replace_dot_with
+SymbolType::Symbol SymbolOrDot<SymbolType>::getSymbolOrReplaceDotWith(
+   SymbolType::Symbol replace_dot_with
 ) const {
    return value.value_or(replace_dot_with);
 }

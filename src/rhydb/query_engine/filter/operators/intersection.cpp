@@ -71,7 +71,7 @@ std::string Intersection::toString() const {
    res += "non_negated: (" + joinWithLimit(children) + ") ";
    res += "negated: (" + joinWithLimit(negated_children) + ") ";
 
-   res += ")";
+   res += ')';
    return res;
 }
 

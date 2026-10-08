@@ -9,7 +9,7 @@
 
 namespace rhydb::query_engine::operators {
 
-using ScalarExpression = scalar_expressions::ScalarExpression;
+using scalar_expressions::ScalarExpression;
 
 CompiledFilter::CompiledFilter(
    std::shared_ptr<const storage::Table> table,

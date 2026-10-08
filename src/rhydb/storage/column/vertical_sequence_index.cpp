@@ -40,7 +40,7 @@ void VerticalSequenceIndex<SymbolType>::addSymbolsToPositions(
 }
 
 template <typename SymbolType>
-using const_iterator = typename VerticalSequenceIndex<SymbolType>::const_iterator;
+using const_iterator = VerticalSequenceIndex<SymbolType>::const_iterator;
 
 template <typename SymbolType>
 std::pair<const_iterator<SymbolType>, const_iterator<SymbolType>> VerticalSequenceIndex<

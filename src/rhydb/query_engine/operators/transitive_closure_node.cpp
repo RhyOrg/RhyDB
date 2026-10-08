@@ -5,8 +5,8 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
-#include <numeric>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -83,6 +83,7 @@ arrow::Result<std::shared_ptr<arrow::StringArray>> asStringArray(const arrow::Da
 /// `starting_from` names the vertices to search from; they are resolved here, while the interning
 /// map is still around, and vertices that do not occur in the relation are dropped. Without it
 /// every vertex is a source.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 arrow::Result<Relation> buildRelation(
    const std::vector<std::optional<arrow::ExecBatch>>& batches,
    uint32_t from_index,
@@ -134,7 +135,9 @@ arrow::Result<Relation> buildRelation(
       }
    } else {
       sources.resize(vertex_names.size());
-      std::iota(sources.begin(), sources.end(), 0U);
+      std::ranges::copy(
+         std::views::iota(uint32_t{0}, static_cast<uint32_t>(vertex_names.size())), sources.begin()
+      );
    }
 
    return Relation{
@@ -205,6 +208,7 @@ class ClosureProducer {
       }
    }
 
+   // NOLINTNEXTLINE(readability-function-cognitive-complexity)
    arrow::Result<arrow::ExecBatch> buildBatch(size_t begin, size_t end) const {
       arrow::StringBuilder from_builder{};
       arrow::StringBuilder to_builder{};
@@ -297,7 +301,7 @@ arrow::Result<arrow::acero::ExecNode*> TransitiveClosureNode::addToExecPlan(
        to_index,
        include_vertices_copy,
        starting_from_copy,
-       batch_size]() mutable -> arrow::Future<std::optional<arrow::ExecBatch>> {
+       batch_size] mutable -> arrow::Future<std::optional<arrow::ExecBatch>> {
       if (closure->has_value()) {
          return arrow::Future<std::optional<arrow::ExecBatch>>::MakeFinished(
             closure->value().nextBatch()

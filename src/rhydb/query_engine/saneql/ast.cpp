@@ -1,5 +1,7 @@
 #include "rhydb/query_engine/saneql/ast.h"
 
+#include <utility>
+
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 
@@ -141,12 +143,12 @@ uint32_t extractUint32Literal(const Expression& expression) {
    );
    int64_t parsed_value = std::get<IntLiteral>(expression.value).value;
    CHECK_RHYDB_QUERY(
-      parsed_value >= std::numeric_limits<uint32_t>::min(),
+      std::cmp_greater_equal(parsed_value, std::numeric_limits<uint32_t>::min()),
       "Cannot cast {} to uint32. Value out of range",
       parsed_value
    );
    CHECK_RHYDB_QUERY(
-      parsed_value <= std::numeric_limits<uint32_t>::max(),
+      std::cmp_less_equal(parsed_value, std::numeric_limits<uint32_t>::max()),
       "Cannot cast {} to uint32. Value out of range",
       parsed_value
    );

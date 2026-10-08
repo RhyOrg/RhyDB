@@ -38,7 +38,7 @@ std::string SymbolInSet<SymbolType>::toString() const {
    std::string symbols_string = fmt::format(
       "{}",
       fmt::join(
-         symbols | std::views::transform([](typename SymbolType::Symbol symbol) {
+         symbols | std::views::transform([](SymbolType::Symbol symbol) {
             return SymbolType::symbolToChar(symbol);
          }),
          ", "

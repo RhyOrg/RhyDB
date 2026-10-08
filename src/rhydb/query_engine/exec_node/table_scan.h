@@ -80,7 +80,7 @@ class TableScanGenerator {
 #else
       // We do this to guard against https://github.com/apache/arrow/issues/47641
       // and https://github.com/apache/arrow/issues/47642
-      std::thread([future, this]() mutable {
+      std::thread([future, this] mutable {
          try {
             auto result = produceNextBatch();
             future.MarkFinished(std::move(result));

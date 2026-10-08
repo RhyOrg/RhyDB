@@ -52,7 +52,7 @@ class Database {
    void appendData(
       const schema::TableName& table_name,
       std::istream& input_stream,
-      append::ClusteredBufferingOptions clustering_options = {}
+      const append::ClusteredBufferingOptions& clustering_options = {}
    );
 
    void createNucleotideSequenceTable(

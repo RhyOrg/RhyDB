@@ -45,6 +45,8 @@ std::vector<ColumnIdentifier> TableSchema::getColumnIdentifiers() const {
    return result;
 }
 
+namespace {
+
 class ColumnMetadataSaverByType {
   public:
    template <storage::column::Column ColumnType, class Archive>
@@ -52,7 +54,7 @@ class ColumnMetadataSaverByType {
       Archive& archive,
       const std::shared_ptr<storage::column::ColumnMetadata>& metadata
    ) {
-      auto typed_metadata = dynamic_cast<typename ColumnType::Metadata*>(metadata.get());
+      auto typed_metadata = dynamic_cast<ColumnType::Metadata*>(metadata.get());
       RHYDB_ASSERT(typed_metadata != nullptr);
       archive << *typed_metadata;
    }
@@ -67,6 +69,8 @@ class ColumnMetadataLoaderByType {
       return metadata;
    }
 };
+
+}  // namespace
 
 template <class Archive>
 void TableSchema::save(Archive& archive, const unsigned int /*version*/) const {

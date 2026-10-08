@@ -190,7 +190,7 @@ arrow::Status ColumnEntryAppender::operator()(
 ExecBatchBuilder::ExecBatchBuilder(std::vector<rhydb::schema::ColumnIdentifier> output_fields_)
     : output_fields(std::move(output_fields_)) {
    for (const auto& [name, type] : output_fields) {
-      storage::column::visit(type, [&]<storage::column::Column Column>() {
+      storage::column::visit(type, [&]<storage::column::Column Column> {
          array_builders[type].emplace(name, std::make_shared<ArrowBuilder<Column>>());
       });
    }
@@ -210,7 +210,7 @@ arrow::Result<arrow::ExecBatch> ExecBatchBuilder::finishBatch(int64_t length) {
    EVOBENCH_SCOPE("ExecBatchBuilder", "finishBatch");
    std::vector<arrow::Datum> data;
    for (auto& field : output_fields) {
-      auto status = storage::column::visit(field.type, [&]<storage::column::Column Column>() {
+      auto status = storage::column::visit(field.type, [&]<storage::column::Column Column> {
          ARROW_ASSIGN_OR_RAISE(
             auto array, getColumnTypeArrayBuilders<Column>().at(field.name)->Finish()
          );
