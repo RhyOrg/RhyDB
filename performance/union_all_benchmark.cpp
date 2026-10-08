@@ -24,14 +24,20 @@
 namespace {
 
 using rhydb::Database;
+using rhydb::ReferenceGenomes;
+using rhydb::common::PhyloTree;
+using rhydb::config::DatabaseConfig;
 using rhydb::config::RuntimeConfig;
+using rhydb::initialize::Initializer;
 using rhydb::query_engine::Planner;
+using rhydb::query_engine::exec_node::NdjsonSink;
+using rhydb::schema::TableName;
 
 constexpr size_t NUM_INPUTS = 8;
 constexpr int ITERATIONS = 5;
 
 std::shared_ptr<Database> setupDatabase() {
-   const auto database_config = rhydb::config::DatabaseConfig::getValidatedConfig(R"(
+   const auto database_config = DatabaseConfig::getValidatedConfig(R"(
 schema:
   instanceName: union_all_benchmark
   metadata:
@@ -40,22 +46,22 @@ schema:
   primaryKey: primaryKey
 )");
 
-   const rhydb::ReferenceGenomes reference_genomes{{{"main", makeCoOccurrenceReference()}}, {}};
+   const ReferenceGenomes reference_genomes{{{"main", makeCoOccurrenceReference()}}, {}};
 
    auto database = std::make_shared<Database>();
    database->createTable(
-      rhydb::schema::TableName::getDefault(),
-      rhydb::initialize::Initializer::createSchemaFromConfigFiles(
+      TableName::getDefault(),
+      Initializer::createSchemaFromConfigFiles(
          database_config,
          reference_genomes,
          {},
-         rhydb::common::PhyloTree(),
+         PhyloTree(),
          /*without_unaligned_sequences=*/true
       )
    );
 
    auto ndjson = openTestDataInput(CO_OCCURRENCE_NDJSON);
-   database->appendData(rhydb::schema::TableName::getDefault(), ndjson);
+   database->appendData(TableName::getDefault(), ndjson);
    return database;
 }
 
@@ -78,7 +84,7 @@ void execute(const std::shared_ptr<Database>& database, const std::string& query
       query, database->tables, RuntimeConfig::withDefaults().query_options, "benchmark"
    );
    std::stringstream result;
-   rhydb::query_engine::exec_node::NdjsonSink sink{&result, query_plan.results_schema};
+   NdjsonSink sink{&result, query_plan.results_schema};
    query_plan.executeAndWrite(sink, /*timeout_in_seconds=*/600);
 }
 
