@@ -115,22 +115,6 @@ else ()
 endif()
 
 # ---------------------------------------------------------------------------
-# Linter
-# ---------------------------------------------------------------------------
-
-option(BUILD_WITH_CLANG_TIDY "Build process clang-tidy")
-if (NOT CMAKE_BUILD_TYPE STREQUAL Release AND BUILD_WITH_CLANG_TIDY)
-    find_program(CLANG_TIDY_EXE NAMES clang-tidy-23)
-    if (NOT CLANG_TIDY_EXE)
-        message(SEND_ERROR "clang-tidy not found, aborting. You can run the build with '-D BUILD_WITH_CLANG_TIDY=OFF' to disable clang-tidy.")
-    else ()
-        message(STATUS "clang-tidy found: ${CLANG_TIDY_EXE}")
-        message(STATUS "run clang tidy with: ${CLANG_TIDY_EXE}")
-        set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE}")
-    endif ()
-endif ()
-
-# ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
 

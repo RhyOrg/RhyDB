@@ -446,7 +446,7 @@ jobs:
             echo "HEAD_SHA=${{ github.sha }}" >> $GITHUB_ENV
           fi
 
-      - name: Build all files with clang-tidy
+      - name: Run clang-tidy on all files
         run: buildScripts/lint-all ${{ env.DOCKER_DEPENDENCY_IMAGE_NAME }}:commit-${{ env.HEAD_SHA }}-amd64
 
   unitTests:
