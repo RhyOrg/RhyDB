@@ -15,6 +15,7 @@
 
 namespace rhydb {
 
+// NOLINTBEGIN(readability-function-cognitive-complexity)
 template <typename SymbolType>
 std::expected<CoverageAndMutations<SymbolType>, std::string>
 extractCoverageAndMutationsFromSequence(
@@ -124,6 +125,7 @@ extractCoverageAndMutationsFromSequence(
    }
    return CoverageAndMutations<SymbolType>{coverage, mutations};
 }
+// NOLINTEND(readability-function-cognitive-complexity)
 
 template <typename SymbolType>
 std::expected<CoverageAndMutations<SymbolType>, std::string>

@@ -27,7 +27,7 @@ class MutationProfile : public ScalarExpression {
   public:
    struct Mutation {
       uint32_t position_idx;  // 0-indexed
-      typename SymbolType::Symbol symbol;
+      SymbolType::Symbol symbol;
    };
 
    struct QuerySequenceInput {

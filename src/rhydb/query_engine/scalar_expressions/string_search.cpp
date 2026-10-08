@@ -35,7 +35,7 @@ std::unique_ptr<filter::operators::Operator> createMatchingBitmap(
    const std::shared_ptr<const RE2>& search_expression,
    storage::column::RowLayout row_layout
 ) {
-   auto producer = [&string_column, search_expression, row_layout]() {
+   auto producer = [&string_column, search_expression, row_layout] {
       roaring::Roaring result_bitmap;
       for (const auto row_id : row_layout) {
          const std::string full_string = string_column.getValueString(row_id);

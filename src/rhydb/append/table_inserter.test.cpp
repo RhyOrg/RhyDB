@@ -98,11 +98,11 @@ ClusteredBufferingOptions clusteringOn(size_t num_buffers, double threshold_frac
 void appendRows(
    const std::shared_ptr<Table>& table,
    const std::string& ndjson,
-   ClusteredBufferingOptions options
+   const ClusteredBufferingOptions& options
 ) {
    std::stringstream input{ndjson};
    NdjsonLineReader reader{input};
-   appendDataToTable(table, reader, std::move(options));
+   appendDataToTable(table, reader, options);
 }
 
 const rhydb::storage::column::HorizontalCoverageIndex& coverageIndex(const Table& table) {

@@ -250,7 +250,7 @@ std::vector<uint64_t> HorizontalCoverageIndex::computeCoverageCardinalities(size
          coverage_changes[end] -= 1;
       }
    }
-   for (const auto& [_row_id, missing_positions] : horizontal_bitmaps) {
+   for (const auto& [row_id, missing_positions] : horizontal_bitmaps) {
       for (const uint32_t position_idx : missing_positions) {
          RHYDB_ASSERT_LT(position_idx, genome_length);
          coverage_changes[position_idx] -= 1;

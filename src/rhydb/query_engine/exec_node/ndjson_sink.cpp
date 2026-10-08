@@ -198,11 +198,11 @@ arrow::Status NdjsonSink::writeBatch(const arrow::compute::ExecBatch& batch) {
       const nlohmann::json column_name_json = column_name->name();
       std::string json_formatted_column_name;
       if (!first_column) {
-         json_formatted_column_name += ",";
+         json_formatted_column_name += ',';
       }
       first_column = false;
       json_formatted_column_name += column_name_json.dump();
-      json_formatted_column_name += ":";
+      json_formatted_column_name += ':';
       prepared_column_strings_for_json_attributes.emplace_back(json_formatted_column_name);
    }
    size_t row_idx = 0;
