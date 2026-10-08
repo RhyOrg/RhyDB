@@ -105,6 +105,21 @@ class KeyGroups {
    [[nodiscard]] virtual arrow::Result<std::shared_ptr<arrow::Array>> keyValues() const = 0;
 };
 
+template <typename SymbolType>
+void checkPositionInBounds(
+   const storage::column::SequenceColumn<SymbolType>& column,
+   uint32_t position_idx
+) {
+   CHECK_RHYDB_QUERY(
+      position_idx < column.metadata->reference_sequence.size(),
+      "{}.at({}) is out of bounds: the {} sequence has length {}",
+      column.metadata->column_name,
+      position_idx + 1,
+      SymbolType::SYMBOL_NAME_LOWER_CASE,
+      column.metadata->reference_sequence.size()
+   );
+}
+
 /// Groups the rows by the symbol they carry at a fixed sequence position
 /// Introduced as a speed-up when `<seq>.at(<position>)` was detected as group key expression
 template <typename SymbolType>
@@ -132,14 +147,7 @@ class SequencePositionGrouper : public KeyGroups {
    )
        : column(column),
          position_idx(position_idx) {
-      CHECK_RHYDB_QUERY(
-         position_idx < column.metadata->reference_sequence.size(),
-         "{}.at({}) is out of bounds: the {} sequence has length {}",
-         column.metadata->column_name,
-         position_idx + 1,
-         SymbolType::SYMBOL_NAME_LOWER_CASE,
-         column.metadata->reference_sequence.size()
-      );
+      checkPositionInBounds(column, position_idx);
       reference_symbol = column.getLocalReferencePosition(position_idx);
 
       auto [diff_it, diff_end] = column.vertical_sequence_index.getRangeForPosition(position_idx);
@@ -357,33 +365,43 @@ class IndexedColumnGrouper : public KeyGroups {
    }
 };
 
-std::unique_ptr<KeyGroups> makeGrouper(
+/// Builds the grouper of a dimension for the rows matched by the filter. Creating it resolves and
+/// validates the dimension against the table, invoking it does the actual grouping work.
+using GrouperFactory = std::function<std::unique_ptr<KeyGroups>(const Bitmap& filter_bitmap)>;
+
+GrouperFactory prepareGrouper(
    const SequencePositionDimension& dimension,
-   const storage::Table& table,
-   const Bitmap& /*filter_bitmap*/
+   const storage::Table& table
 ) {
    if (dimension.is_nucleotide) {
       const auto& column = table.getColumn<Nucleotide::Column>(dimension.column.name);
-      return std::make_unique<SequencePositionGrouper<Nucleotide>>(column, dimension.position_idx);
+      checkPositionInBounds(column, dimension.position_idx);
+      return [&column, position_idx = dimension.position_idx](const Bitmap& /*filter_bitmap*/) {
+         return std::make_unique<SequencePositionGrouper<Nucleotide>>(column, position_idx);
+      };
    }
    const auto& column = table.getColumn<AminoAcid::Column>(dimension.column.name);
-   return std::make_unique<SequencePositionGrouper<AminoAcid>>(column, dimension.position_idx);
+   checkPositionInBounds(column, dimension.position_idx);
+   return [&column, position_idx = dimension.position_idx](const Bitmap& /*filter_bitmap*/) {
+      return std::make_unique<SequencePositionGrouper<AminoAcid>>(column, position_idx);
+   };
 }
 
-std::unique_ptr<KeyGroups> makeGrouper(
+GrouperFactory prepareGrouper(
    const IndexedColumnDimension& dimension,
-   const storage::Table& table,
-   const Bitmap& /*filter_bitmap*/
+   const storage::Table& table
 ) {
    const auto& column =
       table.getColumn<storage::column::DictionaryEncodedColumn>(dimension.column.name);
-   return std::make_unique<IndexedColumnGrouper>(column);
+   return [&column](const Bitmap& /*filter_bitmap*/) {
+      return std::make_unique<IndexedColumnGrouper>(column);
+   };
 }
 
 // The grouper for a map-produced scalar expression evaluates it via Arrow (there is no column to
 // read straight off), so its work goes through arrow::Result. These raise those failures as query
-// errors, since `makeGrouper` -- like the other dimensions' -- returns a plain grouper and reports
-// problems by throwing.
+// errors, since the grouper factories -- like the other dimensions' -- report problems by
+// throwing.
 template <typename T>
 T orThrowQuery(arrow::Result<T> result) {
    CHECK_RHYDB_QUERY(result.ok(), "{}", result.status().ToString());
@@ -612,57 +630,65 @@ class ScalarExpressionGrouper : public KeyGroups {
    }
 };
 
-std::unique_ptr<KeyGroups> makeGrouper(
-   const ScalarExpressionDimension& dimension,
+template <typename Traits>
+GrouperFactory makeScalarGrouperFactory(
    const storage::Table& table,
-   const Bitmap& filter_bitmap
+   std::vector<schema::ColumnIdentifier> referenced,
+   arrow::compute::Expression bound_expression,
+   std::shared_ptr<arrow::DataType> output_type
 ) {
-   const auto referenced = resolveReferencedColumns(*dimension.expression, table);
+   return [&table,
+           referenced = std::move(referenced),
+           bound_expression = std::move(bound_expression),
+           output_type = std::move(output_type)](const Bitmap& filter_bitmap) {
+      return std::make_unique<ScalarExpressionGrouper>(
+         buildScalarGroups<Traits>(table, referenced, bound_expression, output_type, filter_bitmap)
+      );
+   };
+}
+
+GrouperFactory prepareGrouper(
+   const ScalarExpressionDimension& dimension,
+   const storage::Table& table
+) {
+   auto referenced = resolveReferencedColumns(*dimension.expression, table);
    const auto arrow_expression = orThrowQuery(dimension.expression->toArrowExpression());
    const auto input_schema = exec_node::columnsToArrowSchema(referenced);
-   const auto bound_expression = orThrowQuery(arrow_expression.Bind(*input_schema));
-   const auto output_type = exec_node::columnTypeToArrowType(dimension.output_type);
+   auto bound_expression = orThrowQuery(arrow_expression.Bind(*input_schema));
+   auto output_type = exec_node::columnTypeToArrowType(dimension.output_type);
 
-   ScalarGroupData data;
    switch (dimension.output_type) {
       case schema::ColumnType::STRING:
       case schema::ColumnType::DICTIONARY_ENCODED:
-         data = buildScalarGroups<StringValueTraits>(
-            table, referenced, bound_expression, output_type, filter_bitmap
+         return makeScalarGrouperFactory<StringValueTraits>(
+            table, std::move(referenced), std::move(bound_expression), std::move(output_type)
          );
-         break;
       case schema::ColumnType::INT32:
-         data = buildScalarGroups<Int32ValueTraits>(
-            table, referenced, bound_expression, output_type, filter_bitmap
+         return makeScalarGrouperFactory<Int32ValueTraits>(
+            table, std::move(referenced), std::move(bound_expression), std::move(output_type)
          );
-         break;
       case schema::ColumnType::INT64:
-         data = buildScalarGroups<Int64ValueTraits>(
-            table, referenced, bound_expression, output_type, filter_bitmap
+         return makeScalarGrouperFactory<Int64ValueTraits>(
+            table, std::move(referenced), std::move(bound_expression), std::move(output_type)
          );
-         break;
       case schema::ColumnType::FLOAT:
-         data = buildScalarGroups<DoubleValueTraits>(
-            table, referenced, bound_expression, output_type, filter_bitmap
+         return makeScalarGrouperFactory<DoubleValueTraits>(
+            table, std::move(referenced), std::move(bound_expression), std::move(output_type)
          );
-         break;
       case schema::ColumnType::BOOL:
-         data = buildScalarGroups<BoolValueTraits>(
-            table, referenced, bound_expression, output_type, filter_bitmap
+         return makeScalarGrouperFactory<BoolValueTraits>(
+            table, std::move(referenced), std::move(bound_expression), std::move(output_type)
          );
-         break;
       case schema::ColumnType::DATE32:
-         data = buildScalarGroups<Date32ValueTraits>(
-            table, referenced, bound_expression, output_type, filter_bitmap
+         return makeScalarGrouperFactory<Date32ValueTraits>(
+            table, std::move(referenced), std::move(bound_expression), std::move(output_type)
          );
-         break;
       default:
          // The rewrite pass only routes groupable scalar output types here; anything else is a bug.
          throw IllegalQueryException(
             "bitmap aggregation cannot group on the expression's output type"
          );
    }
-   return std::make_unique<ScalarExpressionGrouper>(std::move(data));
 }
 
 /// Recursively intersect one chunk's per-dimension group containers, depth by depth, and add the
@@ -826,6 +852,38 @@ arrow::Result<arrow::ExecBatch> buildBatch(
    return arrow::ExecBatch::Make(result_columns);
 }
 
+/// The counted group combinations, plus per dimension the values its group indices refer to
+struct AggregationResult {
+   std::vector<GroupCombination> combinations;
+   std::vector<std::shared_ptr<arrow::Array>> values_per_dimension;
+};
+
+arrow::Result<AggregationResult> aggregate(
+   const Bitmap& filter_bitmap,
+   const std::vector<GrouperFactory>& grouper_factories
+) {
+   // Each grouper produces its groups per 2^16 chunk. The groups are built and counted chunk by
+   // chunk, never materializing whole-table per-group bitmaps.
+   std::vector<std::unique_ptr<KeyGroups>> groupers;
+   groupers.reserve(grouper_factories.size());
+   for (const auto& grouper_factory : grouper_factories) {
+      groupers.push_back(grouper_factory(filter_bitmap));
+   }
+
+   AggregationResult result;
+   result.combinations = computeCombinations(groupers, filter_bitmap);
+
+   // The group bitmaps are no longer needed once counting is done; keep only the per-dimension
+   // value arrays the output materialization gathers the group indices from (element `group_index`
+   // = that group's typed value).
+   result.values_per_dimension.reserve(groupers.size());
+   for (auto& grouper : groupers) {
+      ARROW_ASSIGN_OR_RAISE(auto values, grouper->keyValues());
+      result.values_per_dimension.push_back(std::move(values));
+   }
+   return result;
+}
+
 }  // namespace
 
 SequencePositionDimension::SequencePositionDimension(
@@ -936,32 +994,23 @@ arrow::Result<arrow::acero::ExecNode*> BitmapAggregationNode::addToExecPlan(
    const std::map<schema::TableName, std::shared_ptr<storage::Table>>& /*tables*/,
    const config::QueryOptions& query_options
 ) const {
-   auto filter_bitmap = compileFilter(filter, table)->evaluate();
+   auto compiled_filter = compileFilter(filter, table);
 
-   // Resolve each dimension against the table into a grouper that produces its groups per 2^16
-   // chunk (this also validates, e.g. a sequence position out of range throws here). The groups are
-   // then built and counted chunk by chunk, never materializing whole-table per-group bitmaps.
-   std::vector<std::unique_ptr<KeyGroups>> groupers;
-   groupers.reserve(dimensions.size());
+   // Resolve each dimension against the table, which also validates it (e.g. a sequence position
+   // out of range throws here), before doing any of the grouping work.
+   std::vector<GrouperFactory> grouper_factories;
+   grouper_factories.reserve(dimensions.size());
    for (const auto& dimension : dimensions) {
-      groupers.push_back(std::visit(
-         [&](const auto& dim) { return makeGrouper(dim, *table, filter_bitmap); }, dimension
-      ));
+      grouper_factories.push_back(
+         std::visit([&](const auto& dim) { return prepareGrouper(dim, *table); }, dimension)
+      );
    }
 
-   std::vector<GroupCombination> combinations = computeCombinations(groupers, filter_bitmap);
+   ARROW_ASSIGN_OR_RAISE(
+      auto aggregation, aggregate(compiled_filter->evaluate(), grouper_factories)
+   );
 
    const size_t dimension_count = dimensions.size();
-
-   // The group bitmaps are no longer needed once counting is done; keep only the per-dimension
-   // value arrays the output materialization gathers the group indices from (element `group_index`
-   // = that group's typed value).
-   std::vector<std::shared_ptr<arrow::Array>> values_per_dimension;
-   values_per_dimension.reserve(groupers.size());
-   for (auto& grouper : groupers) {
-      ARROW_ASSIGN_OR_RAISE(auto values, grouper->keyValues());
-      values_per_dimension.push_back(std::move(values));
-   }
 
    // Emit the combinations in pipeline-sized batches instead of a single unbounded one, and build
    // each batch only when the downstream pulls it rather than materializing the whole result up
@@ -972,8 +1021,8 @@ arrow::Result<arrow::acero::ExecNode*> BitmapAggregationNode::addToExecPlan(
    const size_t batch_size = query_options.materialization_cutoff + 1;
 
    std::function<arrow::Future<std::optional<arrow::ExecBatch>>()> producer =
-      [combinations = std::move(combinations),
-       values_per_dimension = std::move(values_per_dimension),
+      [combinations = std::move(aggregation.combinations),
+       values_per_dimension = std::move(aggregation.values_per_dimension),
        dimension_count,
        batch_size,
        begin = size_t{0}] mutable -> arrow::Future<std::optional<arrow::ExecBatch>> {
