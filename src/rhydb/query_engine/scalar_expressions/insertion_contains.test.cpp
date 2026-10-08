@@ -117,7 +117,7 @@ const QueryTestScenario INSERTION_CONTAINS_WITHOUT_SEQUENCE_NAME_POSITION_OUT_OF
 const QueryTestScenario INSERTION_CONTAINS_INVALID_PATTERN_AT_POS_WITHOUT_INSERTIONS = {
    .name = "INSERTION_CONTAINS_INVALID_PATTERN_AT_POS_WITHOUT_INSERTIONS",
    .query =
-      "default.filter(insertionContains(position:=5, value:='CC+++', "
+      "data.filter(insertionContains(position:=5, value:='CC+++', "
       "sequenceName:='segment1')).project(primaryKey)",
    .expected_error_message =
       "The field 'value' in the InsertionContains expression does not contain a valid regex "
@@ -196,7 +196,7 @@ const QueryTestScenario AMINO_ACID_INSERTION_CONTAINS_WITH_NULL_SEGMENT_SCENARIO
 const QueryTestScenario AMINO_ACID_INSERTION_CONTAINS_INVALID_REGEX_AT_POS_WITHOUT_INSERTIONS = {
    .name = "AMINO_ACID_INSERTION_CONTAINS_INVALID_REGEX_AT_POS_WITHOUT_INSERTIONS",
    .query =
-      "default.filter(aminoAcidInsertionContains(position:=5, value:='*', "
+      "data.filter(aminoAcidInsertionContains(position:=5, value:='*', "
       "sequenceName:='gene1')).project(primaryKey)",
    .expected_error_message =
       "The field 'value' in the InsertionContains expression does not contain a valid regex "
@@ -207,7 +207,7 @@ const QueryTestScenario AMINO_ACID_INSERTION_CONTAINS_INVALID_REGEX_AT_POS_WITHO
 const QueryTestScenario AMINO_ACID_INSERTION_CONTAINS_INVALID_REGEX_AT_POS_WITH_INSERTIONS = {
    .name = "AMINO_ACID_INSERTION_CONTAINS_INVALID_REGEX_AT_POS_WITH_INSERTIONS",
    .query =
-      "default.filter(aminoAcidInsertionContains(position:=12, value:='*', "
+      "data.filter(aminoAcidInsertionContains(position:=12, value:='*', "
       "sequenceName:='gene1')).project(primaryKey)",
    .expected_error_message =
       "The field 'value' in the InsertionContains expression does not contain a valid regex "
