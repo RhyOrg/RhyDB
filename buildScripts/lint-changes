@@ -8,8 +8,9 @@ DOCKER_IMAGE="${1:-ghcr.io/rhyorg/rhydb-dependencies:latest}"
 
 echo "Using Docker image: $DOCKER_IMAGE"
 
-# Get the list of changed files from the local Git repository, only (A)dded, (C)reated, and (M)odified
-files=$(git diff --name-only --diff-filter=ACM origin/main)
+# Get the list of changed .cpp files from the local Git repository, only (A)dded, (C)reated, and
+# (M)odified. Headers are linted through the translation units that include them.
+files=$(git diff --name-only --diff-filter=ACM origin/main -- 'src/*.cpp' 'app/*.cpp' 'performance/*.cpp')
 
 # Check if any files were found
 if [[ -z "$files" ]]; then
@@ -17,45 +18,25 @@ if [[ -z "$files" ]]; then
   exit 0
 fi
 
-# Iterate over the files and run clang-tidy on .cpp files
 echo "Changed files:"
 echo "$files"
 
-DOCKER_BUILD_CACHE_VOLUME="${LINT_DOCKER_BUILD_CACHE_VOLUME:-DockerBuildCache-$(basename "$(pwd)" | tr -c 'A-Za-z0-9_.-' '_')}"
-echo "Using Docker volume for build cache: $DOCKER_BUILD_CACHE_VOLUME (clear with: docker volume rm \"$DOCKER_BUILD_CACHE_VOLUME\")"
-
+# clang-tidy runs on the compilation database written by the CMake configure step, so nothing needs
+# to be built. run-clang-tidy takes regexes, so each file is passed as an anchored path with its
+# dots escaped.
 docker run --rm \
   -v "$(pwd)/.clang-tidy:/src/.clang-tidy" \
   -v "$(pwd)/performance:/src/performance" \
   -v "$(pwd)/src:/src/src" \
   -v "$(pwd)/app:/src/app" \
   -v "$(pwd)/CMakeLists.txt:/src/CMakeLists.txt" \
-  -v "${DOCKER_BUILD_CACHE_VOLUME}:/src/build/Debug" \
   -e files="$files" \
   "$DOCKER_IMAGE" \
   /bin/bash --login -c '
     set -euo pipefail
-    cmake -G Ninja -D BUILD_WITH_CLANG_TIDY=ON -D CMAKE_BUILD_TYPE=Debug -B build/Debug
-    targets=()
+    cmake -G Ninja -D CMAKE_BUILD_TYPE=Debug -B build/Debug
+    patterns=()
     for file in $files; do
-      echo "Considering to lint: $file"
-      if [[ $file == src/*.test.cpp ]]; then
-        targets+=(--target "CMakeFiles/rhydb_test.dir/${file}.o")
-      elif [[ $file == src/*.cpp ]]; then
-        targets+=(--target "CMakeFiles/rhydblib.dir/${file}.o")
-      elif [[ $file == app/*.test.cpp ]]; then
-        targets+=(--target "app/CMakeFiles/rhydb_app_test.dir/${file#app/}.o")
-      elif [[ $file == app/src/main.cpp ]]; then
-        targets+=(--target "app/CMakeFiles/rhydb.dir/${file#app/}.o")
-      elif [[ $file == app/*.cpp ]]; then
-        targets+=(--target "app/CMakeFiles/rhydb_app.dir/${file#app/}.o")
-      elif [[ $file == performance/generate_test_data.cpp ]]; then
-        targets+=(--target "performance/CMakeFiles/generate_test_data.dir/${file#performance/}.o")
-      elif [[ $file == performance/*.cpp ]]; then
-        targets+=(--target "performance/CMakeFiles/rhydb_benchmark.dir/${file#performance/}.o")
-      fi
+      patterns+=("^/src/${file//./\\.}\$")
     done
-    echo "Collected targets: ${targets[@]}"
-    if [[ ${#targets[@]} -gt 0 ]]; then
-      cmake --build build/Debug "${targets[@]}"
-    fi'
+    run-clang-tidy-23 -p build/Debug -quiet "${patterns[@]}"'
