@@ -2,6 +2,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "rhydb/common/lineage_tree.h"
@@ -25,6 +26,23 @@ struct LineageRelationRow {
 /// canonical lineage. The transitive closure is derived from these edges at query time rather than
 /// materialized here.
 [[nodiscard]] std::vector<LineageRelationRow> buildLineageRelationRows(
+   const common::LineageTreeAndIdMap& lineage_tree_and_id_map
+);
+
+/// The name of the companion table holding the aliases of the lineage column `column_name`. (The
+/// relation table itself is named after the column.)
+[[nodiscard]] std::string lineageAliasTableName(std::string_view column_name);
+
+/// One alias of a lineage tree, mapped to the canonical lineage it stands for.
+struct LineageAliasRow {
+   std::string alias;
+   std::string lineage;
+
+   bool operator==(const LineageAliasRow& other) const = default;
+};
+
+/// Builds one row per alias of a lineage tree, mapping it to its canonical lineage.
+[[nodiscard]] std::vector<LineageAliasRow> buildLineageAliasRows(
    const common::LineageTreeAndIdMap& lineage_tree_and_id_map
 );
 
