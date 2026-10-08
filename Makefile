@@ -49,13 +49,22 @@ $(SRC_FILE_LIST): FORCE
 	@cmp -s $@ $@.tmp && rm $@.tmp || mv $@.tmp $@
 .PHONY: FORCE
 
-build/Debug/build.ninja: ${DEPENDENCIES_FLAG} $(SRC_FILE_LIST)
+# CMake files that affect a (re)configure.
+# A CMake-only edit Make would consider the executables up to date and skip the `cmake --build` step,
+# so Ninja would never run and the stale artifacts would be reused.
+#
+# $(wildcard ...) drops files that are absent from the current checkout. Some
+# build contexts only copy a subset of the tree into Docker containers.
+NATIVE_CMAKE_FILES=$(wildcard CMakeLists.txt app/CMakeLists.txt performance/CMakeLists.txt performance/BenchmarkData.cmake python/CMakeLists.txt)
+WASM_CMAKE_FILES=$(wildcard CMakeLists.txt wasm/CMakeLists.txt)
+
+build/Debug/build.ninja: ${DEPENDENCIES_FLAG} $(SRC_FILE_LIST) $(NATIVE_CMAKE_FILES)
 	$(CMAKE) -G Ninja -B build/Debug -D CMAKE_BUILD_TYPE=Debug
 
-build/Release/build.ninja: ${DEPENDENCIES_FLAG} $(SRC_FILE_LIST)
+build/Release/build.ninja: ${DEPENDENCIES_FLAG} $(SRC_FILE_LIST) $(NATIVE_CMAKE_FILES)
 	$(CMAKE) -G Ninja -B build/Release -D CMAKE_BUILD_TYPE=Release
 
-build/wasm/build.ninja: ${WASM_DEPENDENCIES_FLAG} $(SRC_FILE_LIST) CMakeLists.txt wasm/CMakeLists.txt
+build/wasm/build.ninja: ${WASM_DEPENDENCIES_FLAG} $(SRC_FILE_LIST) $(WASM_CMAKE_FILES)
 	emcmake cmake -G Ninja -S . -B build/wasm -D CMAKE_BUILD_TYPE=Release -D BUILD_UNIT_TESTS=OFF
 
 ${RHYDB_DEBUG_EXECUTABLE}: build/Debug/build.ninja $(shell find src app/src -type f)
@@ -85,9 +94,6 @@ benchmarks: generateTestData
 	$(CMAKE) --build build/Release --parallel $(CMAKE_BUILD_PARALLEL_LEVEL) --target rhydb_benchmark
 	${RHYDB_BENCHMARK_EXECUTABLE}
 
-# Only the compiled sources trigger a rebuild; wasm/CMakeLists.txt is already a
-# prerequisite of build/wasm/build.ninja. Non-source assets (wasm/example,
-# wasm/README.md, ...) intentionally do not force a rebuild of the binary.
 ${RHYDB_WASM_EXECUTABLE}: build/wasm/build.ninja $(shell find src wasm/src -type f)
 	# Emscripten's --emit-tsd (see wasm/CMakeLists.txt) invokes `tsc`; make the
 	# repo-local TypeScript (devDependency) discoverable on PATH for the link step.
