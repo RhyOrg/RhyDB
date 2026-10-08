@@ -57,7 +57,7 @@ schema:
 - `generateLineageIndex`: Path to lineage definition file for hierarchical queries. This is only possible if `generateIndex` is also set
 - `lineageIndexType`: How the lineage definition is made available for querying. One of:
   - `columnMetadata` (default) — the lineage tree is attached to the column itself, which is what the `lineage(...)` filter uses
-  - `table` — preprocessing materializes a separate relation table holding the lineage edges, and the column carries no lineage tree (so `lineage(...)` is *not* available on it)
+  - `table` — preprocessing materializes separate tables holding the lineage edges and aliases, and the column carries no lineage tree. `lineage(...)` then reads the hierarchy and aliases from the relation and alias tables, which is slower than the in-memory lineage tree
   - `both` — both of the above
 
   Only valid together with `generateLineageIndex`; setting it on a column without a lineage definition is a config error. See [lineage_definitions.md](lineage_definitions.md) for the relation table's schema.
