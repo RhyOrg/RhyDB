@@ -1,5 +1,7 @@
 #include "rhydb/query_engine/saneql/ast.h"
 
+#include <utility>
+
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 
