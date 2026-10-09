@@ -54,6 +54,22 @@ std::string quoteIdentifier(std::string_view name) {
    return quote(name, '"');
 }
 
+std::optional<ParameterType> parameterTypeFromName(std::string_view name) {
+   if (name == "scalar") {
+      return ParameterType::SCALAR;
+   }
+   if (name == "expression") {
+      return ParameterType::EXPRESSION;
+   }
+   if (name == "table") {
+      return ParameterType::TABLE;
+   }
+   if (name == "symbol") {
+      return ParameterType::SYMBOL;
+   }
+   return std::nullopt;
+}
+
 std::string logicalOpToString(LogicalOp op) {
    switch (op) {
       case LogicalOp::AND:

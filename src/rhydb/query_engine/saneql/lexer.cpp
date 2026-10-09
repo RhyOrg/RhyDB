@@ -259,6 +259,9 @@ Token Lexer::readIdentifierOrKeyword() {
    if (identifier == "null") {
       return makeToken(TokenType::NULL_LITERAL, std::monostate{}, start);
    }
+   if (identifier == "let") {
+      return makeToken(TokenType::LET, start);
+   }
 
    return makeToken(TokenType::IDENTIFIER, std::move(identifier), start);
 }

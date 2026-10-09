@@ -35,8 +35,8 @@
 #include "rhydb/query_engine/operators/unresolved_phylo_subtree_node.h"
 #include "rhydb/query_engine/order_by_field.h"
 #include "rhydb/query_engine/saneql/ast.h"
+#include "rhydb/query_engine/saneql/function_definitions.h"
 #include "rhydb/query_engine/saneql/function_registry.h"
-#include "rhydb/query_engine/saneql/lineage_from_tables.h"
 #include "rhydb/query_engine/saneql/parser.h"
 #include "rhydb/query_engine/scalar_expressions/and.h"
 #include "rhydb/query_engine/scalar_expressions/at.h"
@@ -1936,8 +1936,7 @@ operators::QueryNodePtr parseAndConvertToQueryTree(
    std::string_view query_string,
    const std::map<schema::TableName, std::shared_ptr<storage::Table>>& tables
 ) {
-   Parser parser(query_string);
-   auto ast = parser.parse();
+   auto ast = parseQuery(query_string);
    return convertToQueryTree(*ast, tables);
 }
 
@@ -2048,34 +2047,6 @@ ScalarFunctionRegistry::ScalarFunctionRegistry() {
 
    registerFunction("isNull", {{pos("column")}}, handleIsNull);
    registerFunction("isNotNull", {{pos("column")}}, handleIsNotNull);
-
-   registerFunction(
-      "lineage",
-      {
-         {
-            pos("column"),
-            pos("value"),
-            pos("includeSublineages", false),
-            pos("recombinantFollowingMode", false),
-         },
-      },
-      handleLineage
-   );
-
-   registerFunction(
-      "lineageFromTables",
-      {
-         {
-            pos("column"),
-            pos("value"),
-            pos("lineages"),
-            pos("aliases"),
-            pos("includeSublineages", false),
-            pos("recombinantFollowingMode", false),
-         },
-      },
-      handleLineageFromTables
-   );
 
    registerFunction("phyloDescendantOf", {{pos("column"), pos("node")}}, handlePhyloDescendantOf);
 

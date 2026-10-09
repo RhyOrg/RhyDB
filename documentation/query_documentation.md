@@ -150,6 +150,61 @@ After the first named argument is given, no more positional arguments are accept
 
 A query may be nested at most 100 levels deep.
 
+### Function Definitions
+
+A query may start with definitions of its own functions, using SaneQL's `let`. A definition is a
+function from expressions to an expression: before the query is executed, every call is replaced
+with the body of the definition, the arguments substituted for the parameters. Each definition is
+followed by a comma:
+
+```
+let since := '2021-01-01'::date,
+let recent(t table) := t.filter(date >= since),
+let inCountries(c expression) := c.in({'Germany', 'Switzerland'}),
+data.recent().filter(country.inCountries())
+```
+
+A definition `let name(parameter type [:= default], ...) := body,` is called like a builtin
+function, binding its arguments positionally or by name; parameters with a default may be omitted.
+A definition without parameters, `let name := body,`, is referenced by its name alone, like `since`
+above. Such a definition of a table expression is a view:
+
+```
+let recentGermany := data.filter(date >= '2021-01-01'::date && country = 'Germany'),
+recentGermany.group(by := {pango_lineage}, aggs := {count := count()})
+```
+
+Every parameter must declare its type, which determines what its argument may be and how it is
+substituted. (Unlike in SaneQL, a scalar parameter must be declared as `scalar` for now.)
+
+| Type         | Argument                                                     | Substituted                                                        |
+|--------------|--------------------------------------------------------------|--------------------------------------------------------------------|
+| `table`      | a table expression: a table name or a pipeline               | as written                                                         |
+| `expression` | any expression                                               | as written, and resolved where it ends up in the body              |
+| `symbol`     | a name                                                       | wherever the parameter is used as a name, also as a record field   |
+| `scalar`     | a constant, e.g. `true`, `5` or `'2021-01-01'::date`         | as written                                                         |
+
+An `expression` argument is resolved in the body, so it can refer to the columns of a table that
+the body builds. A `symbol` parameter may default to `gensym(name)`, a fresh name for every call,
+for a helper column of the body that must not clash with the columns of the arguments. For
+example, the values of a column that occur more than `minimum` times:
+
+```
+let frequent(t table, c symbol, minimum scalar := 1, n symbol := gensym(n)) :=
+   t.group(by := {c}, aggs := {n := count()}).filter(n > minimum).projectout({n}),
+data.frequent(country, minimum := 100)
+```
+
+A definition sees only the definitions before it, so definitions cannot be recursive. A definition
+shadows a builtin function and a builtin definition of the same name. Errors in the expansion of a
+call are reported at the position of the call.
+
+Some functions of this documentation are builtin definitions, available to every query, rather than
+operations of the query engine: `lineage(...)` and `lineageFromTables(...)`.
+
+The expansion of a query may be nested at most 200 levels deep, nest at most 100 calls of
+definitions in each other, and create at most 1,000,000 expressions.
+
 ---
 
 ## Pipeline Operations
@@ -955,9 +1010,9 @@ pango_lineage.lineage('XBB', includeSublineages:=true, recombinantFollowingMode:
 ### `lineageFromTables(column, value, lineages, aliases [, includeSublineages] [, recombinantFollowingMode])`
 
 The same as `lineage(...)`, but reads the lineage hierarchy from the explicitly given lineage
-relation table `lineages` and alias table `aliases`. `lineage(column, value, ...)` is
-`lineageFromTables(column, value, column, column_aliases, ...)`, over the tables that preprocessing
-materializes for every column with a lineage definition (see
+relation table `lineages` and alias table `aliases`, which may be any table expressions.
+`lineage(column, value, ...)` is `lineageFromTables(column, value, column, column_aliases, ...)`,
+over the tables that preprocessing materializes for every column with a lineage definition (see
 [lineage_definitions.md](lineage_definitions.md)):
 
 ```
@@ -966,8 +1021,9 @@ pango_lineage.lineageFromTables('XBB', pango_lineage, pango_lineage_aliases,
    includeSublineages:=true, recombinantFollowingMode:='alwaysFollow')
 ```
 
-Both are rewritten into `in(...)`, `unionall(...)` and `transitiveClosure(...)` over the tables,
-which compute the result when the query runs.
+Both are builtin definitions (see [Function Definitions](#function-definitions)) that expand into
+`in(...)`, `unionall(...)` and `transitiveClosure(...)` over the tables, which compute the result
+when the query runs.
 
 `lineages` and `aliases` must be table names. These tables will be automatically generated by `rhydb preprocessing`
 for every lineage in the input data. But they can also be manually maintained. `lineages` stores the hierarchical lineage

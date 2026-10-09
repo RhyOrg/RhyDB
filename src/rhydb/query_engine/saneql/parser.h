@@ -54,7 +54,15 @@ class Parser {
   public:
    explicit Parser(std::string_view input);
 
+   /// Parses a single expression.
    [[nodiscard]] ast::ExpressionPtr parse();
+
+   /// Parses a query: any number of `let` definitions, each followed by a comma, and then an
+   /// expression.
+   [[nodiscard]] ast::Program parseProgram();
+
+   /// Parses a sequence of `let` definitions, each followed by a comma, and nothing else.
+   [[nodiscard]] std::vector<ast::FunctionDefinition> parseDefinitions();
 
   private:
    void advance();
@@ -63,6 +71,7 @@ class Parser {
    [[nodiscard]] bool check(TokenType type) const;
    [[nodiscard]] bool match(TokenType type);
 
+   [[nodiscard]] ast::FunctionDefinition parseFunctionDefinition();
    [[nodiscard]] ast::ExpressionPtr parseExpression();
    [[nodiscard]] ast::ExpressionPtr parseOrExpr();
    [[nodiscard]] ast::ExpressionPtr parseAndExpr();

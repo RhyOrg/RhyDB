@@ -126,17 +126,6 @@ TEST(AstToQueryNucleotideEquals, invalidSymbolThrows) {
    );
 }
 
-// --- lineage ---
-
-TEST(AstToQueryLineage, invalidRecombinantFollowingModeThrows) {
-   EXPECT_THAT(
-      []() { (void)parseFilter("lineage(clade, 'XBB', recombinantFollowingMode:='badMode')"); },
-      ThrowsMessage<IllegalQueryException>(
-         ::testing::HasSubstr("invalid recombinantFollowingMode: 'badMode'")
-      )
-   );
-}
-
 // --- nucleotideMutationProfile ---
 
 TEST(AstToQueryMutationProfile, mutationsNotSetLiteralThrows) {
