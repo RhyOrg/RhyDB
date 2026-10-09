@@ -451,6 +451,24 @@ const QueryTestScenario CYCLIC_RELATION_INCLUDE_VERTICES_SCENARIO = {
    }),
 };
 
+// The startingFrom vertices are constant scalar expressions, so they cannot refer to columns.
+const QueryTestScenario STARTING_FROM_COLUMN_REFERENCE_SCENARIO = {
+   .name = "STARTING_FROM_COLUMN_REFERENCE_SCENARIO",
+   .query =
+      "data.project({edge_from, edge_to})"
+      ".transitiveClosure(edge_from, edge_to, startingFrom:={edge_from})",
+   .expected_error_message = "a startingFrom vertex references unknown column 'edge_from' at 1:89",
+};
+
+const QueryTestScenario STARTING_FROM_NOT_A_STRING_SCENARIO = {
+   .name = "STARTING_FROM_NOT_A_STRING_SCENARIO",
+   .query =
+      "data.project({edge_from, edge_to})"
+      ".transitiveClosure(edge_from, edge_to, startingFrom:={'A', 1})",
+   .expected_error_message =
+      "a startingFrom vertex must be a string, but 1 is of type INT64 at 1:94",
+};
+
 const QueryTestScenario INT_COLUMN_SCENARIO = {
    .name = "INT_COLUMN_SCENARIO",
    .query = "data.transitiveClosure(edge_from, weight)",
@@ -561,6 +579,8 @@ QUERY_TEST(
    ::testing::Values(
       CYCLIC_RELATION_SCENARIO,
       CYCLIC_RELATION_INCLUDE_VERTICES_SCENARIO,
+      STARTING_FROM_COLUMN_REFERENCE_SCENARIO,
+      STARTING_FROM_NOT_A_STRING_SCENARIO,
       INT_COLUMN_SCENARIO
    )
 );

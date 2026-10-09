@@ -1752,13 +1752,24 @@ operators::QueryNodePtr handleTransitiveClosure(
    if (const auto* expr = args.get("includeVertices")) {
       include_vertices = extractBoolLiteral(*expr);
    }
-   std::optional<std::vector<std::string>> starting_from;
+   // The vertices to start from are constant scalar expressions: they are converted against no
+   // columns at all, so that a column reference is rejected.
+   std::optional<std::vector<ScalarExpressionPtr>> starting_from;
    if (const auto* expr = args.get("startingFrom")) {
       const auto& set = extractSetLiteral(*expr);
+      const ScalarConversionContext context{.tables = &tables, .convert_child = &convert_child};
       starting_from.emplace();
       starting_from->reserve(set.elements.size());
       for (const auto& element : set.elements) {
-         starting_from->push_back(extractStringLiteral(*element));
+         auto vertex = convertToScalar(*element, {}, "a startingFrom vertex", context);
+         CHECK_RHYDB_QUERY(
+            vertex->type() == schema::ColumnType::STRING,
+            "a startingFrom vertex must be a string, but {} is of type {} at {}",
+            element->toString(),
+            schema::columnTypeToString(vertex->type()),
+            element->location.toString()
+         );
+         starting_from->push_back(std::move(vertex));
       }
    }
 

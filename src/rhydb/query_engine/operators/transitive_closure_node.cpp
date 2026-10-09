@@ -17,6 +17,7 @@
 #include <arrow/array/array_binary.h>
 #include <arrow/builder.h>
 #include <arrow/compute/exec.h>
+#include <arrow/compute/expression.h>
 #include <arrow/util/async_generator.h>
 #include <nlohmann/json.hpp>
 
@@ -242,6 +243,34 @@ class ClosureProducer {
    size_t next_source = 0;
 };
 
+/// Evaluates the constant string-valued `expressions` to the names of the vertices they denote,
+/// skipping null values.
+arrow::Result<std::vector<std::string>> evaluateStartingVertices(
+   const std::vector<std::unique_ptr<scalar_expressions::ScalarExpression>>& expressions
+) {
+   std::vector<std::string> vertices;
+   vertices.reserve(expressions.size());
+   const auto no_columns = arrow::schema({});
+   const arrow::compute::ExecBatch no_input{{}, 1};
+   for (const auto& expression : expressions) {
+      ARROW_ASSIGN_OR_RAISE(auto arrow_expression, expression->toArrowExpression());
+      ARROW_ASSIGN_OR_RAISE(auto bound_expression, arrow_expression.Bind(*no_columns));
+      ARROW_ASSIGN_OR_RAISE(
+         const auto value, arrow::compute::ExecuteScalarExpression(bound_expression, no_input)
+      );
+      if (!value.is_scalar() || !arrow::is_base_binary_like(value.type()->id())) {
+         return arrow::Status::Invalid(
+            "the startingFrom vertex ", expression->toString(), " is not a constant string"
+         );
+      }
+      const auto& scalar = value.scalar_as<arrow::BaseBinaryScalar>();
+      if (scalar.is_valid) {
+         vertices.emplace_back(scalar.view());
+      }
+   }
+   return vertices;
+}
+
 }  // namespace
 
 TransitiveClosureNode::TransitiveClosureNode(
@@ -249,7 +278,7 @@ TransitiveClosureNode::TransitiveClosureNode(
    std::string from_column,
    std::string to_column,
    bool include_vertices,
-   std::optional<std::vector<std::string>> starting_from
+   std::optional<std::vector<std::unique_ptr<scalar_expressions::ScalarExpression>>> starting_from
 )
     : child(std::move(child)),
       from_column(std::move(from_column)),
@@ -289,7 +318,10 @@ arrow::Result<arrow::acero::ExecNode*> TransitiveClosureNode::addToExecPlan(
    // `materialization_cutoff` is the batch-size-minus-one
    const size_t batch_size = query_options.materialization_cutoff + 1;
    const bool include_vertices_copy = include_vertices;
-   const auto starting_from_copy = starting_from;
+   std::optional<std::vector<std::string>> starting_from_copy;
+   if (starting_from.has_value()) {
+      ARROW_ASSIGN_OR_RAISE(starting_from_copy, evaluateStartingVertices(starting_from.value()));
+   }
    // The first call builds the relation from the child's batches and hands it to the producer,
    // which then streams the closure one batch at a time as the downstream pulls.
    const auto closure = std::make_shared<std::optional<ClosureProducer>>();
@@ -339,7 +371,10 @@ nlohmann::json TransitiveClosureNode::toJson() const {
       {"includeVertices", include_vertices},
    };
    if (starting_from.has_value()) {
-      json["startingFrom"] = starting_from.value();
+      auto& vertices = json["startingFrom"] = nlohmann::json::array();
+      for (const auto& vertex : starting_from.value()) {
+         vertices.push_back(vertex->toString());
+      }
    }
    return json;
 }
