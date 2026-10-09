@@ -382,8 +382,7 @@ std::vector<std::pair<Idx, Idx>> getParentChildEdges(
             throw preprocessing::PreprocessingException(
                fmt::format(
                   "The lineage '{}' which is specified as the parent of vertex '{}' does not have "
-                  "a "
-                  "definition itself.",
+                  "a definition itself.",
                   parent_lineage,
                   lineage.lineage_name
                )
