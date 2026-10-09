@@ -156,10 +156,12 @@ std::vector<typename SymbolType::Symbol> MutationProfile<SymbolType>::buildProfi
          found_row_id = RowId::fromGlobal(bitmap_opt.value()->minimum());
       }
    } else {
-      throw IllegalQueryException(fmt::format(
-         "Unsupported primary key column type for {} MutationProfile sequenceId lookup",
-         SymbolType::SYMBOL_NAME
-      ));
+      throw IllegalQueryException(
+         fmt::format(
+            "Unsupported primary key column type for {} MutationProfile sequenceId lookup",
+            SymbolType::SYMBOL_NAME
+         )
+      );
    }
 
    if (found_row_id.has_value()) {
@@ -237,8 +239,10 @@ std::unique_ptr<ScalarExpression> MutationProfile<SymbolType>::rewrite(
       const auto& compatible_symbols = SymbolType::AMBIGUITY_SYMBOLS.at(profile_symbol);
       std::vector<typename SymbolType::Symbol> difference_symbols;
       for (const auto sym : SymbolType::SYMBOLS) {
-         if (std::find(compatible_symbols.begin(), compatible_symbols.end(), sym) ==
-             compatible_symbols.end()) {
+         if (
+            std::find(compatible_symbols.begin(), compatible_symbols.end(), sym) ==
+            compatible_symbols.end()
+         ) {
             difference_symbols.push_back(sym);
          }
       }
@@ -247,9 +251,11 @@ std::unique_ptr<ScalarExpression> MutationProfile<SymbolType>::rewrite(
          continue;
       }
 
-      difference_children.push_back(std::make_unique<SymbolInSet<SymbolType>>(
-         column, static_cast<uint32_t>(pos), std::move(difference_symbols)
-      ));
+      difference_children.push_back(
+         std::make_unique<SymbolInSet<SymbolType>>(
+            column, static_cast<uint32_t>(pos), std::move(difference_symbols)
+         )
+      );
    }
 
    // Return Not(NOf(difference_children, distance+1, false))

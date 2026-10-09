@@ -423,7 +423,8 @@ Parser::ParsedArgs Parser::parseArgList() {
       if (seen_named) {
          throw ParseException(loc, "positional argument after named argument is not allowed");
       }
-      result.positional.push_back(ast::PositionalArgument{.value = std::move(expr), .location = loc}
+      result.positional.push_back(
+         ast::PositionalArgument{.value = std::move(expr), .location = loc}
       );
       return;
    };

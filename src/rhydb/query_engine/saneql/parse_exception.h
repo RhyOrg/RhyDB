@@ -19,11 +19,13 @@ class ParseException : public std::runtime_error {
       fmt::format_string<Args...> fmt_str,
       Args&&... args
    )
-       : std::runtime_error(fmt::format(
-            "Parse error at {}: {}",
-            location.toString(),
-            fmt::format(fmt_str, std::forward<Args>(args)...)
-         )),
+       : std::runtime_error(
+            fmt::format(
+               "Parse error at {}: {}",
+               location.toString(),
+               fmt::format(fmt_str, std::forward<Args>(args)...)
+            )
+         ),
          location(location) {}
 
    [[nodiscard]] SourceLocation getLocation() const { return location; }

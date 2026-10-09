@@ -49,18 +49,21 @@ TEST(DatabaseDirectoryWatcher, validNewFormatIncompatible) {
 }
 
 TEST(DatabaseDirectoryWatcher, invalidFormat) {
-   ASSERT_ANY_THROW(rhydb::RhyDBDataSource::checkValidDataSource("testBaseData/dataDirectories/3123"
-   ));
+   ASSERT_ANY_THROW(
+      rhydb::RhyDBDataSource::checkValidDataSource("testBaseData/dataDirectories/3123")
+   );
 }
 
 TEST(DatabaseDirectoryWatcher, invalidUInt32) {
-   ASSERT_ANY_THROW(rhydb::RhyDBDataSource::checkValidDataSource("testBaseData/dataDirectories/3124"
-   ));
+   ASSERT_ANY_THROW(
+      rhydb::RhyDBDataSource::checkValidDataSource("testBaseData/dataDirectories/3124")
+   );
 }
 
 TEST(DatabaseDirectoryWatcher, invalidYAML) {
-   ASSERT_ANY_THROW(rhydb::RhyDBDataSource::checkValidDataSource("testBaseData/dataDirectories/3125"
-   ));
+   ASSERT_ANY_THROW(
+      rhydb::RhyDBDataSource::checkValidDataSource("testBaseData/dataDirectories/3125")
+   );
 }
 
 TEST(DatabaseDirectoryWatcher, getsMostRecentCompatible) {

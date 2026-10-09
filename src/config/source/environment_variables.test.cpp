@@ -71,20 +71,22 @@ TEST(EnvironmentVariables, errorsOnWrongType) {
    auto env_vars = EnvironmentVariables::newWithAllowListAndEnv(allow_list, var_vector.data());
    EXPECT_THAT(
       [&]() {
-         (void)env_vars.verify(rhydb::config::ConfigSpecification{
-            .program_name = "test",
-            .attribute_specifications =
-               {
+         (void)env_vars.verify(
+            rhydb::config::ConfigSpecification{
+               .program_name = "test",
+               .attribute_specifications = {
                   rhydb::config::ConfigAttributeSpecification::createWithoutDefault(
                      ConfigKeyPath::tryFrom({{"foo"}}).value(),
                      rhydb::config::ConfigValueType::INT32,
                      "some help text"
                   ),
                },
-         });
+            }
+         );
       },
-      ThrowsMessage<rhydb::config::ConfigException>(::testing::HasSubstr("cannot parse 'bar' as i32"
-      ))
+      ThrowsMessage<rhydb::config::ConfigException>(
+         ::testing::HasSubstr("cannot parse 'bar' as i32")
+      )
    );
 }
 
@@ -94,10 +96,10 @@ TEST(EnvironmentVariables, parsesVariables) {
    const char* env_var2 = "RHYDB_FOO_INT=1";
    const std::vector<const char*> var_vector = {env_var1, env_var2, nullptr};
    auto env_vars = EnvironmentVariables::newWithAllowListAndEnv(allow_list, var_vector.data());
-   ASSERT_NO_THROW((void)env_vars.verify(rhydb::config::ConfigSpecification{
-      .program_name = "test",
-      .attribute_specifications =
-         {
+   ASSERT_NO_THROW((void)env_vars.verify(
+      rhydb::config::ConfigSpecification{
+         .program_name = "test",
+         .attribute_specifications = {
             rhydb::config::ConfigAttributeSpecification::createWithoutDefault(
                ConfigKeyPath::tryFrom({{"foo"}}).value(),
                rhydb::config::ConfigValueType::STRING,
@@ -109,7 +111,8 @@ TEST(EnvironmentVariables, parsesVariables) {
                "some help text"
             ),
          },
-   }));
+      }
+   ));
 }
 
 TEST(EnvironmentVariables, parsesVariablesWithDoubleEquals) {
@@ -119,17 +122,19 @@ TEST(EnvironmentVariables, parsesVariablesWithDoubleEquals) {
    auto env_vars = EnvironmentVariables::newWithAllowListAndEnv(allow_list, var_vector.data());
    ASSERT_EQ(
       env_vars
-         .verify(rhydb::config::ConfigSpecification{
-            .program_name = "test",
-            .attribute_specifications =
-               {
-                  rhydb::config::ConfigAttributeSpecification::createWithoutDefault(
-                     ConfigKeyPath::tryFrom({{"foo"}}).value(),
-                     rhydb::config::ConfigValueType::STRING,
-                     "some help text"
-                  ),
-               },
-         })
+         .verify(
+            rhydb::config::ConfigSpecification{
+               .program_name = "test",
+               .attribute_specifications =
+                  {
+                     rhydb::config::ConfigAttributeSpecification::createWithoutDefault(
+                        ConfigKeyPath::tryFrom({{"foo"}}).value(),
+                        rhydb::config::ConfigValueType::STRING,
+                        "some help text"
+                     ),
+                  },
+            }
+         )
          .getString(ConfigKeyPath::tryFrom({{"foo"}}).value()),
       "bar=baz"
    );

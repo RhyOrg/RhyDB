@@ -17,9 +17,11 @@ void NotFoundHandler::handleRequest(
    response.setContentType("application/json");
    response.setStatus(Poco::Net::HTTPResponse::HTTP_NOT_FOUND);
    std::ostream& out_stream = response.send();
-   out_stream << nlohmann::json(ErrorResponse{
-      .error = "Not found",
-      .message = "Resource " + request.getURI() + " does not exist",
-   });
+   out_stream << nlohmann::json(
+      ErrorResponse{
+         .error = "Not found",
+         .message = "Resource " + request.getURI() + " does not exist",
+      }
+   );
 }
 }  // namespace rhydb_app

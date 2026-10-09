@@ -175,7 +175,8 @@ TEST(SaneQLParser, parsesComplexFilterQuery) {
    auto& outer = std::get<ast::FunctionCall>(expr->value);
    EXPECT_EQ(outer.function_name, "group");
    // First positional arg is the child pipeline (filter call)
-   ASSERT_TRUE(std::holds_alternative<ast::FunctionCall>(outer.positional_arguments[0].value->value)
+   ASSERT_TRUE(
+      std::holds_alternative<ast::FunctionCall>(outer.positional_arguments[0].value->value)
    );
    auto& filter = std::get<ast::FunctionCall>(outer.positional_arguments[0].value->value);
    EXPECT_EQ(filter.function_name, "filter");
@@ -264,10 +265,10 @@ TEST(SaneQLParser, throwsOnInvalidRecordLiteral) {
          Parser parser("{a.b := 'c'}");
          (void)parser.parse();
       },
-      ThrowsMessage<ParseException>(
-         ::testing::HasSubstr("Parse error at 1:1: A RecordLiteral requires a simple identifier "
-                              "expression as field names")
-      )
+      ThrowsMessage<ParseException>(::testing::HasSubstr(
+         "Parse error at 1:1: A RecordLiteral requires a simple identifier "
+         "expression as field names"
+      ))
    );
 }
 
@@ -277,10 +278,10 @@ TEST(SaneQLParser, throwsOnInvalidNamedArgument) {
          Parser parser("test(1, x(1) := false)");
          (void)parser.parse();
       },
-      ThrowsMessage<ParseException>(
-         ::testing::HasSubstr("Parse error at 1:9: A named argument requires a simple identifier "
-                              "as the name, but got 'x(1)'")
-      )
+      ThrowsMessage<ParseException>(::testing::HasSubstr(
+         "Parse error at 1:9: A named argument requires a simple identifier "
+         "as the name, but got 'x(1)'"
+      ))
    );
 }
 

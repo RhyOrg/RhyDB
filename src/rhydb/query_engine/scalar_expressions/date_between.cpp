@@ -76,14 +76,20 @@ std::unique_ptr<Operator> DateBetween::compile(const storage::Table& table) cons
       );
    }
    PredicateVector predicates;
-   predicates.emplace_back(std::make_unique<CompareToValueSelection<Date32Column>>(
-      date_column,
-      Comparator::HIGHER_OR_EQUALS,
-      date_from.value_or(std::numeric_limits<Date32>::min())
-   ));
-   predicates.emplace_back(std::make_unique<CompareToValueSelection<Date32Column>>(
-      date_column, Comparator::LESS_OR_EQUALS, date_to.value_or(std::numeric_limits<Date32>::max())
-   ));
+   predicates.emplace_back(
+      std::make_unique<CompareToValueSelection<Date32Column>>(
+         date_column,
+         Comparator::HIGHER_OR_EQUALS,
+         date_from.value_or(std::numeric_limits<Date32>::min())
+      )
+   );
+   predicates.emplace_back(
+      std::make_unique<CompareToValueSelection<Date32Column>>(
+         date_column,
+         Comparator::LESS_OR_EQUALS,
+         date_to.value_or(std::numeric_limits<Date32>::max())
+      )
+   );
    return std::make_unique<Selection>(std::move(predicates), table.row_layout);
 }
 

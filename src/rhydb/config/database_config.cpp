@@ -233,7 +233,8 @@ DatabaseConfig DatabaseConfig::getValidatedConfig(const std::string& config_yaml
    return config;
 }
 
-DatabaseConfig DatabaseConfig::getValidatedConfigFromFile(const std::filesystem::path& config_path
+DatabaseConfig DatabaseConfig::getValidatedConfigFromFile(
+   const std::filesystem::path& config_path
 ) {
    SPDLOG_INFO("Reading database config from {}", config_path.string());
    std::stringstream yaml;
@@ -298,8 +299,10 @@ std::map<std::string, ValueType> validateMetadataDefinitions(const DatabaseConfi
          );
       }
 
-      if (!generate_lineage_indexed_field &&
-          metadata.lineage_index_type != LineageIndexType::COLUMN_METADATA) {
+      if (
+         !generate_lineage_indexed_field &&
+         metadata.lineage_index_type != LineageIndexType::COLUMN_METADATA
+      ) {
          throw ConfigException(
             "Metadata '" + metadata.name + "' lineageIndexType is set to '" +
             std::string(lineageIndexTypeToString(metadata.lineage_index_type)) +
@@ -329,8 +332,10 @@ void DatabaseConfig::validateConfig(const DatabaseConfig& config) {
       throw ConfigException("Database config without fields not possible");
    }
 
-   if (config.schema.primary_key.has_value() &&
-       !metadata_map.contains(config.schema.primary_key.value())) {
+   if (
+      config.schema.primary_key.has_value() &&
+      !metadata_map.contains(config.schema.primary_key.value())
+   ) {
       throw ConfigException("Primary key is not in metadata");
    }
 }

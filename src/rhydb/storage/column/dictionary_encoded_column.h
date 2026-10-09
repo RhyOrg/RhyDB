@@ -59,8 +59,8 @@ class DictionaryEncodedColumnMetadata : public ColumnMetadata {
    DictionaryEncodedColumnMetadata() = delete;
    DictionaryEncodedColumnMetadata(const DictionaryEncodedColumnMetadata& other) = delete;
    DictionaryEncodedColumnMetadata(DictionaryEncodedColumnMetadata&& other) = delete;
-   DictionaryEncodedColumnMetadata& operator=(const DictionaryEncodedColumnMetadata& other
-   ) = delete;
+   DictionaryEncodedColumnMetadata& operator=(const DictionaryEncodedColumnMetadata& other) =
+      delete;
    DictionaryEncodedColumnMetadata& operator=(DictionaryEncodedColumnMetadata&& other) = delete;
 };
 
@@ -177,8 +177,9 @@ template <class Archive>
 }
 }  // namespace boost::serialization
 
-BOOST_SERIALIZATION_SPLIT_FREE(std::shared_ptr<
-                               rhydb::storage::column::DictionaryEncodedColumnMetadata>);
+BOOST_SERIALIZATION_SPLIT_FREE(
+   std::shared_ptr<rhydb::storage::column::DictionaryEncodedColumnMetadata>
+);
 namespace boost::serialization {
 template <class Archive>
 [[maybe_unused]] void load(

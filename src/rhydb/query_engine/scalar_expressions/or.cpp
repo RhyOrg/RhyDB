@@ -120,9 +120,11 @@ ScalarExpressionVector Or::rewriteSymbolInSetExpressions(ScalarExpressionVector 
    }
 
    for (auto& [column_and_position, symbols] : symbol_in_set_children) {
-      new_children.emplace_back(std::make_unique<SymbolInSet<SymbolType>>(
-         column_and_position.first, column_and_position.second, std::move(symbols)
-      ));
+      new_children.emplace_back(
+         std::make_unique<SymbolInSet<SymbolType>>(
+            column_and_position.first, column_and_position.second, std::move(symbols)
+         )
+      );
    }
 
    return new_children;
@@ -155,8 +157,10 @@ ScalarExpressionVector Or::mergeStringInSetExpressions(ScalarExpressionVector ch
    std::map<Column, Strings> new_string_in_set_children;
    for (auto& child : children) {
       if (auto* string_in_set_child = dynCast<StringInSet>(child.get())) {
-         if (auto iter = new_string_in_set_children.find(string_in_set_child->column);
-             iter != new_string_in_set_children.end()) {
+         if (
+            auto iter = new_string_in_set_children.find(string_in_set_child->column);
+            iter != new_string_in_set_children.end()
+         ) {
             auto& new_string_in_set_child_for_column = iter->second;
             appendStringSetToStringSet(
                std::move(string_in_set_child->values), new_string_in_set_child_for_column

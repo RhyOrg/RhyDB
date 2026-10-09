@@ -78,9 +78,9 @@ std::unique_ptr<ScalarExpression> SymbolEquals<SymbolType>::rewrite(
       sequence_column.metadata->reference_sequence.size()
    );
 
-   auto symbol =
-      value.getSymbolOrReplaceDotWith(sequence_column.metadata->reference_sequence.at(position_idx)
-      );
+   auto symbol = value.getSymbolOrReplaceDotWith(
+      sequence_column.metadata->reference_sequence.at(position_idx)
+   );
    if (mode == UPPER_BOUND) {
       auto symbols_to_match = SymbolType::AMBIGUITY_SYMBOLS.at(symbol);
       return std::make_unique<SymbolInSet<SymbolType>>(column, position_idx, symbols_to_match);

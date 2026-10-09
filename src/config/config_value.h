@@ -33,14 +33,16 @@ constexpr std::string_view configValueTypeToString(ConfigValueType type) {
 }
 
 class ConfigValue {
-   explicit ConfigValue(std::variant<
-                        std::string,
-                        std::filesystem::path,
-                        int32_t,
-                        uint32_t,
-                        uint16_t,
-                        bool,
-                        std::vector<std::string>> value)
+   explicit ConfigValue(
+      std::variant<
+         std::string,
+         std::filesystem::path,
+         int32_t,
+         uint32_t,
+         uint16_t,
+         bool,
+         std::vector<std::string>> value
+   )
        : value(std::move(value)) {}
 
   public:

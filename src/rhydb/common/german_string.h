@@ -23,8 +23,10 @@ namespace rhydb {
 /// keeping all string comparison paths (short, long, dictionary) in agreement.
 inline std::strong_ordering compareBytesUnsigned(std::string_view lhs, std::string_view rhs) {
    const std::size_t common_length = std::min(lhs.size(), rhs.size());
-   if (const int prefix_compare = std::memcmp(lhs.data(), rhs.data(), common_length);
-       prefix_compare != 0) {
+   if (
+      const int prefix_compare = std::memcmp(lhs.data(), rhs.data(), common_length);
+      prefix_compare != 0
+   ) {
       return prefix_compare <=> 0;
    }
    return lhs.size() <=> rhs.size();

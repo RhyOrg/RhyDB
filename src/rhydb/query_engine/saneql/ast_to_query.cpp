@@ -333,11 +333,13 @@ ScalarExpressionPtr buildValueSetPredicate(
    scalar_expressions::ScalarExpressionVector comparisons;
    comparisons.reserve(value_literals.size());
    for (auto& literal : value_literals) {
-      comparisons.push_back(std::make_unique<scalar_expressions::Comparison>(
-         std::make_unique<scalar_expressions::FieldRef>(column),
-         std::move(literal),
-         Comparator::EQUALS
-      ));
+      comparisons.push_back(
+         std::make_unique<scalar_expressions::Comparison>(
+            std::make_unique<scalar_expressions::FieldRef>(column),
+            std::move(literal),
+            Comparator::EQUALS
+         )
+      );
    }
    if (comparisons.size() == 1) {
       return std::move(comparisons.front());
@@ -965,8 +967,9 @@ operators::AggregateDefinition parseAggregateDefinition(
    if (agg_func == operators::AggregateFunction::SUM) {
       validateSumArguments(field, func, source_column);
    }
-   if (agg_func == operators::AggregateFunction::MIN ||
-       agg_func == operators::AggregateFunction::MAX) {
+   if (
+      agg_func == operators::AggregateFunction::MIN || agg_func == operators::AggregateFunction::MAX
+   ) {
       validateMinMaxArguments(field, func, source_column);
    }
    return {
@@ -1961,8 +1964,12 @@ ScalarFunctionRegistry::ScalarFunctionRegistry() {
 
    auto insertion_contains_sig =
       FunctionSignature{{named("position"), named("value"), named("sequenceName")}};
-   registerFunction("insertionContains", insertion_contains_sig, handleInsertionContains<Nucleotide>);
-   registerFunction("aminoAcidInsertionContains", insertion_contains_sig, handleInsertionContains<AminoAcid>);
+   registerFunction(
+      "insertionContains", insertion_contains_sig, handleInsertionContains<Nucleotide>
+   );
+   registerFunction(
+      "aminoAcidInsertionContains", insertion_contains_sig, handleInsertionContains<AminoAcid>
+   );
 
    registerFunction("exact", {{pos("child")}}, handleExact);
    registerFunction("maybe", {{pos("child")}}, handleMaybe);
@@ -1980,8 +1987,12 @@ ScalarFunctionRegistry::ScalarFunctionRegistry() {
          named("mutations", false),
       },
    };
-   registerFunction("nucleotideMutationProfile", mutation_profile_sig, handleMutationProfile<Nucleotide>);
-   registerFunction("aminoAcidMutationProfile", mutation_profile_sig, handleMutationProfile<AminoAcid>);
+   registerFunction(
+      "nucleotideMutationProfile", mutation_profile_sig, handleMutationProfile<Nucleotide>
+   );
+   registerFunction(
+      "aminoAcidMutationProfile", mutation_profile_sig, handleMutationProfile<AminoAcid>
+   );
 }
 
 ScalarFunctionRegistry& ScalarFunctionRegistry::instance() {

@@ -206,9 +206,11 @@ void Table::validateMetadataColumns() const {
       std::visit(
          [&]<typename Column>(const Column& typed_column) {
             // Sequence and zstd-compressed string columns are not chunk-checked here
-            if constexpr (!std::is_same_v<Column, SequenceColumn<Nucleotide>> &&
-                          !std::is_same_v<Column, SequenceColumn<AminoAcid>> &&
-                          !std::is_same_v<Column, ZstdCompressedStringColumn>) {
+            if constexpr (
+               !std::is_same_v<Column, SequenceColumn<Nucleotide>> &&
+               !std::is_same_v<Column, SequenceColumn<AminoAcid>> &&
+               !std::is_same_v<Column, ZstdCompressedStringColumn>
+            ) {
                validateColumnHasSize(name, typed_column);
             }
          },

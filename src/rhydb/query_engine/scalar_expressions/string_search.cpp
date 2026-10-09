@@ -61,7 +61,8 @@ std::unique_ptr<ScalarExpression> StringSearch::rewrite(
    );
 }
 
-std::unique_ptr<filter::operators::Operator> StringSearch::compile(const storage::Table& table
+std::unique_ptr<filter::operators::Operator> StringSearch::compile(
+   const storage::Table& table
 ) const {
    CHECK_RHYDB_QUERY(
       table.schema->getColumn(column.name).has_value(),

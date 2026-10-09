@@ -68,8 +68,9 @@ TEST(SaneQLLexer, invalidFloatLiteral) {
          Lexer lexer("1.2.3");
          auto tokens = lexer.tokenizeAll();
       },
-      ThrowsMessage<ParseException>(::testing::HasSubstr("Parse error at 1:1: Invalid float literal"
-      ))
+      ThrowsMessage<ParseException>(
+         ::testing::HasSubstr("Parse error at 1:1: Invalid float literal")
+      )
    );
 }
 
@@ -132,8 +133,9 @@ TEST(SaneQLLexer, invalidPartialColon) {
          Lexer lexer("a : b");
          auto tokens = lexer.tokenizeAll();
       },
-      ThrowsMessage<ParseException>(::testing::HasSubstr("Parse error at 1:3: Expected '::' or ':='"
-      ))
+      ThrowsMessage<ParseException>(
+         ::testing::HasSubstr("Parse error at 1:3: Expected '::' or ':='")
+      )
    );
 }
 
@@ -484,8 +486,9 @@ TEST(SaneQLLexer, partialColonAtEofThrows) {
          Lexer lexer(":");
          (void)lexer.nextToken();
       },
-      ThrowsMessage<ParseException>(::testing::HasSubstr("Parse error at 1:1: Expected '::' or ':='"
-      ))
+      ThrowsMessage<ParseException>(
+         ::testing::HasSubstr("Parse error at 1:1: Expected '::' or ':='")
+      )
    );
 }
 

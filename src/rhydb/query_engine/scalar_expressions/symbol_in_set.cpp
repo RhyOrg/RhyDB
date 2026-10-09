@@ -162,14 +162,16 @@ std::unique_ptr<filter::operators::Operator> compileWithMissingSymbol(
    );
 
    filter::operators::OperatorVector operators_for_union;
-   operators_for_union.push_back(std::make_unique<filter::operators::Selection>(
-      std::make_unique<filter::operators::IsInCoveredRegion>(
-         &sequence_column.horizontal_coverage_index,
-         position_idx,
-         filter::operators::IsInCoveredRegion::Comparator::IS_NOT_COVERED
-      ),
-      row_layout
-   ));
+   operators_for_union.push_back(
+      std::make_unique<filter::operators::Selection>(
+         std::make_unique<filter::operators::IsInCoveredRegion>(
+            &sequence_column.horizontal_coverage_index,
+            position_idx,
+            filter::operators::IsInCoveredRegion::Comparator::IS_NOT_COVERED
+         ),
+         row_layout
+      )
+   );
    operators_for_union.push_back(
       std::make_unique<filter::operators::IndexScan>(std::move(bitmap), row_layout)
    );

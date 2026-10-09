@@ -139,7 +139,8 @@ ReferenceGenomes readFromJson(const std::filesystem::path& reference_genomes_pat
 
 }  // namespace
 
-ReferenceGenomes ReferenceGenomes::readFromFile(const std::filesystem::path& reference_genomes_path
+ReferenceGenomes ReferenceGenomes::readFromFile(
+   const std::filesystem::path& reference_genomes_path
 ) {
    EVOBENCH_SCOPE("ReferenceGenomes", "readFromFile");
    if (!std::filesystem::exists(reference_genomes_path)) {
@@ -185,8 +186,8 @@ std::vector<std::string> ReferenceGenomes::getSequenceNames<AminoAcid>() const {
 }
 
 template <>
-std::vector<std::vector<Nucleotide::Symbol>> ReferenceGenomes::getReferenceSequences<Nucleotide>(
-) const {
+std::vector<std::vector<Nucleotide::Symbol>> ReferenceGenomes::getReferenceSequences<
+   Nucleotide>() const {
    std::vector<std::vector<Nucleotide::Symbol>> result;
    result.reserve(raw_nucleotide_sequences.size());
    for (const auto& raw_nucleotide_sequence : raw_nucleotide_sequences) {
@@ -196,8 +197,8 @@ std::vector<std::vector<Nucleotide::Symbol>> ReferenceGenomes::getReferenceSeque
 }
 
 template <>
-std::vector<std::vector<AminoAcid::Symbol>> ReferenceGenomes::getReferenceSequences<AminoAcid>(
-) const {
+std::vector<std::vector<AminoAcid::Symbol>> ReferenceGenomes::getReferenceSequences<
+   AminoAcid>() const {
    std::vector<std::vector<AminoAcid::Symbol>> result;
    result.reserve(raw_aa_sequences.size());
    for (const auto& raw_nucleotide_sequence : raw_aa_sequences) {

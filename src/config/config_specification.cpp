@@ -78,12 +78,16 @@ std::string ConfigSpecification::helpText() const {
       const std::string_view type_text = field_spec.type == ConfigValueType::BOOL
                                             ? " (boolean, the option implies 'true')"
                                             : configValueTypeToString(field_spec.type);
-      addln(fmt::format(
-         "  {} {}", CommandLineArguments::configKeyPathToString(field_spec.key), type_text
-      ));
-      addln(fmt::format(
-         "    Env var : {}", EnvironmentVariables::configKeyPathToString(field_spec.key)
-      ));
+      addln(
+         fmt::format(
+            "  {} {}", CommandLineArguments::configKeyPathToString(field_spec.key), type_text
+         )
+      );
+      addln(
+         fmt::format(
+            "    Env var : {}", EnvironmentVariables::configKeyPathToString(field_spec.key)
+         )
+      );
       addln(fmt::format("    YAML key: {}", YamlFile::configKeyPathToString(field_spec.key)));
       addln("\n" + indent(std::string_view{"    "}, std::string{field_spec.help_text}));
       addln(
@@ -117,11 +121,13 @@ ConfigValue ConfigAttributeSpecification::parseValueFromString(std::string value
          case ConfigValueType::UINT32: {
             // Because boost does not error on negative numbers
             if (value_string.starts_with('-')) {
-               throw ConfigException(fmt::format(
-                  "cannot parse negative number '{}' as unsigned type {}",
-                  value_string,
-                  configValueTypeToString(type)
-               ));
+               throw ConfigException(
+                  fmt::format(
+                     "cannot parse negative number '{}' as unsigned type {}",
+                     value_string,
+                     configValueTypeToString(type)
+                  )
+               );
             }
             const auto parsed_unsigned = boost::lexical_cast<uint32_t>(value_string);
             return ConfigValue::fromUint32(parsed_unsigned);
@@ -129,11 +135,13 @@ ConfigValue ConfigAttributeSpecification::parseValueFromString(std::string value
          case ConfigValueType::UINT16: {
             // Because boost does not error on negative numbers
             if (value_string.starts_with('-')) {
-               throw ConfigException(fmt::format(
-                  "cannot parse negative number '{}' as unsigned type {}",
-                  value_string,
-                  configValueTypeToString(type)
-               ));
+               throw ConfigException(
+                  fmt::format(
+                     "cannot parse negative number '{}' as unsigned type {}",
+                     value_string,
+                     configValueTypeToString(type)
+                  )
+               );
             }
             const auto parsed_unsigned = boost::lexical_cast<uint16_t>(value_string);
             return ConfigValue::fromUint16(parsed_unsigned);

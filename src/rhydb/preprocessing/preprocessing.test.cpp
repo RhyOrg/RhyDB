@@ -411,14 +411,18 @@ const Scenario<Success> NO_GENES = {
          std::vector<nlohmann::json> result;
          result.reserve(100);
          for (size_t i = 0; i < 100; i++) {
-            result.push_back(nlohmann::json::parse(fmt::format(
-               R"({{
+            result.push_back(
+               nlohmann::json::parse(
+                  fmt::format(
+                     R"({{
 "accessionVersion": "{}.1",
 "main": null,
 "unaligned_main": null
 }})",
-               i
-            )));
+                     i
+                  )
+               )
+            );
          }
          return result;
       },
@@ -456,13 +460,17 @@ const Scenario<Success> NO_NUCLEOTIDE_SEQUENCES = {
          std::vector<nlohmann::json> result;
          result.reserve(100);
          for (size_t i = 0; i < 100; i++) {
-            result.push_back(nlohmann::json::parse(fmt::format(
-               R"({{
+            result.push_back(
+               nlohmann::json::parse(
+                  fmt::format(
+                     R"({{
 "accessionVersion": "{}.1",
 "someGene": {{"sequence": "AAAA", "insertions": []}}
 }})",
-               i
-            )));
+                     i
+                  )
+               )
+            );
          }
          return result;
       },
@@ -500,12 +508,16 @@ const Scenario<Success> NO_SEQUENCES = {
          std::vector<nlohmann::json> result;
          result.reserve(100);
          for (size_t i = 0; i < 100; i++) {
-            result.push_back(nlohmann::json::parse(fmt::format(
-               R"({{
+            result.push_back(
+               nlohmann::json::parse(
+                  fmt::format(
+                     R"({{
 "accessionVersion": "{}.1"
 }})",
-               i
-            )));
+                     i
+                  )
+               )
+            );
          }
          return result;
       },
@@ -690,7 +702,8 @@ schema:
    .assertion{
       .expected_row_count = 3,
       .query = "data.order(by:={accessionVersion})",
-      .expected_query_result = nlohmann::json::parse(R"(
+      .expected_query_result = nlohmann::json::parse(
+         R"(
 [{"accessionVersion":"0"},{"accessionVersion":"0.12"},{"accessionVersion":"text_without_quotes"}])"
       ),
    },
@@ -854,7 +867,12 @@ const auto TEST_CASES = ::testing::Values(
    NO_PRIMARY_KEY_ALLOWS_DUPLICATES
 );
 
-INSTANTIATE_TEST_SUITE_P(PreprocessorTest, PreprocessorTestFixture, TEST_CASES, printTestName<Success>);
+INSTANTIATE_TEST_SUITE_P(
+   PreprocessorTest,
+   PreprocessorTestFixture,
+   TEST_CASES,
+   printTestName<Success>
+);
 
 TEST_P(PreprocessorTestFixture, shouldProcessData) {
    const auto& scenario = GetParam();
@@ -1169,7 +1187,21 @@ schema:
    },
 };
 
-INSTANTIATE_TEST_SUITE_P(PreprocessorTest, InvalidPreprocessorTestFixture, ::testing::Values(DUPLICATE_PRIMARY_KEY, MISSING_NUCLEOTIDE_SEQUENCE_INPUT, TYPE_ERROR, SEQUENCE_ILLEGAL_SYMBOL, NDJSON_FILE_WITH_SOME_MISSING_KEYS, SEQUENCE_LONGER_THAN_REFERENCE, DATE_WRONG_FORMAT, DATE_INVALID_CALENDAR_DATE), printTestName<Error>);
+INSTANTIATE_TEST_SUITE_P(
+   PreprocessorTest,
+   InvalidPreprocessorTestFixture,
+   ::testing::Values(
+      DUPLICATE_PRIMARY_KEY,
+      MISSING_NUCLEOTIDE_SEQUENCE_INPUT,
+      TYPE_ERROR,
+      SEQUENCE_ILLEGAL_SYMBOL,
+      NDJSON_FILE_WITH_SOME_MISSING_KEYS,
+      SEQUENCE_LONGER_THAN_REFERENCE,
+      DATE_WRONG_FORMAT,
+      DATE_INVALID_CALENDAR_DATE
+   ),
+   printTestName<Error>
+);
 
 TEST_P(InvalidPreprocessorTestFixture, shouldNotProcessData) {
    const auto& scenario = GetParam();

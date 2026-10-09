@@ -23,7 +23,8 @@ class VerifiedConfigAttributes {
 
    [[nodiscard]] std::optional<std::string> getString(const ConfigKeyPath& config_key_path) const;
 
-   [[nodiscard]] std::optional<std::filesystem::path> getPath(const ConfigKeyPath& config_key_path
+   [[nodiscard]] std::optional<std::filesystem::path> getPath(
+      const ConfigKeyPath& config_key_path
    ) const;
 
    [[nodiscard]] std::optional<int32_t> getInt32(const ConfigKeyPath& config_key_path) const;

@@ -132,10 +132,12 @@ Database ingest() {
    Database database = makeEmptyDatabase();
    const auto dataset = benchmarkDataPath(WASAP_MUTATION_COVERAGE_ZST);
    if (!std::filesystem::exists(dataset)) {
-      throw std::runtime_error(fmt::format(
-         "Could not find {}. Prepare benchmark data first with `make generateTestData`.",
-         dataset.string()
-      ));
+      throw std::runtime_error(
+         fmt::format(
+            "Could not find {}. Prepare benchmark data first with `make generateTestData`.",
+            dataset.string()
+         )
+      );
    }
    const rhydb::InputStreamWrapper input{dataset};
 

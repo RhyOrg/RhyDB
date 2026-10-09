@@ -19,7 +19,8 @@ class JsonValueTypeArrayBuilder {
   public:
    explicit JsonValueTypeArrayBuilder(const std::shared_ptr<arrow::DataType>& type);
 
-   arrow::Status insert(const std::optional<std::variant<std::string, bool, int32_t, double>>& value
+   arrow::Status insert(
+      const std::optional<std::variant<std::string, bool, int32_t, double>>& value
    );
 
    arrow::Result<arrow::Datum> toDatum();

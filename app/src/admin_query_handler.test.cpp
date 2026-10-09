@@ -203,9 +203,9 @@ TEST(AdminQueryHandler, returnsResultAsArrowIpcWhenRequested) {
    EXPECT_EQ(response.getStatus(), Poco::Net::HTTPResponse::HTTP_OK);
    EXPECT_EQ(response.getContentType(), "application/vnd.apache.arrow.stream");
 
-   auto buffer_reader =
-      std::make_shared<arrow::io::BufferReader>(arrow::Buffer::FromString(response.out_stream.str())
-      );
+   auto buffer_reader = std::make_shared<arrow::io::BufferReader>(
+      arrow::Buffer::FromString(response.out_stream.str())
+   );
    auto reader = arrow::ipc::RecordBatchStreamReader::Open(buffer_reader).ValueOrDie();
    const auto result = reader->ToTable().ValueOrDie();
    ASSERT_EQ(result->num_rows(), 1);

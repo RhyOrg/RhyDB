@@ -45,9 +45,11 @@ struct BinaryDecompressKernel {
       }
       const arrow::ArraySpan& input_span = input.values[0].array;
       if (input_span.type->id() != arrow::Type::BINARY) {
-         return arrow::Status::Invalid(fmt::format(
-            "Expected string array input, got another type: {}", input_span.type->ToString()
-         ));
+         return arrow::Status::Invalid(
+            fmt::format(
+               "Expected string array input, got another type: {}", input_span.type->ToString()
+            )
+         );
       }
       // TODO(#791) this is a copy of the Array's data, whereas the view should suffice
       auto array = input_span.ToArray();

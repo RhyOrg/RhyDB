@@ -43,14 +43,17 @@ arrow::Status JsonValueTypeArrayBuilder::insert(
                using B = std::decay_t<decltype(builder)>;
                if constexpr (std::is_same_v<T, int32_t> && std::is_same_v<B, arrow::Int32Builder>) {
                   ARROW_RETURN_NOT_OK(builder.Append(val));
-               } else if constexpr (std::is_same_v<T, double> &&
-                                    std::is_same_v<B, arrow::DoubleBuilder>) {
+               } else if constexpr (
+                  std::is_same_v<T, double> && std::is_same_v<B, arrow::DoubleBuilder>
+               ) {
                   ARROW_RETURN_NOT_OK(builder.Append(val));
-               } else if constexpr (std::is_same_v<T, std::string> &&
-                                    std::is_same_v<B, arrow::StringBuilder>) {
+               } else if constexpr (
+                  std::is_same_v<T, std::string> && std::is_same_v<B, arrow::StringBuilder>
+               ) {
                   ARROW_RETURN_NOT_OK(builder.Append(val));
-               } else if constexpr (std::is_same_v<T, bool> &&
-                                    std::is_same_v<B, arrow::BooleanBuilder>) {
+               } else if constexpr (
+                  std::is_same_v<T, bool> && std::is_same_v<B, arrow::BooleanBuilder>
+               ) {
                   ARROW_RETURN_NOT_OK(builder.Append(val));
                } else {
                   RHYDB_PANIC("Type mismatch between value and builder");

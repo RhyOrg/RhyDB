@@ -15,7 +15,9 @@ class InfoHandler : public RestResource {
   public:
    explicit InfoHandler(std::shared_ptr<ActiveDatabase> database_handle);
 
-   void get(Poco::Net::HTTPServerRequest& request, Poco::Net::HTTPServerResponse& response)
-      override;
+   void get(
+      Poco::Net::HTTPServerRequest& request,
+      Poco::Net::HTTPServerResponse& response
+   ) override;
 };
 }  // namespace rhydb_app

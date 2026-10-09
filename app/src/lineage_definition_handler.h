@@ -19,8 +19,10 @@ class LineageDefinitionHandler : public RestResource {
       std::string column_name
    );
 
-   void get(Poco::Net::HTTPServerRequest& request, Poco::Net::HTTPServerResponse& response)
-      override;
+   void get(
+      Poco::Net::HTTPServerRequest& request,
+      Poco::Net::HTTPServerResponse& response
+   ) override;
 };
 
 }  // namespace rhydb_app

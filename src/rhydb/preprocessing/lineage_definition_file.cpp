@@ -18,9 +18,12 @@ struct convert<LineageName> {
       try {
          lineage_name.string = node.as<std::string>();
       } catch (const YAML::BadConversion& e) {
-         throw rhydb::preprocessing::PreprocessingException(fmt::format(
-            "Could not parse Lineage definition name '{}', as it is not a string.", YAML::Dump(node)
-         ));
+         throw rhydb::preprocessing::PreprocessingException(
+            fmt::format(
+               "Could not parse Lineage definition name '{}', as it is not a string.",
+               YAML::Dump(node)
+            )
+         );
       }
       return true;
    }
@@ -43,38 +46,47 @@ LineageDefinition entryToLineageDefinition(const YAML::detail::iterator_value& e
       };
    }
    if (!entry.second.IsMap()) {
-      throw rhydb::preprocessing::PreprocessingException(fmt::format(
-         "The lineage '{}' is not defined as a valid YAML Map in its definition: {}",
-         lineage_name,
-         YAML::Dump(entry.second)
-      ));
+      throw rhydb::preprocessing::PreprocessingException(
+         fmt::format(
+            "The lineage '{}' is not defined as a valid YAML Map in its definition: {}",
+            lineage_name,
+            YAML::Dump(entry.second)
+         )
+      );
    }
    if (std::ranges::any_of(entry.second, [](const auto& element) {
           const auto field_name = element.first.template as<std::string>();
           return field_name != "parents" && field_name != "aliases";
        })) {
-      throw rhydb::preprocessing::PreprocessingException(fmt::format(
-         "The definition of lineage '{}' may only contain the fields 'parents' and 'aliases', it "
-         "also contains invalid fields:\n{}",
-         lineage_name,
-         YAML::Dump(entry.second)
-      ));
+      throw rhydb::preprocessing::PreprocessingException(
+         fmt::format(
+            "The definition of lineage '{}' may only contain the fields 'parents' and 'aliases', "
+            "it "
+            "also contains invalid fields:\n{}",
+            lineage_name,
+            YAML::Dump(entry.second)
+         )
+      );
    }
    std::vector<LineageName> parents;
    if (entry.second["parents"]) {
       if (!entry.second["parents"].IsSequence()) {
-         throw rhydb::preprocessing::PreprocessingException(fmt::format(
-            "The parents of lineage '{}' are not defined as a YAML Sequence", lineage_name
-         ));
+         throw rhydb::preprocessing::PreprocessingException(
+            fmt::format(
+               "The parents of lineage '{}' are not defined as a YAML Sequence", lineage_name
+            )
+         );
       }
       parents = entry.second["parents"].as<std::vector<LineageName>>();
    }
    std::vector<LineageName> aliases;
    if (entry.second["aliases"]) {
       if (!entry.second["aliases"].IsSequence()) {
-         throw rhydb::preprocessing::PreprocessingException(fmt::format(
-            "The aliases of lineage '{}' are not defined as a YAML Sequence", lineage_name
-         ));
+         throw rhydb::preprocessing::PreprocessingException(
+            fmt::format(
+               "The aliases of lineage '{}' are not defined as a YAML Sequence", lineage_name
+            )
+         );
       }
       aliases = entry.second["aliases"].as<std::vector<LineageName>>();
    }

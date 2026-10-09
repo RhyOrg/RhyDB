@@ -70,12 +70,11 @@ void QueryHandler::post(
             .data_version = database->getDataVersionTimestamp(),
             .result_ordering = query_plan.result_ordering,
             .schema = query_plan.results_schema,
-            .write_to_sink =
-               [&](rhydb::query_engine::exec_node::ArrowBatchSink& output_sink) {
-                  EVOBENCH_SCOPE("QueryPlan", "executeAndWrite");
-                  query_plan.executeAndWrite(output_sink, DEFAULT_TIMEOUT_TWO_MINUTES);
-                  return arrow::Status::OK();
-               },
+            .write_to_sink = [&](rhydb::query_engine::exec_node::ArrowBatchSink& output_sink) {
+               EVOBENCH_SCOPE("QueryPlan", "executeAndWrite");
+               query_plan.executeAndWrite(output_sink, DEFAULT_TIMEOUT_TWO_MINUTES);
+               return arrow::Status::OK();
+            },
          }
       );
    });

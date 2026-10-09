@@ -32,8 +32,10 @@ schema::ColumnIdentifier resolveDriverColumn(
          "the clustering driver column '{}' does not exist in the table schema", *driver_column_name
       );
    }
-   if (column.value().type != schema::ColumnType::NUCLEOTIDE_SEQUENCE &&
-       column.value().type != schema::ColumnType::AMINO_ACID_SEQUENCE) {
+   if (
+      column.value().type != schema::ColumnType::NUCLEOTIDE_SEQUENCE &&
+      column.value().type != schema::ColumnType::AMINO_ACID_SEQUENCE
+   ) {
       throw AppendException(
          "the clustering driver column '{}' must be a nucleotide or amino-acid sequence column",
          *driver_column_name
@@ -166,10 +168,12 @@ TableInserter::TableInserter(
       const size_t num_buffers = std::max<size_t>(1, options.num_buffers);
       output_buffers.reserve(num_buffers);
       for (size_t i = 0; i < num_buffers; ++i) {
-         output_buffers.push_back(ClusterBuffer{
-            .builder = storage::TableChunkBuilder{*this->table},
-            .range = std::nullopt,
-         });
+         output_buffers.push_back(
+            ClusterBuffer{
+               .builder = storage::TableChunkBuilder{*this->table},
+               .range = std::nullopt,
+            }
+         );
       }
    }
 }
@@ -253,10 +257,12 @@ std::expected<std::vector<TableInserter::SniffedField>, std::string> TableInsert
          );
          continue;
       }
-      order_in_json_line.push_back(SniffedField{
-         .column_identifier = *maybe_column_metadata,
-         .escaped_key = std::string{raw_key_sv},
-      });
+      order_in_json_line.push_back(
+         SniffedField{
+            .column_identifier = *maybe_column_metadata,
+            .escaped_key = std::string{raw_key_sv},
+         }
+      );
    }
    for (const auto& column_metadata : columns_in_table) {
       const bool contained_in_sniffed_fields =

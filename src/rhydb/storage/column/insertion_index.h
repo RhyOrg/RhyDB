@@ -33,8 +33,8 @@ class InsertionSearchPattern {
   public:
    [[nodiscard]] static InsertionSearchPattern make(const std::string& search_pattern);
 
-   [[nodiscard]] const std::vector<std::array<typename SymbolType::Symbol, 3>>& getThreeMers(
-   ) const;
+   [[nodiscard]] const std::vector<std::array<typename SymbolType::Symbol, 3>>&
+   getThreeMers() const;
 
    [[nodiscard]] const re2::RE2& getRegex() const;
 };

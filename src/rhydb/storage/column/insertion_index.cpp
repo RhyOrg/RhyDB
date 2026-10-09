@@ -287,9 +287,7 @@ void InsertionIndex<SymbolType>::buildIndex() {
       InsertionPosition<SymbolType> insertion_position;
       insertion_position.insertions.reserve(insertion_info.size());
       std::ranges::transform(
-         insertion_info,
-         std::back_inserter(insertion_position.insertions),
-         [](auto& insertion) {
+         insertion_info, std::back_inserter(insertion_position.insertions), [](auto& insertion) {
             return Insertion{std::move(insertion.first), std::move(insertion.second)};
          }
       );

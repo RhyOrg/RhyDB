@@ -13,8 +13,9 @@ nlohmann::json createData(const std::string& country, const std::string& date) {
    std::string age = row_id % 2 == 0 ? "null" : fmt::format("{}", (3 * row_id) + 4);
    float coverage = 0.9;
 
-   return nlohmann::json::parse(fmt::format(
-      R"(
+   return nlohmann::json::parse(
+      fmt::format(
+         R"(
 {{
    "primaryKey": "id_{}",
    "country": "{}",
@@ -32,12 +33,13 @@ nlohmann::json createData(const std::string& country, const std::string& date) {
    }}
 }}
 )",
-      primary_key,
-      country,
-      age,
-      coverage,
-      date
-   ));
+         primary_key,
+         country,
+         age,
+         coverage,
+         date
+      )
+   );
 }
 
 const auto DATABASE_CONFIG =

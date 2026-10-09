@@ -172,9 +172,11 @@ std::pair<std::shared_ptr<ColumnMetadata>, Int32Column> makeRangeTestColumn() {
 // value >= 10 AND value < 50, as two separate predicates, matching rows [10, 50).
 std::vector<std::unique_ptr<Predicate>> makeRangePredicates(const Int32Column& column) {
    std::vector<std::unique_ptr<Predicate>> predicates;
-   predicates.push_back(std::make_unique<CompareToValueSelection<Int32Column>>(
-      column, Comparator::HIGHER_OR_EQUALS, 10
-   ));
+   predicates.push_back(
+      std::make_unique<CompareToValueSelection<Int32Column>>(
+         column, Comparator::HIGHER_OR_EQUALS, 10
+      )
+   );
    predicates.push_back(
       std::make_unique<CompareToValueSelection<Int32Column>>(column, Comparator::LESS, 50)
    );

@@ -61,11 +61,13 @@ Bitmap::Bitmap(const roaring::Roaring* bitmap) {
          roaring_array.containers[idx], roaring_array.typecodes[idx]
       ));
       keys.push_back(roaring_array.keys[idx]);
-      containers.emplace_back(roaring_util::RoaringContainerView{
-         roaring_array.containers[idx],
-         cardinality,
-         roaring_array.typecodes[idx],
-      });
+      containers.emplace_back(
+         roaring_util::RoaringContainerView{
+            roaring_array.containers[idx],
+            cardinality,
+            roaring_array.typecodes[idx],
+         }
+      );
    }
 }
 
@@ -78,11 +80,13 @@ Bitmap::Bitmap(roaring::Roaring&& bitmap) {
          roaring_array.containers[idx], roaring_array.typecodes[idx]
       ));
       keys.push_back(roaring_array.keys[idx]);
-      containers.emplace_back(roaring_util::RoaringContainer{
-         roaring_array.containers[idx],
-         cardinality,
-         roaring_array.typecodes[idx],
-      });
+      containers.emplace_back(
+         roaring_util::RoaringContainer{
+            roaring_array.containers[idx],
+            cardinality,
+            roaring_array.typecodes[idx],
+         }
+      );
    }
    // The containers now belong to this object; drop the source's bookkeeping arrays without
    // freeing the containers they pointed at.

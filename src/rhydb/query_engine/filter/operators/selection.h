@@ -31,7 +31,8 @@ class Predicate {
    [[nodiscard]] virtual bool match(storage::column::RowId row_id) const = 0;
    // Often there are faster ways to generate the results, than calling match on each row.
    // Optimise that case by overriding this method
-   [[nodiscard]] virtual roaring::Roaring makeBitmap(const storage::column::RowLayout& row_layout
+   [[nodiscard]] virtual roaring::Roaring makeBitmap(
+      const storage::column::RowLayout& row_layout
    ) const {
       roaring::Roaring result;
       for (const storage::column::RowId row_id : row_layout) {

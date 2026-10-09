@@ -82,8 +82,10 @@ extractCoverageAndMutationsFromSequence(
       }
    }
    for (; char_in_sequence < length; ++char_in_sequence) {
-      if (reference_is_missing_somewhere ||
-          sequence_data[char_in_sequence] != reference_data[char_in_sequence]) {
+      if (
+         reference_is_missing_somewhere ||
+         sequence_data[char_in_sequence] != reference_data[char_in_sequence]
+      ) {
          auto result = process_one(char_in_sequence);
          if (!result.has_value()) {
             return std::unexpected{result.error()};

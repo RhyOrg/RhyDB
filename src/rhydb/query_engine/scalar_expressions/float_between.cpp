@@ -43,7 +43,8 @@ std::unique_ptr<ScalarExpression> FloatBetween::rewrite(
    return std::make_unique<FloatBetween>(column, from, to);
 }
 
-std::unique_ptr<filter::operators::Operator> FloatBetween::compile(const storage::Table& table
+std::unique_ptr<filter::operators::Operator> FloatBetween::compile(
+   const storage::Table& table
 ) const {
    CHECK_RHYDB_QUERY(
       table.hasColumn<FloatColumn>(column.name),

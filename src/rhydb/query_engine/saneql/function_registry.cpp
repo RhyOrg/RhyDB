@@ -147,7 +147,8 @@ void ScalarFunctionRegistry::registerFunction(
       Entry{.signature = std::move(signature), .handler = std::move(handler)};
 }
 
-const ScalarFunctionRegistry::Entry* ScalarFunctionRegistry::findFunction(const std::string& name
+const ScalarFunctionRegistry::Entry* ScalarFunctionRegistry::findFunction(
+   const std::string& name
 ) const {
    auto it = entries_.find(name);
    if (it == entries_.end()) {

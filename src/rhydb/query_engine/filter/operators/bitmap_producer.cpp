@@ -31,7 +31,8 @@ Bitmap BitmapProducer::evaluate() const {
    return producer();
 }
 
-std::unique_ptr<Operator> BitmapProducer::negate(std::unique_ptr<BitmapProducer>&& bitmap_producer
+std::unique_ptr<Operator> BitmapProducer::negate(
+   std::unique_ptr<BitmapProducer>&& bitmap_producer
 ) {
    auto row_layout = bitmap_producer->row_layout;
    return std::make_unique<Complement>(std::move(bitmap_producer), std::move(row_layout));

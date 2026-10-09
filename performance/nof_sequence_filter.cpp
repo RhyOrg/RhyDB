@@ -50,7 +50,8 @@ BenchmarkResult runBenchmark(
       rhydb::query_engine::exec_node::NdjsonSink sink{&null_output, query_plan.results_schema};
       query_plan.executeAndWrite(sink, /*timeout_in_seconds=*/60);
       const auto end = std::chrono::high_resolution_clock::now();
-      durations.push_back(std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
+      durations.push_back(
+         std::chrono::duration_cast<std::chrono::microseconds>(end - start).count()
       );
    }
 

@@ -74,7 +74,8 @@ std::unique_ptr<ScalarExpression> LineageFilter::rewrite(
    return std::make_unique<LineageFilter>(column, lineage, sublineage_mode);
 }
 
-std::unique_ptr<filter::operators::Operator> LineageFilter::compile(const storage::Table& table
+std::unique_ptr<filter::operators::Operator> LineageFilter::compile(
+   const storage::Table& table
 ) const {
    CHECK_RHYDB_QUERY(
       table.schema->getColumn(column.name).has_value(),

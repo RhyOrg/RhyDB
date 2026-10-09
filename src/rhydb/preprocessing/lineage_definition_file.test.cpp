@@ -48,10 +48,10 @@ some_other_lineage:
 
    EXPECT_THAT(
       throwing_lambda,
-      ThrowsMessage<rhydb::preprocessing::PreprocessingException>(
-         ::testing::HasSubstr("The definition of lineage 'some_lineage' may only contain the "
-                              "fields 'parents' and 'aliases', it also contains invalid fields")
-      )
+      ThrowsMessage<rhydb::preprocessing::PreprocessingException>(::testing::HasSubstr(
+         "The definition of lineage 'some_lineage' may only contain the "
+         "fields 'parents' and 'aliases', it also contains invalid fields"
+      ))
    );
 }
 

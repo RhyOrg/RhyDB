@@ -168,8 +168,10 @@ class SequencePositionGrouper : public KeyGroups {
       // `|=`.
       CopyOnWriteContainer except_missing;
       CopyOnWriteContainer except_reference_and_missing;
-      if (auto chunk_mutations = mutations_by_chunk.find(chunk_id);
-          chunk_mutations != mutations_by_chunk.end()) {
+      if (
+         auto chunk_mutations = mutations_by_chunk.find(chunk_id);
+         chunk_mutations != mutations_by_chunk.end()
+      ) {
          for (const auto& [symbol, view] : chunk_mutations->second) {
             mutation_views[symbol] = view;
             if (symbol != missing_symbol) {
@@ -188,8 +190,10 @@ class SequencePositionGrouper : public KeyGroups {
    }
 
    // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-   [[nodiscard]] KeyGroupsInChunk keyGroups(uint16_t chunk_id, RoaringContainerView filter_view)
-      const override {
+   [[nodiscard]] KeyGroupsInChunk keyGroups(
+      uint16_t chunk_id,
+      RoaringContainerView filter_view
+   ) const override {
       const auto& coverage = column.horizontal_coverage_index;
       const bool chunk_has_mutations = mutations_by_chunk.contains(chunk_id);
 
@@ -197,8 +201,10 @@ class SequencePositionGrouper : public KeyGroups {
       if (!chunk_has_mutations) {
          // No row covers the position -> every row is missing. A null row would form its own group,
          // so only collapse when the chunk has no nulls.
-         if (!null_views.contains(chunk_id) &&
-             coverage.noRowCoversPositionInChunk(position_idx, chunk_id)) {
+         if (
+            !null_views.contains(chunk_id) &&
+            coverage.noRowCoversPositionInChunk(position_idx, chunk_id)
+         ) {
             return static_cast<size_t>(missing_symbol);
          }
          // Every row covers the position with no in-region N -> every row is the reference symbol.
@@ -335,8 +341,8 @@ class IndexedColumnGrouper : public KeyGroups {
       }
    }
 
-   [[nodiscard]] KeyGroupsInChunk keyGroups(uint16_t chunk_id, RoaringContainerView /*filter_view*/)
-      const override {
+   [[nodiscard]] KeyGroupsInChunk
+   keyGroups(uint16_t chunk_id, RoaringContainerView /*filter_view*/) const override {
       if (auto iter = groups_by_chunk.find(chunk_id); iter != groups_by_chunk.end()) {
          return iter->second;
       }
@@ -599,8 +605,8 @@ class ScalarExpressionGrouper : public KeyGroups {
    explicit ScalarExpressionGrouper(ScalarGroupData data)
        : data(std::move(data)) {}
 
-   [[nodiscard]] KeyGroupsInChunk keyGroups(uint16_t chunk_id, RoaringContainerView /*filter_view*/)
-      const override {
+   [[nodiscard]] KeyGroupsInChunk
+   keyGroups(uint16_t chunk_id, RoaringContainerView /*filter_view*/) const override {
       if (auto iter = data.groups_by_chunk.find(chunk_id); iter != data.groups_by_chunk.end()) {
          return iter->second;
       }
@@ -920,7 +926,8 @@ std::vector<schema::ColumnIdentifier> BitmapAggregationNode::getOutputSchema() c
 nlohmann::json BitmapAggregationNode::toJson() const {
    nlohmann::json dimensions_json = nlohmann::json::array();
    for (const auto& dimension : dimensions) {
-      dimensions_json.push_back(std::visit([](const auto& dim) { return dim.toJson(); }, dimension)
+      dimensions_json.push_back(
+         std::visit([](const auto& dim) { return dim.toJson(); }, dimension)
       );
    }
    return {
@@ -944,9 +951,11 @@ arrow::Result<arrow::acero::ExecNode*> BitmapAggregationNode::addToExecPlan(
    std::vector<std::unique_ptr<KeyGroups>> groupers;
    groupers.reserve(dimensions.size());
    for (const auto& dimension : dimensions) {
-      groupers.push_back(std::visit(
-         [&](const auto& dim) { return makeGrouper(dim, *table, filter_bitmap); }, dimension
-      ));
+      groupers.push_back(
+         std::visit(
+            [&](const auto& dim) { return makeGrouper(dim, *table, filter_bitmap); }, dimension
+         )
+      );
    }
 
    std::vector<GroupCombination> combinations = computeCombinations(groupers, filter_bitmap);

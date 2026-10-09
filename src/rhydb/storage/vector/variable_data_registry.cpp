@@ -65,7 +65,8 @@ VariableDataRegistry::DataList getDataFromPage(
 
 }  // namespace
 
-VariableDataRegistry::DataList VariableDataRegistry::get(VariableDataRegistry::Identifier identifier
+VariableDataRegistry::DataList VariableDataRegistry::get(
+   VariableDataRegistry::Identifier identifier
 ) const {
    auto length = *reinterpret_cast<size_t*>(
       variable_data_pages.at(identifier.page_id).buffer + identifier.offset

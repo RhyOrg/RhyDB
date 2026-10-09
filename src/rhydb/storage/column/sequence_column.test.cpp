@@ -41,10 +41,10 @@ TEST(SequenceColumn, validErrorOnBadInsertionFormat_noTwoParts) {
    EXPECT_THAT(
       // NOLINTNEXTLINE(clang-diagnostic-error)
       [&]() { appendSequence(under_test, "A", 0, {"A"}); },
-      ThrowsMessage<InsertionFormatException>(
-         ::testing::HasSubstr("Failed to parse insertion due to invalid format. Expected two parts "
-                              "(position and non-empty insertion value), instead got: 'A'")
-      )
+      ThrowsMessage<InsertionFormatException>(::testing::HasSubstr(
+         "Failed to parse insertion due to invalid format. Expected two parts "
+         "(position and non-empty insertion value), instead got: 'A'"
+      ))
    );
 }
 
@@ -54,10 +54,10 @@ TEST(SequenceColumn, validErrorOnBadInsertionFormat_firstPartNotANumber) {
    EXPECT_THAT(
       // NOLINTNEXTLINE(clang-diagnostic-error)
       [&]() { appendSequence(under_test, "A", 0, {"A:G"}); },
-      ThrowsMessage<InsertionFormatException>(
-         ::testing::HasSubstr("Failed to parse insertion due to invalid format. Expected position "
-                              "that is parsable as an integer, instead got: 'A:G'")
-      )
+      ThrowsMessage<InsertionFormatException>(::testing::HasSubstr(
+         "Failed to parse insertion due to invalid format. Expected position "
+         "that is parsable as an integer, instead got: 'A:G'"
+      ))
    );
 }
 
@@ -94,10 +94,10 @@ TEST(SequenceColumn, validErrorOnBadInsertionFormat_secondPartEmpty) {
    EXPECT_THAT(
       // NOLINTNEXTLINE(clang-diagnostic-error)
       [&]() { appendSequence(under_test, "A", 0, {"0:"}); },
-      ThrowsMessage<InsertionFormatException>(
-         ::testing::HasSubstr("Failed to parse insertion due to invalid format. Expected two parts "
-                              "(position and non-empty insertion value), instead got: '0:'")
-      )
+      ThrowsMessage<InsertionFormatException>(::testing::HasSubstr(
+         "Failed to parse insertion due to invalid format. Expected two parts "
+         "(position and non-empty insertion value), instead got: '0:'"
+      ))
    );
 }
 
@@ -107,10 +107,10 @@ TEST(SequenceColumn, validErrorOnBadInsertionFormat_firstPartEmpty) {
    EXPECT_THAT(
       // NOLINTNEXTLINE(clang-diagnostic-error)
       [&]() { appendSequence(under_test, "A", 0, {":A"}); },
-      ThrowsMessage<InsertionFormatException>(
-         ::testing::HasSubstr("Failed to parse insertion due to invalid format. Expected position "
-                              "that is parsable as an integer, instead got: ':A'")
-      )
+      ThrowsMessage<InsertionFormatException>(::testing::HasSubstr(
+         "Failed to parse insertion due to invalid format. Expected position "
+         "that is parsable as an integer, instead got: ':A'"
+      ))
    );
 }
 

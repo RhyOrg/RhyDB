@@ -76,9 +76,9 @@ const QueryTestScenario IN_SET_LITERAL_STRING = {
 const QueryTestScenario IN_SET_LITERAL_INT_COLUMN = {
    .name = "IN_SET_LITERAL_INT_COLUMN",
    .query = "data.filter(year.in({2020, 2023})).project({primaryKey})",
-   .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"},{"primaryKey":"id_4"}])"
-      ),
+   .expected_query_result = nlohmann::json::parse(
+      R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"},{"primaryKey":"id_4"}])"
+   ),
 };
 
 // A set literal of floats on a float column.

@@ -62,12 +62,14 @@ std::expected<void, std::string> DictionaryEncodedColumn::appendChunk(const Buff
    if (lineage_index.has_value() && !metadata->treat_unknown_lineages_as_null) {
       for (const auto& maybe_value : buffer) {
          if (maybe_value.has_value() && !metadata->dictionary.getId(*maybe_value).has_value()) {
-            return std::unexpected(fmt::format(
-               "The value '{}' is not a valid lineage value for column '{}'. "
-               "Is your lineage definition file outdated?",
-               *maybe_value,
-               metadata->column_name
-            ));
+            return std::unexpected(
+               fmt::format(
+                  "The value '{}' is not a valid lineage value for column '{}'. "
+                  "Is your lineage definition file outdated?",
+                  *maybe_value,
+                  metadata->column_name
+               )
+            );
          }
       }
    }

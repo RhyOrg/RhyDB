@@ -144,7 +144,8 @@ const QueryTestScenario DOWNLOAD_ALL_DATA = {
    .query =
       "data.project({primaryKey, unaligned_segment1, unaligned_segment2, date})"
       ".order(by:={primaryKey})",
-   .expected_query_result = nlohmann::json::parse(R"(
+   .expected_query_result = nlohmann::json::parse(
+      R"(
 [{"date":"2024-08-05","primaryKey":"1","unaligned_segment1":null,"unaligned_segment2":"A"},
 {"date":"2024-08-03","primaryKey":"2","unaligned_segment1":null,"unaligned_segment2":null},
 {"date":"2024-08-02","primaryKey":"3","unaligned_segment1":null,"unaligned_segment2":"AA"},
@@ -160,7 +161,8 @@ const QueryTestScenario DUPLICATE_FIELDS = {
    .query =
       "data.project({primaryKey, unaligned_segment1, unaligned_segment2, unaligned_segment1, "
       "date, date}).order(by:={primaryKey})",
-   .expected_query_result = nlohmann::json::parse(R"(
+   .expected_query_result = nlohmann::json::parse(
+      R"(
 [{"date":"2024-08-05","primaryKey":"1","unaligned_segment1":null,"unaligned_segment2":"A"},
 {"date":"2024-08-03","primaryKey":"2","unaligned_segment1":null,"unaligned_segment2":null},
 {"date":"2024-08-02","primaryKey":"3","unaligned_segment1":null,"unaligned_segment2":"AA"},
@@ -184,7 +186,8 @@ const QueryTestScenario ORDER_BY_ADDITIONAL_FIELD = {
    .query =
       "data.project({primaryKey, unaligned_segment1, unaligned_segment2, date})"
       ".order(by:={date.asc()})",
-   .expected_query_result = nlohmann::json::parse(R"(
+   .expected_query_result = nlohmann::json::parse(
+      R"(
 [{"date":"2024-08-01","primaryKey":"bothSegments","unaligned_segment1":"A","unaligned_segment2":"G"},
 {"date":"2024-08-02","primaryKey":"onlySegment2","unaligned_segment1":null,"unaligned_segment2":"T"},
 {"date":"2024-08-02","primaryKey":"3","unaligned_segment1":null,"unaligned_segment2":"AA"},

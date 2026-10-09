@@ -246,8 +246,10 @@ std::unique_ptr<ScalarExpression> NOf::rewriteToNonExact(
    return std::make_unique<And>(std::move(and_children));
 }
 
-std::unique_ptr<ScalarExpression> NOf::rewrite(const storage::Table& table, AmbiguityMode mode)
-   const {
+std::unique_ptr<ScalarExpression> NOf::rewrite(
+   const storage::Table& table,
+   AmbiguityMode mode
+) const {
    // We cannot easily map ambiguity modes through an exact NOf expression -> rewrite without exact
    if (mode != NONE && match_exactly && std::cmp_less(number_of_matchers, children.size())) {
       return rewriteToNonExact(table, mode);

@@ -172,14 +172,16 @@ void QueryPlan::executeAndWrite(
             request_id
          );
       } else {
-         throw std::runtime_error(fmt::format(
-            "Request Id [{}] - Internal server error. Please notify developers. RhyDB likely "
-            "constructed an invalid arrow plan and more user-input validation needs to be "
-            "added: "
-            "{}",
-            request_id,
-            status.message()
-         ));
+         throw std::runtime_error(
+            fmt::format(
+               "Request Id [{}] - Internal server error. Please notify developers. RhyDB likely "
+               "constructed an invalid arrow plan and more user-input validation needs to be "
+               "added: "
+               "{}",
+               request_id,
+               status.message()
+            )
+         );
       }
    }
 }

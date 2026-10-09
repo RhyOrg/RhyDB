@@ -20,7 +20,9 @@ class QueryHandler : public RestResource {
       rhydb::config::QueryOptions query_options
    );
 
-   void post(Poco::Net::HTTPServerRequest& request, Poco::Net::HTTPServerResponse& response)
-      override;
+   void post(
+      Poco::Net::HTTPServerRequest& request,
+      Poco::Net::HTTPServerResponse& response
+   ) override;
 };
 }  // namespace rhydb_app

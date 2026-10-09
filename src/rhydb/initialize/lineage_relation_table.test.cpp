@@ -38,8 +38,9 @@ LineageRelationRow edge(
 }  // namespace
 
 TEST(LineageRelationTable, emitsOnlyDirectEdgesForALinearChain) {
-   auto tree = LineageTreeAndIdMap::fromLineageDefinitionFile(LineageDefinitionFile::fromYAMLString(
-      R"(
+   auto tree = LineageTreeAndIdMap::fromLineageDefinitionFile(
+      LineageDefinitionFile::fromYAMLString(
+         R"(
 BASE:
   parents: []
 CHILD:
@@ -49,7 +50,8 @@ GRANDCHILD:
   parents:
     - CHILD
 )"
-   ));
+      )
+   );
 
    const auto rows = buildLineageRelationRows(tree);
 
@@ -65,8 +67,9 @@ GRANDCHILD:
 
 TEST(LineageRelationTable, recombinantEmitsOneEdgePerParentWithCladeAncestor) {
    // XBB recombines A.1 and A.2, whose clade ancestor is A.
-   auto tree = LineageTreeAndIdMap::fromLineageDefinitionFile(LineageDefinitionFile::fromYAMLString(
-      R"(
+   auto tree = LineageTreeAndIdMap::fromLineageDefinitionFile(
+      LineageDefinitionFile::fromYAMLString(
+         R"(
 A:
   parents: []
 A.1:
@@ -80,7 +83,8 @@ XBB:
     - A.1
     - A.2
 )"
-   ));
+      )
+   );
 
    const auto rows = buildLineageRelationRows(tree);
 
@@ -97,8 +101,9 @@ XBB:
 }
 
 TEST(LineageRelationTable, aliasesAreNotEdgesButAliasRows) {
-   auto tree = LineageTreeAndIdMap::fromLineageDefinitionFile(LineageDefinitionFile::fromYAMLString(
-      R"(
+   auto tree = LineageTreeAndIdMap::fromLineageDefinitionFile(
+      LineageDefinitionFile::fromYAMLString(
+         R"(
 A:
   aliases:
     - X
@@ -110,7 +115,8 @@ A.1:
   parents:
     - A
 )"
-   ));
+      )
+   );
 
    EXPECT_THAT(
       buildLineageRelationRows(tree),

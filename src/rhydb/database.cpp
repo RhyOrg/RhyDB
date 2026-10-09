@@ -282,8 +282,10 @@ void addTableStatisticsToDatabaseInfo(DatabaseInfo& database_info, const storage
    for (const auto& [_, column] : table.columns) {
       std::visit(
          [&]<typename Column>(const Column& seq_column) {
-            if constexpr (std::is_same_v<Column, storage::column::SequenceColumn<Nucleotide>> ||
-                          std::is_same_v<Column, storage::column::SequenceColumn<AminoAcid>>) {
+            if constexpr (
+               std::is_same_v<Column, storage::column::SequenceColumn<Nucleotide>> ||
+               std::is_same_v<Column, storage::column::SequenceColumn<AminoAcid>>
+            ) {
                auto info = seq_column.getInfo();
                database_info.vertical_bitmaps_size += info.vertical_bitmaps_size;
                database_info.horizontal_bitmaps_size += info.horizontal_bitmaps_size;
@@ -426,7 +428,8 @@ void Database::updateDataVersion() {
 
 namespace {
 
-std::shared_ptr<arrow::Table> valueOrThrow(arrow::Result<std::shared_ptr<arrow::Table>> write_result
+std::shared_ptr<arrow::Table> valueOrThrow(
+   arrow::Result<std::shared_ptr<arrow::Table>> write_result
 ) {
    if (!write_result.ok()) {
       throw std::runtime_error(

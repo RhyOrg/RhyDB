@@ -44,7 +44,8 @@ class At : public ScalarExpression {
       return std::make_unique<At>(input->clone(), position);
    }
 
-   [[nodiscard]] std::unique_ptr<filter::operators::Operator> compile(const storage::Table& table
+   [[nodiscard]] std::unique_ptr<filter::operators::Operator> compile(
+      const storage::Table& table
    ) const override;
 };
 

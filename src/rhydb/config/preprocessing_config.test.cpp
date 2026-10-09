@@ -12,8 +12,10 @@ using rhydb::config::YamlFile;
 TEST(PreprocessingConfig, shouldReadConfigWithCorrectParametersAndDefaults) {
    auto config = PreprocessingConfig::withDefaults();
 
-   config.overwriteFrom(YamlFile::readFile("./testBaseData/test_preprocessing_config.yaml")
-                           .verify(PreprocessingConfig::getConfigSpecification()));
+   config.overwriteFrom(
+      YamlFile::readFile("./testBaseData/test_preprocessing_config.yaml")
+         .verify(PreprocessingConfig::getConfigSpecification())
+   );
 
    const std::filesystem::path input_directory = "./testBaseData/exampleDataset/";
    ASSERT_TRUE(config.input_file.has_value());
@@ -30,7 +32,8 @@ TEST(PreprocessingConfig, shouldReadConfigWithCorrectParametersAndDefaults) {
 TEST(PreprocessingConfig, shouldReadConfigWithOverriddenDefaults) {
    auto config = PreprocessingConfig::withDefaults();
 
-   config.overwriteFrom(YamlFile::fromYAML("inline", R"(
+   config.overwriteFrom(
+      YamlFile::fromYAML("inline", R"(
 inputDirectory: "./testBaseData/exampleDataset/"
 outputDirectory: "./output/custom/"
 ndjsonInputFilename: "input_file.ndjson"
@@ -38,7 +41,8 @@ lineageDefinitionFilenames:
   - "lineage_definition.yaml"
 phyloTreeFilename: "phylogenetic_tree.yaml"
 referenceGenomeFilename: "reference_genomes.json")")
-                           .verify(PreprocessingConfig::getConfigSpecification()));
+         .verify(PreprocessingConfig::getConfigSpecification())
+   );
 
    const std::filesystem::path input_directory = "./testBaseData/exampleDataset/";
    ASSERT_TRUE(config.input_file.has_value());

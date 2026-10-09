@@ -40,7 +40,8 @@ std::optional<T> getValue(
 
 namespace rhydb::config {
 
-std::optional<std::string> VerifiedConfigAttributes::getString(const ConfigKeyPath& config_key_path
+std::optional<std::string> VerifiedConfigAttributes::getString(
+   const ConfigKeyPath& config_key_path
 ) const {
    return getValue<std::string, ConfigValueType::STRING>(config_key_path, config_values);
 }
@@ -51,17 +52,20 @@ std::optional<std::filesystem::path> VerifiedConfigAttributes::getPath(
    return getValue<std::filesystem::path, ConfigValueType::PATH>(config_key_path, config_values);
 }
 
-std::optional<int32_t> VerifiedConfigAttributes::getInt32(const ConfigKeyPath& config_key_path
+std::optional<int32_t> VerifiedConfigAttributes::getInt32(
+   const ConfigKeyPath& config_key_path
 ) const {
    return getValue<int32_t, ConfigValueType::INT32>(config_key_path, config_values);
 }
 
-std::optional<uint32_t> VerifiedConfigAttributes::getUint32(const ConfigKeyPath& config_key_path
+std::optional<uint32_t> VerifiedConfigAttributes::getUint32(
+   const ConfigKeyPath& config_key_path
 ) const {
    return getValue<uint32_t, ConfigValueType::UINT32>(config_key_path, config_values);
 }
 
-std::optional<uint16_t> VerifiedConfigAttributes::getUint16(const ConfigKeyPath& config_key_path
+std::optional<uint16_t> VerifiedConfigAttributes::getUint16(
+   const ConfigKeyPath& config_key_path
 ) const {
    return getValue<uint16_t, ConfigValueType::UINT16>(config_key_path, config_values);
 }
