@@ -4,6 +4,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <variant>
 #include <vector>
 
@@ -39,6 +40,12 @@ enum class BinaryOp : uint8_t {
 };
 
 [[nodiscard]] std::string binaryOpToString(BinaryOp op);
+
+/// `value` as a string literal that parses back to `value`, i.e. quoted with every `'` doubled.
+[[nodiscard]] std::string quoteStringLiteral(std::string_view value);
+
+/// `name` as a quoted identifier that parses back to `name`, i.e. quoted with every `"` doubled.
+[[nodiscard]] std::string quoteIdentifier(std::string_view name);
 
 struct IntLiteral {
    int64_t value;
