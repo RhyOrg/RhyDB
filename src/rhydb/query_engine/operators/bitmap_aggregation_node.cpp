@@ -73,42 +73,49 @@ struct GroupIndicesHash {
    }
 };
 
-/// In a chunk, there is either only a single key present (SingletonKeyGroup), or many keys are
-/// present (KeyGroupList). If only one group is present, we need to only store the key index,
-/// otherwise we store the list of key indexes and corresponding bitmaps indicating which rows
-/// belong to that group
-using SingletonKeyGroup = size_t;
-using KeyGroupList = std::vector<std::pair<size_t, CopyOnWriteContainer>>;
+/// The slice of a `DimensionIndex` covering one 2^16 chunk. Either every row of the chunk carries
+/// the same value (SingletonValueDimension), so only that value's index entry is stored, or the
+/// rows carry several values (ValueBitmapDimension), stored as one (entry, rows) pair per value.
+using SingletonValueDimension = size_t;
+using ValueBitmapDimension = std::vector<std::pair<size_t, CopyOnWriteContainer>>;
 
-using KeyGroupsInChunk = std::variant<KeyGroupList, SingletonKeyGroup>;
+using DimensionIndexChunk = std::variant<ValueBitmapDimension, SingletonValueDimension>;
 
-/// Individual key groups are combined and then the count per group stored in this data structure
+/// The per-dimension groups are combined and then the count per group stored in this data structure
 using CombinationCounts = std::unordered_map<std::vector<size_t>, uint64_t, GroupIndicesHash>;
 
-/// For every chunk, the resolved groups for this group-by key are stored
-class KeyGroups {
+/// An inverted index on the values of one grouping dimension: for every value the dimension takes,
+/// the rows carrying it. Entries are numbered 0..n-1 in output order (the null value last), and the
+/// index is served one 2^16 chunk at a time, which is how the bitmap aggregation intersects it with
+/// the other dimensions.
+///
+/// Implementations may hand out stored bitmaps unfiltered (e.g. an indexed column's own inverted
+/// index), so an entry's rows can include rows outside the filter; the aggregation intersects them
+/// with the filter.
+class DimensionIndex {
   public:
-   KeyGroups() = default;
-   KeyGroups(const KeyGroups&) = delete;
-   KeyGroups& operator=(const KeyGroups&) = delete;
-   KeyGroups(KeyGroups&&) = delete;
-   KeyGroups& operator=(KeyGroups&&) = delete;
-   virtual ~KeyGroups() = default;
+   DimensionIndex() = default;
+   DimensionIndex(const DimensionIndex&) = delete;
+   DimensionIndex& operator=(const DimensionIndex&) = delete;
+   DimensionIndex(DimensionIndex&&) = delete;
+   DimensionIndex& operator=(DimensionIndex&&) = delete;
+   virtual ~DimensionIndex() = default;
 
-   // Returns the groups for this key after filtering
-   [[nodiscard]] virtual KeyGroupsInChunk keyGroups(
+   /// The index entries for the rows of chunk `chunk_id`. `filter_view` is that chunk's filter,
+   /// which an implementation may use to narrow the entries it computes.
+   [[nodiscard]] virtual DimensionIndexChunk chunk(
       uint16_t chunk_id,
       RoaringContainerView filter_view
    ) const = 0;
 
-   /// All values that this group key can have
-   [[nodiscard]] virtual arrow::Result<std::shared_ptr<arrow::Array>> keyValues() const = 0;
+   /// The indexed values: element i is the value of entry i
+   [[nodiscard]] virtual arrow::Result<std::shared_ptr<arrow::Array>> values() const = 0;
 };
 
 /// Groups the rows by the symbol they carry at a fixed sequence position
 /// Introduced as a speed-up when `<seq>.at(<position>)` was detected as group key expression
 template <typename SymbolType>
-class SequencePositionGrouper : public KeyGroups {
+class SequencePositionIndex : public DimensionIndex {
    static constexpr size_t SYMBOL_COUNT = SymbolType::SYMBOLS.size();
    // The null group's index sits just past every symbol
    static constexpr size_t NULL_INDEX = SYMBOL_COUNT;
@@ -126,7 +133,7 @@ class SequencePositionGrouper : public KeyGroups {
    std::map<uint16_t, RoaringContainerView> null_views;
 
   public:
-   SequencePositionGrouper(
+   SequencePositionIndex(
       const storage::column::SequenceColumn<SymbolType>& column,
       uint32_t position_idx
    )
@@ -188,7 +195,7 @@ class SequencePositionGrouper : public KeyGroups {
    }
 
    // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-   [[nodiscard]] KeyGroupsInChunk keyGroups(uint16_t chunk_id, RoaringContainerView filter_view)
+   [[nodiscard]] DimensionIndexChunk chunk(uint16_t chunk_id, RoaringContainerView filter_view)
       const override {
       const auto& coverage = column.horizontal_coverage_index;
       const bool chunk_has_mutations = mutations_by_chunk.contains(chunk_id);
@@ -208,7 +215,7 @@ class SequencePositionGrouper : public KeyGroups {
          }
       }
 
-      KeyGroupList groups;
+      ValueBitmapDimension groups;
 
       // The chunk's per-symbol mutation containers (raw views)
       ChunkMutationContainers mutations = computeChunkMutationContainers(chunk_id);
@@ -282,7 +289,7 @@ class SequencePositionGrouper : public KeyGroups {
    }
 
    /// One 1-character string per symbol
-   [[nodiscard]] arrow::Result<std::shared_ptr<arrow::Array>> keyValues() const override {
+   [[nodiscard]] arrow::Result<std::shared_ptr<arrow::Array>> values() const override {
       arrow::StringBuilder builder;
       for (const auto symbol : SymbolType::SYMBOLS) {
          ARROW_RETURN_NOT_OK(builder.Append(std::string(1, SymbolType::symbolToChar(symbol))));
@@ -299,17 +306,17 @@ class SequencePositionGrouper : public KeyGroups {
 /// chunk), plus a null group from the column's null bitmap. Value groups get consecutive indices in
 /// sorted-value order (null last), so the combinations come out in the same order as the generic
 /// path.
-class IndexedColumnGrouper : public KeyGroups {
+class IndexedColumnIndex : public DimensionIndex {
    // chunk key -> the groups holding a container in that chunk. Precomputed once (the inverted
-   // index is unordered), so per-chunk grouping is a single map lookup returning views into stored
+   // index is unordered), so serving a chunk is a single map lookup returning views into stored
    // bitmaps.
-   std::map<uint16_t, KeyGroupList> groups_by_chunk;
+   std::map<uint16_t, ValueBitmapDimension> groups_by_chunk;
    // The distinct value of each group index, in sorted order (the null group has no entry; it is
-   // the trailing null appended by `keyValues`).
+   // the trailing null appended by `values`).
    std::vector<std::string> key_values;
 
   public:
-   explicit IndexedColumnGrouper(const storage::column::DictionaryEncodedColumn& column) {
+   explicit IndexedColumnIndex(const storage::column::DictionaryEncodedColumn& column) {
       // One group per distinct value, ordered by the value string so the node has a deterministic
       // output order. A null row lives only in `null_bitmap` (its value's bitmap does not contain
       // it), so the null group stays disjoint from the value groups and no row is double-counted.
@@ -335,17 +342,17 @@ class IndexedColumnGrouper : public KeyGroups {
       }
    }
 
-   [[nodiscard]] KeyGroupsInChunk keyGroups(uint16_t chunk_id, RoaringContainerView /*filter_view*/)
+   [[nodiscard]] DimensionIndexChunk chunk(uint16_t chunk_id, RoaringContainerView /*filter_view*/)
       const override {
       if (auto iter = groups_by_chunk.find(chunk_id); iter != groups_by_chunk.end()) {
          return iter->second;
       }
-      return KeyGroupList{};
+      return ValueBitmapDimension{};
    }
 
-   /// The distinct values in sorted order (the group indices `keyGroups` hands out), then a null
+   /// The distinct values in sorted order (the group indices `chunk` hands out), then a null
    /// for the trailing null group.
-   [[nodiscard]] arrow::Result<std::shared_ptr<arrow::Array>> keyValues() const override {
+   [[nodiscard]] arrow::Result<std::shared_ptr<arrow::Array>> values() const override {
       arrow::StringBuilder builder;
       for (const auto& value : key_values) {
          ARROW_RETURN_NOT_OK(builder.Append(value));
@@ -357,33 +364,33 @@ class IndexedColumnGrouper : public KeyGroups {
    }
 };
 
-std::unique_ptr<KeyGroups> makeGrouper(
+std::unique_ptr<DimensionIndex> buildDimensionIndex(
    const SequencePositionDimension& dimension,
    const storage::Table& table,
    const Bitmap& /*filter_bitmap*/
 ) {
    if (dimension.is_nucleotide) {
       const auto& column = table.getColumn<Nucleotide::Column>(dimension.column.name);
-      return std::make_unique<SequencePositionGrouper<Nucleotide>>(column, dimension.position_idx);
+      return std::make_unique<SequencePositionIndex<Nucleotide>>(column, dimension.position_idx);
    }
    const auto& column = table.getColumn<AminoAcid::Column>(dimension.column.name);
-   return std::make_unique<SequencePositionGrouper<AminoAcid>>(column, dimension.position_idx);
+   return std::make_unique<SequencePositionIndex<AminoAcid>>(column, dimension.position_idx);
 }
 
-std::unique_ptr<KeyGroups> makeGrouper(
+std::unique_ptr<DimensionIndex> buildDimensionIndex(
    const IndexedColumnDimension& dimension,
    const storage::Table& table,
    const Bitmap& /*filter_bitmap*/
 ) {
    const auto& column =
       table.getColumn<storage::column::DictionaryEncodedColumn>(dimension.column.name);
-   return std::make_unique<IndexedColumnGrouper>(column);
+   return std::make_unique<IndexedColumnIndex>(column);
 }
 
-// The grouper for a map-produced scalar expression evaluates it via Arrow (there is no column to
+// The index for a map-produced scalar expression evaluates it via Arrow (there is no column to
 // read straight off), so its work goes through arrow::Result. These raise those failures as query
-// errors, since `makeGrouper` -- like the other dimensions' -- returns a plain grouper and reports
-// problems by throwing.
+// errors, since `buildDimensionIndex` -- like the other dimensions' -- returns a plain index and
+// reports problems by throwing.
 template <typename T>
 T orThrowQuery(arrow::Result<T> result) {
    CHECK_RHYDB_QUERY(result.ok(), "{}", result.status().ToString());
@@ -511,12 +518,12 @@ arrow::Result<std::shared_ptr<arrow::Array>> evaluateExpressionForRows(
    return array;
 }
 
-/// The per-value bitmaps, per-chunk group views and typed value array a `ScalarExpressionGrouper`
+/// The per-value bitmaps, per-chunk group views and typed value array a `ScalarExpressionIndex`
 /// serves, built once up front.
 struct ScalarGroupData {
    // Owned per-value bitmaps (sorted values, then the null group), so the views below never dangle.
    std::vector<roaring::Roaring> value_bitmaps;
-   std::map<uint16_t, KeyGroupList> groups_by_chunk;
+   std::map<uint16_t, ValueBitmapDimension> groups_by_chunk;
    // One element per group index: element i is group i's value, with a trailing null for the null
    // group. Its Arrow type is the dimension's output type.
    std::shared_ptr<arrow::Array> group_value_array;
@@ -590,29 +597,29 @@ ScalarGroupData buildScalarGroups(
 /// Groups rows by the value of a map-produced scalar expression (e.g. `map({week :=
 /// date.isoWeek()})`). Everything is precomputed in `buildScalarGroups` -- over the filtered rows
 /// only, so neither the bitmaps nor the distinct values cover more than the query touches;
-/// per-chunk grouping is a single map lookup, and `keyValues` returns the typed value array so the
+/// serving a chunk is a single map lookup, and `values` returns the typed value array so the
 /// output column keeps the expression's type.
-class ScalarExpressionGrouper : public KeyGroups {
+class ScalarExpressionIndex : public DimensionIndex {
    ScalarGroupData data;
 
   public:
-   explicit ScalarExpressionGrouper(ScalarGroupData data)
+   explicit ScalarExpressionIndex(ScalarGroupData data)
        : data(std::move(data)) {}
 
-   [[nodiscard]] KeyGroupsInChunk keyGroups(uint16_t chunk_id, RoaringContainerView /*filter_view*/)
+   [[nodiscard]] DimensionIndexChunk chunk(uint16_t chunk_id, RoaringContainerView /*filter_view*/)
       const override {
       if (auto iter = data.groups_by_chunk.find(chunk_id); iter != data.groups_by_chunk.end()) {
          return iter->second;
       }
-      return KeyGroupList{};
+      return ValueBitmapDimension{};
    }
 
-   [[nodiscard]] arrow::Result<std::shared_ptr<arrow::Array>> keyValues() const override {
+   [[nodiscard]] arrow::Result<std::shared_ptr<arrow::Array>> values() const override {
       return data.group_value_array;
    }
 };
 
-std::unique_ptr<KeyGroups> makeGrouper(
+std::unique_ptr<DimensionIndex> buildDimensionIndex(
    const ScalarExpressionDimension& dimension,
    const storage::Table& table,
    const Bitmap& filter_bitmap
@@ -662,7 +669,7 @@ std::unique_ptr<KeyGroups> makeGrouper(
             "bitmap aggregation cannot group on the expression's output type"
          );
    }
-   return std::make_unique<ScalarExpressionGrouper>(std::move(data));
+   return std::make_unique<ScalarExpressionIndex>(std::move(data));
 }
 
 /// Recursively intersect one chunk's per-dimension group containers, depth by depth, and add the
@@ -678,13 +685,14 @@ void aggregateChunk(
    size_t depth,
    const roaring::internal::container_t* current,
    uint8_t current_typecode,
-   const std::vector<const KeyGroupsInChunk*>& groups_by_dimension,
+   const std::vector<const DimensionIndexChunk*>& groups_by_dimension,
    std::vector<size_t>& chosen_indices,
    CombinationCounts& counts
 ) {
    const size_t last_dimension = groups_by_dimension.size() - 1;
 
-   if (const size_t* group_index = std::get_if<SingletonKeyGroup>(groups_by_dimension[depth])) {
+   if (const size_t* group_index =
+          std::get_if<SingletonValueDimension>(groups_by_dimension[depth])) {
       // Every row of the running intersection carries this one label; nothing to intersect.
       chosen_indices[depth] = *group_index;
       if (depth == last_dimension) {
@@ -702,7 +710,8 @@ void aggregateChunk(
       return;
    }
 
-   for (const auto& [group_index, group] : std::get<KeyGroupList>(*groups_by_dimension[depth])) {
+   for (const auto& [group_index, group] :
+        std::get<ValueBitmapDimension>(*groups_by_dimension[depth])) {
       chosen_indices[depth] = group_index;
       const RoaringContainerView view = group.view();
 
@@ -732,13 +741,13 @@ void aggregateChunk(
 }
 
 /// Computes the aggregation groups counts one 2^16 chunk at a time. It does so by enumerating all
-/// combination of the per-key groups. The combination's cardinalities are computed efficiently
-/// using bitmap intersection
+/// combination of the per-dimension groups. The combination's cardinalities are computed
+/// efficiently using bitmap intersection
 std::vector<GroupCombination> computeCombinations(
-   const std::vector<std::unique_ptr<KeyGroups>>& groupers,
+   const std::vector<std::unique_ptr<DimensionIndex>>& indexes,
    const Bitmap& filter_bitmap
 ) {
-   const size_t num_dimensions = groupers.size();
+   const size_t num_dimensions = indexes.size();
    if (num_dimensions == 0) {
       return {};
    }
@@ -756,10 +765,10 @@ std::vector<GroupCombination> computeCombinations(
       // dimension's groups partition its rows, so every dimension yields at least one group; a
       // dimension that (defensively) produced none would simply contribute no combinations in
       // `aggregateChunk`.
-      std::vector<KeyGroupsInChunk> groups(num_dimensions);
-      std::vector<const KeyGroupsInChunk*> groups_at_chunk(num_dimensions);
+      std::vector<DimensionIndexChunk> groups(num_dimensions);
+      std::vector<const DimensionIndexChunk*> groups_at_chunk(num_dimensions);
       for (size_t dimension = 0; dimension < num_dimensions; ++dimension) {
-         groups[dimension] = groupers[dimension]->keyGroups(chunk_id, filter_view);
+         groups[dimension] = indexes[dimension]->chunk(chunk_id, filter_view);
          groups_at_chunk[dimension] = &groups[dimension];
       }
       aggregateChunk(
@@ -938,18 +947,18 @@ arrow::Result<arrow::acero::ExecNode*> BitmapAggregationNode::addToExecPlan(
 ) const {
    auto filter_bitmap = compileFilter(filter, table)->evaluate();
 
-   // Resolve each dimension against the table into a grouper that produces its groups per 2^16
+   // Resolve each dimension against the table into its index, served per 2^16
    // chunk (this also validates, e.g. a sequence position out of range throws here). The groups are
    // then built and counted chunk by chunk, never materializing whole-table per-group bitmaps.
-   std::vector<std::unique_ptr<KeyGroups>> groupers;
-   groupers.reserve(dimensions.size());
+   std::vector<std::unique_ptr<DimensionIndex>> indexes;
+   indexes.reserve(dimensions.size());
    for (const auto& dimension : dimensions) {
-      groupers.push_back(std::visit(
-         [&](const auto& dim) { return makeGrouper(dim, *table, filter_bitmap); }, dimension
+      indexes.push_back(std::visit(
+         [&](const auto& dim) { return buildDimensionIndex(dim, *table, filter_bitmap); }, dimension
       ));
    }
 
-   std::vector<GroupCombination> combinations = computeCombinations(groupers, filter_bitmap);
+   std::vector<GroupCombination> combinations = computeCombinations(indexes, filter_bitmap);
 
    const size_t dimension_count = dimensions.size();
 
@@ -957,9 +966,9 @@ arrow::Result<arrow::acero::ExecNode*> BitmapAggregationNode::addToExecPlan(
    // value arrays the output materialization gathers the group indices from (element `group_index`
    // = that group's typed value).
    std::vector<std::shared_ptr<arrow::Array>> values_per_dimension;
-   values_per_dimension.reserve(groupers.size());
-   for (auto& grouper : groupers) {
-      ARROW_ASSIGN_OR_RAISE(auto values, grouper->keyValues());
+   values_per_dimension.reserve(indexes.size());
+   for (auto& index : indexes) {
+      ARROW_ASSIGN_OR_RAISE(auto values, index->values());
       values_per_dimension.push_back(std::move(values));
    }
 

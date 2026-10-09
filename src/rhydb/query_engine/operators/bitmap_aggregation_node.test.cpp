@@ -118,8 +118,8 @@ const QueryTestScenario CO_OCCURRENCE_VIA_MAP_AMINO_ACID = {
 };
 
 // `at` on a non-sequence string column is not a sequence-position lookup, but it is still a general
-// scalar expression the grouper can evaluate (extract a character), so it goes through the bitmap
-// engine via the scalar-expression path. Every primary key starts with "id_", so the first
+// scalar expression the dimension index can evaluate (extract a character), so it goes through the
+// bitmap engine via the scalar-expression path. Every primary key starts with "id_", so the first
 // character is 'i' for all four rows -- a single group.
 const QueryTestScenario CO_OCCURRENCE_VIA_MAP_NON_SEQUENCE_STRING_AT = {
    .name = "CO_OCCURRENCE_VIA_MAP_NON_SEQUENCE_STRING_AT",
@@ -254,8 +254,8 @@ const QueryTestScenario MIXED_SEQUENCE_AND_FIELD_COLUMN = {
    ])"),
 };
 
-// A scalar-expression key under a filter: the grouper evaluates `country` only over the filtered
-// rows, so the Asia row (ROW_NN, Japan) must not leak into any group.
+// A scalar-expression key under a filter: the dimension index evaluates `country` only over the
+// filtered rows, so the Asia row (ROW_NN, Japan) must not leak into any group.
 //   A -> France x1 (ROW_AT2), Germany x1 (ROW_AT)
 //   C -> Germany x1 (ROW_CA)
 const QueryTestScenario MIXED_SEQUENCE_AND_FIELD_COLUMN_WITH_FILTER = {
