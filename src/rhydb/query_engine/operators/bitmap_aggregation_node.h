@@ -74,8 +74,9 @@ struct ScalarExpressionDimension {
 /// into disjoint, value-keyed groups directly from roaring bitmaps, plus the output column it
 /// contributes. A variant over the supported kinds lets a single query group on a mix of them;
 /// add an alternative to support another kind. Every alternative offers `outputColumn` and
-/// `toJson` (so a generic `std::visit` dispatches over them) and a `buildDimensionIndex` overload
-/// in the implementation file that builds its inverted index (`DimensionIndex`) over the table.
+/// `toJson` (so a generic `std::visit` dispatches over them) and a `resolveDimension` overload in
+/// the implementation file that resolves it into the `exec_node::ResolvedGroupingDimension` the
+/// exec node groups by.
 using GroupingDimension =
    std::variant<SequencePositionDimension, IndexedColumnDimension, ScalarExpressionDimension>;
 
@@ -83,10 +84,8 @@ using GroupingDimension =
 /// `GroupingDimension`s, emitting one row per observed combination of values together with the
 /// number of rows carrying it.
 ///
-/// It is computed by recursively partitioning the filtered row-set with the per-dimension,
-/// per-value roaring bitmaps, pruning empty combinations. Only non-empty combinations are visited
-/// (their number is bounded by the count of matching rows), so this scales to many dimensions
-/// without the exponential blow-up of a full Cartesian product.
+/// The node itself only evaluates the filter and validates and resolves the dimensions; the
+/// aggregation is executed by the Acero node from `exec_node::addBitmapAggregationNode`.
 class BitmapAggregationNode final : public QueryNode {
   public:
    std::shared_ptr<storage::Table> table;
