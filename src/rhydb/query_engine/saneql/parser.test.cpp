@@ -22,6 +22,19 @@ TEST(SaneQLParser, parsesStringLiteral) {
    EXPECT_EQ(expr->toString(), "'USA'");
 }
 
+TEST(SaneQLParser, stringLiteralWithQuoteRoundTrips) {
+   Parser parser("'O''Brien'");
+   auto expr = parser.parse();
+   EXPECT_EQ(ast::extractStringLiteral(*expr), "O'Brien");
+   EXPECT_EQ(expr->toString(), "'O''Brien'");
+}
+
+TEST(SaneQLParser, quotedIdentifierRoundTrips) {
+   Parser parser(ast::quoteIdentifier("a \"b\""));
+   auto expr = parser.parse();
+   EXPECT_EQ(ast::extractIdentifierName(*expr), "a \"b\"");
+}
+
 TEST(SaneQLParser, parsesIntLiteral) {
    Parser parser("42");
    auto expr = parser.parse();

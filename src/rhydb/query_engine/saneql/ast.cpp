@@ -34,12 +34,36 @@ std::string binaryOpToString(BinaryOp op) {
 
 namespace {
 
+std::string quote(std::string_view value, char quote_character) {
+   std::string result{quote_character};
+   for (const char character : value) {
+      result += character;
+      if (character == quote_character) {
+         result += quote_character;
+      }
+   }
+   result += quote_character;
+   return result;
+}
+
+}  // namespace
+
+std::string quoteStringLiteral(std::string_view value) {
+   return quote(value, '\'');
+}
+
+std::string quoteIdentifier(std::string_view name) {
+   return quote(name, '"');
+}
+
+namespace {
+
 struct ExprToString {
    std::string operator()(const IntLiteral& lit) const { return std::to_string(lit.value); }
 
    std::string operator()(const FloatLiteral& lit) const { return fmt::format("{}", lit.value); }
 
-   std::string operator()(const StringLiteral& lit) const { return fmt::format("'{}'", lit.value); }
+   std::string operator()(const StringLiteral& lit) const { return quoteStringLiteral(lit.value); }
 
    std::string operator()(const BoolLiteral& lit) const { return lit.value ? "true" : "false"; }
 
