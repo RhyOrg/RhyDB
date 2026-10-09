@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <exception>
 #include <memory>
 #include <optional>
 #include <string>
@@ -223,11 +224,11 @@ arrow::Result<arrow::ExecBatch> buildBatch(
    return arrow::ExecBatch::Make(result_columns);
 }
 
-/// Produces the batches of a bitmap aggregation for an Acero source node. `aggregate` builds every
-/// dimension's index and counts all combinations; every pull then emits the next batch of at most
-/// `batch_size` combinations, so the result is built only as the downstream pulls it rather than
-/// materialized at once (the number of combinations is bounded only by the filtered row count, so
-/// holding the whole result could blow up peak memory).
+/// Produces the batches of a bitmap aggregation for an Acero source node. The first pull resolves
+/// every dimension into its index and counts all combinations; that and every later pull then
+/// emits the next batch of at most `batch_size` combinations, so the result is built only as the
+/// downstream pulls it rather than materialized at once (the number of combinations is bounded
+/// only by the filtered row count, so holding the whole result could blow up peak memory).
 class BitmapAggregationGenerator {
   public:
    BitmapAggregationGenerator(
@@ -244,8 +245,15 @@ class BitmapAggregationGenerator {
    }
 
    // By arrow specification, this function will not be called re-entrantly
-   arrow::Future<std::optional<arrow::ExecBatch>> operator()() { return nextBatch(); }
+   arrow::Future<std::optional<arrow::ExecBatch>> operator()() {
+      try {
+         return nextBatch();
+      } catch (const std::exception& exception) {
+         return arrow::Status::ExecutionError(exception.what());
+      }
+   }
 
+  private:
    /// Builds every dimension's index and counts all combinations. Afterward only the combinations
    /// and the per-dimension value arrays are kept; the indexes and the filter are released.
    arrow::Status aggregate() {
@@ -268,8 +276,11 @@ class BitmapAggregationGenerator {
       return arrow::Status::OK();
    }
 
-  private:
    arrow::Result<std::optional<arrow::ExecBatch>> nextBatch() {
+      if (!aggregated) {
+         ARROW_RETURN_NOT_OK(aggregate());
+         aggregated = true;
+      }
       if (next_combination >= combinations.size()) {
          return std::nullopt;
       }
@@ -288,6 +299,7 @@ class BitmapAggregationGenerator {
    std::vector<ResolvedGroupingDimension> dimensions;
    size_t batch_size;
 
+   bool aggregated = false;
    std::vector<GroupCombination> combinations;
    std::vector<std::shared_ptr<arrow::Array>> values_per_dimension;
    size_t next_combination = 0;
@@ -308,7 +320,6 @@ arrow::Result<arrow::acero::ExecNode*> addBitmapAggregationNode(
    auto generator = std::make_shared<BitmapAggregationGenerator>(
       std::move(table), std::move(filter), std::move(dimensions), batch_size
    );
-   ARROW_RETURN_NOT_OK(generator->aggregate());
    const arrow::acero::SourceNodeOptions options{
       std::move(output_schema),
       [generator] { return (*generator)(); },

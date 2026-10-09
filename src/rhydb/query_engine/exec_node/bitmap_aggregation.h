@@ -24,8 +24,8 @@ namespace rhydb::query_engine::exec_node {
 /// per-value roaring bitmaps, one 2^16 chunk at a time, pruning empty combinations. Only non-empty
 /// combinations are visited (their number is bounded by the count of matching rows), so this
 /// scales to many dimensions without the exponential blow-up of a full Cartesian product. The
-/// counting runs while the node is added to the plan, and the result is emitted in batches of at
-/// most `batch_size` rows, each built only when the downstream pulls it.
+/// counting runs when the node first produces, and the result is emitted in batches of at most
+/// `batch_size` rows, each built only when the downstream pulls it.
 arrow::Result<arrow::acero::ExecNode*> addBitmapAggregationNode(
    arrow::acero::ExecPlan& plan,
    std::shared_ptr<const storage::Table> table,
