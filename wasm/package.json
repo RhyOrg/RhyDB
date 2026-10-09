@@ -1,6 +1,6 @@
 {
   "name": "@rhydb/rhydb-wasm",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "description": "WebAssembly build of RhyDB for running preprocessing and SaneQL queries in the browser or Node.",
   "type": "module",
   "main": "dist/rhydb_wasm.js",
