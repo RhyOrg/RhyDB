@@ -102,8 +102,7 @@ const QueryTestScenario INT64_EQUALS_NULL_REJECTED_SCENARIO = {
    .query = "data.filter(int64_value = null)",
    .expected_error_message =
       "the right side of a comparison must be a literal value (int, float, string, bool, or date), "
-      "a "
-      "column reference, or a scalar function call at 1:27",
+      "a column reference, or a scalar function call at 1:27",
 };
 
 const QueryTestScenario INT64_NEGATED_EQUALS_SCENARIO = {
