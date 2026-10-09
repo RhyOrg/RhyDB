@@ -28,10 +28,11 @@
 #include "rhydb/storage/reference_genomes.h"
 #include "sequence_generator.h"
 
-// Measures `lineage(..., includeSublineages:=true)` as it is resolved today, over lineage targets
-// of varying descendant-set size and growing row counts. The column is configured the way a user
-// would configure it, so the numbers always describe whichever resolution strategy is the current
-// default.
+// Measures `lineageFromTables(..., includeSublineages:=true)` over lineage targets of varying
+// descendant-set size and growing row counts. The column is configured with
+// `lineageIndexType: table`, so the numbers describe the resolution via the lineage relation and
+// alias tables (the transitive closure computed at query time), not the in-memory lineage index of
+// `lineage(...)`.
 
 namespace {
 
@@ -63,6 +64,7 @@ schema:
       type: string
       generateIndex: true
       generateLineageIndex: {}
+      lineageIndexType: table
   primaryKey: primaryKey
 )",
       LINEAGE_TREE_NAME
@@ -117,8 +119,9 @@ std::shared_ptr<Database> buildDatabase(
 
 std::string countQuery(const std::string& lineage, std::string_view recombinant_mode) {
    return fmt::format(
-      "data.filter(pango_lineage.lineage('{}', includeSublineages:=true, "
-      "recombinantFollowingMode:='{}')).group(by:={{}}, aggs:={{count := count()}})",
+      "data.filter(pango_lineage.lineageFromTables('{}', pango_lineage, pango_lineage_aliases, "
+      "includeSublineages:=true, recombinantFollowingMode:='{}'))"
+      ".group(by:={{}}, aggs:={{count := count()}})",
       lineage,
       recombinant_mode
    );

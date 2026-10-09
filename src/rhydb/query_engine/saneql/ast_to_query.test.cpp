@@ -25,11 +25,13 @@ namespace ast = rhydb::query_engine::saneql::ast;
 
 namespace {
 
+using Tables = std::map<rhydb::schema::TableName, std::shared_ptr<rhydb::storage::Table>>;
+
 auto parseFilter(
    std::string_view query,
    const std::vector<rhydb::schema::ColumnIdentifier>& schema = {}
 ) {
-   return convertToFilter(*Parser(query).parse(), schema, {});
+   return convertToFilter(*Parser(query).parse(), schema, Tables{});
 }
 
 // Schema exposing a nucleotide sequence column, so that the sequence leaf expressions can
@@ -37,8 +39,6 @@ auto parseFilter(
 const std::vector<rhydb::schema::ColumnIdentifier> SEQUENCE_SCHEMA{
    {.name = "segment1", .type = rhydb::schema::ColumnType::NUCLEOTIDE_SEQUENCE},
 };
-
-using Tables = std::map<rhydb::schema::TableName, std::shared_ptr<rhydb::storage::Table>>;
 
 Tables makeTablesWithDefault() {
    using rhydb::schema::ColumnIdentifier;
@@ -441,7 +441,7 @@ TEST(AstToQueryBinaryExpr, unhandledBinaryOpThrows) {
       {}
    );
    EXPECT_THAT(
-      [&]() { (void)convertToFilter(*expr, {}, {}); },
+      [&]() { (void)convertToFilter(*expr, {}, Tables{}); },
       ThrowsMessage<IllegalQueryException>(::testing::HasSubstr("unhandled binary operator"))
    );
 }
