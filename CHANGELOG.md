@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.16.0](https://github.com/RhyOrg/RhyDB/compare/v0.15.0...v0.16.0) (2026-10-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* **python:** replace specialized create table functions with a more generic `query()` function ([#1658](https://github.com/RhyOrg/RhyDB/issues/1658))
+* **query_engine:** `POST /admin/query` responds with `application/x-ndjson` (or an Arrow IPC stream) instead of `application/json`.
+
+### Features
+
+* **initialize:** materialize a `<column>_aliases` table for lineage columns ([#1660](https://github.com/RhyOrg/RhyDB/issues/1660)) ([2a2ab7d](https://github.com/RhyOrg/RhyDB/commit/2a2ab7da8d039c29e00d33531e9793f703c5d1ca))
+* **python:** replace specialized create table functions with a more generic `query()` function ([#1658](https://github.com/RhyOrg/RhyDB/issues/1658)) ([7ec6194](https://github.com/RhyOrg/RhyDB/commit/7ec619471a5960faefb315ebca085a501252a761))
+* **query_engine:** add `min`, `max` and `count` aggregates ([#1651](https://github.com/RhyOrg/RhyDB/issues/1651)) ([9717534](https://github.com/RhyOrg/RhyDB/commit/97175348b94e44a1428850912ac5fd91e38c2f52))
+* **query_engine:** return the result of write commands as an Arrow table ([#1641](https://github.com/RhyOrg/RhyDB/issues/1641)) ([2efd84e](https://github.com/RhyOrg/RhyDB/commit/2efd84ebaa196a0a93141aafdbca2b9d21d5bebf))
+* **query_engine:** support `in(<subquery>)` ([#1653](https://github.com/RhyOrg/RhyDB/issues/1653)) ([3100c45](https://github.com/RhyOrg/RhyDB/commit/3100c4553062107813a7190c892a84dd73f236ff))
+
+
+### Bug Fixes
+
+* **query_engine:** parse insertionContains patterns when compiling the filter ([#1642](https://github.com/RhyOrg/RhyDB/issues/1642)) ([6247242](https://github.com/RhyOrg/RhyDB/commit/62472420e00828f5d28a9625515d462ceb97b335))
+
 ## [0.15.0](https://github.com/RhyOrg/RhyDB/compare/v0.14.5...v0.15.0) (2026-10-06)
 
 
