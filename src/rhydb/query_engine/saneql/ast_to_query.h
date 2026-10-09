@@ -6,6 +6,7 @@
 
 #include "rhydb/query_engine/operators/query_node.h"
 #include "rhydb/query_engine/saneql/ast.h"
+#include "rhydb/query_engine/saneql/function_registry.h"
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
 #include "rhydb/schema/database_schema.h"
 #include "rhydb/storage/table.h"
@@ -35,6 +36,14 @@ std::unique_ptr<scalar_expressions::ScalarExpression> convertToFilter(
    const ast::Expression& ast,
    const std::vector<schema::ColumnIdentifier>& schema,
    const std::map<schema::TableName, std::shared_ptr<storage::Table>>& tables
+);
+
+/// Like convertToFilter above, but with the full conversion context, so that the predicate may
+/// contain subqueries (e.g. `in(<subquery>)`). For scalar function handlers that build filters.
+std::unique_ptr<scalar_expressions::ScalarExpression> convertToFilter(
+   const ast::Expression& ast,
+   const std::vector<schema::ColumnIdentifier>& schema,
+   const ScalarConversionContext& context
 );
 
 }  // namespace rhydb::query_engine::saneql

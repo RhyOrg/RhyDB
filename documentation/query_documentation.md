@@ -814,6 +814,33 @@ pango_lineage.lineage('B.1.1.7', includeSublineages:=true)
 pango_lineage.lineage('XBB', includeSublineages:=true, recombinantFollowingMode:='alwaysFollow')
 ```
 
+### `lineageFromTables(column, value, lineages, aliases [, includeSublineages] [, recombinantFollowingMode])`
+
+The filter `lineage(...)`, but reading the lineage hierarchy from a lineage relation table
+`lineages` and an alias table `aliases` instead of an in-memory lineage index. With
+`lineageIndexType: table` (or `both`), preprocessing materializes these tables for a column, as
+`<column>` and `<column>_aliases` (see [lineage_definitions.md](lineage_definitions.md)):
+
+```
+pango_lineage.lineageFromTables('B.1.1.7', pango_lineage, pango_lineage_aliases)
+pango_lineage.lineageFromTables('XBB', pango_lineage, pango_lineage_aliases,
+   includeSublineages:=true, recombinantFollowingMode:='alwaysFollow')
+```
+
+It matches the canonical lineage of `value` and all its aliases, and with `includeSublineages`
+(default `false`) all lineages below it together with their aliases, following the edges into
+recombinant lineages as `recombinantFollowingMode` (default `'doNotFollow'`) selects.
+
+`lineageFromTables` is rewritten into `in(...)`, `unionall(...)` and `transitiveClosure(...)` over
+the given tables, which compute the result when the query runs. It therefore differs from
+`lineage(...)` in some edge cases:
+
+- A `value` that is no lineage or alias of the tables matches nothing, instead of being rejected.
+- `value` cannot be `null`; use `isNull(column)` instead.
+- `recombinantFollowingMode` only takes effect together with `includeSublineages:=true`.
+
+`lineages` and `aliases` must be table names.
+
 ### `phyloDescendantOf(column, node)`
 
 True if the phylogenetic tree column value is a descendant of `node`.

@@ -36,6 +36,7 @@
 #include "rhydb/query_engine/order_by_field.h"
 #include "rhydb/query_engine/saneql/ast.h"
 #include "rhydb/query_engine/saneql/function_registry.h"
+#include "rhydb/query_engine/saneql/lineage_from_tables.h"
 #include "rhydb/query_engine/saneql/parser.h"
 #include "rhydb/query_engine/scalar_expressions/and.h"
 #include "rhydb/query_engine/scalar_expressions/at.h"
@@ -221,14 +222,6 @@ Comparator toComparator(BinaryOp binary_op) {
          throw IllegalQueryException("unexpected operator for comparison");
    }
 }
-
-// The context-aware filter conversion (defined below). The public convertToFilter (ast_to_query.h)
-// forwards to this without a child converter.
-std::unique_ptr<scalar_expressions::ScalarExpression> convertToFilter(
-   const ast::Expression& ast,
-   const std::vector<schema::ColumnIdentifier>& schema,
-   const ScalarConversionContext& context
-);
 
 ScalarExpressionPtr convertBinaryExprToFilter(
    const ast::BinaryExpr& bin_expr,
@@ -805,8 +798,6 @@ std::unique_ptr<scalar_expressions::ScalarExpression> convertToFilter(
    return convertToFilter(ast, schema, ScalarConversionContext{.tables = &tables});
 }
 
-namespace {
-
 // NOLINTNEXTLINE(misc-no-recursion)
 std::unique_ptr<scalar_expressions::ScalarExpression> convertToFilter(
    const ast::Expression& ast,
@@ -840,8 +831,6 @@ std::unique_ptr<scalar_expressions::ScalarExpression> convertToFilter(
       ast.value
    );
 }
-
-}  // namespace
 
 // ========================================================================
 // Pipeline function handlers (registered in FunctionRegistry)
@@ -1955,6 +1944,21 @@ ScalarFunctionRegistry::ScalarFunctionRegistry() {
          },
       },
       handleLineage
+   );
+
+   registerFunction(
+      "lineageFromTables",
+      {
+         {
+            pos("column"),
+            pos("value"),
+            pos("lineages"),
+            pos("aliases"),
+            pos("includeSublineages", false),
+            pos("recombinantFollowingMode", false),
+         },
+      },
+      handleLineageFromTables
    );
 
    registerFunction("phyloDescendantOf", {{pos("column"), pos("node")}}, handlePhyloDescendantOf);
