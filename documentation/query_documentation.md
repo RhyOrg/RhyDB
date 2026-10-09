@@ -594,7 +594,8 @@ its reflexive pair.
 **Restrictions:**
 
 - `from` and `to` must be `STRING` columns of the input, written as identifiers (e.g. `parent`).
-- `startingFrom` must be a set literal of string literals, e.g. `{'A', 'B'}`.
+- `startingFrom` must be a set literal, e.g. `{'A', 'B'}`, whose elements are constant scalar
+  expressions of type string: they may not refer to columns.
 
 **Output:** the reachable `{from, to}` pairs. The order of rows is not guaranteed; use
 `order(...)` for a deterministic order.
