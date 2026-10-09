@@ -261,8 +261,8 @@ std::expected<void, std::string> ColumnValueExtractor::operator()<column::Date32
 }
 
 template <>
-std::expected<void, std::string> ColumnValueExtractor::operator(
-)<column::SequenceColumn<AminoAcid>>(
+std::expected<void, std::string> ColumnValueExtractor::operator()<
+   column::SequenceColumn<AminoAcid>>(
    TableChunkBuilder& builders,
    const schema::ColumnIdentifier& column,
    simdjson::ondemand::value& value
@@ -271,8 +271,8 @@ std::expected<void, std::string> ColumnValueExtractor::operator(
 }
 
 template <>
-std::expected<void, std::string> ColumnValueExtractor::operator(
-)<column::SequenceColumn<Nucleotide>>(
+std::expected<void, std::string> ColumnValueExtractor::operator()<
+   column::SequenceColumn<Nucleotide>>(
    TableChunkBuilder& builders,
    const schema::ColumnIdentifier& column,
    simdjson::ondemand::value& value
@@ -290,8 +290,10 @@ TableChunkBuilder::TableChunkBuilder(const Table& table) {
       auto* column_metadata =
          table_schema.getColumnMetadata<ColumnType>(column_identifier.name).value();
       metadata.emplace_back(column_identifier);
-      if constexpr (std::is_same_v<ColumnType, column::SequenceColumn<Nucleotide>> ||
-                    std::is_same_v<ColumnType, column::SequenceColumn<AminoAcid>>) {
+      if constexpr (
+         std::is_same_v<ColumnType, column::SequenceColumn<Nucleotide>> ||
+         std::is_same_v<ColumnType, column::SequenceColumn<AminoAcid>>
+      ) {
          // Seed the sequence builder with the column's current (possibly adapted)
          // local reference so newly buffered rows share the stored reference basis.
          const auto& column = table.getColumn<ColumnType>(column_identifier.name);
@@ -299,9 +301,9 @@ TableChunkBuilder::TableChunkBuilder(const Table& table) {
             column_identifier.name,
             typename ColumnType::Builder{column_metadata, column.local_reference_sequence_string}
          );
-      } else if constexpr (std::is_constructible_v<
-                              typename ColumnType::Builder,
-                              typename ColumnType::Metadata*>) {
+      } else if constexpr (
+         std::is_constructible_v<typename ColumnType::Builder, typename ColumnType::Metadata*>
+      ) {
          getColumnBuilders<ColumnType>().emplace(
             column_identifier.name, typename ColumnType::Builder{column_metadata}
          );

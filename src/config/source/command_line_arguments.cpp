@@ -19,11 +19,13 @@ std::string CommandLineArguments::configKeyPathToString(const ConfigKeyPath& key
 
 AmbiguousConfigKeyPath CommandLineArguments::stringToConfigKeyPath(const std::string& option) {
    if (option.size() < 3 || !option.starts_with("--")) {
-      throw ConfigException(fmt::format(
-         "the provided option '{}' is not a valid command line option"
-         " as RhyDB currently only accepts long-form options starting with '--'",
-         option
-      ));
+      throw ConfigException(
+         fmt::format(
+            "the provided option '{}' is not a valid command line option"
+            " as RhyDB currently only accepts long-form options starting with '--'",
+            option
+         )
+      );
    }
    std::string trimmed = option.substr(2);
 
@@ -31,20 +33,25 @@ AmbiguousConfigKeyPath CommandLineArguments::stringToConfigKeyPath(const std::st
    boost::split(delimited_strings, trimmed, boost::is_any_of("-"));
 
    if (std::ranges::any_of(delimited_strings, [](const auto& str) { return str.empty(); })) {
-      throw ConfigException(fmt::format(
-         "the provided option '{}' is not a valid command line option"
-         " because it contains an empty string segment between '-'",
-         option
-      ));
+      throw ConfigException(
+         fmt::format(
+            "the provided option '{}' is not a valid command line option"
+            " because it contains an empty string segment between '-'",
+            option
+         )
+      );
    }
 
    auto result = AmbiguousConfigKeyPath::tryFrom(std::move(delimited_strings));
    if (result == std::nullopt) {
-      throw ConfigException(fmt::format(
-         "the provided option '{}' is not a valid command line option. The string after -- should "
-         "be '-' delimited and lower-case",
-         option
-      ));
+      throw ConfigException(
+         fmt::format(
+            "the provided option '{}' is not a valid command line option. The string after -- "
+            "should "
+            "be '-' delimited and lower-case",
+            option
+         )
+      );
    }
    return result.value();
 }
@@ -151,8 +158,9 @@ VerifiedCommandLineArguments CommandLineArguments::verify(
          }
          const auto [option, opt_value_string] = splitOption(arg);
          const auto ambiguous_key = stringToConfigKeyPath(option);
-         if (auto opt =
-                config_specification.getAttributeSpecificationFromAmbiguousKey(ambiguous_key)) {
+         if (
+            auto opt = config_specification.getAttributeSpecificationFromAmbiguousKey(ambiguous_key)
+         ) {
             const ConfigAttributeSpecification attribute_spec = std::move(opt.value());
             const auto [value, new_remaining_args] =
                parseValueFromArg(attribute_spec, arg, opt_value_string, remaining_args);
@@ -169,12 +177,14 @@ VerifiedCommandLineArguments CommandLineArguments::verify(
 
    if (!invalid_config_keys.empty()) {
       const char* option_or_options = (invalid_config_keys.size() == 1) ? "option" : "options";
-      throw rhydb::config::ConfigException(fmt::format(
-         "in {}: unknown {} {}",
-         debugContext(),
-         option_or_options,
-         boost::join(invalid_config_keys, ", ")
-      ));
+      throw rhydb::config::ConfigException(
+         fmt::format(
+            "in {}: unknown {} {}",
+            debugContext(),
+            option_or_options,
+            boost::join(invalid_config_keys, ", ")
+         )
+      );
    }
 
    return VerifiedCommandLineArguments::fromConfigValuesAndPositionalArguments(

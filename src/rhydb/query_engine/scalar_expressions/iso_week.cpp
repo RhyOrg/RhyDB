@@ -48,13 +48,15 @@ arrow::Result<arrow::compute::Expression> IsoWeek::toArrowExpression() const {
    );
 }
 
-std::unique_ptr<ScalarExpression> IsoWeek::rewrite(const storage::Table& table, AmbiguityMode mode)
-   const {
+std::unique_ptr<ScalarExpression> IsoWeek::rewrite(
+   const storage::Table& table,
+   AmbiguityMode mode
+) const {
    return std::make_unique<IsoWeek>(input->rewrite(table, mode));
 }
 
-std::unique_ptr<filter::operators::Operator> IsoWeek::compile(const storage::Table& /*table*/)
-   const {
+std::unique_ptr<filter::operators::Operator> IsoWeek::
+   compile(const storage::Table& /*table*/) const {
    RHYDB_UNIMPLEMENTED();
 }
 

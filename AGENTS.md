@@ -46,7 +46,7 @@ CMake auto-scans `src/` and `app/src/` directories. The Makefile maintains `.src
 - **Variables/Members:** `lower_case`
 - **Constants/Enums:** `UPPER_CASE`
 
-### Formatting (clang-format 19)
+### Formatting (clang-format 23)
 - 3-space indent, 100-char column limit, Chromium brace style, `#pragma once`
 - Trailing commas: add a trailing comma after the last element in multi-line braced initializers / aggregate initializations (keeps diffs minimal when appending fields).
 

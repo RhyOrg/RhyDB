@@ -208,15 +208,18 @@ operators::QueryNodePtr ColumnNarrowingPass::operator()(operators::JoinNode& nod
          return columns;
       }
       for (const auto& column : input.getOutputSchema()) {
-         if (std::ranges::find(required, column) != required.end() &&
-             std::ranges::find(columns, column) == columns.end()) {
+         if (
+            std::ranges::find(required, column) != required.end() &&
+            std::ranges::find(columns, column) == columns.end()
+         ) {
             columns.push_back(column);
          }
       }
       return columns;
    };
    ColumnNarrowingPass left_pass{input_required(*node.left, node.left_keys, left_output_dropped)};
-   ColumnNarrowingPass right_pass{input_required(*node.right, node.right_keys, right_output_dropped)
+   ColumnNarrowingPass right_pass{
+      input_required(*node.right, node.right_keys, right_output_dropped)
    };
    left_pass.propagateToNode(node.left);
    right_pass.propagateToNode(node.right);

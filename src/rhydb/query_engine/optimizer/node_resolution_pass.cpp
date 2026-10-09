@@ -116,7 +116,8 @@ operators::QueryNodePtr NodeResolutionPass::operator()(
 }
 
 // NOLINTNEXTLINE(misc-no-recursion)
-operators::QueryNodePtr NodeResolutionPass::operator()(operators::UnresolvedPhyloSubtreeNode& node
+operators::QueryNodePtr NodeResolutionPass::operator()(
+   operators::UnresolvedPhyloSubtreeNode& node
 ) {
    auto scan = getTableScanOrNone(*node.child);
    CHECK_RHYDB_QUERY(scan.has_value(), "phyloSubtree() must be applied to a table scan");
@@ -153,13 +154,17 @@ operators::QueryNodePtr NodeResolutionPass::operator()(operators::SchemaNode& no
    return nullptr;
 }
 
-template operators::QueryNodePtr NodeResolutionPass::operator()(operators::UnresolvedMutationsNode<
-                                                                rhydb::Nucleotide>&);
-template operators::QueryNodePtr NodeResolutionPass::operator()(operators::UnresolvedMutationsNode<
-                                                                rhydb::AminoAcid>&);
-template operators::QueryNodePtr NodeResolutionPass::operator()(operators::UnresolvedInsertionsNode<
-                                                                rhydb::Nucleotide>&);
-template operators::QueryNodePtr NodeResolutionPass::operator()(operators::UnresolvedInsertionsNode<
-                                                                rhydb::AminoAcid>&);
+template operators::QueryNodePtr NodeResolutionPass::operator()(
+   operators::UnresolvedMutationsNode<rhydb::Nucleotide>&
+);
+template operators::QueryNodePtr NodeResolutionPass::operator()(
+   operators::UnresolvedMutationsNode<rhydb::AminoAcid>&
+);
+template operators::QueryNodePtr NodeResolutionPass::operator()(
+   operators::UnresolvedInsertionsNode<rhydb::Nucleotide>&
+);
+template operators::QueryNodePtr NodeResolutionPass::operator()(
+   operators::UnresolvedInsertionsNode<rhydb::AminoAcid>&
+);
 
 }  // namespace rhydb::query_engine::optimizer

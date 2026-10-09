@@ -42,25 +42,27 @@ constexpr auto DATASETS = std::to_array<Dataset>({
    {
 
       .name = SHORT_READ_SMALL_NDJSON,
-      .write = [](std::ostream& out
-               ) { writeShortReadNdjson(out, reference(), DEFAULT_FULL_SEQ_COUNT); },
+      .write =
+         [](std::ostream& out) { writeShortReadNdjson(out, reference(), DEFAULT_FULL_SEQ_COUNT); },
    },
    {
       .name = SHORT_READ_LARGE_NDJSON,
-      .write = [](std::ostream& out
-               ) { writeShortReadNdjson(out, reference(), DEFAULT_READ_COUNT); },
+      .write =
+         [](std::ostream& out) { writeShortReadNdjson(out, reference(), DEFAULT_READ_COUNT); },
    },
    // Amplicon-coverage short reads for many_short_read_filters, emitted both amplicon-sorted and
    // randomly shuffled. The two files hold the same reads, so ingesting either builds the same
    // database; only their on-disk order (and hence the coverage layout ingestion sees) differs.
    {
       .name = SHORT_READ_AMPLICON_SORTED_NDJSON,
-      .write = [](std::ostream& out
+      .write = [](
+                  std::ostream& out
                ) { writeAmpliconShortReadNdjson(out, reference(), /*shuffle=*/false); },
    },
    {
       .name = SHORT_READ_AMPLICON_SHUFFLED_NDJSON,
-      .write = [](std::ostream& out
+      .write = [](
+                  std::ostream& out
                ) { writeAmpliconShortReadNdjson(out, reference(), /*shuffle=*/true); },
    },
    // Full-length sequences for nof_sequence_filter, and the same with N runs for
@@ -93,11 +95,13 @@ constexpr auto DATASETS = std::to_array<Dataset>({
 void writeDataset(std::string_view name) {
    const auto* const dataset = std::ranges::find(DATASETS, name, &Dataset::name);
    if (dataset == DATASETS.end()) {
-      throw std::runtime_error(fmt::format(
-         "Unknown benchmark dataset '{}'. Known datasets: {}",
-         name,
-         fmt::join(std::views::transform(DATASETS, &Dataset::name), ", ")
-      ));
+      throw std::runtime_error(
+         fmt::format(
+            "Unknown benchmark dataset '{}'. Known datasets: {}",
+            name,
+            fmt::join(std::views::transform(DATASETS, &Dataset::name), ", ")
+         )
+      );
    }
    auto out = openTestDataOutput(name);
    dataset->write(out);

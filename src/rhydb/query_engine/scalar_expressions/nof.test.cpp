@@ -63,8 +63,9 @@ nlohmann::json createNOfData(
    const std::string& region,
    const std::string& date
 ) {
-   return nlohmann::json::parse(fmt::format(
-      R"(
+   return nlohmann::json::parse(
+      fmt::format(
+         R"(
 {{
    "primaryKey": "{}",
    "country": "{}",
@@ -76,11 +77,12 @@ nlohmann::json createNOfData(
    }}
 }}
 )",
-      primary_key,
-      country,
-      region,
-      date
-   ));
+         primary_key,
+         country,
+         region,
+         date
+      )
+   );
 }
 
 const auto DATABASE_CONFIG =

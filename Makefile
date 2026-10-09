@@ -13,7 +13,7 @@ RHYDB_BENCHMARK_EXECUTABLE=./build/Release/performance/rhydb_benchmark
 RUNNING_RHYDB_FLAG=running_rhydb.flag
 DEPENDENCIES_FLAG=dependencies
 WASM_DEPENDENCIES_FLAG=build/wasm/dependencies
-CLANG_FORMAT=$(shell command -v clang-format-19 2>/dev/null || command -v clang-format 2>/dev/null || echo clang-format)
+CLANG_FORMAT=$(shell command -v clang-format-23 2>/dev/null || command -v clang-format 2>/dev/null || echo clang-format)
 CMAKE_BUILD_PARALLEL_LEVEL ?= 16
 # Docker image for lint-changes/lint-all; empty uses the scripts' default (:latest)
 LINT_DOCKER_IMAGE ?=

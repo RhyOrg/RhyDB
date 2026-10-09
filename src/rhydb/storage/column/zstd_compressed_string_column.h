@@ -115,8 +115,9 @@ template <class Archive>
 }
 }  // namespace boost::serialization
 
-BOOST_SERIALIZATION_SPLIT_FREE(std::shared_ptr<
-                               rhydb::storage::column::ZstdCompressedStringColumnMetadata>);
+BOOST_SERIALIZATION_SPLIT_FREE(
+   std::shared_ptr<rhydb::storage::column::ZstdCompressedStringColumnMetadata>
+);
 namespace boost::serialization {
 template <class Archive>
 [[maybe_unused]] void load(

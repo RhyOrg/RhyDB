@@ -195,16 +195,20 @@ roaring_util::RoaringContainer HorizontalCoverageIndex::coveredRowsInChunk(
    return result;
 }
 
-bool HorizontalCoverageIndex::noRowCoversPositionInChunk(uint32_t position, uint16_t chunk_id)
-   const {
+bool HorizontalCoverageIndex::noRowCoversPositionInChunk(
+   uint32_t position,
+   uint16_t chunk_id
+) const {
    if (chunk_id >= starts.size()) {
       return true;
    }
    return batch_max_end.at(chunk_id) <= position || batch_min_start.at(chunk_id) > position;
 }
 
-bool HorizontalCoverageIndex::positionCoveredByWholeChunk(uint32_t position, uint16_t chunk_id)
-   const {
+bool HorizontalCoverageIndex::positionCoveredByWholeChunk(
+   uint32_t position,
+   uint16_t chunk_id
+) const {
    if (chunk_id >= starts.size()) {
       return false;
    }
@@ -236,7 +240,8 @@ void HorizontalCoverageIndex::insertNullSequence(RowId row_id) {
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-std::vector<uint64_t> HorizontalCoverageIndex::computeCoverageCardinalities(size_t genome_length
+std::vector<uint64_t> HorizontalCoverageIndex::computeCoverageCardinalities(
+   size_t genome_length
 ) const {
    std::vector<int64_t> coverage_changes(genome_length + 1, 0);
    for (size_t chunk_id = 0; chunk_id < starts.size(); ++chunk_id) {

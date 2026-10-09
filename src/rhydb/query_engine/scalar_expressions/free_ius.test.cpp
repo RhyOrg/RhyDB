@@ -85,11 +85,13 @@ TEST(FreeIUs, nestedBooleanCompositionUnionsAllReferencedColumns) {
 
    ScalarExpressionVector and_children;
    and_children.push_back(std::make_unique<Or>(std::move(or_children)));
-   and_children.push_back(std::make_unique<NOf>(
-      std::move(nof_children),
-      /*number_of_matchers=*/1,
-      /*match_exactly=*/false
-   ));
+   and_children.push_back(
+      std::make_unique<NOf>(
+         std::move(nof_children),
+         /*number_of_matchers=*/1,
+         /*match_exactly=*/false
+      )
+   );
    and_children.push_back(std::make_unique<Negation>(isNull(COLUMN_A)));
 
    const And and_expression(std::move(and_children));

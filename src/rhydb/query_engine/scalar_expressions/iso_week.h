@@ -38,7 +38,8 @@ class IsoWeek : public ScalarExpression {
       return std::make_unique<IsoWeek>(input->clone());
    }
 
-   [[nodiscard]] std::unique_ptr<filter::operators::Operator> compile(const storage::Table& table
+   [[nodiscard]] std::unique_ptr<filter::operators::Operator> compile(
+      const storage::Table& table
    ) const override;
 };
 

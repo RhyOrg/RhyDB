@@ -89,9 +89,9 @@ Bitmap Intersection::evaluate() const {
    std::vector<Bitmap> negated_children_bm;
    negated_children_bm.reserve(negated_children.size());
    std::ranges::transform(
-      negated_children,
-      std::back_inserter(negated_children_bm),
-      [&](const auto& child) { return child->evaluate(); }
+      negated_children, std::back_inserter(negated_children_bm), [&](const auto& child) {
+         return child->evaluate();
+      }
    );
    // Sort ascending, such that intermediate results are kept small
    std::ranges::sort(children_bm, [](const Bitmap& expression1, const Bitmap& expression2) {
@@ -99,8 +99,7 @@ Bitmap Intersection::evaluate() const {
    });
    // Sort negated children descending by size
    std::ranges::sort(
-      negated_children_bm,
-      [](const Bitmap& expression_result1, const Bitmap& expression_result2) {
+      negated_children_bm, [](const Bitmap& expression_result1, const Bitmap& expression_result2) {
          return expression_result1.cardinality() > expression_result2.cardinality();
       }
    );

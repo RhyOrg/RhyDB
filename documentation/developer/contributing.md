@@ -10,7 +10,7 @@ For building RhyDB you require the following tools:
   - used to install the build tool conan which we use to install dependencies
   - used to create python bindings
 - clang-format (for `make format-cpp`)
-  - We currently use `clang-format-19` as this is the version in `debian:oldstable`, which we use as our base build image in CI.
+  - We currently use `clang-format-23`, installed from apt.llvm.org in our CI build image (based on `debian:oldstable`).
 
 ## Building
 
@@ -216,7 +216,7 @@ We use clang-format as a code formatter. To run locally install [clang-format](h
 find src -iname '*.h' -o -iname '*.cpp' | xargs clang-format -i
 ```
 
-Note that your clang-format version should be exactly the same as that used by CI (based on `debian:oldstable`) for tests to pass. Currently we use `19.1.7`.
+Note that your clang-format major version should be the same as that used by CI for tests to pass. Currently we use clang-format 23.
 
 ### Includes
 

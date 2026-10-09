@@ -143,17 +143,17 @@ const QueryTestScenario NOT_EQUALS_BOOL_FALSE = {
 const QueryTestScenario NOT_EQUALS_VALUE_NOT_PRESENT = {
    .name = "NOT_EQUALS_VALUE_NOT_PRESENT",
    .query = "data.filter(intField <> 999).project(primaryKey)",
-   .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_1"},{"primaryKey":"id_3"}])"
-      ),
+   .expected_query_result = nlohmann::json::parse(
+      R"([{"primaryKey":"id_0"},{"primaryKey":"id_1"},{"primaryKey":"id_3"}])"
+   ),
 };
 
 const QueryTestScenario NOT_EQUALS_DICT_VALUE_NOT_IN_DICTIONARY = {
    .name = "NOT_EQUALS_DICT_VALUE_NOT_IN_DICTIONARY",
    .query = "data.filter(dictField <> 'never_indexed').project(primaryKey)",
-   .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_1"},{"primaryKey":"id_3"}])"
-      ),
+   .expected_query_result = nlohmann::json::parse(
+      R"([{"primaryKey":"id_0"},{"primaryKey":"id_1"},{"primaryKey":"id_3"}])"
+   ),
 };
 
 const QueryTestScenario NOT_EQUALS_DICT_EXCLUDES_MATCHING_VALUE = {

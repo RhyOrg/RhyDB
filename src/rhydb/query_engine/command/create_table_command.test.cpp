@@ -118,7 +118,8 @@ TEST(CreateTableCommand, createsTableWithFullSchema) {
    EXPECT_EQ(database.getNucleotideReferenceSequence("covid", "segment"), "TTTTT");
    EXPECT_EQ(database.getAminoAcidReferenceSequence("covid", "S"), "MYK*");
    auto unaligned_metadata =
-      schema.getColumnMetadata<rhydb::storage::column::ZstdCompressedStringColumn>("unaligned_main"
+      schema.getColumnMetadata<rhydb::storage::column::ZstdCompressedStringColumn>(
+         "unaligned_main"
       );
    ASSERT_TRUE(unaligned_metadata.has_value());
    EXPECT_EQ(unaligned_metadata.value()->dictionary_string, "ACGT");
@@ -333,7 +334,8 @@ TEST(CreateTableCommand, databaseRejectsUnsafeTableNamesForEveryCaller) {
             TableName{"../escape"}, std::make_shared<rhydb::schema::TableSchema>()
          );
       },
-      ThrowsMessage<std::runtime_error>(HasSubstr("Cannot create table: the table name '../escape'")
+      ThrowsMessage<std::runtime_error>(
+         HasSubstr("Cannot create table: the table name '../escape'")
       )
    );
    EXPECT_FALSE(database.tables.contains(TableName{"../escape"}));

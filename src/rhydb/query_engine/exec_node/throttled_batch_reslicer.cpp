@@ -8,7 +8,8 @@ arrow::Future<std::optional<arrow::compute::ExecBatch>> ThrottledBatchReslicer::
       if (!current_batch.has_value()) {
          auto future = input_batches();
          return future.Then(
-            [&](std::optional<arrow::ExecBatch> maybe_input_batch
+            [&](
+               std::optional<arrow::ExecBatch> maybe_input_batch
             ) -> arrow::Result<std::optional<arrow::ExecBatch>> {
                SPDLOG_DEBUG(
                   "Current backpressure before BatchReslicer: {} with operation currently {}",

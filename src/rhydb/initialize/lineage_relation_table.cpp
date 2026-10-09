@@ -41,8 +41,10 @@ std::vector<LineageRelationRow> buildLineageRelationRows(
       const bool is_recombinant = parents.size() > 1;
       std::optional<std::string> recombinant_clade_ancestor;
       if (is_recombinant) {
-         if (const auto iterator = clade_ancestors.find(child_id);
-             iterator != clade_ancestors.end() && iterator->second.has_value()) {
+         if (
+            const auto iterator = clade_ancestors.find(child_id);
+            iterator != clade_ancestors.end() && iterator->second.has_value()
+         ) {
             recombinant_clade_ancestor = std::string{names.getValue(iterator->second.value())};
          }
       }

@@ -39,7 +39,8 @@ class LineageIndex {
       rhydb::common::RecombinantEdgeFollowingMode recombinant_edge_following_mode
    ) const;
 
-   [[nodiscard]] std::optional<const roaring::Roaring*> filterExcludingSublineages(Idx value_id
+   [[nodiscard]] std::optional<const roaring::Roaring*> filterExcludingSublineages(
+      Idx value_id
    ) const;
 };
 

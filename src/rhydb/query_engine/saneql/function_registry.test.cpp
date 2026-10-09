@@ -86,11 +86,10 @@ TEST(BindArguments, tooManyPositionalArgumentsThrows) {
 
 TEST(BindArguments, onlyMissingRequiredParamThrows) {
    FunctionSignature sig{
-      .parameters =
-         {
-            ParameterDefinition{.name = "required_param", .required = true},
-            ParameterDefinition{.name = "optional_param", .required = false},
-         },
+      .parameters = {
+         ParameterDefinition{.name = "required_param", .required = true},
+         ParameterDefinition{.name = "optional_param", .required = false},
+      },
    };
    std::vector<NamedArgument> named;
    named.push_back(makeNamed("optional_param", "val"));

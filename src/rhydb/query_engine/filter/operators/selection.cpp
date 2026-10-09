@@ -75,9 +75,9 @@ Selection::~Selection() noexcept = default;
 std::string Selection::toString() const {
    std::vector<std::string> predicate_strings;
    std::ranges::transform(
-      predicates,
-      std::back_inserter(predicate_strings),
-      [](const auto& predicate) { return predicate->toString(); }
+      predicates, std::back_inserter(predicate_strings), [](const auto& predicate) {
+         return predicate->toString();
+      }
    );
    std::string child_operator_string;
    if (child_operator.has_value()) {

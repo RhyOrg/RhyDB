@@ -24,19 +24,24 @@ void ZstdDecompressor::decompress(
 ) {
    const size_t uncompressed_size = ZSTD_getFrameContentSize(input_data, input_length);
    if (uncompressed_size == ZSTD_CONTENTSIZE_UNKNOWN) {
-      throw std::runtime_error(fmt::format(
-         "ZSTD_Error: Cannot decompress data with unknown size (getFrameContentSize == "
-         "UNKNOWN) for compressed data of length {}",
-         input_length
-      ));
+      throw std::runtime_error(
+         fmt::format(
+            "ZSTD_Error: Cannot decompress data with unknown size (getFrameContentSize == "
+            "UNKNOWN) for compressed data of length {}",
+            input_length
+         )
+      );
    }
    if (uncompressed_size == ZSTD_CONTENTSIZE_ERROR) {
-      throw std::runtime_error(fmt::format(
-         "ZSTD_Error: Error in dependency, when getting decompressed size for compressed data of "
-         "length {} "
-         "(getFrameContentSize)",
-         input_length
-      ));
+      throw std::runtime_error(
+         fmt::format(
+            "ZSTD_Error: Error in dependency, when getting decompressed size for compressed data "
+            "of "
+            "length {} "
+            "(getFrameContentSize)",
+            input_length
+         )
+      );
    }
    buffer.resize(uncompressed_size);
    auto size_or_error_code = ZSTD_decompress_usingDDict(

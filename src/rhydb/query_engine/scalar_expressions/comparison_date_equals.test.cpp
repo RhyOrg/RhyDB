@@ -78,42 +78,38 @@ std::string createDateEqualsNullQuery(const std::string& column) {
 const QueryTestScenario SORTED_DATE_MULTIPLE_MATCHES = {
    .name = "SORTED_DATE_MULTIPLE_MATCHES",
    .query = createDateEqualsQuery("sorted_date", DATE_2020),
-   .expected_query_result =
-      {
-         {{"primaryKey", "row1"}, {"sorted_date", DATE_2020}, {"unsorted_date", DATE_2023}},
-         {{"primaryKey", "row3"}, {"sorted_date", DATE_2020}, {"unsorted_date", DATE_2021}},
-      },
+   .expected_query_result = {
+      {{"primaryKey", "row1"}, {"sorted_date", DATE_2020}, {"unsorted_date", DATE_2023}},
+      {{"primaryKey", "row3"}, {"sorted_date", DATE_2020}, {"unsorted_date", DATE_2021}},
+   },
 };
 
 // Matches only row2 (sorted_date = 2021-06-15)
 const QueryTestScenario SORTED_DATE_SINGLE_MATCH = {
    .name = "SORTED_DATE_SINGLE_MATCH",
    .query = createDateEqualsQuery("sorted_date", DATE_2021),
-   .expected_query_result =
-      {
-         {{"primaryKey", "row2"}, {"sorted_date", DATE_2021}, {"unsorted_date", DATE_2020}},
-      },
+   .expected_query_result = {
+      {{"primaryKey", "row2"}, {"sorted_date", DATE_2021}, {"unsorted_date", DATE_2020}},
+   },
 };
 
 // Matches row1 and null2 (both have unsorted_date = 2023-01-20)
 const QueryTestScenario UNSORTED_DATE_MULTIPLE_MATCHES = {
    .name = "UNSORTED_DATE_MULTIPLE_MATCHES",
    .query = createDateEqualsQuery("unsorted_date", DATE_2023),
-   .expected_query_result =
-      {
-         {{"primaryKey", "row1"}, {"sorted_date", DATE_2020}, {"unsorted_date", DATE_2023}},
-         {{"primaryKey", "null2"}, {"sorted_date", nullptr}, {"unsorted_date", DATE_2023}},
-      },
+   .expected_query_result = {
+      {{"primaryKey", "row1"}, {"sorted_date", DATE_2020}, {"unsorted_date", DATE_2023}},
+      {{"primaryKey", "null2"}, {"sorted_date", nullptr}, {"unsorted_date", DATE_2023}},
+   },
 };
 
 // Matches only row2 (unsorted_date = 2020-12-24)
 const QueryTestScenario UNSORTED_DATE_SINGLE_MATCH = {
    .name = "UNSORTED_DATE_SINGLE_MATCH",
    .query = createDateEqualsQuery("unsorted_date", DATE_2020),
-   .expected_query_result =
-      {
-         {{"primaryKey", "row2"}, {"sorted_date", DATE_2021}, {"unsorted_date", DATE_2020}},
-      },
+   .expected_query_result = {
+      {{"primaryKey", "row2"}, {"sorted_date", DATE_2021}, {"unsorted_date", DATE_2020}},
+   },
 };
 
 // `... = null` is rejected; users must use isNull()

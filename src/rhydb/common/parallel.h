@@ -43,8 +43,8 @@ void parallelFor(
       const size_t last_chunk = num_chunks - 1;
       auto fut = pool
                     ->Submit(
-                       [chunk, last_chunk, range, positions_per_process, &func](
-                       ) -> std::optional<std::exception_ptr> {
+                       [chunk, last_chunk, range, positions_per_process, &func]()
+                          -> std::optional<std::exception_ptr> {
                           const size_t pos_begin = range.begin() + (chunk * positions_per_process);
                           size_t pos_end;
                           if (chunk < last_chunk) {

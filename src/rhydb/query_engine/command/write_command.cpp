@@ -96,7 +96,8 @@ void WriteStatementRegistry::registerStatement(
       Entry{.signature = std::move(signature), .handler = std::move(handler)};
 }
 
-const WriteStatementRegistry::Entry* WriteStatementRegistry::findStatement(const std::string& name
+const WriteStatementRegistry::Entry* WriteStatementRegistry::findStatement(
+   const std::string& name
 ) const {
    auto it = entries_.find(name);
    if (it == entries_.end()) {
@@ -118,8 +119,9 @@ Request parseRequest(std::string_view query_string, const Tables& tables) {
    // anything else is an ordinary read query and goes through the unchanged read conversion path.
    if (std::holds_alternative<saneql::ast::FunctionCall>(ast->value)) {
       const auto& call = std::get<saneql::ast::FunctionCall>(ast->value);
-      if (const auto* entry =
-             WriteStatementRegistry::instance().findStatement(call.function_name)) {
+      if (
+         const auto* entry = WriteStatementRegistry::instance().findStatement(call.function_name)
+      ) {
          auto bound = saneql::bindArguments(
             call.function_name, entry->signature, call.positional_arguments, call.named_arguments
          );

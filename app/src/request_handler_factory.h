@@ -26,7 +26,8 @@ class RhyDBRequestHandlerFactory : public Poco::Net::HTTPRequestHandlerFactory {
       std::shared_ptr<ActiveDatabase> database_handle
    );
 
-   Poco::Net::HTTPRequestHandler* createRequestHandler(const Poco::Net::HTTPServerRequest& request
+   Poco::Net::HTTPRequestHandler* createRequestHandler(
+      const Poco::Net::HTTPServerRequest& request
    ) override;
 
    std::unique_ptr<Poco::Net::HTTPRequestHandler> routeRequest(const Poco::URI& uri);

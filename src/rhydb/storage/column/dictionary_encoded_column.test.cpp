@@ -211,7 +211,8 @@ TEST(DictionaryEncodedColumn, queryParentLineageThatWasNeverInserted) {
    ASSERT_TRUE(appendValues(under_test, {"BA.1.1.1", "BA.1.1.1", "BA.2", "BA.1.1"}).has_value());
 
    EXPECT_EQ(
-      under_test.getLineageIndex()->filterExcludingSublineages(under_test.getValueId("BA.1").value()
+      under_test.getLineageIndex()->filterExcludingSublineages(
+         under_test.getValueId("BA.1").value()
       ),
       std::nullopt
    );

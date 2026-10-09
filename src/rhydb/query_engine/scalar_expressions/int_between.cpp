@@ -75,18 +75,22 @@ std::unique_ptr<filter::operators::Operator> IntBetween::compileFor(
    using value_type = ColumnT::value_type;
    filter::operators::PredicateVector predicates;
    if (from.has_value()) {
-      predicates.emplace_back(std::make_unique<filter::operators::CompareToValueSelection<ColumnT>>(
-         column_ref,
-         filter::operators::Comparator::HIGHER_OR_EQUALS,
-         static_cast<value_type>(from.value())
-      ));
+      predicates.emplace_back(
+         std::make_unique<filter::operators::CompareToValueSelection<ColumnT>>(
+            column_ref,
+            filter::operators::Comparator::HIGHER_OR_EQUALS,
+            static_cast<value_type>(from.value())
+         )
+      );
    }
    if (to.has_value()) {
-      predicates.emplace_back(std::make_unique<filter::operators::CompareToValueSelection<ColumnT>>(
-         column_ref,
-         filter::operators::Comparator::LESS_OR_EQUALS,
-         static_cast<value_type>(to.value())
-      ));
+      predicates.emplace_back(
+         std::make_unique<filter::operators::CompareToValueSelection<ColumnT>>(
+            column_ref,
+            filter::operators::Comparator::LESS_OR_EQUALS,
+            static_cast<value_type>(to.value())
+         )
+      );
    }
 
    if (predicates.empty()) {
@@ -106,7 +110,8 @@ std::unique_ptr<filter::operators::Operator> IntBetween::compileFor(
    return std::move(result);
 }
 
-std::unique_ptr<filter::operators::Operator> IntBetween::compile(const storage::Table& table
+std::unique_ptr<filter::operators::Operator> IntBetween::compile(
+   const storage::Table& table
 ) const {
    CHECK_RHYDB_QUERY(
       table.schema->getColumn(column.name).has_value(),

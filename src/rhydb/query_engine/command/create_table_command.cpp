@@ -122,8 +122,10 @@ ColumnDefinition parseColumnDefinition(
       };
    }
 
-   if (auto value_type = VALUE_TYPES_WITHOUT_OPTIONS.find(type_name);
-       value_type != VALUE_TYPES_WITHOUT_OPTIONS.end()) {
+   if (
+      auto value_type = VALUE_TYPES_WITHOUT_OPTIONS.find(type_name);
+      value_type != VALUE_TYPES_WITHOUT_OPTIONS.end()
+   ) {
       std::ignore = saneql::bindArguments(type_name, NO_OPTIONS_SIGNATURE, *positional, *named);
       return ColumnDefinition{
          .name = column_name,
@@ -174,12 +176,14 @@ std::optional<std::string> findReferenceSequence(
    const auto& sequence_column =
       reference_genomes.getColumn<storage::column::StringColumn>("sequence");
    for (const auto row_id : reference_genomes.row_layout) {
-      if (name_column.isNull(row_id) || type_column.isNull(row_id) ||
-          sequence_column.isNull(row_id)) {
+      if (
+         name_column.isNull(row_id) || type_column.isNull(row_id) || sequence_column.isNull(row_id)
+      ) {
          continue;
       }
-      if (name_column.getValueString(row_id) == name &&
-          type_column.getValueString(row_id) == type) {
+      if (
+         name_column.getValueString(row_id) == name && type_column.getValueString(row_id) == type
+      ) {
          return sequence_column.getValueString(row_id);
       }
    }

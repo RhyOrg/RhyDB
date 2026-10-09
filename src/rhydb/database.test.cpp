@@ -37,9 +37,9 @@ std::shared_ptr<rhydb::Database> buildTestDatabase() {
       input_directory / "database_config.yaml"
    );
 
-   const auto reference_genomes =
-      rhydb::ReferenceGenomes::readFromFile(config.initialization_files.getReferenceGenomeFilepath()
-      );
+   const auto reference_genomes = rhydb::ReferenceGenomes::readFromFile(
+      config.initialization_files.getReferenceGenomeFilepath()
+   );
 
    std::map<std::filesystem::path, rhydb::common::LineageTreeAndIdMap> lineage_trees;
    for (const auto& file_path : config.initialization_files.getLineageDefinitionFilepaths()) {
@@ -103,8 +103,9 @@ TEST(DatabaseTest, shouldReturnCorrectDatabaseInfoAfterAppendingNewSequences) {
    // If this load fails, the serialization version likely needs to be increased
    // Run `make bump-serialization-version`
    auto database = rhydb::Database::loadDatabaseState(
-      rhydb::RhyDBDirectory{"testBaseData/rhydbSerializedState"}.getMostRecentDataDirectory().value(
-      )
+      rhydb::RhyDBDirectory{"testBaseData/rhydbSerializedState"}
+         .getMostRecentDataDirectory()
+         .value()
    );
 
    const auto database_info = database.getDatabaseInfo();
@@ -147,8 +148,9 @@ TEST(DatabaseTest, newDatabaseContainsEmptyBuiltinTables) {
 TEST(DatabaseTest, loadedDatabaseContainsBuiltinTables) {
    // The committed serialized state may predate some built-in tables, which are then added on load
    const auto database = rhydb::Database::loadDatabaseState(
-      rhydb::RhyDBDirectory{"testBaseData/rhydbSerializedState"}.getMostRecentDataDirectory().value(
-      )
+      rhydb::RhyDBDirectory{"testBaseData/rhydbSerializedState"}
+         .getMostRecentDataDirectory()
+         .value()
    );
 
    for (const auto& [table_name, _] : rhydb::schema::getBuiltinTableSchemas()) {
@@ -255,8 +257,9 @@ TEST(DatabaseTest, updateColumnRejectsInvalidRequests) {
    // A lineage-indexed column (pango_lineage) cannot be updated.
    EXPECT_THAT(
       [&]() { database->updateColumn(table, "pango_lineage", "'B.1'", "true"); },
-      ThrowsMessage<rhydb::query_engine::IllegalQueryException>(::testing::HasSubstr("lineage index"
-      ))
+      ThrowsMessage<rhydb::query_engine::IllegalQueryException>(
+         ::testing::HasSubstr("lineage index")
+      )
    );
 
    // Unknown columns and tables are reported.

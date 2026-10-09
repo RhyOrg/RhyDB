@@ -88,10 +88,10 @@ TEST(AstToQuery, nullFromAndTo) {
       [&tables]() {
          (void)parseAndConvertToQueryTree("data.filter(id.between(null, null))", tables);
       },
-      ThrowsMessage<IllegalQueryException>(
-         ::testing::HasSubstr("Could not infer type of between expression. From-value or to-value "
-                              "needs to be a typed non-null value, got from: 'null' to: 'null'")
-      )
+      ThrowsMessage<IllegalQueryException>(::testing::HasSubstr(
+         "Could not infer type of between expression. From-value or to-value "
+         "needs to be a typed non-null value, got from: 'null' to: 'null'"
+      ))
    );
 }
 
@@ -484,8 +484,9 @@ TEST(AstToQueryGroupBy, fieldNotInSchemaThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
       [&tables]() {
-         (void
-         )parseAndConvertToQueryTree("data.group(by:={nonexistent}, aggs:={n:=count()})", tables);
+         (void)parseAndConvertToQueryTree(
+            "data.group(by:={nonexistent}, aggs:={n:=count()})", tables
+         );
       },
       ThrowsMessage<IllegalQueryException>(::testing::HasSubstr(
          "group field 'nonexistent' is not present in the input's output schema"
@@ -526,7 +527,8 @@ TEST(AstToQueryGroupBy, aggregatesInByPositionThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
       [&]() { (void)parseAndConvertToQueryTree("data.group({n:=count()}, {date})", tables); },
-      ThrowsMessage<IllegalQueryException>(::testing::HasSubstr("group by must be a set of columns")
+      ThrowsMessage<IllegalQueryException>(
+         ::testing::HasSubstr("group by must be a set of columns")
       )
    );
 }
@@ -761,8 +763,9 @@ TEST(AstToQueryOrderBy, ascWrongArgCountThrows) {
    auto tables = makeTablesWithDefault();
    EXPECT_THAT(
       [&]() { (void)parseAndConvertToQueryTree("data.order(by:={asc()})", tables); },
-      ThrowsMessage<IllegalQueryException>(::testing::HasSubstr("asc() expects exactly one argument"
-      ))
+      ThrowsMessage<IllegalQueryException>(
+         ::testing::HasSubstr("asc() expects exactly one argument")
+      )
    );
 }
 

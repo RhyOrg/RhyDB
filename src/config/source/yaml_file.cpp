@@ -99,11 +99,13 @@ void yamlToPaths(
             const auto child_node = key_value.second;
             yamlToPaths(debug_context, child_node, parents2, paths);
          } catch (YAML::BadConversion& bad_conversion) {
-            throw rhydb::config::ConfigException(fmt::format(
-               "invalid (non-literal) key in yaml config file '{}': {}",
-               debug_context,
-               bad_conversion.what()
-            ));
+            throw rhydb::config::ConfigException(
+               fmt::format(
+                  "invalid (non-literal) key in yaml config file '{}': {}",
+                  debug_context,
+                  bad_conversion.what()
+               )
+            );
          }
       }
    } else {
@@ -124,11 +126,13 @@ void yamlToPaths(
       if (isProperSingularValue(node)) {
          paths.emplace(path.value(), node);
       } else {
-         throw rhydb::config::ConfigException(fmt::format(
-            "{}: found non-usable leaf value at nesting {}",
-            debug_context,
-            rhydb::config::YamlFile::configKeyPathToString(path.value())
-         ));
+         throw rhydb::config::ConfigException(
+            fmt::format(
+               "{}: found non-usable leaf value at nesting {}",
+               debug_context,
+               rhydb::config::YamlFile::configKeyPathToString(path.value())
+            )
+         );
       }
    }
 }
@@ -183,7 +187,8 @@ YamlFile YamlFile::readFile(const std::filesystem::path& path) {
       contents << file.rdbuf();
    }
    if (contents.fail()) {
-      throw std::runtime_error(fmt::format("Error when reading the YAML file: '{}'", path.string())
+      throw std::runtime_error(
+         fmt::format("Error when reading the YAML file: '{}'", path.string())
       );
    }
 
@@ -218,12 +223,14 @@ ConfigValue yamlNodeToConfigValue(
       }
       RHYDB_UNREACHABLE();
    } catch (YAML::BadConversion& error) {
-      throw ConfigException(fmt::format(
-         "cannot parse '{}' as {}: {}",
-         YAML::Dump(yaml),
-         configValueTypeToString(attribute_spec.type),
-         error.what()
-      ));
+      throw ConfigException(
+         fmt::format(
+            "cannot parse '{}' as {}: {}",
+            YAML::Dump(yaml),
+            configValueTypeToString(attribute_spec.type),
+            error.what()
+         )
+      );
    }
 }
 }  // namespace
@@ -247,12 +254,14 @@ VerifiedConfigAttributes YamlFile::verify(const ConfigSpecification& config_spec
 
    if (!invalid_config_keys.empty()) {
       const char* keys_or_options = (invalid_config_keys.size() >= 2) ? "keys" : "key";
-      throw rhydb::config::ConfigException(fmt::format(
-         "in {}: unknown {} {}",
-         debugContext(),
-         keys_or_options,
-         boost::join(invalid_config_keys, ", ")
-      ));
+      throw rhydb::config::ConfigException(
+         fmt::format(
+            "in {}: unknown {} {}",
+            debugContext(),
+            keys_or_options,
+            boost::join(invalid_config_keys, ", ")
+         )
+      );
    }
 
    return VerifiedConfigAttributes{provided_config_values};

@@ -39,12 +39,14 @@ struct ReferenceGenomes {
          auto symbol = SymbolType::charToSymbol(character);
 
          if (!symbol.has_value()) {
-            throw std::runtime_error(fmt::format(
-               "{} reference sequence with illegal {} code: {}",
-               SymbolType::SYMBOL_NAME,
-               SymbolType::SYMBOL_NAME_LOWER_CASE,
-               std::to_string(character)
-            ));
+            throw std::runtime_error(
+               fmt::format(
+                  "{} reference sequence with illegal {} code: {}",
+                  SymbolType::SYMBOL_NAME,
+                  SymbolType::SYMBOL_NAME_LOWER_CASE,
+                  std::to_string(character)
+               )
+            );
          }
 
          sequence_vector.push_back(*symbol);

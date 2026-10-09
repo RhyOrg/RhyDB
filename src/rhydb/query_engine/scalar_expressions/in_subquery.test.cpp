@@ -86,9 +86,9 @@ const QueryTestScenario IN_SUBQUERY_MULTI = {
    .query =
       "data.filter(country.in(data.filter(region = 'Europe').project({country})))"
       ".project({primaryKey})",
-   .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_1"},{"primaryKey":"id_3"}])"
-      ),
+   .expected_query_result = nlohmann::json::parse(
+      R"([{"primaryKey":"id_0"},{"primaryKey":"id_1"},{"primaryKey":"id_3"}])"
+   ),
 };
 
 // Japan's date is 2020-03-01, which id_0 shares.
@@ -205,9 +205,9 @@ const QueryTestScenario IN_SET_LITERAL_STILL_WORKS = {
 const QueryTestScenario IN_SET_LITERAL_INT_COLUMN = {
    .name = "IN_SET_LITERAL_INT_COLUMN",
    .query = "data.filter(year.in({2020, 2023})).project({primaryKey})",
-   .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"},{"primaryKey":"id_4"}])"
-      ),
+   .expected_query_result = nlohmann::json::parse(
+      R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"},{"primaryKey":"id_4"}])"
+   ),
 };
 
 // A subquery over an int column: years occurring in Europe are {2020, 2021}, so any row with one of
@@ -217,9 +217,9 @@ const QueryTestScenario IN_SUBQUERY_INT_COLUMN = {
    .query =
       "data.filter(year.in(data.filter(region = 'Europe').project({year})))"
       ".project({primaryKey})",
-   .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_1"},{"primaryKey":"id_3"}])"
-      ),
+   .expected_query_result = nlohmann::json::parse(
+      R"([{"primaryKey":"id_0"},{"primaryKey":"id_1"},{"primaryKey":"id_3"}])"
+   ),
 };
 
 }  // namespace

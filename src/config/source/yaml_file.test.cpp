@@ -133,9 +133,9 @@ X
 s:
 )");
       },
-      ThrowsMessage<std::runtime_error>(
-         ::testing::HasSubstr("string does not contain valid YAML: yaml-cpp: error at line 3, "
-                              "column 2: illegal map value")
-      )
+      ThrowsMessage<std::runtime_error>(::testing::HasSubstr(
+         "string does not contain valid YAML: yaml-cpp: error at line 3, "
+         "column 2: illegal map value"
+      ))
    );
 }

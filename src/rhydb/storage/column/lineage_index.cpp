@@ -35,7 +35,8 @@ std::optional<const roaring::Roaring*> LineageIndex::filterIncludingSublineages(
    return std::nullopt;
 }
 
-std::optional<const roaring::Roaring*> LineageIndex::filterExcludingSublineages(Idx value_id
+std::optional<const roaring::Roaring*> LineageIndex::filterExcludingSublineages(
+   Idx value_id
 ) const {
    value_id = lineage_tree->resolveAlias(value_id);
    if (index_excluding_sublineages.contains(value_id)) {

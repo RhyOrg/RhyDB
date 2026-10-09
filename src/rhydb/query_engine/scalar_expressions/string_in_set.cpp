@@ -63,16 +63,19 @@ std::unique_ptr<ScalarExpression> StringInSet::rewrite(
    std::vector<std::unique_ptr<ScalarExpression>> string_equal_expressions;
    string_equal_expressions.reserve(values.size());
    for (const auto& value : values) {
-      string_equal_expressions.emplace_back(std::make_unique<Comparison>(
-         std::make_unique<FieldRef>(column),
-         std::make_unique<StringLiteral>(value),
-         filter::operators::Comparator::EQUALS
-      ));
+      string_equal_expressions.emplace_back(
+         std::make_unique<Comparison>(
+            std::make_unique<FieldRef>(column),
+            std::make_unique<StringLiteral>(value),
+            filter::operators::Comparator::EQUALS
+         )
+      );
    }
    return std::make_unique<Or>(std::move(string_equal_expressions));
 }
 
-std::unique_ptr<filter::operators::Operator> StringInSet::compile(const storage::Table& table
+std::unique_ptr<filter::operators::Operator> StringInSet::compile(
+   const storage::Table& table
 ) const {
    RHYDB_ASSERT(table.hasColumn<StringColumn>(column.name));
    const auto& string_column = table.getColumn<StringColumn>(column.name);

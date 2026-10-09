@@ -37,22 +37,26 @@ rhydb::Database AdminQueryHandler::loadDatabaseToWriteTo() const {
 
    const auto data_source = rhydb::RhyDBDirectory{data_directory}.getMostRecentDataDirectory();
    if (!data_source.has_value()) {
-      throw std::runtime_error(fmt::format(
-         "the data directory '{}' holds no loadable database state to apply the write to",
-         data_directory.string()
-      ));
+      throw std::runtime_error(
+         fmt::format(
+            "the data directory '{}' holds no loadable database state to apply the write to",
+            data_directory.string()
+         )
+      );
    }
 
    const auto served_version = database_handle->getActiveDatabase()->getDataVersionTimestamp();
    const auto version_to_write_to = data_source->data_version.getTimestamp();
    if (version_to_write_to < served_version) {
-      throw std::runtime_error(fmt::format(
-         "the most recent state in the data directory '{}' has data version {}, which is older "
-         "than the data version {} that is being served. Please resolve this conflict manually",
-         data_directory.string(),
-         version_to_write_to.value,
-         served_version.value
-      ));
+      throw std::runtime_error(
+         fmt::format(
+            "the most recent state in the data directory '{}' has data version {}, which is older "
+            "than the data version {} that is being served. Please resolve this conflict manually",
+            data_directory.string(),
+            version_to_write_to.value,
+            served_version.value
+         )
+      );
    }
    if (served_version < version_to_write_to) {
       SPDLOG_WARN(
@@ -102,10 +106,9 @@ void AdminQueryHandler::post(
          QueryResult{
             .data_version = data_version,
             .schema = write_result->schema(),
-            .write_to_sink =
-               [&](rhydb::query_engine::exec_node::ArrowBatchSink& output_sink) {
-                  return rhydb::query_engine::command::writeToSink(*write_result, output_sink);
-               },
+            .write_to_sink = [&](rhydb::query_engine::exec_node::ArrowBatchSink& output_sink) {
+               return rhydb::query_engine::command::writeToSink(*write_result, output_sink);
+            },
          }
       );
    });

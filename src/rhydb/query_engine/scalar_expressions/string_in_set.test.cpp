@@ -8,8 +8,9 @@ using rhydb::test::QueryTestData;
 using rhydb::test::QueryTestScenario;
 
 nlohmann::json createData(const std::string& primary_key, const std::string& country) {
-   return nlohmann::json::parse(fmt::format(
-      R"(
+   return nlohmann::json::parse(
+      fmt::format(
+         R"(
 {{
    "primaryKey": "{}",
    "country": "{}",
@@ -20,10 +21,11 @@ nlohmann::json createData(const std::string& primary_key, const std::string& cou
    }}
 }}
 )",
-      primary_key,
-      country,
-      country == "USA" ? "Americas" : "Europe"
-   ));
+         primary_key,
+         country,
+         country == "USA" ? "Americas" : "Europe"
+      )
+   );
 }
 
 const auto DATABASE_CONFIG =

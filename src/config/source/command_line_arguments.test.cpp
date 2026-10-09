@@ -58,9 +58,11 @@ TEST(CommandLineArguments, shouldFailAppropriatelyOnInvalidOptions) {
    for (const auto& invalid_option : invalid_options) {
       EXPECT_THAT(
          [&invalid_option]() { CommandLineArguments::stringToConfigKeyPath(invalid_option); },
-         ThrowsMessage<ConfigException>(::testing::HasSubstr(fmt::format(
-            "the provided option '{}' is not a valid command line option", invalid_option
-         )))
+         ThrowsMessage<ConfigException>(::testing::HasSubstr(
+            fmt::format(
+               "the provided option '{}' is not a valid command line option", invalid_option
+            )
+         ))
       );
    }
 }
@@ -92,19 +94,14 @@ auto foo_key = YamlFile::stringToConfigKeyPath("foo");
 auto bar_key = YamlFile::stringToConfigKeyPath("bar");
 ConfigSpecification specification{
    .program_name = "test",
-   .attribute_specifications =
-      {
-         ConfigAttributeSpecification::createWithDefault(
-            foo_key,
-            ConfigValue::fromBool(false),
-            "help"
-         ),
-         ConfigAttributeSpecification::createWithoutDefault(
-            bar_key,
-            ConfigValueType::INT32,
-            "help"
-         ),
-      },
+   .attribute_specifications = {
+      ConfigAttributeSpecification::createWithDefault(
+         foo_key,
+         ConfigValue::fromBool(false),
+         "help"
+      ),
+      ConfigAttributeSpecification::createWithoutDefault(bar_key, ConfigValueType::INT32, "help"),
+   },
 };
 
 }  // namespace

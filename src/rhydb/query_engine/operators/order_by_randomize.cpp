@@ -81,7 +81,8 @@ arrow::Result<arrow::acero::ExecNode*> addRandomizeColumn(
       auto future = sequenced_batches();
 
       return future.Then(
-         [&](std::optional<arrow::ExecBatch> maybe_input_batch
+         [&](
+            std::optional<arrow::ExecBatch> maybe_input_batch
          ) mutable -> arrow::Result<std::optional<arrow::ExecBatch>> {
             SPDLOG_TRACE("randomize column projection received next batch");
 

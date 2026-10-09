@@ -42,8 +42,10 @@ arrow::Result<arrow::compute::Expression> Negation::toArrowExpression() const {
    );
 }
 
-std::unique_ptr<ScalarExpression> Negation::rewrite(const storage::Table& table, AmbiguityMode mode)
-   const {
+std::unique_ptr<ScalarExpression> Negation::rewrite(
+   const storage::Table& table,
+   AmbiguityMode mode
+) const {
    return std::make_unique<Negation>(child->rewrite(table, invertMode(mode)));
 }
 

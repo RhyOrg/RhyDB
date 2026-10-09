@@ -19,9 +19,11 @@ rhydb_app::RhyDBDirectoryWatcher::RhyDBDirectoryWatcher(
     : rhydb_directory(std::move(rhydb_directory)),
       database_handle(std::move(database_handle)),
       timer(0, 2000) {
-   timer.start(Poco::TimerCallback<RhyDBDirectoryWatcher>(
-      *this, &RhyDBDirectoryWatcher::checkDirectoryForData
-   ));
+   timer.start(
+      Poco::TimerCallback<RhyDBDirectoryWatcher>(
+         *this, &RhyDBDirectoryWatcher::checkDirectoryForData
+      )
+   );
 }
 
 void rhydb_app::RhyDBDirectoryWatcher::checkDirectoryForData(Poco::Timer& /*timer*/) {

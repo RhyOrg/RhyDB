@@ -64,7 +64,8 @@ decltype(auto) visit(QueryNode& node, Func&& func) {
             static_cast<UnresolvedInsertionsNode<rhydb::AminoAcid>&>(node)
          );
       case NodeKind::UNRESOLVED_MOST_RECENT_COMMON_ANCESTOR:
-         return std::forward<Func>(func)(static_cast<UnresolvedMostRecentCommonAncestorNode&>(node)
+         return std::forward<Func>(func)(
+            static_cast<UnresolvedMostRecentCommonAncestorNode&>(node)
          );
       case NodeKind::UNRESOLVED_PHYLO_SUBTREE:
          return std::forward<Func>(func)(static_cast<UnresolvedPhyloSubtreeNode&>(node));

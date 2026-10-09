@@ -209,7 +209,8 @@ void Initializer::createLineageRelationTable(
    );
    table_schema->column_metadata.emplace(
       recombinant_clade_ancestor_column,
-      std::make_shared<storage::column::StringColumnMetadata>(recombinant_clade_ancestor_column.name
+      std::make_shared<storage::column::StringColumnMetadata>(
+         recombinant_clade_ancestor_column.name
       )
    );
    table_schema->primary_key = id_column;
@@ -395,8 +396,7 @@ void assertPrimaryKeyInMetadata(const rhydb::config::DatabaseConfig& database_co
       return;
    }
    auto primary_key_metadata = std::ranges::find_if(
-      database_config.schema.metadata,
-      [&database_config](const auto& metadata) {
+      database_config.schema.metadata, [&database_config](const auto& metadata) {
          return database_config.schema.primary_key.value() == metadata.name;
       }
    );
@@ -410,8 +410,7 @@ void assertPrimaryKeyOfTypeString(const rhydb::config::DatabaseConfig& database_
       return;
    }
    auto primary_key_metadata = std::ranges::find_if(
-      database_config.schema.metadata,
-      [&database_config](const auto& metadata) {
+      database_config.schema.metadata, [&database_config](const auto& metadata) {
          return database_config.schema.primary_key.value() == metadata.name;
       }
    );

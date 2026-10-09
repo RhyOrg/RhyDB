@@ -11,7 +11,9 @@ class HealthHandler : public RestResource {
   public:
    explicit HealthHandler() = default;
 
-   void get(Poco::Net::HTTPServerRequest& request, Poco::Net::HTTPServerResponse& response)
-      override;
+   void get(
+      Poco::Net::HTTPServerRequest& request,
+      Poco::Net::HTTPServerResponse& response
+   ) override;
 };
 }  // namespace rhydb_app

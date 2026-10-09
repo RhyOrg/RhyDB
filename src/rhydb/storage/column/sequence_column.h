@@ -255,8 +255,9 @@ template <class Archive>
 }
 }  // namespace boost::serialization
 
-BOOST_SERIALIZATION_SPLIT_FREE(std::shared_ptr<
-                               rhydb::storage::column::SequenceColumnMetadata<rhydb::AminoAcid>>);
+BOOST_SERIALIZATION_SPLIT_FREE(
+   std::shared_ptr<rhydb::storage::column::SequenceColumnMetadata<rhydb::AminoAcid>>
+);
 namespace boost::serialization {
 template <class Archive>
 [[maybe_unused]] void load(
@@ -287,8 +288,9 @@ template <class Archive>
 }
 }  // namespace boost::serialization
 
-BOOST_SERIALIZATION_SPLIT_FREE(std::shared_ptr<
-                               rhydb::storage::column::SequenceColumnMetadata<rhydb::Nucleotide>>);
+BOOST_SERIALIZATION_SPLIT_FREE(
+   std::shared_ptr<rhydb::storage::column::SequenceColumnMetadata<rhydb::Nucleotide>>
+);
 namespace boost::serialization {
 template <class Archive>
 [[maybe_unused]] void load(

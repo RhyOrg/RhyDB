@@ -62,80 +62,79 @@ const uint32_t DEFAULT_ARROW_BATCH_SIZE = 32767;
 ConfigSpecification RuntimeConfig::getConfigSpecification() {
    return {
       .program_name = "rhydb api",
-      .attribute_specifications =
-         {
-            ConfigAttributeSpecification::createWithoutDefault(
-               runtimeConfigOptionKey(),
-               ConfigValueType::PATH,
-               "The path to the config file in YAML format."
-            ),
-            ConfigAttributeSpecification::createWithoutDefault(
-               defaultRuntimeConfigOptionKey(),
-               ConfigValueType::PATH,
-               "The path to config file in YAML format with default values. \n"
-               "This path will often be set by an environment variable, thus \n"
-               "providing defaults to a RhyDB instance in a specific environment (e.g. Docker)."
-            ),
-            ConfigAttributeSpecification::createWithDefault(
-               dataDirectoryOptionKey(),
-               ConfigValue::fromPath(DEFAULT_OUTPUT_DIRECTORY),
-               "The path to the directory with the data files (output from preprocessing)."
-            ),
-            ConfigAttributeSpecification::createWithDefault(
-               apiAddressOptionKey(),
-               ConfigValue::fromString("0.0.0.0"),
-               "The address on which to listen for incoming HTTP connections. \n"
-               "Defaults to 0.0.0.0, which binds to all available network interfaces. \n"
-               "Set to 127.0.0.1 to only accept connections from localhost."
-            ),
-            ConfigAttributeSpecification::createWithDefault(
-               apiPortOptionKey(),
-               ConfigValue::fromUint16(8081),
-               "The port number on which to listen for incoming HTTP connections."
-            ),
-            ConfigAttributeSpecification::createWithDefault(
-               apiMaxConnectionsOptionKey(),
-               ConfigValue::fromInt32(256),
-               "The maximum number of concurrent connections accepted at any time."
-            ),
-            ConfigAttributeSpecification::createWithDefault(
-               apiParallelThreadsOptionKey(),
-               ConfigValue::fromInt32(0),
-               "The number of worker threads. If set to 0 it will be set to the number of "
-               "processors."
-            ),
-            ConfigAttributeSpecification::createWithoutDefault(
-               apiEstimatedStartupTimeOptionKey(),
-               ConfigValueType::UINT32,
-               "Estimated time in minutes that the initial loading of the database takes. \n"
-               "As long as no database is loaded yet, RhyDB will throw a 503 error. \n"
-               "This option allows RhyDB to compute a Retry-After header for the 503 response."
-            ),
-            ConfigAttributeSpecification::createWithDefault(
-               softMemoryLimitOptionKey(),
-               ConfigValue::fromUint32(0),
-               "A soft-limit on the memory usage. If the rss of the process is higher than \n"
-               "this value, malloc_trim is called. \n"
-               "Only supported on Linux."
-            ),
-            ConfigAttributeSpecification::createWithDefault(
-               apiAllowAdminEndpointOptionKey(),
-               ConfigValue::fromBool(false),
-               "Whether to serve the write-enabled 'POST /admin/query' endpoint, which changes \n"
-               "the data the server serves (e.g. via 'insertInto'). Each write saves a new data \n"
-               "version to the data directory, which must be writable, and is served once it has \n"
-               "been picked up from there. Disabled by default; while it is disabled the endpoint "
-               "\n"
-               "responds with 404 and the instance stays read-only."
-            ),
-            ConfigAttributeSpecification::createWithDefault(
-               queryMaterializationOptionKey(),
-               ConfigValue::fromUint32(DEFAULT_ARROW_BATCH_SIZE),
-               "If a query results in fewer rows, the query result will be collected \n"
-               "in memory before sending it to the client. If it affects more rows, \n"
-               "it will be streamed by constructing the result items lazily."
-            ),
-         },
+      .attribute_specifications = {
+         ConfigAttributeSpecification::createWithoutDefault(
+            runtimeConfigOptionKey(),
+            ConfigValueType::PATH,
+            "The path to the config file in YAML format."
+         ),
+         ConfigAttributeSpecification::createWithoutDefault(
+            defaultRuntimeConfigOptionKey(),
+            ConfigValueType::PATH,
+            "The path to config file in YAML format with default values. \n"
+            "This path will often be set by an environment variable, thus \n"
+            "providing defaults to a RhyDB instance in a specific environment (e.g. Docker)."
+         ),
+         ConfigAttributeSpecification::createWithDefault(
+            dataDirectoryOptionKey(),
+            ConfigValue::fromPath(DEFAULT_OUTPUT_DIRECTORY),
+            "The path to the directory with the data files (output from preprocessing)."
+         ),
+         ConfigAttributeSpecification::createWithDefault(
+            apiAddressOptionKey(),
+            ConfigValue::fromString("0.0.0.0"),
+            "The address on which to listen for incoming HTTP connections. \n"
+            "Defaults to 0.0.0.0, which binds to all available network interfaces. \n"
+            "Set to 127.0.0.1 to only accept connections from localhost."
+         ),
+         ConfigAttributeSpecification::createWithDefault(
+            apiPortOptionKey(),
+            ConfigValue::fromUint16(8081),
+            "The port number on which to listen for incoming HTTP connections."
+         ),
+         ConfigAttributeSpecification::createWithDefault(
+            apiMaxConnectionsOptionKey(),
+            ConfigValue::fromInt32(256),
+            "The maximum number of concurrent connections accepted at any time."
+         ),
+         ConfigAttributeSpecification::createWithDefault(
+            apiParallelThreadsOptionKey(),
+            ConfigValue::fromInt32(0),
+            "The number of worker threads. If set to 0 it will be set to the number of "
+            "processors."
+         ),
+         ConfigAttributeSpecification::createWithoutDefault(
+            apiEstimatedStartupTimeOptionKey(),
+            ConfigValueType::UINT32,
+            "Estimated time in minutes that the initial loading of the database takes. \n"
+            "As long as no database is loaded yet, RhyDB will throw a 503 error. \n"
+            "This option allows RhyDB to compute a Retry-After header for the 503 response."
+         ),
+         ConfigAttributeSpecification::createWithDefault(
+            softMemoryLimitOptionKey(),
+            ConfigValue::fromUint32(0),
+            "A soft-limit on the memory usage. If the rss of the process is higher than \n"
+            "this value, malloc_trim is called. \n"
+            "Only supported on Linux."
+         ),
+         ConfigAttributeSpecification::createWithDefault(
+            apiAllowAdminEndpointOptionKey(),
+            ConfigValue::fromBool(false),
+            "Whether to serve the write-enabled 'POST /admin/query' endpoint, which changes \n"
+            "the data the server serves (e.g. via 'insertInto'). Each write saves a new data \n"
+            "version to the data directory, which must be writable, and is served once it has \n"
+            "been picked up from there. Disabled by default; while it is disabled the endpoint "
+            "\n"
+            "responds with 404 and the instance stays read-only."
+         ),
+         ConfigAttributeSpecification::createWithDefault(
+            queryMaterializationOptionKey(),
+            ConfigValue::fromUint32(DEFAULT_ARROW_BATCH_SIZE),
+            "If a query results in fewer rows, the query result will be collected \n"
+            "in memory before sending it to the client. If it affects more rows, \n"
+            "it will be streamed by constructing the result items lazily."
+         ),
+      },
    };
 }
 

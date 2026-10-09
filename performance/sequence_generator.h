@@ -37,10 +37,12 @@ inline void changeCwdToTestFolder() {
          return;
       }
    }
-   throw std::runtime_error(fmt::format(
-      "Should be run from the repository root; could not find it from {}",
-      std::filesystem::current_path().string()
-   ));
+   throw std::runtime_error(
+      fmt::format(
+         "Should be run from the repository root; could not find it from {}",
+         std::filesystem::current_path().string()
+      )
+   );
 }
 
 inline std::string readReferenceFromFile() {
@@ -96,10 +98,12 @@ inline std::ifstream openTestDataInput(std::string_view dataset) {
    const std::filesystem::path in_path = benchmarkDataPath(dataset);
    std::ifstream in{in_path, std::ios::binary};
    if (!in) {
-      throw std::runtime_error(fmt::format(
-         "Could not open {}. Prepare benchmark data first with `make generateTestData`.",
-         in_path.string()
-      ));
+      throw std::runtime_error(
+         fmt::format(
+            "Could not open {}. Prepare benchmark data first with `make generateTestData`.",
+            in_path.string()
+         )
+      );
    }
    return in;
 }
@@ -249,9 +253,11 @@ class ShortReadGenerator {
        : count(count),
          read_length(read_length) {
       if (read_length > reference.size()) {
-         throw std::invalid_argument(fmt::format(
-            "read_length ({}) exceeds reference length ({})", read_length, reference.size()
-         ));
+         throw std::invalid_argument(
+            fmt::format(
+               "read_length ({}) exceeds reference length ({})", read_length, reference.size()
+            )
+         );
       }
       SequenceTreeGenerator tree_gen(reference, seed);
       evolved_sequences = tree_gen.generateEvolvedSequences();

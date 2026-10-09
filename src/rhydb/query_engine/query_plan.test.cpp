@@ -93,7 +93,8 @@ TEST(QueryPlan, reportsExplicitSortFieldsForOrderedResult) {
 
    EXPECT_EQ(
       nlohmann::json::parse(serializeResultOrdering(under_test.result_ordering)),
-      nlohmann::json::array({{{"field", "id"}, {"order", "descending"}, {"nullPlacement", "atEnd"}}}
+      nlohmann::json::array(
+         {{{"field", "id"}, {"order", "descending"}, {"nullPlacement", "atEnd"}}}
       )
    );
 }

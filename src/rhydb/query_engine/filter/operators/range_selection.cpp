@@ -32,9 +32,7 @@ RangeSelection::~RangeSelection() noexcept = default;
 std::string RangeSelection::toString() const {
    std::vector<std::string> range_strings;
    std::ranges::transform(
-      ranges,
-      std::back_inserter(range_strings),
-      [](const RangeSelection::Range& range) {
+      ranges, std::back_inserter(range_strings), [](const RangeSelection::Range& range) {
          return fmt::format(
             "({},{})-({},{})",
             range.start.chunk_id,
@@ -86,7 +84,8 @@ Bitmap RangeSelection::evaluate() const {
    return Bitmap{std::move(result_bitmap)};
 }
 
-std::unique_ptr<Operator> RangeSelection::negate(std::unique_ptr<RangeSelection>&& range_selection
+std::unique_ptr<Operator> RangeSelection::negate(
+   std::unique_ptr<RangeSelection>&& range_selection
 ) {
    std::vector<Range> new_ranges;
    // Guard against empty case

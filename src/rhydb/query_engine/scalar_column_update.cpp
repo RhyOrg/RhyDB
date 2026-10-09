@@ -58,11 +58,13 @@ void assignScalarLiteralToColumn(
       case schema::ColumnType::STRING: {
          auto& string_column = table.getColumn<storage::column::StringColumn>(column.name);
          if (string_column.metadata->phylo_tree.has_value()) {
-            throw IllegalQueryException(fmt::format(
-               "Column '{}' is backed by a phylogenetic tree and cannot be updated, because it "
-               "would break the tree's row bindings",
-               column.name
-            ));
+            throw IllegalQueryException(
+               fmt::format(
+                  "Column '{}' is backed by a phylogenetic tree and cannot be updated, because it "
+                  "would break the tree's row bindings",
+                  column.name
+               )
+            );
          }
          string_column.update(
             row_ids, is_null ? std::nullopt : std::optional{ast::extractStringLiteral(*literal)}
@@ -73,9 +75,11 @@ void assignScalarLiteralToColumn(
          auto& dictionary_encoded_column =
             table.getColumn<storage::column::DictionaryEncodedColumn>(column.name);
          if (dictionary_encoded_column.getLineageIndex().has_value()) {
-            throw IllegalQueryException(fmt::format(
-               "Column '{}' is backed by a lineage index and cannot be updated", column.name
-            ));
+            throw IllegalQueryException(
+               fmt::format(
+                  "Column '{}' is backed by a lineage index and cannot be updated", column.name
+               )
+            );
          }
          dictionary_encoded_column.update(
             row_ids, is_null ? std::nullopt : std::optional{ast::extractStringLiteral(*literal)}
@@ -89,11 +93,13 @@ void assignScalarLiteralToColumn(
             );
          return;
       default:
-         throw IllegalQueryException(fmt::format(
-            "Updating columns of type '{}' is not supported (column '{}')",
-            schema::columnTypeToString(column.type),
-            column.name
-         ));
+         throw IllegalQueryException(
+            fmt::format(
+               "Updating columns of type '{}' is not supported (column '{}')",
+               schema::columnTypeToString(column.type),
+               column.name
+            )
+         );
    }
 }
 

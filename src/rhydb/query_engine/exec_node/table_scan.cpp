@@ -199,9 +199,11 @@ ExecBatchBuilder::ExecBatchBuilder(std::vector<rhydb::schema::ColumnIdentifier> 
 arrow::Status ExecBatchBuilder::appendEntries(const storage::Table& table, const Bitmap& row_ids) {
    EVOBENCH_SCOPE("ExecBatchBuilder", "appendEntries");
    for (const auto& field : output_fields) {
-      ARROW_RETURN_NOT_OK(storage::column::visit(
-         field.type, ColumnEntryAppender{}, *this, field.name, table, row_ids
-      ));
+      ARROW_RETURN_NOT_OK(
+         storage::column::visit(
+            field.type, ColumnEntryAppender{}, *this, field.name, table, row_ids
+         )
+      );
    }
    return arrow::Status::OK();
 }

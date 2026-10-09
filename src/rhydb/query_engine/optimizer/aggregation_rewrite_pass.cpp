@@ -242,8 +242,10 @@ std::optional<operators::GroupingDimension> matchScalarExpressionDimension(
       return std::nullopt;  // a plain scan column, not a map-computed expression
    }
    const auto& expression = *assignment->get().expression;
-   if (expression.freeIUs().empty() || !isGroupableScalarType(expression.type()) ||
-       !isEvaluableGroupableExpression(expression, *source.scan.table->schema)) {
+   if (
+      expression.freeIUs().empty() || !isGroupableScalarType(expression.type()) ||
+      !isEvaluableGroupableExpression(expression, *source.scan.table->schema)
+   ) {
       return std::nullopt;
    }
    return operators::ScalarExpressionDimension{

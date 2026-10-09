@@ -44,8 +44,8 @@ std::unique_ptr<ScalarExpression> Int32Literal::rewrite(
    return std::make_unique<Int32Literal>(value);
 }
 
-std::unique_ptr<filter::operators::Operator> Int32Literal::compile(const storage::Table& /*table*/)
-   const {
+std::unique_ptr<filter::operators::Operator> Int32Literal::
+   compile(const storage::Table& /*table*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -67,8 +67,8 @@ std::unique_ptr<ScalarExpression> Int64Literal::rewrite(
    return std::make_unique<Int64Literal>(value);
 }
 
-std::unique_ptr<filter::operators::Operator> Int64Literal::compile(const storage::Table& /*table*/)
-   const {
+std::unique_ptr<filter::operators::Operator> Int64Literal::
+   compile(const storage::Table& /*table*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -90,8 +90,8 @@ std::unique_ptr<ScalarExpression> FloatLiteral::rewrite(
    return std::make_unique<FloatLiteral>(value);
 }
 
-std::unique_ptr<filter::operators::Operator> FloatLiteral::compile(const storage::Table& /*table*/)
-   const {
+std::unique_ptr<filter::operators::Operator> FloatLiteral::
+   compile(const storage::Table& /*table*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -113,8 +113,8 @@ std::unique_ptr<ScalarExpression> StringLiteral::rewrite(
    return std::make_unique<StringLiteral>(value);
 }
 
-std::unique_ptr<filter::operators::Operator> StringLiteral::compile(const storage::Table& /*table*/)
-   const {
+std::unique_ptr<filter::operators::Operator> StringLiteral::
+   compile(const storage::Table& /*table*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -136,7 +136,8 @@ std::unique_ptr<ScalarExpression> BoolLiteral::rewrite(
    return std::make_unique<BoolLiteral>(value);
 }
 
-std::unique_ptr<filter::operators::Operator> BoolLiteral::compile(const storage::Table& table
+std::unique_ptr<filter::operators::Operator> BoolLiteral::compile(
+   const storage::Table& table
 ) const {
    if (value) {
       return std::make_unique<filter::operators::Full>(table.row_layout);
@@ -162,8 +163,8 @@ std::unique_ptr<ScalarExpression> DateLiteral::rewrite(
    return std::make_unique<DateLiteral>(value);
 }
 
-std::unique_ptr<filter::operators::Operator> DateLiteral::compile(const storage::Table& /*table*/)
-   const {
+std::unique_ptr<filter::operators::Operator> DateLiteral::
+   compile(const storage::Table& /*table*/) const {
    compileNonBooleanLiteral();
 }
 

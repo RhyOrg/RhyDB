@@ -51,12 +51,13 @@ CHILD:
 TEST(LineageTreeAndIdMap, errorOnMissingParent) {
    EXPECT_THAT(
       []() {
-         (void
-         )LineageTreeAndIdMap::fromLineageDefinitionFile(LineageDefinitionFile::fromYAMLString(R"(
+         (void)LineageTreeAndIdMap::fromLineageDefinitionFile(
+            LineageDefinitionFile::fromYAMLString(R"(
 some_lineage:
   parents:
     - parent_that_does_not_exist
-)"));
+)")
+         );
       },
       ThrowsMessage<rhydb::preprocessing::PreprocessingException>(::testing::HasSubstr(
          "The lineage 'parent_that_does_not_exist' which is specified as the parent of "
@@ -253,9 +254,11 @@ lineage3:
 }
 
 TEST(containsCycle, doesNotFindCycleInPangoLineageTree) {
-   ASSERT_NO_THROW(LineageTreeAndIdMap::fromLineageDefinitionFilePath(
-      "testBaseData/exampleDataset/lineage_definition.yaml"
-   ));
+   ASSERT_NO_THROW(
+      LineageTreeAndIdMap::fromLineageDefinitionFilePath(
+         "testBaseData/exampleDataset/lineage_definition.yaml"
+      )
+   );
 }
 
 TEST(containsCycle, doesNotFindCycleInMediumSizedChainGraph) {

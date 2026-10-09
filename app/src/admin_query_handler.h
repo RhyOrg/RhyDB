@@ -31,8 +31,10 @@ class AdminQueryHandler : public RestResource {
       std::shared_ptr<std::mutex> write_mutex
    );
 
-   void post(Poco::Net::HTTPServerRequest& request, Poco::Net::HTTPServerResponse& response)
-      override;
+   void post(
+      Poco::Net::HTTPServerRequest& request,
+      Poco::Net::HTTPServerResponse& response
+   ) override;
 
   private:
    [[nodiscard]] rhydb::Database loadDatabaseToWriteTo() const;

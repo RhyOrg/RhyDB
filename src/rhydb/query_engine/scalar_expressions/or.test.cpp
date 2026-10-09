@@ -112,12 +112,16 @@ TEST(OrMergeStringInSet, shouldHandleSingleStringInSet) {
 
 TEST(OrMergeStringInSet, shouldMergeMultipleValuesFromMultipleExpressions) {
    ScalarExpressionVector children;
-   children.emplace_back(std::make_unique<StringInSet>(
-      col("country"), std::unordered_set<std::string>{"Switzerland", "Austria"}
-   ));
-   children.emplace_back(std::make_unique<StringInSet>(
-      col("country"), std::unordered_set<std::string>{"Germany", "France"}
-   ));
+   children.emplace_back(
+      std::make_unique<StringInSet>(
+         col("country"), std::unordered_set<std::string>{"Switzerland", "Austria"}
+      )
+   );
+   children.emplace_back(
+      std::make_unique<StringInSet>(
+         col("country"), std::unordered_set<std::string>{"Germany", "France"}
+      )
+   );
    children.emplace_back(
       std::make_unique<StringInSet>(col("country"), std::unordered_set<std::string>{"Italy"})
    );
@@ -140,9 +144,11 @@ TEST(OrMergeStringInSet, shouldHandleDuplicateValues) {
    children.emplace_back(
       std::make_unique<StringInSet>(col("country"), std::unordered_set<std::string>{"Switzerland"})
    );
-   children.emplace_back(std::make_unique<StringInSet>(
-      col("country"), std::unordered_set<std::string>{"Switzerland", "Germany"}
-   ));
+   children.emplace_back(
+      std::make_unique<StringInSet>(
+         col("country"), std::unordered_set<std::string>{"Switzerland", "Germany"}
+      )
+   );
 
    auto result = Or::mergeStringInSetExpressions(std::move(children));
 
@@ -158,12 +164,16 @@ TEST(OrMergeStringInSet, shouldHandleDuplicateValues) {
 
 TEST(OrRewriteSymbolInSet, shouldMergeTwoSymbolInSetWithSamePosition) {
    ScalarExpressionVector children;
-   children.emplace_back(std::make_unique<SymbolInSet<Nucleotide>>(
-      nucSeq("segment1"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::A}
-   ));
-   children.emplace_back(std::make_unique<SymbolInSet<Nucleotide>>(
-      nucSeq("segment1"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::G}
-   ));
+   children.emplace_back(
+      std::make_unique<SymbolInSet<Nucleotide>>(
+         nucSeq("segment1"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::A}
+      )
+   );
+   children.emplace_back(
+      std::make_unique<SymbolInSet<Nucleotide>>(
+         nucSeq("segment1"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::G}
+      )
+   );
 
    auto result = Or::rewriteSymbolInSetExpressions<Nucleotide>(std::move(children));
 
@@ -179,12 +189,16 @@ TEST(OrRewriteSymbolInSet, shouldMergeTwoSymbolInSetWithSamePosition) {
 
 TEST(OrRewriteSymbolInSet, shouldKeepSeparateSymbolInSetWithDifferentPositions) {
    ScalarExpressionVector children;
-   children.emplace_back(std::make_unique<SymbolInSet<Nucleotide>>(
-      nucSeq("segment1"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::A}
-   ));
-   children.emplace_back(std::make_unique<SymbolInSet<Nucleotide>>(
-      nucSeq("segment1"), 200, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::G}
-   ));
+   children.emplace_back(
+      std::make_unique<SymbolInSet<Nucleotide>>(
+         nucSeq("segment1"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::A}
+      )
+   );
+   children.emplace_back(
+      std::make_unique<SymbolInSet<Nucleotide>>(
+         nucSeq("segment1"), 200, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::G}
+      )
+   );
 
    auto result = Or::rewriteSymbolInSetExpressions<Nucleotide>(std::move(children));
 
@@ -194,12 +208,16 @@ TEST(OrRewriteSymbolInSet, shouldKeepSeparateSymbolInSetWithDifferentPositions) 
 
 TEST(OrRewriteSymbolInSet, shouldKeepSeparateSymbolInSetWithDifferentSequenceNames) {
    ScalarExpressionVector children;
-   children.emplace_back(std::make_unique<SymbolInSet<Nucleotide>>(
-      nucSeq("segment1"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::A}
-   ));
-   children.emplace_back(std::make_unique<SymbolInSet<Nucleotide>>(
-      nucSeq("segment2"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::G}
-   ));
+   children.emplace_back(
+      std::make_unique<SymbolInSet<Nucleotide>>(
+         nucSeq("segment1"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::A}
+      )
+   );
+   children.emplace_back(
+      std::make_unique<SymbolInSet<Nucleotide>>(
+         nucSeq("segment2"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::G}
+      )
+   );
 
    auto result = Or::rewriteSymbolInSetExpressions<Nucleotide>(std::move(children));
 
@@ -210,9 +228,11 @@ TEST(OrRewriteSymbolInSet, shouldKeepSeparateSymbolInSetWithDifferentSequenceNam
 TEST(OrRewriteSymbolInSet, shouldPassThroughOtherExpressions) {
    ScalarExpressionVector children;
    children.emplace_back(std::make_unique<BoolLiteral>(true));
-   children.emplace_back(std::make_unique<SymbolInSet<Nucleotide>>(
-      nucSeq("segment1"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::A}
-   ));
+   children.emplace_back(
+      std::make_unique<SymbolInSet<Nucleotide>>(
+         nucSeq("segment1"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::A}
+      )
+   );
    children.emplace_back(std::make_unique<BoolLiteral>(true));
 
    auto result = Or::rewriteSymbolInSetExpressions<Nucleotide>(std::move(children));
@@ -232,17 +252,23 @@ TEST(OrRewriteSymbolInSet, shouldHandleEmptyInput) {
 
 TEST(OrRewriteSymbolInSet, shouldMergeMultipleSymbolsFromMultipleExpressions) {
    ScalarExpressionVector children;
-   children.emplace_back(std::make_unique<SymbolInSet<Nucleotide>>(
-      nucSeq("segment1"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::A}
-   ));
-   children.emplace_back(std::make_unique<SymbolInSet<Nucleotide>>(
-      nucSeq("segment1"),
-      100,
-      std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::G, Nucleotide::Symbol::C}
-   ));
-   children.emplace_back(std::make_unique<SymbolInSet<Nucleotide>>(
-      nucSeq("segment1"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::T}
-   ));
+   children.emplace_back(
+      std::make_unique<SymbolInSet<Nucleotide>>(
+         nucSeq("segment1"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::A}
+      )
+   );
+   children.emplace_back(
+      std::make_unique<SymbolInSet<Nucleotide>>(
+         nucSeq("segment1"),
+         100,
+         std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::G, Nucleotide::Symbol::C}
+      )
+   );
+   children.emplace_back(
+      std::make_unique<SymbolInSet<Nucleotide>>(
+         nucSeq("segment1"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::T}
+      )
+   );
 
    auto result = Or::rewriteSymbolInSetExpressions<Nucleotide>(std::move(children));
 
@@ -259,23 +285,33 @@ TEST(OrRewriteSymbolInSet, shouldMergeMultipleSymbolsFromMultipleExpressions) {
 TEST(OrRewriteSymbolInSet, shouldMergeOnlyMatchingPositionsAndSequences) {
    ScalarExpressionVector children;
    // These two should merge (same position and sequence name)
-   children.emplace_back(std::make_unique<SymbolInSet<Nucleotide>>(
-      nucSeq("segment1"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::A}
-   ));
-   children.emplace_back(std::make_unique<SymbolInSet<Nucleotide>>(
-      nucSeq("segment1"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::G}
-   ));
+   children.emplace_back(
+      std::make_unique<SymbolInSet<Nucleotide>>(
+         nucSeq("segment1"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::A}
+      )
+   );
+   children.emplace_back(
+      std::make_unique<SymbolInSet<Nucleotide>>(
+         nucSeq("segment1"), 100, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::G}
+      )
+   );
    // This one stays separate (different position)
-   children.emplace_back(std::make_unique<SymbolInSet<Nucleotide>>(
-      nucSeq("segment1"), 200, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::C}
-   ));
+   children.emplace_back(
+      std::make_unique<SymbolInSet<Nucleotide>>(
+         nucSeq("segment1"), 200, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::C}
+      )
+   );
    // These two should merge (same position and sequence name)
-   children.emplace_back(std::make_unique<SymbolInSet<Nucleotide>>(
-      nucSeq("segment1"), 50, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::A}
-   ));
-   children.emplace_back(std::make_unique<SymbolInSet<Nucleotide>>(
-      nucSeq("segment1"), 50, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::T}
-   ));
+   children.emplace_back(
+      std::make_unique<SymbolInSet<Nucleotide>>(
+         nucSeq("segment1"), 50, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::A}
+      )
+   );
+   children.emplace_back(
+      std::make_unique<SymbolInSet<Nucleotide>>(
+         nucSeq("segment1"), 50, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::T}
+      )
+   );
 
    auto result = Or::rewriteSymbolInSetExpressions<Nucleotide>(std::move(children));
 
@@ -409,8 +445,9 @@ using rhydb::test::QueryTestData;
 using rhydb::test::QueryTestScenario;
 
 nlohmann::json createData(const std::string& primary_key, const std::string& country) {
-   return nlohmann::json::parse(fmt::format(
-      R"(
+   return nlohmann::json::parse(
+      fmt::format(
+         R"(
 {{
    "primaryKey": "{}",
    "country": "{}",
@@ -421,10 +458,11 @@ nlohmann::json createData(const std::string& primary_key, const std::string& cou
    }}
 }}
 )",
-      primary_key,
-      country,
-      country == "USA" ? "Americas" : "Europe"
-   ));
+         primary_key,
+         country,
+         country == "USA" ? "Americas" : "Europe"
+      )
+   );
 }
 
 const auto DATABASE_CONFIG =

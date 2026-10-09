@@ -40,7 +40,8 @@ struct PositionAndInsertionKey {
 
 template <>
 struct std::hash<rhydb::query_engine::operators::PositionAndInsertionKey> {
-   std::size_t operator()(const rhydb::query_engine::operators::PositionAndInsertionKey& key
+   std::size_t operator()(
+      const rhydb::query_engine::operators::PositionAndInsertionKey& key
    ) const noexcept {
       std::size_t seed = 0;
       boost::hash_combine(seed, key.position_idx);
@@ -140,9 +141,11 @@ arrow::Result<arrow::acero::ExecNode*> InsertionsNode<SymbolType>::addToExecPlan
       exec_node::SchemaOutputBuilder output_builder{output_fields};
 
       for (const auto& [sequence_name, _] : sequence_columns_handle) {
-         ARROW_RETURN_NOT_OK(addAggregatedInsertionsToInsertionCounts<SymbolType>(
-            sequence_name, bitmap_filter, *table_handle, output_builder
-         ));
+         ARROW_RETURN_NOT_OK(
+            addAggregatedInsertionsToInsertionCounts<SymbolType>(
+               sequence_name, bitmap_filter, *table_handle, output_builder
+            )
+         );
       }
 
       ARROW_ASSIGN_OR_RAISE(

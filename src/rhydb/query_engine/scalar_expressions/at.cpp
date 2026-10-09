@@ -40,8 +40,10 @@ arrow::Result<arrow::compute::Expression> At::toArrowExpression() const {
    );
 }
 
-std::unique_ptr<ScalarExpression> At::rewrite(const storage::Table& table, AmbiguityMode mode)
-   const {
+std::unique_ptr<ScalarExpression> At::rewrite(
+   const storage::Table& table,
+   AmbiguityMode mode
+) const {
    return std::make_unique<At>(input->rewrite(table, mode), position);
 }
 

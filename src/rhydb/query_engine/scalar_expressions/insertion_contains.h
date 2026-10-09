@@ -49,7 +49,8 @@ class InsertionContains : public ScalarExpression {
       AmbiguityMode mode
    ) const override;
 
-   [[nodiscard]] std::unique_ptr<filter::operators::Operator> compile(const storage::Table& table
+   [[nodiscard]] std::unique_ptr<filter::operators::Operator> compile(
+      const storage::Table& table
    ) const override;
 };
 

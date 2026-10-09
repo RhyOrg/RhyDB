@@ -37,8 +37,10 @@ bool IsInCoveredRegion::isCovered(uint32_t row_id) const {
       return false;
    }
 
-   if (auto row_bitmap = horizontal_coverage_index->horizontal_bitmaps.find(row_id);
-       row_bitmap != horizontal_coverage_index->horizontal_bitmaps.end()) {
+   if (
+      auto row_bitmap = horizontal_coverage_index->horizontal_bitmaps.find(row_id);
+      row_bitmap != horizontal_coverage_index->horizontal_bitmaps.end()
+   ) {
       const bool is_covered = !row_bitmap->second.contains(position_idx);
       return is_covered;
    }

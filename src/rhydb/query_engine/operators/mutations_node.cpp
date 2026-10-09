@@ -329,14 +329,12 @@ arrow::Status addMutationsToOutput(
                const double proportion = static_cast<double>(count) / static_cast<double>(total);
                using OutputValue = std::optional<std::variant<std::string, bool, int32_t, double>>;
                ARROW_RETURN_NOT_OK(output_builder.addValueIfContainedInOutput(
-                  MutationsNode<SymbolType>::MUTATION_FROM_FIELD_NAME,
-                  [&]() -> OutputValue {
+                  MutationsNode<SymbolType>::MUTATION_FROM_FIELD_NAME, [&]() -> OutputValue {
                      return {std::string(1, SymbolType::symbolToChar(symbol_in_reference_genome))};
                   }
                ));
                ARROW_RETURN_NOT_OK(output_builder.addValueIfContainedInOutput(
-                  MutationsNode<SymbolType>::MUTATION_TO_FIELD_NAME,
-                  [&]() -> OutputValue {
+                  MutationsNode<SymbolType>::MUTATION_TO_FIELD_NAME, [&]() -> OutputValue {
                      return {std::string(1, SymbolType::symbolToChar(symbol))};
                   }
                ));
@@ -404,14 +402,16 @@ arrow::Result<arrow::acero::ExecNode*> MutationsNode<SymbolType>::addToExecPlan(
                sequence_column_identifier.name
             );
 
-         ARROW_RETURN_NOT_OK(addMutationsToOutput<SymbolType>(
-            sequence_column_identifier.name,
-            sequence_column,
-            given_min_proportion,
-            bitmap_filter,
-            table_handle->row_layout.numRows(),
-            output_builder
-         ));
+         ARROW_RETURN_NOT_OK(
+            addMutationsToOutput<SymbolType>(
+               sequence_column_identifier.name,
+               sequence_column,
+               given_min_proportion,
+               bitmap_filter,
+               table_handle->row_layout.numRows(),
+               output_builder
+            )
+         );
       }
       ARROW_ASSIGN_OR_RAISE(
          const std::vector<arrow::Datum> result_columns, output_builder.finish()
