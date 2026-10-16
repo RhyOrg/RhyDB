@@ -14,12 +14,14 @@
 #include "rhydb/common/lineage_tree.h"
 #include "rhydb/common/phylo_tree.h"
 #include "rhydb/config/preprocessing_config.h"
+#include "rhydb/config/runtime_config.h"
 #include "rhydb/database_info.h"
 #include "rhydb/initialize/initializer.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/query_engine/planner.h"
 #include "rhydb/schema/builtin_tables.h"
 #include "rhydb/storage/reference_genomes.h"
+#include "rhydb/storage/table.h"
 #include "rhydb/test/query_fixture.test.h"
 
 using rhydb::config::PreprocessingConfig;

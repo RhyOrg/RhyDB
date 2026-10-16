@@ -2,18 +2,28 @@
 
 #include <expected>
 #include <filesystem>
+#include <iosfwd>
+#include <map>
+#include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
 
-#include <arrow/table.h>
+#include <arrow/type_fwd.h>
 
 #include "rhydb/append/table_inserter.h"
 #include "rhydb/common/data_version.h"
 #include "rhydb/common/rhydb_directory.h"
-#include "rhydb/config/runtime_config.h"
 #include "rhydb/database_info.h"
-#include "rhydb/query_engine/query_plan.h"
 #include "rhydb/schema/database_schema.h"
-#include "rhydb/storage/table.h"
+
+namespace rhydb::config {
+class QueryOptions;
+}  // namespace rhydb::config
+
+namespace rhydb::storage {
+class Table;
+}  // namespace rhydb::storage
 
 namespace rhydb {
 

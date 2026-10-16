@@ -15,6 +15,7 @@
 #include "rhydb/query_engine/filter/operators/empty.h"
 #include "rhydb/query_engine/filter/operators/full.h"
 #include "rhydb/query_engine/filter/operators/operator.h"
+#include "rhydb/storage/table.h"
 
 namespace rhydb::query_engine::scalar_expressions {
 

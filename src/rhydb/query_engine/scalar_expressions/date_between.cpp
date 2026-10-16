@@ -14,6 +14,7 @@
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/storage/column/column.h"
 #include "rhydb/storage/column/date32_column.h"
+#include "rhydb/storage/table.h"
 
 using rhydb::common::Date32;
 using rhydb::common::date32ToString;

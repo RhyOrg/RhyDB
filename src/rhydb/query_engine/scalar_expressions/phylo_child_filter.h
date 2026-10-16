@@ -8,6 +8,10 @@
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
 #include "rhydb/schema/database_schema.h"
 
+namespace rhydb::storage::column {
+class StringColumn;
+}  // namespace rhydb::storage::column
+
 namespace rhydb::query_engine::scalar_expressions {
 
 class PhyloChildFilter : public ScalarExpression {

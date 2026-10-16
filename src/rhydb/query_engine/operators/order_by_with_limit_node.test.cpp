@@ -1,5 +1,6 @@
 #include <nlohmann/json.hpp>
 
+#include "rhydb/config/runtime_config.h"
 #include "rhydb/test/query_fixture.test.h"
 
 namespace {

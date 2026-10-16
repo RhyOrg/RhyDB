@@ -6,9 +6,14 @@
 
 #include <nlohmann/json_fwd.hpp>
 
+#include "rhydb/common/lineage_tree.h"
 #include "rhydb/query_engine/filter/operators/operator.h"
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
 #include "rhydb/schema/database_schema.h"
+
+namespace rhydb::storage::column {
+class DictionaryEncodedColumn;
+}  // namespace rhydb::storage::column
 
 namespace rhydb::query_engine::scalar_expressions {
 

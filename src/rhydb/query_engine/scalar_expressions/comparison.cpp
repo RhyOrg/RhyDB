@@ -39,6 +39,7 @@
 #include "rhydb/storage/column/float_column.h"
 #include "rhydb/storage/column/int_column.h"
 #include "rhydb/storage/column/string_column.h"
+#include "rhydb/storage/table.h"
 
 using rhydb::query_engine::filter::operators::Comparator;
 using rhydb::query_engine::filter::operators::CompareToValueSelection;

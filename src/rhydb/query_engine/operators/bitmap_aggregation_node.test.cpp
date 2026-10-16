@@ -7,6 +7,7 @@
 #include <boost/uuid/uuid_io.hpp>
 #include <nlohmann/json.hpp>
 
+#include "rhydb/config/runtime_config.h"
 #include "rhydb/test/query_fixture.test.h"
 
 namespace {

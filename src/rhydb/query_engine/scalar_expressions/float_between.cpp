@@ -9,6 +9,8 @@
 #include "rhydb/query_engine/filter/operators/selection.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
+#include "rhydb/storage/column/float_column.h"
+#include "rhydb/storage/table.h"
 
 using rhydb::storage::column::FloatColumn;
 

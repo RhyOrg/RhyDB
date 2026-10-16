@@ -3,8 +3,11 @@
 #include <expected>
 #include <filesystem>
 #include <map>
+#include <memory>
 #include <string>
 #include <variant>
+
+#include <nlohmann/json_fwd.hpp>
 
 #include "rhydb/schema/database_schema.h"
 #include "rhydb/storage/column/column_variant.h"

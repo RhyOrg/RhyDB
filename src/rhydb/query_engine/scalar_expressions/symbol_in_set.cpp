@@ -18,6 +18,7 @@
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/query_engine/query_compilation_exception.h"
 #include "rhydb/query_engine/query_parse_sequence_name.h"
+#include "rhydb/storage/table.h"
 
 using rhydb::storage::column::SequenceColumn;
 

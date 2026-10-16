@@ -10,7 +10,10 @@
 
 #include "rhydb/query_engine/operators/query_node.h"
 #include "rhydb/schema/database_schema.h"
-#include "rhydb/storage/table.h"
+
+namespace rhydb::storage {
+class Table;
+}  // namespace rhydb::storage
 
 namespace rhydb::query_engine::operators {
 

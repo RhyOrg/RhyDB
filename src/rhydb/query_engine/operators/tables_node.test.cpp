@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 
+#include "rhydb/config/runtime_config.h"
 #include "rhydb/database.h"
 #include "rhydb/query_engine/planner.h"
 #include "rhydb/schema/database_schema.h"

@@ -17,6 +17,7 @@
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
 #include "rhydb/storage/column/dictionary_encoded_column.h"
 #include "rhydb/storage/column/string_column.h"
+#include "rhydb/storage/table.h"
 
 namespace rhydb::query_engine::scalar_expressions {
 

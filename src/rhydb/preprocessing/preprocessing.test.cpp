@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 
+#include "rhydb/config/runtime_config.h"
 #include "rhydb/database.h"
 #include "rhydb/database_info.h"
 #include "rhydb/preprocessing/preprocessing_exception.h"

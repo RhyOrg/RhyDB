@@ -1,11 +1,14 @@
 #pragma once
 
 #include <filesystem>
+#include <string>
 #include <vector>
 
-#include <yaml-cpp/yaml.h>
-
 #include "rhydb/common/lineage_name.h"
+
+namespace YAML {
+class Node;
+}  // namespace YAML
 
 namespace rhydb::preprocessing {
 using rhydb::common::LineageName;

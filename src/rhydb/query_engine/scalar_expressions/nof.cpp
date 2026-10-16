@@ -17,6 +17,7 @@
 #include "rhydb/query_engine/scalar_expressions/and.h"
 #include "rhydb/query_engine/scalar_expressions/negation.h"
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
+#include "rhydb/storage/table.h"
 
 namespace {
 

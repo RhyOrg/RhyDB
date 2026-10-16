@@ -21,6 +21,7 @@
 #include <arrow/util/async_generator.h>
 #include <nlohmann/json.hpp>
 
+#include "rhydb/config/runtime_config.h"
 #include "rhydb/query_engine/exec_node/arrow_util.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/schema/database_schema.h"

@@ -15,6 +15,7 @@
 #include "rhydb/storage/column/insertion_index.h"
 #include "rhydb/storage/column/sequence_column.h"
 #include "rhydb/storage/insertion_format_exception.h"
+#include "rhydb/storage/table.h"
 
 namespace rhydb::query_engine::scalar_expressions {
 

@@ -18,6 +18,7 @@
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
 #include "rhydb/query_engine/scalar_expressions/string_in_set.h"
 #include "rhydb/query_engine/scalar_expressions/symbol_in_set.h"
+#include "rhydb/storage/table.h"
 
 namespace rhydb::query_engine::scalar_expressions {
 

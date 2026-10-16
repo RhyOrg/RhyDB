@@ -2,6 +2,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "rhydb/config/runtime_config.h"
 #include "rhydb/query_engine/exec_node/table_scan.h"
 #include "rhydb/query_engine/operators/compute_filter.h"
 

@@ -1,15 +1,23 @@
 #pragma once
 
+#include <algorithm>
+#include <iterator>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include <arrow/compute/expression.h>
+#include <arrow/compute/type_fwd.h>
 #include <arrow/result.h>
 
-#include "rhydb/query_engine/filter/operators/operator.h"
 #include "rhydb/schema/database_schema.h"
-#include "rhydb/storage/table.h"
+
+namespace rhydb::storage {
+class Table;
+}  // namespace rhydb::storage
+
+namespace rhydb::query_engine::filter::operators {
+class Operator;
+}  // namespace rhydb::query_engine::filter::operators
 
 namespace rhydb::query_engine::scalar_expressions {
 

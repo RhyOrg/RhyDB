@@ -9,6 +9,7 @@
 #include <spdlog/spdlog.h>
 
 #include "rhydb/append/table_inserter.h"
+#include "rhydb/config/runtime_config.h"
 #include "rhydb/initialize/initializer.h"
 #include "rhydb/query_engine/exec_node/ndjson_sink.h"
 #include "rhydb/query_engine/planner.h"

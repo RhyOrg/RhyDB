@@ -11,6 +11,7 @@
 #include "rhydb/common/lineage_tree.h"
 #include "rhydb/common/phylo_tree.h"
 #include "rhydb/config/database_config.h"
+#include "rhydb/config/runtime_config.h"
 #include "rhydb/database.h"
 #include "rhydb/initialize/initializer.h"
 #include "rhydb/query_engine/exec_node/ndjson_sink.h"

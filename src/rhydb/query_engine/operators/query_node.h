@@ -5,13 +5,19 @@
 #include <string_view>
 #include <vector>
 
-#include <arrow/acero/exec_plan.h>
+#include <arrow/acero/type_fwd.h>
 #include <arrow/result.h>
 #include <nlohmann/json_fwd.hpp>
 
-#include "rhydb/config/runtime_config.h"
 #include "rhydb/schema/database_schema.h"
-#include "rhydb/storage/table.h"
+
+namespace rhydb::config {
+class QueryOptions;
+}  // namespace rhydb::config
+
+namespace rhydb::storage {
+class Table;
+}  // namespace rhydb::storage
 
 namespace rhydb::query_engine::operators {
 
