@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.16.2](https://github.com/RhyOrg/RhyDB/compare/v0.16.1...v0.16.2) (2026-10-16)
+
+
+### Features
+
+* **python:** also build python wheels for 3.15 ([#1711](https://github.com/RhyOrg/RhyDB/issues/1711)) ([bdf1c4f](https://github.com/RhyOrg/RhyDB/commit/bdf1c4f1e38b067556a9349cd3c5837f85932213))
+* **rhydb:** materialize a `lineage_definitions` table ([#1706](https://github.com/RhyOrg/RhyDB/issues/1706)) ([1ff89ab](https://github.com/RhyOrg/RhyDB/commit/1ff89aba0661889ee750aeb1178348f123df6586))
+* **storage:** assign each row of a chunk its own value in column updates ([#1698](https://github.com/RhyOrg/RhyDB/issues/1698)) ([4eda381](https://github.com/RhyOrg/RhyDB/commit/4eda38106d21cf2b478e7f204f84ba5d432b8a19))
+
 ## [0.16.1](https://github.com/RhyOrg/RhyDB/compare/v0.16.0...v0.16.1) (2026-10-14)
 
 
