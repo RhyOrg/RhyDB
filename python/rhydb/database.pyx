@@ -269,8 +269,8 @@ cdef class PyDatabase:
         ``"'Basel'"`` for a string column. The literal ``"null"`` clears the matched rows.
 
         Scalar value columns (int, float, date and bool) and string columns (plain, indexed and
-        zstd-compressed) can be updated. String columns backed by a phylogenetic tree or a lineage
-        index cannot be updated, because their auxiliary indexes have no in-place update support.
+        zstd-compressed) can be updated. String columns backed by a phylogenetic tree cannot be
+        updated, because that auxiliary index has no in-place update support.
 
         Not thread-safe: this mutates the in-memory database in place with no
         internal locking.

@@ -13,7 +13,6 @@
 #include <re2/re2.h>
 
 #include "rhydb/common/aa_symbols.h"
-#include "rhydb/common/lineage_tree.h"
 #include "rhydb/common/nucleotide_symbols.h"
 #include "rhydb/query_engine/exec_node/arrow_util.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
@@ -50,7 +49,6 @@
 #include "rhydb/query_engine/scalar_expressions/int_between.h"
 #include "rhydb/query_engine/scalar_expressions/is_null.h"
 #include "rhydb/query_engine/scalar_expressions/iso_week.h"
-#include "rhydb/query_engine/scalar_expressions/lineage_filter.h"
 #include "rhydb/query_engine/scalar_expressions/literal.h"
 #include "rhydb/query_engine/scalar_expressions/maybe.h"
 #include "rhydb/query_engine/scalar_expressions/mutation_profile.h"
@@ -393,42 +391,6 @@ ScalarExpressionPtr handleIsNotNull(
       std::make_unique<scalar_expressions::IsNull>(
          resolveColumn(extractIdentifierName(args.at("column")), schema)
       )
-   );
-}
-
-ScalarExpressionPtr handleLineage(
-   const BoundArguments& args,
-   const std::vector<schema::ColumnIdentifier>& schema,
-   const ScalarConversionContext& /*context*/
-) {
-   auto column_name = extractIdentifierName(args.at("column"));
-   const auto& value_expr = args.at("value");
-   std::optional<std::string> lineage_value;
-   if (!isNullLiteral(value_expr)) {
-      lineage_value = extractStringLiteral(value_expr);
-   }
-   bool include_sublineages = false;
-   if (const auto* expr = args.get("includeSublineages")) {
-      include_sublineages = extractBoolLiteral(*expr);
-   }
-   std::optional<common::RecombinantEdgeFollowingMode> sublineage_mode;
-   if (include_sublineages) {
-      sublineage_mode = common::RecombinantEdgeFollowingMode::DO_NOT_FOLLOW;
-   }
-   auto recombinant_mode = args.getOptionalString("recombinantFollowingMode");
-   if (recombinant_mode.has_value()) {
-      sublineage_mode = common::recombinantEdgeFollowingModeFromName(recombinant_mode.value());
-      CHECK_RHYDB_QUERY(
-         sublineage_mode.has_value(),
-         "invalid recombinantFollowingMode: '{}'. Valid values are: {}, {}, {}",
-         recombinant_mode.value(),
-         common::ALWAYS_FOLLOW_NAME,
-         common::FOLLOW_IF_FULLY_CONTAINED_IN_CLADE_NAME,
-         common::DO_NOT_FOLLOW_NAME
-      );
-   }
-   return std::make_unique<scalar_expressions::LineageFilter>(
-      resolveColumn(column_name, schema), lineage_value, sublineage_mode
    );
 }
 

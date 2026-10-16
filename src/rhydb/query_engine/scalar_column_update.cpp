@@ -74,13 +74,6 @@ void assignScalarLiteralToColumn(
       case schema::ColumnType::DICTIONARY_ENCODED: {
          auto& dictionary_encoded_column =
             table.getColumn<storage::column::DictionaryEncodedColumn>(column.name);
-         if (dictionary_encoded_column.getLineageIndex().has_value()) {
-            throw IllegalQueryException(
-               fmt::format(
-                  "Column '{}' is backed by a lineage index and cannot be updated", column.name
-               )
-            );
-         }
          dictionary_encoded_column.update(
             row_ids, is_null ? std::nullopt : std::optional{ast::extractStringLiteral(*literal)}
          );

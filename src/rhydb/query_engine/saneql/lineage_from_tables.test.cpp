@@ -257,7 +257,7 @@ const QueryTestScenario UNDER_AND = {
 };
 
 // lineageFromTables is a rewrite of the query, so a lineage that is not in the tables just matches
-// nothing, instead of being rejected like by lineage(...).
+// nothing.
 const QueryTestScenario UNKNOWN_LINEAGE_MATCHES_NOTHING = {
    .name = "UNKNOWN_LINEAGE_MATCHES_NOTHING",
    .query =

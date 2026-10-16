@@ -55,8 +55,7 @@ schema:
 - `type`: One of `string`, `int` (alias `int32`, 32-bit integer), `int64` (64-bit integer), `float`, `date`, `boolean`
 - `generateIndex`: Set to `true` to create a bitmap index for fast equality lookups. This is only valid for `string` columns
 - `generateLineageIndex`: Path to lineage definition file for hierarchical queries. This is only possible if `generateIndex` is also set.
-  Preprocessing also materializes the definition as a relation table named after the column and an alias table named `<column>_aliases`. See [lineage_definitions.md](lineage_definitions.md) for their schema.
-- `treatUnknownLineagesAsNull`: Treats unknown lineage values as null when adding them to the lineage index
+  Preprocessing materializes the definition as a relation table named after the column and an alias table named `<column>_aliases`, which is what `lineage(...)` resolves against. See [lineage_definitions.md](lineage_definitions.md) for their schema.
 - `isPhyloTreeField`: Mark this column as a phyloTreeField, which enables the phylogenetic queries. See [phylogenetic_queries.md](phylogenetic_queries.md)
 
 **Schema Options**:

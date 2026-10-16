@@ -254,14 +254,6 @@ TEST(DatabaseTest, updateColumnRejectsInvalidRequests) {
       )
    );
 
-   // A lineage-indexed column (pango_lineage) cannot be updated.
-   EXPECT_THAT(
-      [&]() { database->updateColumn(table, "pango_lineage", "'B.1'", "true"); },
-      ThrowsMessage<rhydb::query_engine::IllegalQueryException>(
-         ::testing::HasSubstr("lineage index")
-      )
-   );
-
    // Unknown columns and tables are reported.
    EXPECT_THAT(
       [&]() { database->updateColumn(table, "does_not_exist", "1", "true"); },

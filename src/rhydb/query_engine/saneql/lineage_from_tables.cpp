@@ -1,10 +1,12 @@
 #include "rhydb/query_engine/saneql/lineage_from_tables.h"
 
 #include <string>
+#include <string_view>
 
 #include <fmt/format.h>
 
 #include "rhydb/common/lineage_tree.h"
+#include "rhydb/initialize/lineage_relation_table.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/query_engine/saneql/ast.h"
 #include "rhydb/query_engine/saneql/ast_to_query.h"
@@ -61,7 +63,30 @@ std::string lineageEdgesQuery(
    );
 }
 
-}  // namespace
+/// Parses the `recombinantFollowingMode` argument, which defaults to 'doNotFollow'.
+common::RecombinantEdgeFollowingMode parseRecombinantFollowingMode(const BoundArguments& args) {
+   auto name = args.getOptionalString("recombinantFollowingMode");
+   if (!name.has_value()) {
+      return common::RecombinantEdgeFollowingMode::DO_NOT_FOLLOW;
+   }
+   const auto mode = common::recombinantEdgeFollowingModeFromName(name.value());
+   CHECK_RHYDB_QUERY(
+      mode.has_value(),
+      "invalid recombinantFollowingMode: '{}'. Valid values are: {}, {}, {}",
+      name.value(),
+      common::ALWAYS_FOLLOW_NAME,
+      common::FOLLOW_IF_FULLY_CONTAINED_IN_CLADE_NAME,
+      common::DO_NOT_FOLLOW_NAME
+   );
+   return mode.value();
+}
+
+bool parseIncludeSublineages(const BoundArguments& args) {
+   if (const auto* expression = args.get("includeSublineages")) {
+      return ast::extractBoolLiteral(*expression);
+   }
+   return false;
+}
 
 /// Matches the canonical lineage of `value` and its aliases, and with `includeSublineages` all
 /// lineages below it and their aliases, as all lineages reachable from `value` by
@@ -74,9 +99,12 @@ std::string lineageEdgesQuery(
 /// (`column = value` matches `value` even if it has no edges at all.)
 ///
 /// This is a pure rewrite into other functions of the query language, which compute the result
-/// from the given tables when the query runs.
-ScalarExpressionPtr handleLineageFromTables(
+/// from the given tables when the query runs. `lineages` and `aliases` are table names.
+ScalarExpressionPtr lineageFilterOverTables(
+   std::string_view function_name,
    const BoundArguments& args,
+   const std::string& lineages,
+   const std::string& aliases,
    const std::vector<schema::ColumnIdentifier>& schema,
    const ScalarConversionContext& context
 ) {
@@ -84,31 +112,11 @@ ScalarExpressionPtr handleLineageFromTables(
    const auto& value_expression = args.at("value");
    CHECK_RHYDB_QUERY(
       !ast::isNullLiteral(value_expression),
-      "lineageFromTables() does not accept null as the lineage; use isNull({}) instead",
+      "{}() does not accept null as the lineage; use isNull({}) instead",
+      function_name,
       column
    );
    const std::string value = value_expression.toString();
-   const std::string lineages =
-      ast::quoteIdentifier(ast::extractIdentifierName(args.at("lineages")));
-   const std::string aliases = ast::quoteIdentifier(ast::extractIdentifierName(args.at("aliases")));
-   bool include_sublineages = false;
-   if (const auto* expression = args.get("includeSublineages")) {
-      include_sublineages = ast::extractBoolLiteral(*expression);
-   }
-   auto recombinant_following_mode = common::RecombinantEdgeFollowingMode::DO_NOT_FOLLOW;
-   if (auto name = args.getOptionalString("recombinantFollowingMode")) {
-      const auto mode = common::recombinantEdgeFollowingModeFromName(name.value());
-      CHECK_RHYDB_QUERY(
-         mode.has_value(),
-         "invalid recombinantFollowingMode: '{}'. Valid values are: {}, {}, {}",
-         name.value(),
-         common::ALWAYS_FOLLOW_NAME,
-         common::FOLLOW_IF_FULLY_CONTAINED_IN_CLADE_NAME,
-         common::DO_NOT_FOLLOW_NAME
-      );
-      recombinant_following_mode = mode.value();
-   }
-
    const std::string query = fmt::format(
       "{column} = {value} || {column}.in({edges}"
       ".transitiveClosure(edge_from, edge_to, startingFrom := {{{value}}})"
@@ -117,10 +125,43 @@ ScalarExpressionPtr handleLineageFromTables(
       fmt::arg("value", value),
       fmt::arg(
          "edges",
-         lineageEdgesQuery(lineages, aliases, include_sublineages, recombinant_following_mode)
+         lineageEdgesQuery(
+            ast::quoteIdentifier(lineages),
+            ast::quoteIdentifier(aliases),
+            parseIncludeSublineages(args),
+            parseRecombinantFollowingMode(args)
+         )
       )
    );
    return convertToFilter(*Parser(query).parse(), schema, context);
+}
+
+}  // namespace
+
+ScalarExpressionPtr handleLineageFromTables(
+   const BoundArguments& args,
+   const std::vector<schema::ColumnIdentifier>& schema,
+   const ScalarConversionContext& context
+) {
+   return lineageFilterOverTables(
+      "lineageFromTables",
+      args,
+      ast::extractIdentifierName(args.at("lineages")),
+      ast::extractIdentifierName(args.at("aliases")),
+      schema,
+      context
+   );
+}
+
+ScalarExpressionPtr handleLineage(
+   const BoundArguments& args,
+   const std::vector<schema::ColumnIdentifier>& schema,
+   const ScalarConversionContext& context
+) {
+   const std::string column = ast::extractIdentifierName(args.at("column"));
+   return lineageFilterOverTables(
+      "lineage", args, column, initialize::lineageAliasTableName(column), schema, context
+   );
 }
 
 }  // namespace rhydb::query_engine::saneql

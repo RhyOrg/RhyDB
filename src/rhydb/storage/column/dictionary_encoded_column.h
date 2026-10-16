@@ -15,14 +15,12 @@
 #include <roaring/roaring.hh>
 
 #include "rhydb/common/bidirectional_string_map.h"
-#include "rhydb/common/lineage_tree.h"
 #include "rhydb/common/types.h"
 #include "rhydb/roaring_util/roaring_container.h"
 #include "rhydb/schema/database_schema.h"
 #include "rhydb/storage/column/chunked_value_buffer.h"
 #include "rhydb/storage/column/column.h"
 #include "rhydb/storage/column/column_metadata.h"
-#include "rhydb/storage/column/lineage_index.h"
 
 namespace rhydb::storage::column {
 
@@ -31,8 +29,6 @@ class DictionaryEncodedColumnBuilder;
 class DictionaryEncodedColumnMetadata : public ColumnMetadata {
   public:
    common::BidirectionalStringMap dictionary;
-   std::optional<common::LineageTreeAndIdMap> lineage_tree;
-   bool treat_unknown_lineages_as_null = false;
 
    explicit DictionaryEncodedColumnMetadata(std::string column_name)
        : ColumnMetadata(std::move(column_name)) {}
@@ -43,19 +39,6 @@ class DictionaryEncodedColumnMetadata : public ColumnMetadata {
    )
        : ColumnMetadata(std::move(column_name)),
          dictionary(std::move(dictionary)) {}
-
-   DictionaryEncodedColumnMetadata(
-      std::string column_name,
-      common::LineageTreeAndIdMap lineage_tree_and_id_map,
-      bool treat_unknown_lineages_as_null
-   );
-
-   DictionaryEncodedColumnMetadata(
-      std::string column_name,
-      rhydb::common::BidirectionalStringMap dictionary,
-      common::LineageTreeAndIdMap lineage_tree_and_id_map,
-      bool treat_unknown_lineages_as_null
-   );
 
    DictionaryEncodedColumnMetadata() = delete;
    DictionaryEncodedColumnMetadata(const DictionaryEncodedColumnMetadata& other) = delete;
@@ -81,7 +64,6 @@ class DictionaryEncodedColumn {
   private:
    ChunkedValueBuffer<Idx> value_ids;
    std::unordered_map<Idx, roaring::Roaring> indexed_values;
-   std::optional<LineageIndex> lineage_index;
 
   public:
    explicit DictionaryEncodedColumn(Metadata* metadata);
@@ -131,8 +113,6 @@ class DictionaryEncodedColumn {
 
    [[nodiscard]] std::optional<rhydb::Idx> getValueId(const std::string& value) const;
 
-   [[nodiscard]] const std::optional<LineageIndex>& getLineageIndex() const;
-
   private:
    friend class boost::serialization::access;
    template <class Archive>
@@ -141,9 +121,6 @@ class DictionaryEncodedColumn {
       archive & value_ids;
       archive & indexed_values;
       archive & null_bitmap;
-      if(lineage_index.has_value()){
-         archive & lineage_index.value();
-      }
       // clang-format on
    }
 };
@@ -181,8 +158,6 @@ template <class Archive>
 ) {
    archive & object.column_name;
    archive & object.dictionary;
-   archive & object.lineage_tree;
-   archive & object.treat_unknown_lineages_as_null;
 }
 }  // namespace boost::serialization
 
@@ -198,23 +173,10 @@ template <class Archive>
 ) {
    std::string column_name;
    rhydb::common::BidirectionalStringMap dictionary;
-   std::optional<rhydb::common::LineageTreeAndIdMap> lineage_tree;
-   bool treat_unknown_lineages_as_null;
    archive & column_name;
    archive & dictionary;
-   archive & lineage_tree;
-   archive & treat_unknown_lineages_as_null;
-   if (lineage_tree.has_value()) {
-      object = std::make_shared<rhydb::storage::column::DictionaryEncodedColumnMetadata>(
-         std::move(column_name),
-         std::move(dictionary),
-         std::move(lineage_tree.value()),
-         treat_unknown_lineages_as_null
-      );
-   } else {
-      object = std::make_shared<rhydb::storage::column::DictionaryEncodedColumnMetadata>(
-         std::move(column_name), std::move(dictionary)
-      );
-   }
+   object = std::make_shared<rhydb::storage::column::DictionaryEncodedColumnMetadata>(
+      std::move(column_name), std::move(dictionary)
+   );
 }
 }  // namespace boost::serialization

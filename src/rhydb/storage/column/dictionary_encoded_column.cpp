@@ -9,33 +9,8 @@
 
 namespace rhydb::storage::column {
 
-DictionaryEncodedColumnMetadata::DictionaryEncodedColumnMetadata(
-   std::string column_name,
-   common::LineageTreeAndIdMap lineage_tree_and_id_map,
-   bool treat_unknown_lineages_as_null
-)
-    : ColumnMetadata(std::move(column_name)),
-      dictionary(lineage_tree_and_id_map.lineage_id_lookup_map.copy()),
-      lineage_tree(std::move(lineage_tree_and_id_map)),
-      treat_unknown_lineages_as_null(treat_unknown_lineages_as_null) {}
-
-DictionaryEncodedColumnMetadata::DictionaryEncodedColumnMetadata(
-   std::string column_name,
-   common::BidirectionalStringMap dictionary,
-   common::LineageTreeAndIdMap lineage_tree_and_id_map,
-   bool treat_unknown_lineages_as_null
-)
-    : ColumnMetadata(std::move(column_name)),
-      dictionary(std::move(dictionary)),
-      lineage_tree(std::move(lineage_tree_and_id_map)),
-      treat_unknown_lineages_as_null(treat_unknown_lineages_as_null) {}
-
 DictionaryEncodedColumn::DictionaryEncodedColumn(DictionaryEncodedColumnMetadata* metadata)
-    : metadata(metadata) {
-   if (metadata->lineage_tree.has_value()) {
-      lineage_index = LineageIndex{&metadata->lineage_tree->lineage_tree};
-   }
-}
+    : metadata(metadata) {}
 
 std::optional<const roaring::Roaring*> DictionaryEncodedColumn::filter(Idx value_id) const {
    if (indexed_values.contains(value_id)) {
@@ -58,24 +33,8 @@ std::optional<const roaring::Roaring*> DictionaryEncodedColumn::filter(
 }
 
 std::expected<void, std::string> DictionaryEncodedColumn::appendChunk(const Buffer& buffer) {
-   // Validate whole buffer before mutating anything
-   if (lineage_index.has_value() && !metadata->treat_unknown_lineages_as_null) {
-      for (const auto& maybe_value : buffer) {
-         if (maybe_value.has_value() && !metadata->dictionary.getId(*maybe_value).has_value()) {
-            return std::unexpected(
-               fmt::format(
-                  "The value '{}' is not a valid lineage value for column '{}'. "
-                  "Is your lineage definition file outdated?",
-                  *maybe_value,
-                  metadata->column_name
-               )
-            );
-         }
-      }
-   }
-
    // Build this chunk's value ids in isolation so that previously appended chunks are never
-   // touched; the inverted index and lineage index are global and keep being updated by row id.
+   // touched; the inverted index is global and keeps being updated by row id.
    const uint32_t base = RowId::chunkStart(static_cast<uint16_t>(value_ids.numChunks()));
    std::vector<Idx> chunk;
    chunk.reserve(buffer.size());
@@ -92,14 +51,6 @@ std::expected<void, std::string> DictionaryEncodedColumn::appendChunk(const Buff
          continue;
       }
       const std::string_view value = *maybe_value;
-
-      if (lineage_index.has_value()) {
-         const auto value_id = metadata->dictionary.getId(value);
-         if (value_id.has_value()) {
-            lineage_index.value().insert(row_id, value_id.value());
-         }
-      }
-
       const Idx value_id = metadata->dictionary.getOrCreateId(value);
 
       indexed_values[value_id].add(row_id);
@@ -113,8 +64,6 @@ void DictionaryEncodedColumn::update(
    const roaring::Roaring& row_ids,
    const std::optional<std::string>& value
 ) {
-   RHYDB_ASSERT(!lineage_index.has_value());
-
    // Null rows carry the empty-string placeholder id as their stored value (see `appendChunk`), so
    // the target id is that placeholder for a null update and the interned value id otherwise.
    const Idx new_value_id = value.has_value() ? metadata->dictionary.getOrCreateId(*value)
@@ -149,7 +98,6 @@ void DictionaryEncodedColumn::update(
    roaring_util::RoaringContainerView rows,
    const Buffer& new_values
 ) {
-   RHYDB_ASSERT(!lineage_index.has_value());
    RHYDB_ASSERT_EQ(new_values.size(), static_cast<size_t>(rows.getCardinality()));
 
    size_t index = 0;
@@ -181,10 +129,6 @@ bool DictionaryEncodedColumn::isNull(RowId row_id) const {
 
 std::optional<rhydb::Idx> DictionaryEncodedColumn::getValueId(const std::string& value) const {
    return metadata->dictionary.getId(value);
-}
-
-const std::optional<LineageIndex>& DictionaryEncodedColumn::getLineageIndex() const {
-   return lineage_index;
 }
 
 }  // namespace rhydb::storage::column

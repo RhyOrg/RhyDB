@@ -1,5 +1,6 @@
 #include "rhydb/initialize/initializer.h"
 
+#include <fmt/format.h>
 #include <gtest/gtest.h>
 
 #include "rhydb/database.h"
@@ -112,16 +113,13 @@ A.11:
          ->getColumnMetadata<rhydb::storage::column::DictionaryEncodedColumn>("pango_lineage")
          .has_value()
    );
+   // A lineage column is a plain dictionary: its tree lives in the relation table built for it,
+   // so nothing is attached to the column and the dictionary starts out empty.
    auto* pango_metadata =
       table_schema
          ->getColumnMetadata<rhydb::storage::column::DictionaryEncodedColumn>("pango_lineage")
          .value();
-   ASSERT_EQ(pango_metadata->dictionary.getValue(0), "A");
-   ASSERT_EQ(pango_metadata->dictionary.getValue(1), "A.1");
-   ASSERT_EQ(pango_metadata->dictionary.getValue(2), "A.11");
-   ASSERT_EQ(pango_metadata->dictionary.getValue(3), "X");
-   ASSERT_EQ(pango_metadata->dictionary.getValue(4), "X2");
-   ASSERT_EQ(pango_metadata->dictionary.getValue(5), "Y3");
+   ASSERT_EQ(pango_metadata->dictionary.size(), 0);
 
    ASSERT_TRUE(table_schema->getColumn("primaryKey").has_value());
    ASSERT_EQ(table_schema->getColumn("primaryKey").value().type, ColumnType::STRING);

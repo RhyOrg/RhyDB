@@ -142,7 +142,7 @@ Assigns a single `value` to `column_name` for every row matched by `filter_expre
 | string      | `"'Basel'"` &nbsp;(a quoted string literal) |
 | any of them | `"null"` &nbsp;(clears the rows)     |
 
-Scalar value columns (int32, int64, float, date, bool) and string columns (plain, indexed, and zstd-compressed) can be updated. Two kinds of string column are rejected because their auxiliary indexes have no in-place update support: columns backed by a **phylogenetic tree** (e.g. the primary key when it is a phylo field) and columns backed by a **lineage index**. Sequence columns are also rejected.
+Scalar value columns (int32, int64, float, date, bool) and string columns (plain, indexed, and zstd-compressed) can be updated. Columns backed by a **phylogenetic tree** (e.g. the primary key when it is a phylo field) are rejected because that auxiliary index has no in-place update support. Sequence columns are also rejected.
 
 ```python
 db = Database("path/to/rhydb-dir")
@@ -188,9 +188,9 @@ The bindings translate C++ exceptions into Python ones:
 
 ```python
 try:
-    db.update_column("data", "pango_lineage", "'B.1'")   # backed by a lineage index
+    db.update_column("data", "does_not_exist", "'B.1'")
 except ValueError as e:
-    print(e)   # "Column 'pango_lineage' is backed by a lineage index and cannot be updated"
+    print(e)   # the column does not exist
 ```
 
 ## Complete Example

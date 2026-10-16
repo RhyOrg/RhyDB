@@ -21,10 +21,10 @@ class DatabaseMetadata {
    schema::ValueType type;
    bool generate_index;
    /// The lineage definition file this column's values belong to. Preprocessing materializes the
-   /// definition as a lineage relation table named after the column, and an alias table.
+   /// definition as a lineage relation table named after the column, which is what `lineage(...)`
+   /// resolves against.
    std::optional<std::string> generate_lineage_index;
    bool phylo_tree_node_identifier;
-   bool treat_unknown_lineages_as_null;
 
    [[nodiscard]] schema::ColumnType getColumnType() const;
 };
