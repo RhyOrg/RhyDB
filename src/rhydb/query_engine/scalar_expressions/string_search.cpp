@@ -71,14 +71,22 @@ std::unique_ptr<filter::operators::Operator> StringSearch::compile(
    );
    CHECK_RHYDB_QUERY(
       table.hasColumn<storage::column::StringColumn>(column.name) ||
-         table.hasColumn<storage::column::DictionaryEncodedColumn>(column.name),
+         table.hasColumn<storage::column::DictionaryEncodedColumn<storage::column::StringColumn>>(
+            column.name
+         ),
       "The column '{}' is not of type string",
       column.name
    );
 
-   if (table.hasColumn<storage::column::DictionaryEncodedColumn>(column.name)) {
+   if (
+      table.hasColumn<storage::column::DictionaryEncodedColumn<storage::column::StringColumn>>(
+         column.name
+      )
+   ) {
       const auto& string_column =
-         table.getColumn<storage::column::DictionaryEncodedColumn>(column.name);
+         table.getColumn<storage::column::DictionaryEncodedColumn<storage::column::StringColumn>>(
+            column.name
+         );
       return createMatchingBitmap(string_column, search_expression, table.row_layout);
    }
    RHYDB_ASSERT(table.hasColumn<storage::column::StringColumn>(column.name));

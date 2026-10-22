@@ -18,8 +18,8 @@
 namespace rhydb::storage {
 
 template <>
-std::map<std::string, column::DictionaryEncodedColumn::Builder>& TableChunkBuilder::
-   getColumnBuilders<column::DictionaryEncodedColumn>() {
+std::map<std::string, column::DictionaryEncodedColumn<column::StringColumn>::Builder>&
+TableChunkBuilder::getColumnBuilders<column::DictionaryEncodedColumn<column::StringColumn>>() {
    return dictionary_encoded_column_builders;
 }
 

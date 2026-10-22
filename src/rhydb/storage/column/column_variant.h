@@ -18,7 +18,7 @@ namespace rhydb::storage::column {
 /// Any column a table can hold. The alternative always matches the column's `schema::DataType`.
 using ColumnVariant = std::variant<
    StringColumn,
-   DictionaryEncodedColumn,
+   DictionaryEncodedColumn<StringColumn>,
    BoolColumn,
    Int32Column,
    Int64Column,

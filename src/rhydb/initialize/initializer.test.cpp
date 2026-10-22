@@ -59,7 +59,8 @@ TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
       table_schema->getColumn("country").value().type, DataType::dictionaryEncoded(DataType::STRING)
    );
    ASSERT_TRUE(table_schema
-                  ->getColumnMetadata<rhydb::storage::column::DictionaryEncodedColumn>("country")
+                  ->getColumnMetadata<rhydb::storage::column::DictionaryEncodedColumn<
+                     rhydb::storage::column::StringColumn>>("country")
                   .has_value());
 
    ASSERT_TRUE(table_schema->getColumn("date").has_value());
@@ -71,7 +72,8 @@ TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
       DataType::dictionaryEncoded(DataType::STRING)
    );
    ASSERT_TRUE(table_schema
-                  ->getColumnMetadata<rhydb::storage::column::DictionaryEncodedColumn>("division")
+                  ->getColumnMetadata<rhydb::storage::column::DictionaryEncodedColumn<
+                     rhydb::storage::column::StringColumn>>("division")
                   .has_value());
 
    ASSERT_TRUE(table_schema->getColumn("main").has_value());
@@ -94,11 +96,10 @@ TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
       table_schema->getColumn("pango_lineage").value().type,
       DataType::dictionaryEncoded(DataType::STRING)
    );
-   ASSERT_TRUE(
-      table_schema
-         ->getColumnMetadata<rhydb::storage::column::DictionaryEncodedColumn>("pango_lineage")
-         .has_value()
-   );
+   ASSERT_TRUE(table_schema
+                  ->getColumnMetadata<rhydb::storage::column::DictionaryEncodedColumn<
+                     rhydb::storage::column::StringColumn>>("pango_lineage")
+                  .has_value());
 
    ASSERT_TRUE(table_schema->getColumn("primaryKey").has_value());
    ASSERT_EQ(table_schema->getColumn("primaryKey").value().type, DataType::STRING);
@@ -113,7 +114,8 @@ TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
       table_schema->getColumn("region").value().type, DataType::dictionaryEncoded(DataType::STRING)
    );
    ASSERT_TRUE(table_schema
-                  ->getColumnMetadata<rhydb::storage::column::DictionaryEncodedColumn>("region")
+                  ->getColumnMetadata<rhydb::storage::column::DictionaryEncodedColumn<
+                     rhydb::storage::column::StringColumn>>("region")
                   .has_value());
 
    ASSERT_TRUE(table_schema->getColumn("testSecondSequence").has_value());
