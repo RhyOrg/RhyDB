@@ -70,6 +70,9 @@ class ZstdCompressedStringColumn {
       const Buffer& new_values
    );
 
+   /// Removes the rows `compaction` deletes and renumbers the remaining ones, see `RowCompaction`.
+   void deleteRows(const RowCompaction& compaction);
+
    [[nodiscard]] bool isNull(RowId row_id) const;
 
    [[nodiscard]] size_t numChunks() const { return values.numChunks(); }

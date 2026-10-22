@@ -3,8 +3,11 @@
 #include <gtest/gtest.h>
 #include <roaring/roaring.hh>
 
+#include "rhydb/common/bitmap.h"
 #include "rhydb/common/nucleotide_symbols.h"
+#include "rhydb/storage/column/row_compaction.h"
 #include "rhydb/storage/column/row_id.h"
+#include "rhydb/storage/column/row_layout.h"
 
 using rhydb::Nucleotide;
 using rhydb::storage::column::RowId;
@@ -57,4 +60,33 @@ TEST(InsertionIndex, addingTheSameInsertionTwiceToARowCountsTheRowOnce) {
    const auto& insertions = under_test.getChunks()[0].getInsertionPositions().at(10).insertions;
    ASSERT_EQ(insertions.size(), 1);
    EXPECT_EQ(insertions[0].row_ids.getCardinality(), 1);
+}
+
+TEST(InsertionIndex, deleteRowsCompactsEveryChunk) {
+   InsertionIndex<Nucleotide> under_test;
+   under_test.add(10, "ACGTA", 0);
+   under_test.add(10, "ACGTA", 2);
+   under_test.add(10, "CC", 1);
+   under_test.appendChunk();
+   under_test.add(10, "ACGTA", 0);
+   under_test.appendChunk();
+   under_test.add(10, "CC", 1);
+   under_test.appendChunk();
+
+   // The first chunk loses its row with "CC" and the one before it, the second chunk all its rows
+   const rhydb::storage::column::RowCompaction compaction{
+      rhydb::storage::column::RowLayout::of(3, 1, 2),
+      rhydb::Bitmap{
+         roaring::Roaring({RowId(0, 0).toGlobal(), RowId(0, 1).toGlobal(), RowId(1, 0).toGlobal()})
+      }
+   };
+   under_test.deleteRows(compaction);
+
+   ASSERT_EQ(under_test.getChunks().size(), 2);
+   const auto exact = InsertionSearchPattern<Nucleotide>::make("ACGTA");
+   EXPECT_EQ(under_test.search(10, exact).toRoaring(), roaring::Roaring({RowId(0, 0).toGlobal()}));
+   const auto short_pattern = InsertionSearchPattern<Nucleotide>::make("CC");
+   EXPECT_EQ(
+      under_test.search(10, short_pattern).toRoaring(), roaring::Roaring({RowId(1, 1).toGlobal()})
+   );
 }

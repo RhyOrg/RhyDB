@@ -160,6 +160,19 @@ bool SequenceColumn<SymbolType>::isNull(RowId row_id) const {
 }
 
 template <typename SymbolType>
+void SequenceColumn<SymbolType>::deleteRows(const RowCompaction& compaction) {
+   // The mutation buffer is flushed at every chunk boundary, so it holds no rows to renumber
+   vertical_sequence_index.deleteRows(compaction);
+   horizontal_coverage_index.deleteRows(compaction);
+   insertion_index.deleteRows(compaction);
+   compaction.compact(null_bitmap);
+   // Every row, null or not, counts as a sequence
+   sequence_count = compaction.compactedLayout().numRows();
+   num_chunks = static_cast<uint16_t>(compaction.compactedLayout().numChunks());
+   calculateInfo();
+}
+
+template <typename SymbolType>
 void SequenceColumn<SymbolType>::finalize() {
    flushBuffer();
 

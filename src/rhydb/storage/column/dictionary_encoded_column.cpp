@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <compare>
+#include <iterator>
 #include <optional>
 #include <vector>
 
@@ -254,6 +255,28 @@ Bitmap DictionaryEncodedColumn<ValueColumn>::nullRows() const {
    return Bitmap::fromChunks(chunks.size(), [&](size_t chunk_id) {
       return roaring_util::RoaringContainerView{chunks[chunk_id].null_rows};
    });
+}
+
+template <DictionaryValueColumn ValueColumn>
+void DictionaryEncodedColumn<ValueColumn>::deleteRows(const RowCompaction& compaction) {
+   for (size_t chunk_id = 0; chunk_id < chunks.size(); ++chunk_id) {
+      const auto old_chunk_id = static_cast<uint16_t>(chunk_id);
+      if (!compaction.losesSomeRows(old_chunk_id)) {
+         continue;
+      }
+      auto& chunk = chunks[chunk_id];
+      const uint32_t remaining_rows =
+         compaction.compactRows(old_chunk_id, chunk.size(), [&](uint32_t from, uint32_t to) {
+            chunk.value_ids[to] = chunk.value_ids[from];
+         });
+      chunk.value_ids.resize(remaining_rows);
+      compaction.compact(old_chunk_id, chunk.null_rows);
+      for (auto entry = chunk.rows_by_value_id.begin(); entry != chunk.rows_by_value_id.end();) {
+         compaction.compact(old_chunk_id, entry->second);
+         entry = entry->second.empty() ? chunk.rows_by_value_id.erase(entry) : std::next(entry);
+      }
+   }
+   compaction.dropDeletedChunks(chunks);
 }
 
 template <DictionaryValueColumn ValueColumn>

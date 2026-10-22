@@ -1070,3 +1070,48 @@ class TestUpdateStatementOnLoadedDatabase:
         from rhydb import Database
         fresh = Database(SERIALIZED_STATE_DIR)
         assert self._count(fresh, "age = 999") == 0
+
+
+class TestDeleteStatementOnLoadedDatabase:
+    """End-to-end delete statement tests against the serialized database checked into the repo.
+
+    The deletion mutates only the in-memory database, so every test loads its own fresh copy and
+    the repo files are left untouched.
+    """
+
+    @pytest.fixture
+    def loaded_database(self):
+        from rhydb import Database
+        return Database(SERIALIZED_STATE_DIR)
+
+    @staticmethod
+    def _count(database, filter_expression):
+        return len(database.get_filtered_bitmap("data", filter_expression))
+
+    def test_delete_returns_number_of_deleted_rows(self, loaded_database):
+        """Only the rows matching the predicate are deleted; the rest keep their values."""
+        matching = self._count(loaded_database, "age = 4")
+        total = self._count(loaded_database, "true")
+        assert 0 < matching < total
+        remaining_keys = loaded_database.query(
+            "data.filter(!(age = 4)).project({primaryKey, age})"
+        ).to_pydict()
+
+        result = loaded_database.query("delete(data, where := age = 4)")
+
+        assert result.to_pydict() == {"deletedRows": [matching]}
+        assert self._count(loaded_database, "true") == total - matching
+        assert self._count(loaded_database, "age = 4") == 0
+        assert loaded_database.query("data.project({primaryKey, age})").to_pydict() == remaining_keys
+
+    def test_delete_without_predicate_deletes_every_row(self, loaded_database):
+        total = self._count(loaded_database, "true")
+
+        result = loaded_database.query("delete(data)")
+
+        assert result.to_pydict() == {"deletedRows": [total]}
+        assert self._count(loaded_database, "true") == 0
+
+    def test_delete_with_unknown_column_raises(self, loaded_database):
+        with pytest.raises(ValueError, match="unknown column"):
+            loaded_database.query("delete(data, where := does_not_exist = 1)")

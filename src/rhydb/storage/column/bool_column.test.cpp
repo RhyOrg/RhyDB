@@ -10,7 +10,9 @@
 
 using rhydb::storage::column::BoolColumn;
 using rhydb::storage::column::ColumnMetadata;
+using rhydb::storage::column::RowCompaction;
 using rhydb::storage::column::RowId;
+using rhydb::storage::column::RowLayout;
 
 namespace {
 // Appends two chunks: {true, false, null} and {true, null, false}.
@@ -70,4 +72,25 @@ TEST(BoolColumn, updateChunkAssignsEachRowItsOwnValue) {
    EXPECT_EQ(under_test.falseRows().toRoaring(), globalRows({RowId(0, 1)}));
    EXPECT_EQ(under_test.nullRows().toRoaring(), globalRows({RowId(0, 2), RowId(1, 0)}));
    EXPECT_EQ(under_test.chunkSize(1), 3);
+}
+
+TEST(BoolColumn, deleteRowsCompactsEveryChunk) {
+   ColumnMetadata column_metadata("bool_column");
+   BoolColumn under_test{&column_metadata};
+   appendTwoChunks(under_test);
+   RHYDB_ASSERT(under_test.appendChunk({false, true}).has_value());
+
+   // The first chunk loses its false row, the second chunk all its rows
+   const RowCompaction compaction{
+      RowLayout::of(3, 3, 2),
+      rhydb::Bitmap{globalRows({RowId(0, 1), RowId(1, 0), RowId(1, 1), RowId(1, 2)})}
+   };
+   under_test.deleteRows(compaction);
+
+   ASSERT_EQ(under_test.numChunks(), 2);
+   EXPECT_EQ(under_test.chunkSize(0), 2);
+   EXPECT_EQ(under_test.chunkSize(1), 2);
+   EXPECT_EQ(under_test.trueRows().toRoaring(), globalRows({RowId(0, 0), RowId(1, 1)}));
+   EXPECT_EQ(under_test.falseRows().toRoaring(), globalRows({RowId(1, 0)}));
+   EXPECT_EQ(under_test.nullRows().toRoaring(), globalRows({RowId(0, 1)}));
 }

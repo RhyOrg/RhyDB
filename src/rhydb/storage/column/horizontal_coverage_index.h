@@ -11,6 +11,7 @@
 
 #include "rhydb/common/bitmap.h"
 #include "rhydb/roaring_util/roaring_container.h"
+#include "rhydb/storage/column/row_compaction.h"
 #include "rhydb/storage/column/row_id.h"
 
 // AVX-512 is x86-only; the project also targets Apple-Silicon macOS and wasm, where
@@ -48,6 +49,9 @@ class HorizontalCoverageIndex {
    void insertCoverage(RowId row_id, const Coverage& coverage);
 
    void insertNullSequence(RowId row_id);
+
+   /// Removes the rows `compaction` deletes and renumbers the remaining ones, see `RowCompaction`.
+   void deleteRows(const RowCompaction& compaction);
 
    /// The number of rows covering each position
    [[nodiscard]] std::vector<uint64_t> computeCoverageCardinalities(size_t genome_length) const;

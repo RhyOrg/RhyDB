@@ -16,6 +16,7 @@
 
 #include "rhydb/common/bitmap.h"
 #include "rhydb/roaring_util/roaring_container.h"
+#include "rhydb/storage/column/row_compaction.h"
 
 namespace rhydb::storage::insertion {
 
@@ -130,6 +131,10 @@ class InsertionIndexChunk {
       return insertion_positions;
    }
 
+   /// Removes the rows `compaction` deletes from this chunk, chunk `chunk_id`, and renumbers the
+   /// remaining ones. Insertions whose rows are all deleted stay, with no rows.
+   void deleteRows(uint16_t chunk_id, const column::RowCompaction& compaction);
+
    /// The rows of this chunk holding an insertion at `position_idx` that matches `search_pattern`.
    [[nodiscard]] roaring_util::RoaringContainer search(
       uint32_t position_idx,
@@ -163,6 +168,10 @@ class InsertionIndex {
 
    /// Builds the index of the chunk being appended from the insertions added since the last call.
    void appendChunk();
+
+   /// Removes the rows `compaction` deletes and renumbers the remaining ones, see `RowCompaction`.
+   /// Insertions whose rows are all deleted stay in their chunk's index, with no rows.
+   void deleteRows(const column::RowCompaction& compaction);
 
    [[nodiscard]] const std::vector<InsertionIndexChunk<SymbolType>>& getChunks() const {
       return chunks;

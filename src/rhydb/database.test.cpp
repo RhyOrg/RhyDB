@@ -1,9 +1,11 @@
 #include "rhydb/database.h"
 
+#include <array>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <sstream>
 
 #include <fmt/format.h>
 #include <gmock/gmock.h>
@@ -399,6 +401,251 @@ TEST(DatabaseUpdateQueryTest, rejectsInvalidStatements) {
       ThrowsMessage<rhydb::query_engine::IllegalQueryException>(::testing::HasSubstr("3000000000"))
    );
    EXPECT_EQ(countWhere(*database, "qc_value = 1.0"), 0);
+}
+
+namespace {
+// Runs the SaneQL write statement `statement` and returns the number of rows it deleted.
+size_t deleteRows(rhydb::Database& database, const std::string& statement) {
+   return rhydb::test::writeResultToJson(
+             database.executeWrite(statement, rhydb::config::QueryOptions{}, "delete_query")
+   )
+      .at("deletedRows")
+      .get<size_t>();
+}
+
+const std::string ALL_COLUMNS =
+   "date, unsorted_date, region, country, pango_lineage, division, age, qc_value, "
+   "test_boolean_column, main, testSecondSequence, unaligned_main, unaligned_testSecondSequence, "
+   "E, M";
+
+// A row of the test dataset, varied by `index` so that every column has several distinct values,
+// nulls, mutations, missing symbols and insertions.
+std::string generatedRow(const std::string& key, size_t index, const std::string& region) {
+   const std::array<std::string, 4> main_sequences{"ACGTACGT", "AAGTACGT", "ACGTNNGT", "ACCTACGT"};
+   const std::array<std::string, 3> countries{"Switzerland", "Germany", "France"};
+   const std::array<std::string, 3> lineages{"B.1.1.7", "XBB", "B"};
+   const std::array<std::string, 4> divisions{"\"Bern\"", "\"Basel\"", "\"Zurich\"", "null"};
+   const std::array<std::string, 3> booleans{"true", "false", "null"};
+   const std::string& main = main_sequences.at(index % 4);
+   const std::string country =
+      index % 7 == 0 ? "null" : fmt::format("\"{}\"", countries.at(index % 3));
+   return fmt::format(
+      R"({{"primaryKey": "{}", "date": "2021-01-{:02}", "unsorted_date": {}, "region": "{}", )"
+      R"("country": {}, "pango_lineage": "{}", "division": {}, "age": {}, "qc_value": {}, )"
+      R"("test_boolean_column": {}, "main": {}, "testSecondSequence": {{"sequence": "ACGT", )"
+      R"("insertions": []}}, "unaligned_main": {}, "unaligned_testSecondSequence": "ACGT", )"
+      R"("E": {{"sequence": "MYSF*", "insertions": [{}]}}, "M": {{"sequence": "{}", )"
+      R"("insertions": []}}}})",
+      key,
+      1 + (index % 28),
+      index % 5 == 0 ? "null" : fmt::format("\"2021-02-{:02}\"", 28 - (index % 28)),
+      region,
+      country,
+      lineages.at(index % 3),
+      divisions.at(index % 4),
+      index % 6 == 0 ? "null" : std::to_string(index % 10),
+      0.9 + static_cast<double>(index % 10) / 100.0,
+      booleans.at(index % 3),
+      index % 9 == 0 ? "null"
+                     : fmt::format(
+                          R"({{"sequence": "{}", "insertions": [{}]}})",
+                          main,
+                          index % 5 == 1 ? R"("3:TT")" : ""
+                       ),
+      index % 9 == 0 ? "null" : fmt::format("\"{}\"", main),
+      index % 4 == 2 ? R"("4:EPE")" : "",
+      index % 2 == 0 ? "MADS*" : "XXXX*"
+   );
+}
+
+// The test dataset with three further batches appended, each of which becomes its own chunk. The
+// rows of the second batch are the only ones in the region 'Africa'.
+std::shared_ptr<rhydb::Database> buildMultiChunkTestDatabase() {
+   auto database = buildTestDatabase();
+   const std::array<std::pair<size_t, std::string>, 3> batches{
+      std::pair<size_t, std::string>{7, "Asia"},
+      std::pair<size_t, std::string>{5, "Africa"},
+      std::pair<size_t, std::string>{9, "Asia"},
+   };
+   size_t index = 0;
+   for (const auto& [size, region] : batches) {
+      std::string batch;
+      for (size_t row = 0; row < size; ++row, ++index) {
+         batch += generatedRow(fmt::format("gen{}", index), index, region) + "\n";
+      }
+      std::stringstream batch_stream{batch};
+      database->appendData(rhydb::schema::TableName::getDefault(), batch_stream);
+   }
+   return database;
+}
+
+const rhydb::storage::Table& defaultTable(const rhydb::Database& database) {
+   return *database.tables.at(rhydb::schema::TableName::getDefault());
+}
+}  // namespace
+
+TEST(DatabaseDeleteQueryTest, deletesTheRowsMatchingWhere) {
+   auto database = buildTestDatabase();
+   const auto before = rowsByKey(*database, ALL_COLUMNS);
+   ASSERT_EQ(before.size(), 5);
+
+   EXPECT_EQ(deleteRows(*database, "delete(data, where := primaryKey = 'key2')"), 1);
+   auto expected = before;
+   expected.erase("key2");
+   EXPECT_EQ(rowsByKey(*database, ALL_COLUMNS), expected);
+   EXPECT_EQ(countWhere(*database, "true"), 4);
+
+   // The table can be the receiver of a method call.
+   EXPECT_EQ(deleteRows(*database, "data.delete(where := age = 4)"), 2);
+   expected.erase("key1");
+   expected.erase("key4");
+   EXPECT_EQ(rowsByKey(*database, ALL_COLUMNS), expected);
+
+   // A predicate that matches no rows deletes nothing.
+   EXPECT_EQ(deleteRows(*database, "delete(data, where := age = 12345)"), 0);
+   EXPECT_EQ(rowsByKey(*database, ALL_COLUMNS), expected);
+
+   // Without `where`, every row is deleted.
+   EXPECT_EQ(deleteRows(*database, "delete(data)"), 2);
+   EXPECT_EQ(countWhere(*database, "true"), 0);
+   EXPECT_EQ(defaultTable(*database).row_layout.numChunks(), 0);
+   EXPECT_EQ(database->getDatabaseInfo().row_count, 0);
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST(DatabaseDeleteQueryTest, keepsEveryColumnAndIndexConsistentAcrossChunks) {
+   const auto reference = buildMultiChunkTestDatabase();
+   const auto reference_rows = rowsByKey(*reference, ALL_COLUMNS);
+   ASSERT_EQ(defaultTable(*reference).row_layout.numChunks(), 4);
+
+   // Filters that read every kind of column and index, which must select the same remaining rows
+   // after the deletion as before it.
+   const std::vector<std::string> probes{
+      "true",
+      "primaryKey = 'gen3'",
+      "age = 4",
+      "age < 5",
+      "age.isNull()",
+      "qc_value < 0.95",
+      "qc_value.isNull()",
+      "date < '2021-01-05'::date",
+      "date.isNull()",
+      "unsorted_date > '2021-02-20'::date",
+      "unsorted_date.isNull()",
+      "test_boolean_column = true",
+      "test_boolean_column = false",
+      "test_boolean_column.isNull()",
+      "division = 'Bern'",
+      "division.isNull()",
+      "country = 'Germany'",
+      "country.isNull()",
+      "region = 'Asia'",
+      "pango_lineage = 'XBB'",
+      "pango_lineage = 'B'",
+      "phyloDescendantOf(primaryKey, 'inner2')",
+      "main.at(2) = 'A'",
+      "main.at(3) = 'C'",
+      "main.at(5) = 'N'",
+      "main.isNull()",
+      "M.at(1) = 'X'",
+      "insertionContains(position := 3, value := 'TT', sequenceName := 'main')",
+      "aminoAcidInsertionContains(position := 4, value := 'EPE', sequenceName := 'E')",
+   };
+
+   const std::vector<std::string> deletions{
+      // a single row of the first chunk, which is bound to a node of the phylogenetic tree
+      "primaryKey = 'key3'",
+      // rows scattered over all chunks
+      "age = 4 || division.isNull() || main.at(3) = 'C'",
+      // all rows of the third chunk, so that the last chunk moves down
+      "region = 'Africa'",
+      // all rows of the first and of the last chunk
+      "!(region = 'Africa')",
+      // rows selected by their sequences
+      "main.at(2) = 'A' || insertionContains(position := 3, value := 'TT', sequenceName := 'main')",
+   };
+
+   for (const auto& deletion : deletions) {
+      SCOPED_TRACE(deletion);
+      auto database = buildMultiChunkTestDatabase();
+      const auto expected_deleted = static_cast<size_t>(countWhere(*reference, deletion));
+      ASSERT_GT(expected_deleted, 0);
+
+      EXPECT_EQ(
+         deleteRows(*database, fmt::format("delete(data, where := {})", deletion)),
+         expected_deleted
+      );
+
+      const auto& table = defaultTable(*database);
+      EXPECT_EQ(table.row_layout.numRows(), reference_rows.size() - expected_deleted);
+      EXPECT_NO_THROW(table.validate());
+
+      auto expected_rows = reference_rows;
+      for (const auto& [key, row] : rowsByKey(*reference, "primaryKey")) {
+         if (countWhere(*reference, fmt::format("primaryKey = '{}' && ({})", key, deletion)) > 0) {
+            expected_rows.erase(key);
+         }
+      }
+      EXPECT_EQ(rowsByKey(*database, ALL_COLUMNS), expected_rows);
+
+      for (const auto& probe : probes) {
+         EXPECT_EQ(
+            countWhere(*database, probe),
+            countWhere(*reference, fmt::format("({}) && !({})", probe, deletion))
+         ) << probe;
+      }
+   }
+}
+
+TEST(DatabaseDeleteQueryTest, dropsChunksWithoutRemainingRows) {
+   auto database = buildMultiChunkTestDatabase();
+   ASSERT_EQ(defaultTable(*database).row_layout.numChunks(), 4);
+
+   EXPECT_EQ(deleteRows(*database, "delete(data, where := region = 'Africa')"), 5);
+   EXPECT_EQ(defaultTable(*database).row_layout.numChunks(), 3);
+   EXPECT_EQ(countWhere(*database, "region = 'Asia'"), 16);
+}
+
+TEST(DatabaseDeleteQueryTest, rowsCanBeAppendedAndSavedAfterADeletion) {
+   auto database = buildMultiChunkTestDatabase();
+   deleteRows(*database, "delete(data, where := age = 4 || region = 'Africa')");
+
+   // The phylogenetic tree node of a deleted key is unbound, so the key can be inserted again.
+   ASSERT_EQ(countWhere(*database, "phyloDescendantOf(primaryKey, 'inner2')"), 1);
+   std::stringstream reinserted{generatedRow("key4", 3, "Europe") + "\n"};
+   database->appendData(rhydb::schema::TableName::getDefault(), reinserted);
+   EXPECT_EQ(countWhere(*database, "phyloDescendantOf(primaryKey, 'inner2')"), 2);
+   EXPECT_EQ(countWhere(*database, "primaryKey = 'key4'"), 1);
+
+   const auto rows = rowsByKey(*database, ALL_COLUMNS);
+
+   const std::filesystem::path directory = "testBaseData/deleteQueryTestState";
+   database->saveDatabaseState(directory);
+   auto reloaded = rhydb::Database::loadDatabaseState(
+      rhydb::RhyDBDirectory{directory}.getMostRecentDataDirectory().value()
+   );
+   std::filesystem::remove_all(directory);
+
+   EXPECT_EQ(rowsByKey(reloaded, ALL_COLUMNS), rows);
+   EXPECT_EQ(countWhere(reloaded, "phyloDescendantOf(primaryKey, 'inner2')"), 2);
+}
+
+TEST(DatabaseDeleteQueryTest, rejectsInvalidStatements) {
+   auto database = buildTestDatabase();
+
+   auto expect_rejected = [&](const std::string& statement, const std::string& message) {
+      EXPECT_THAT(
+         [&]() { deleteRows(*database, statement); },
+         ThrowsMessage<rhydb::query_engine::IllegalQueryException>(::testing::HasSubstr(message))
+      ) << statement;
+   };
+
+   expect_rejected("delete(does_not_exist)", "not found in database");
+   expect_rejected("delete(data, where := unknown = 4)", "references unknown column 'unknown'");
+   // The predicate is only accepted by name, like SQL's WHERE clause.
+   expect_rejected("delete(data, age = 4)", "delete() received too many positional arguments");
+
+   EXPECT_EQ(countWhere(*database, "true"), 5);
 }
 
 using rhydb::Nucleotide;

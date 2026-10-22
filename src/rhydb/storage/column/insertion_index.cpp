@@ -12,6 +12,7 @@
 
 #include "rhydb/common/aa_symbols.h"
 #include "rhydb/common/nucleotide_symbols.h"
+#include "rhydb/common/panic.h"
 #include "rhydb/common/string_utils.h"
 #include "rhydb/common/symbol_map.h"
 #include "rhydb/storage/insertion_format_exception.h"
@@ -299,6 +300,20 @@ roaring_util::RoaringContainer InsertionIndexChunk<SymbolType>::search(
 }
 
 template <typename SymbolType>
+void InsertionIndexChunk<SymbolType>::deleteRows(
+   uint16_t chunk_id,
+   const column::RowCompaction& compaction
+) {
+   // The three-mer index refers to insertions by their position in `insertions`, so the insertions
+   // are kept even when none of their rows remains
+   for (auto& [position_idx, insertion_position] : insertion_positions) {
+      for (auto& insertion : insertion_position.insertions) {
+         compaction.compact(chunk_id, insertion.row_ids);
+      }
+   }
+}
+
+template <typename SymbolType>
 void InsertionIndex<SymbolType>::add(
    uint32_t position_idx,
    const std::string& insertion,
@@ -319,6 +334,18 @@ template <typename SymbolType>
 void InsertionIndex<SymbolType>::appendChunk() {
    chunks.push_back(InsertionIndexChunk<SymbolType>::build(std::move(collected_insertions)));
    collected_insertions.clear();
+}
+
+template <typename SymbolType>
+void InsertionIndex<SymbolType>::deleteRows(const column::RowCompaction& compaction) {
+   RHYDB_ASSERT(collected_insertions.empty());
+   for (size_t chunk_id = 0; chunk_id < chunks.size(); ++chunk_id) {
+      const auto old_chunk_id = static_cast<uint16_t>(chunk_id);
+      if (compaction.losesSomeRows(old_chunk_id)) {
+         chunks[chunk_id].deleteRows(old_chunk_id, compaction);
+      }
+   }
+   compaction.dropDeletedChunks(chunks);
 }
 
 template <typename SymbolType>

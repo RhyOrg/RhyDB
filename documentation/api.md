@@ -209,6 +209,9 @@ see [`query docs`](query_documentation.md) for the column types.
 columns of the rows of `table` matching `where`, like SQL's `UPDATE ... SET ... WHERE ...`, e.g.
 `update(data, set := {age := 42}, where := primaryKey = 'key1')` — see
 [`update`](query_documentation.md) for semantics and limitations.
+- `delete(table: symbol, where?: expression)`. Removes the rows of `table` matching `where`, like
+SQL's `DELETE FROM ... WHERE ...`, e.g. `delete(data, where := primaryKey = 'key1')` — see
+[`delete`](query_documentation.md) for semantics.
 
 The write goes through the [data directory](#runtime-configuration): the most recent state there is
 loaded into a database of its own, the statement is applied to that one, and the result is saved
@@ -240,6 +243,11 @@ For `createTable`, the name of the created table:
 For `update`, the number of rows updated:
 ```json
 {"updatedRows": 2}
+```
+
+For `delete`, the number of rows deleted:
+```json
+{"deletedRows": 2}
 ```
 
 A successful response carries the same headers as [`POST /query`](#response-headers): the

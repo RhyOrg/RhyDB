@@ -23,6 +23,7 @@
 #include "rhydb/schema/database_schema.h"
 #include "rhydb/storage/column/column.h"
 #include "rhydb/storage/column/column_metadata.h"
+#include "rhydb/storage/column/row_compaction.h"
 #include "rhydb/storage/column/row_id.h"
 #include "rhydb/storage/vector/german_string_registry.h"
 #include "rhydb/storage/vector/variable_data_registry.h"
@@ -67,8 +68,9 @@ class StringColumnMetadata : public ColumnMetadata {
 
 /// One immutable slice of a StringColumn, produced by a single `appendChunk` call. The German
 /// string suffix ids stored in `fixed_string_data` reference offsets within this same chunk's
-/// `variable_string_data`, so the two registries are kept paired. A chunk is never mutated once it
-/// has been appended; deleting or updating rows rewrites whole chunks rather than mutating them.
+/// `variable_string_data`, so the two registries are kept paired. Updating rows rewrites whole
+/// chunks rather than mutating them; deleting rows only moves the strings of the remaining rows
+/// down within `fixed_string_data` (see `deleteRows`).
 class StringColumnChunk {
    vector::GermanStringRegistry fixed_string_data;
 
@@ -90,6 +92,12 @@ class StringColumnChunk {
    /// This includes an (re)allocation of the resulting string, one should generally
    /// work with the RhyDBString and @getValue instead
    [[nodiscard]] std::string lookupValue(RhyDBString string) const;
+
+   /// Removes the rows of this chunk, the chunk `chunk_id`, that `compaction` deletes, by moving the
+   /// strings of the remaining rows down in place. The suffixes in `variable_string_data` are left
+   /// where they are, as the moved strings still refer to them, so the space of the suffixes of
+   /// deleted strings longer than 12 bytes is not reclaimed.
+   void deleteRows(uint16_t chunk_id, const RowCompaction& compaction);
 
    template <class Archive>
    [[maybe_unused]] void serialize(Archive& archive, const uint32_t /* version */) {
@@ -147,6 +155,10 @@ class StringColumn {
       roaring_util::RoaringContainerView rows,
       const Buffer& new_values
    );
+
+   /// Removes the rows `compaction` deletes and renumbers the remaining ones, see `RowCompaction`.
+   /// The phylogenetic tree nodes of deleted rows are unbound, so their keys can be inserted again.
+   void deleteRows(const RowCompaction& compaction);
 
    [[nodiscard]] bool isNull(RowId row_id) const;
 

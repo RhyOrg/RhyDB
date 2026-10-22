@@ -22,6 +22,7 @@
 #include "rhydb/roaring_util/roaring_serialize.h"
 #include "rhydb/schema/duplicate_primary_key_exception.h"
 #include "rhydb/storage/column/data_type_visitor.h"
+#include "rhydb/storage/column/row_compaction.h"
 #include "rhydb/storage/table_chunk_builder.h"
 
 namespace rhydb::storage {
@@ -97,6 +98,15 @@ std::expected<void, std::string> Table::bulkInsert(TableChunkBuilder& block) {
       }
    }
    return {};
+}
+
+void Table::deleteRows(const Bitmap& row_ids) {
+   const column::RowCompaction compaction{row_layout, row_ids};
+   for (auto& [name, column] : columns) {
+      std::visit([&](auto& typed_column) { typed_column.deleteRows(compaction); }, column);
+   }
+   row_layout = compaction.compactedLayout();
+   row_count = row_layout.numRows();
 }
 
 void Table::finalize() {
