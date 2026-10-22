@@ -24,6 +24,7 @@ const std::vector<nlohmann::json> DATA = {
       {"birth_year", 1815},
       {"birth_date", "1815-12-10"},
       {"segment1", alignedSequence("ACGT")},
+      {"unaligned_segment1", "ACGTA"},
       {"gene1", nullptr},
    },
    {
@@ -35,6 +36,7 @@ const std::vector<nlohmann::json> DATA = {
       {"birth_year", 1912},
       {"birth_date", "1912-06-23"},
       {"segment1", nullptr},
+      {"unaligned_segment1", nullptr},
       {"gene1", nullptr},
    },
 };
@@ -71,7 +73,6 @@ const QueryTestData TEST_DATA{
    .ndjson_input_data = DATA,
    .database_config = DATABASE_CONFIG,
    .reference_genomes = REFERENCE_GENOMES,
-   .without_unaligned_sequences = true,
 };
 
 const QueryTestScenario CONCAT_TWO_COLUMNS_SCENARIO = {
@@ -131,7 +132,6 @@ const QueryTestScenario CONCAT_NULL_INPUT_SCENARIO = {
    }),
 };
 
-// A concat result computed by a map can be filtered above the map.
 const QueryTestScenario CONCAT_MAP_THEN_FILTER_SCENARIO = {
    .name = "CONCAT_MAP_THEN_FILTER",
    .query =
@@ -155,6 +155,15 @@ const QueryTestScenario CONCAT_SEQUENCE_COLUMN_SCENARIO = {
    .query = "data.map({tagged := concat(segment1, '!')}).project({primaryKey, tagged})",
    .expected_query_result = nlohmann::json({
       {{"primaryKey", "id_0"}, {"tagged", "ACGT!"}},
+      {{"primaryKey", "id_1"}, {"tagged", nullptr}},
+   }),
+};
+
+const QueryTestScenario CONCAT_UNALIGNED_SEQUENCE_COLUMN_SCENARIO = {
+   .name = "CONCAT_UNALIGNED_SEQUENCE_COLUMN",
+   .query = "data.map({tagged := concat(unaligned_segment1, '!')}).project({primaryKey, tagged})",
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"tagged", "ACGTA!"}},
       {{"primaryKey", "id_1"}, {"tagged", nullptr}},
    }),
 };
@@ -195,6 +204,7 @@ QUERY_TEST(
       CONCAT_MAP_THEN_FILTER_SCENARIO,
       CONCAT_SEQUENCE_CHARACTER_SCENARIO,
       CONCAT_SEQUENCE_COLUMN_SCENARIO,
+      CONCAT_UNALIGNED_SEQUENCE_COLUMN_SCENARIO,
       CONCAT_INT_COLUMN_THROWS_SCENARIO,
       CONCAT_DATE_COLUMN_THROWS_SCENARIO,
       CONCAT_INT_LITERAL_THROWS_SCENARIO
