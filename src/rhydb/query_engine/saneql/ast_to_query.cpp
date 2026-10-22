@@ -71,6 +71,7 @@ using rhydb::AminoAcid;
 using rhydb::Nucleotide;
 using rhydb::query_engine::filter::operators::Comparator;
 using rhydb::query_engine::saneql::ast::BinaryOp;
+using rhydb::schema::DataType;
 using rhydb::storage::column::Column;
 using rhydb::storage::column::SequenceColumn;
 using rhydb::storage::column::ZstdCompressedStringColumn;
@@ -507,7 +508,7 @@ ScalarExpressionPtr handleAt(
    const auto& input_ast = args.at("input");
    auto input = convertToScalar(input_ast, schema, "at() input", context);
    CHECK_RHYDB_QUERY(
-      input->type().getPlainType() == schema::DataType::STRING,
+      input->type().getPlainType() == DataType::STRING,
       "at(): the input {} must be a string, but is of type {}",
       input_ast.toString(),
       schema::dataTypeToString(input->type())
@@ -528,7 +529,7 @@ ScalarExpressionPtr handleIsoWeek(
    const auto& input_ast = args.at("input");
    auto input = convertToScalar(input_ast, schema, "isoWeek() input", context);
    CHECK_RHYDB_QUERY(
-      input->type().getPlainType() == schema::DataType::DATE32,
+      input->type().getPlainType() == DataType::DATE32,
       "isoWeek(): the input {} must be a date, but is of type {}",
       input_ast.toString(),
       schema::dataTypeToString(input->type())
@@ -545,7 +546,7 @@ ScalarExpressionPtr handleConcat(
    const auto& left_ast = args.at("left");
    auto left = convertToScalar(left_ast, schema, "concat() left argument", context);
    CHECK_RHYDB_QUERY(
-      left->type().getPlainType() == schema::DataType::STRING,
+      left->type().getPlainType() == DataType::STRING,
       "concat(): the left argument {} must be a string, but is of type {}",
       left_ast.toString(),
       schema::dataTypeToString(left->type())
@@ -553,7 +554,7 @@ ScalarExpressionPtr handleConcat(
    const auto& right_ast = args.at("right");
    auto right = convertToScalar(right_ast, schema, "concat() right argument", context);
    CHECK_RHYDB_QUERY(
-      right->type().getPlainType() == schema::DataType::STRING,
+      right->type().getPlainType() == DataType::STRING,
       "concat(): the right argument {} must be a string, but is of type {}",
       right_ast.toString(),
       schema::dataTypeToString(right->type())
@@ -757,7 +758,7 @@ ScalarExpressionPtr convertFunctionCallToFilter(
    // The registry also holds value-producing scalar functions (e.g. `at`), which are not filter
    // predicates. Reject them here rather than letting a non-boolean expression reach compile().
    CHECK_RHYDB_QUERY(
-      expression->type() == schema::DataType::BOOL,
+      expression->type() == DataType::BOOL,
       "scalar function '{}' produces a {} value and cannot be used as a filter predicate at {}:{}",
       node.function_name,
       schema::dataTypeToString(expression->type()),
@@ -856,10 +857,10 @@ void validateCountArguments(const ast::RecordField& field, const ast::FunctionCa
    );
 }
 
-bool isNumericColumnType(const schema::DataType& type) {
-   const schema::DataType plain_type = type.getPlainType();
-   return plain_type == schema::DataType::INT32 || plain_type == schema::DataType::INT64 ||
-          plain_type == schema::DataType::FLOAT;
+bool isNumericColumnType(const DataType& type) {
+   const DataType plain_type = type.getPlainType();
+   return plain_type == DataType::INT32 || plain_type == DataType::INT64 ||
+          plain_type == DataType::FLOAT;
 }
 
 /// Checks the arguments of `sum(column)`: exactly one source column, which must be numeric
@@ -882,10 +883,10 @@ void validateSumArguments(
    );
 }
 
-bool isOrderedColumnType(const schema::DataType& type) {
-   const schema::DataType plain_type = type.getPlainType();
-   return isNumericColumnType(plain_type) || plain_type == schema::DataType::DATE32 ||
-          plain_type == schema::DataType::STRING || plain_type == schema::DataType::BOOL;
+bool isOrderedColumnType(const DataType& type) {
+   const DataType plain_type = type.getPlainType();
+   return isNumericColumnType(plain_type) || plain_type == DataType::DATE32 ||
+          plain_type == DataType::STRING || plain_type == DataType::BOOL;
 }
 
 /// Checks the arguments of `min(column)` / `max(column)`: exactly one source column, whose
@@ -1183,7 +1184,7 @@ operators::QueryNodePtr wrapWithDecompressIfNeeded(
          storage::column::visit(col.type, ColumnToReferenceSequenceVisitor{}, *table_schema, col);
       if (reference.has_value()) {
          assignments.push_back({
-            .output_column = {.name = col.name, .type = schema::DataType::STRING},
+            .output_column = {.name = col.name, .type = DataType::STRING},
             .expression = std::make_unique<scalar_expressions::ZstdDecompressScalar>(
                std::make_unique<scalar_expressions::FieldRef>(col), std::move(reference).value()
             ),
@@ -1722,7 +1723,7 @@ operators::QueryNodePtr handleTransitiveClosure(const BoundArguments& args, cons
       for (const auto& element : set.elements) {
          auto vertex = convertToScalar(*element, {}, "a startingFrom vertex", context);
          CHECK_RHYDB_QUERY(
-            vertex->type() == schema::DataType::STRING,
+            vertex->type() == DataType::STRING,
             "a startingFrom vertex must be a string, but {} is of type {} at {}",
             element->toString(),
             schema::dataTypeToString(vertex->type()),
