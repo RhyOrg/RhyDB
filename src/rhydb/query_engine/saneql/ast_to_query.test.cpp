@@ -811,6 +811,78 @@ TEST(AstToQueryMap, isoWeekOnNonDateColumnThrows) {
    );
 }
 
+TEST(AstToQueryMap, concatResolvesToStringOfTwoColumns) {
+   const auto tables = makeTablesWithDefault();
+   const auto query_tree = parseAndConvertToQueryTree("data.map({c := concat(id, id)})", tables);
+   const auto output_schema = query_tree->getOutputSchema();
+   const auto found =
+      std::ranges::find_if(output_schema, [](const auto& col) { return col.name == "c"; });
+   ASSERT_NE(found, output_schema.end());
+   EXPECT_EQ(found->type, rhydb::schema::DataType::STRING);
+}
+
+TEST(AstToQueryMap, concatAcceptsMethodSyntaxAndLiterals) {
+   const auto tables = makeTablesWithDefault();
+   EXPECT_NO_THROW((void)parseAndConvertToQueryTree("data.map({c := id.concat('!')})", tables));
+   EXPECT_NO_THROW((void)parseAndConvertToQueryTree("data.map({c := concat('a', 'b')})", tables));
+}
+
+TEST(AstToQueryMap, concatAcceptsDictionaryEncodedColumn) {
+   const auto tables = makeTablesWithDictionaryEncodedColumn();
+   EXPECT_NO_THROW(
+      (void)parseAndConvertToQueryTree("data.map({c := concat(lineage, '!')})", tables)
+   );
+}
+
+TEST(AstToQueryMap, concatOnNonStringLeftThrows) {
+   const auto tables = makeTablesWithDefault();
+   EXPECT_THAT(
+      [&tables]() {
+         (void)parseAndConvertToQueryTree("data.map({c := concat(date, id)})", tables);
+      },
+      ThrowsMessage<IllegalQueryException>(::testing::HasSubstr(
+         "concat(): the left argument date must be a string, but is of type DATE32"
+      ))
+   );
+}
+
+TEST(AstToQueryMap, concatOnNonStringRightThrows) {
+   const auto tables = makeTablesWithDefault();
+   EXPECT_THAT(
+      [&tables]() {
+         (void)parseAndConvertToQueryTree("data.map({c := concat(id, date)})", tables);
+      },
+      ThrowsMessage<IllegalQueryException>(::testing::HasSubstr(
+         "concat(): the right argument date must be a string, but is of type DATE32"
+      ))
+   );
+}
+
+TEST(AstToQueryMap, concatOnUnknownColumnThrows) {
+   const auto tables = makeTablesWithDefault();
+   EXPECT_THAT(
+      [&tables]() {
+         (void)parseAndConvertToQueryTree("data.map({c := concat(nope, id)})", tables);
+      },
+      ThrowsMessage<IllegalQueryException>(
+         ::testing::HasSubstr("concat() left argument references unknown column 'nope'")
+      )
+   );
+}
+
+TEST(AstToQueryFilter, concatRejectedAsFilterPredicate) {
+   EXPECT_THAT(
+      []() {
+         (void)parseFilter(
+            "concat(id, id)", {{.name = "id", .type = rhydb::schema::DataType::STRING}}
+         );
+      },
+      ThrowsMessage<IllegalQueryException>(::testing::HasSubstr(
+         "scalar function 'concat' produces a STRING value and cannot be used as a filter predicate"
+      ))
+   );
+}
+
 TEST(AstToQueryFilter, acceptsNamedCondition) {
    auto tables = makeTablesWithDefault();
    const auto query_tree =

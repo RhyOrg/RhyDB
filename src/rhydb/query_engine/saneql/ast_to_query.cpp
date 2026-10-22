@@ -41,6 +41,7 @@
 #include "rhydb/query_engine/scalar_expressions/and.h"
 #include "rhydb/query_engine/scalar_expressions/at.h"
 #include "rhydb/query_engine/scalar_expressions/comparison.h"
+#include "rhydb/query_engine/scalar_expressions/concat.h"
 #include "rhydb/query_engine/scalar_expressions/date_between.h"
 #include "rhydb/query_engine/scalar_expressions/exact.h"
 #include "rhydb/query_engine/scalar_expressions/field_ref.h"
@@ -533,6 +534,31 @@ ScalarExpressionPtr handleIsoWeek(
       schema::dataTypeToString(input->type())
    );
    return std::make_unique<scalar_expressions::IsoWeek>(std::move(input));
+}
+
+// NOLINTNEXTLINE(misc-no-recursion)
+ScalarExpressionPtr handleConcat(
+   const BoundArguments& args,
+   const std::vector<schema::ColumnIdentifier>& schema,
+   const ScalarConversionContext& context
+) {
+   const auto& left_ast = args.at("left");
+   auto left = convertToScalar(left_ast, schema, "concat() left argument", context);
+   CHECK_RHYDB_QUERY(
+      left->type().getPlainType() == schema::DataType::STRING,
+      "concat(): the left argument {} must be a string, but is of type {}",
+      left_ast.toString(),
+      schema::dataTypeToString(left->type())
+   );
+   const auto& right_ast = args.at("right");
+   auto right = convertToScalar(right_ast, schema, "concat() right argument", context);
+   CHECK_RHYDB_QUERY(
+      right->type().getPlainType() == schema::DataType::STRING,
+      "concat(): the right argument {} must be a string, but is of type {}",
+      right_ast.toString(),
+      schema::dataTypeToString(right->type())
+   );
+   return std::make_unique<scalar_expressions::Concat>(std::move(left), std::move(right));
 }
 
 // NOLINTNEXTLINE(misc-no-recursion)
@@ -1911,6 +1937,7 @@ ScalarFunctionRegistry::ScalarFunctionRegistry() {
 
    registerFunction("at", {{pos("input"), pos("position")}}, handleAt);
    registerFunction("isoWeek", {{pos("input")}}, handleIsoWeek);
+   registerFunction("concat", {{pos("left"), pos("right")}}, handleConcat);
 
    auto symbol_equals_sig =
       FunctionSignature{{named("position"), named("symbol"), named("sequenceName")}};

@@ -15,6 +15,7 @@
 #include "rhydb/query_engine/operators/map_node.h"
 #include "rhydb/query_engine/operators/table_scan_node.h"
 #include "rhydb/query_engine/scalar_expressions/at.h"
+#include "rhydb/query_engine/scalar_expressions/concat.h"
 #include "rhydb/query_engine/scalar_expressions/field_ref.h"
 #include "rhydb/query_engine/scalar_expressions/iso_week.h"
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
@@ -198,15 +199,16 @@ bool isGroupableScalarType(const schema::DataType& type) {
 
 /// Whether the grouper can evaluate `expression` per row through Arrow: it must be composed only of
 /// nodes the Arrow translation handles that yield a groupable scalar -- field references to
-/// (non-sequence) scalar columns, literals, `at` and `isoWeek`. This deliberately excludes anything
-/// sequence- or decompression-specific (those are grouped by the dedicated sequence-position path),
-/// so the rewrite only claims expressions the node can actually execute.
+/// (non-sequence) scalar columns, literals, `at`, `isoWeek` and `concat`. This deliberately
+/// excludes anything sequence- or decompression-specific (those are grouped by the dedicated
+/// sequence-position path), so the rewrite only claims expressions the node can actually execute.
 // NOLINTNEXTLINE(misc-no-recursion)
 bool isEvaluableGroupableExpression(
    const scalar_expressions::ScalarExpression& expression,
    const schema::TableSchema& table_schema
 ) {
    using scalar_expressions::At;
+   using scalar_expressions::Concat;
    using scalar_expressions::dynCast;
    using scalar_expressions::FieldRef;
    using scalar_expressions::IsoWeek;
@@ -228,6 +230,11 @@ bool isEvaluableGroupableExpression(
          return isEvaluableGroupableExpression(*dynCast<At>(&expression)->input, table_schema);
       case ScalarExpression::Kind::ISO_WEEK:
          return isEvaluableGroupableExpression(*dynCast<IsoWeek>(&expression)->input, table_schema);
+      case ScalarExpression::Kind::CONCAT: {
+         const auto* concat = dynCast<Concat>(&expression);
+         return isEvaluableGroupableExpression(*concat->left, table_schema) &&
+                isEvaluableGroupableExpression(*concat->right, table_schema);
+      }
       default:
          return false;
    }

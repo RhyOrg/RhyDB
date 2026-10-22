@@ -31,6 +31,7 @@ class ScalarExpression {
       AND,
       OR,
       AT,
+      CONCAT,
       ISO_WEEK,
       N_OF,
       NEGATION,

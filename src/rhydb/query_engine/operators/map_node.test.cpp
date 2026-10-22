@@ -183,6 +183,17 @@ const QueryTestScenario DECOMPRESS_SEQUENCE_WITH_LIMIT_SCENARIO = {
       nlohmann::json({{{"primaryKey", "id_0"}, {"unaligned_segment1", "ACGT"}}}),
 };
 
+const QueryTestScenario CONCAT_OVER_DECOMPRESS_SEQUENCE_SCENARIO = {
+   .name = "CONCAT_OVER_DECOMPRESS_SEQUENCE",
+   .query =
+      "data.map({tagged := concat(unaligned_segment1, '!')})"
+      ".project({primaryKey, tagged}).order(by:={primaryKey})",
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"tagged", "ACGT!"}},
+      {{"primaryKey", "id_1"}, {"tagged", nullptr}},
+   }),
+};
+
 // Correctness regression guard for a shape MapPullupPass is eligible to rewrite:
 // `map({...}).limit(...)` builds a FetchNode directly above the user MapNode
 // (Fetch(Map(scan))), which the pass may rewrite to Map(Fetch(scan)). QUERY_TEST asserts
@@ -418,6 +429,7 @@ QUERY_TEST(
       DECOMPRESS_WITH_USER_MAP_SCENARIO,
       FILTER_NUCLEOTIDE_EQUALS_OVER_DECOMPRESS_MAP_SCENARIO,
       DECOMPRESS_SEQUENCE_WITH_LIMIT_SCENARIO,
+      CONCAT_OVER_DECOMPRESS_SEQUENCE_SCENARIO,
       MAP_WITH_LIMIT_TRIGGERS_PULLUP_SCENARIO,
       FILTER_ON_TOP_OF_MAP_SCENARIO,
       MAP_ON_TOP_OF_FILTER_SCENARIO,

@@ -16,12 +16,14 @@
 #include "rhydb/common/size_constants.h"
 #include "rhydb/query_engine/exec_node/throttled_batch_reslicer.h"
 #include "rhydb/query_engine/scalar_expressions/at.h"
+#include "rhydb/query_engine/scalar_expressions/concat.h"
 #include "rhydb/query_engine/scalar_expressions/iso_week.h"
 #include "rhydb/query_engine/scalar_expressions/zstd_decompress_scalar.h"
 
 namespace rhydb::query_engine::operators {
 
 using scalar_expressions::At;
+using scalar_expressions::Concat;
 using scalar_expressions::dynCast;
 using scalar_expressions::IsoWeek;
 using scalar_expressions::ScalarExpression;
@@ -42,6 +44,10 @@ size_t sumDecompressDictionarySizes(const ScalarExpression& expression) {
    }
    if (const auto* iso_week = dynCast<IsoWeek>(&expression)) {
       return sumDecompressDictionarySizes(*iso_week->input);
+   }
+   if (const auto* concat = dynCast<Concat>(&expression)) {
+      return sumDecompressDictionarySizes(*concat->left) +
+             sumDecompressDictionarySizes(*concat->right);
    }
    return 0;
 }
