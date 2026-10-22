@@ -5,9 +5,7 @@
 #include <cstdint>
 #include <type_traits>
 
-namespace rhydb::schema {
-class DataType;
-}  // namespace rhydb::schema
+#include "rhydb/schema/data_type.h"
 
 namespace rhydb::storage::column {
 
@@ -35,6 +33,10 @@ concept Column = requires(T column) {
    { column.chunkSize(static_cast<uint32_t>(0)) } -> std::convertible_to<uint32_t>;
 
    { T::TYPE } -> std::convertible_to<schema::DataType>;
+
+   // The kind of `TYPE`, as a compile-time constant to dispatch on with `if constexpr` (`TYPE`
+   // itself is not a constant expression for parameterized types)
+   requires std::same_as<decltype(T::KIND), const schema::DataType::Kind>;
 
    // The full type of this column. Today it is the static `TYPE` of the column class, but columns
    // whose type depends on their metadata (e.g. the fields of a struct) report it per instance.

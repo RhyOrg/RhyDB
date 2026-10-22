@@ -36,6 +36,7 @@ class DictionaryEncodedColumn {
 
    static inline const schema::DataType TYPE =
       schema::DataType::dictionaryEncoded(schema::DataType::STRING);
+   static constexpr schema::DataType::Kind KIND = schema::DataType::Kind::DICTIONARY_ENCODED;
    static schema::DataType type() { return TYPE; }
    using value_type = std::string_view;
 

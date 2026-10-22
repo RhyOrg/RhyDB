@@ -27,11 +27,13 @@ struct NumericColumnTypeTraits;
 template <>
 struct NumericColumnTypeTraits<int32_t> {
    static constexpr const schema::DataType& COLUMN_TYPE = schema::DataType::INT32;
+   static constexpr schema::DataType::Kind COLUMN_KIND = schema::DataType::Kind::INT32;
 };
 
 template <>
 struct NumericColumnTypeTraits<int64_t> {
    static constexpr const schema::DataType& COLUMN_TYPE = schema::DataType::INT64;
+   static constexpr schema::DataType::Kind COLUMN_KIND = schema::DataType::Kind::INT64;
 };
 
 template <typename T>
@@ -48,6 +50,7 @@ class NumericColumn {
    using Buffer = std::vector<std::optional<T>>;
 
    static constexpr const schema::DataType& TYPE = NumericColumnTypeTraits<T>::COLUMN_TYPE;
+   static constexpr schema::DataType::Kind KIND = NumericColumnTypeTraits<T>::COLUMN_KIND;
    static schema::DataType type() { return TYPE; }
    using value_type = T;
 
