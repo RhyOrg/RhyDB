@@ -10,6 +10,10 @@ using rhydb::ReferenceGenomes;
 using rhydb::test::QueryTestData;
 using rhydb::test::QueryTestScenario;
 
+nlohmann::json alignedSequence(const std::string& sequence) {
+   return {{"sequence", sequence}, {"insertions", nlohmann::json::array()}};
+}
+
 const std::vector<nlohmann::json> DATA = {
    {
       {"primaryKey", "id_0"},
@@ -17,7 +21,9 @@ const std::vector<nlohmann::json> DATA = {
       {"last_name", "Lovelace"},
       {"indexed_value", "B.1.1"},
       {"nullable_value", "present"},
-      {"segment1", nullptr},
+      {"birth_year", 1815},
+      {"birth_date", "1815-12-10"},
+      {"segment1", alignedSequence("ACGT")},
       {"gene1", nullptr},
    },
    {
@@ -26,6 +32,8 @@ const std::vector<nlohmann::json> DATA = {
       {"last_name", "Turing"},
       {"indexed_value", "XBB.1"},
       {"nullable_value", nullptr},
+      {"birth_year", 1912},
+      {"birth_date", "1912-06-23"},
       {"segment1", nullptr},
       {"gene1", nullptr},
    },
@@ -47,11 +55,15 @@ schema:
       generateIndex: true
     - name: "nullable_value"
       type: "string"
+    - name: "birth_year"
+      type: "int"
+    - name: "birth_date"
+      type: "date"
   primaryKey: "primaryKey"
 )";
 
 const auto REFERENCE_GENOMES = ReferenceGenomes{
-   {{"segment1", "A"}},
+   {{"segment1", "ACGT"}},
    {{"gene1", "*"}},
 };
 
@@ -128,6 +140,46 @@ const QueryTestScenario CONCAT_MAP_THEN_FILTER_SCENARIO = {
    .expected_query_result = nlohmann::json({{{"primaryKey", "id_1"}}}),
 };
 
+const QueryTestScenario CONCAT_SEQUENCE_CHARACTER_SCENARIO = {
+   .name = "CONCAT_SEQUENCE_CHARACTER",
+   .query =
+      "data.map({base := concat(segment1.at(1), segment1.at(2))}).project({primaryKey, base})",
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"base", "AC"}},
+      {{"primaryKey", "id_1"}, {"base", nullptr}},
+   }),
+};
+
+const QueryTestScenario CONCAT_SEQUENCE_COLUMN_SCENARIO = {
+   .name = "CONCAT_SEQUENCE_COLUMN",
+   .query = "data.map({tagged := concat(segment1, '!')}).project({primaryKey, tagged})",
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"tagged", "ACGT!"}},
+      {{"primaryKey", "id_1"}, {"tagged", nullptr}},
+   }),
+};
+
+const QueryTestScenario CONCAT_INT_COLUMN_THROWS_SCENARIO = {
+   .name = "CONCAT_INT_COLUMN_THROWS",
+   .query = "data.map({x := concat(first_name, birth_year)}).project({primaryKey, x})",
+   .expected_error_message =
+      "concat(): the right argument birth_year must be a string, but is of type INT32",
+};
+
+const QueryTestScenario CONCAT_DATE_COLUMN_THROWS_SCENARIO = {
+   .name = "CONCAT_DATE_COLUMN_THROWS",
+   .query = "data.map({x := concat(birth_date, first_name)}).project({primaryKey, x})",
+   .expected_error_message =
+      "concat(): the left argument birth_date must be a string, but is of type DATE32",
+};
+
+const QueryTestScenario CONCAT_INT_LITERAL_THROWS_SCENARIO = {
+   .name = "CONCAT_INT_LITERAL_THROWS",
+   .query = "data.map({x := concat(first_name, 42)}).project({primaryKey, x})",
+   .expected_error_message =
+      "concat(): the right argument 42 must be a string, but is of type INT64",
+};
+
 }  // namespace
 
 QUERY_TEST(
@@ -140,6 +192,11 @@ QUERY_TEST(
       CONCAT_NESTED_SCENARIO,
       CONCAT_DICTIONARY_ENCODED_SCENARIO,
       CONCAT_NULL_INPUT_SCENARIO,
-      CONCAT_MAP_THEN_FILTER_SCENARIO
+      CONCAT_MAP_THEN_FILTER_SCENARIO,
+      CONCAT_SEQUENCE_CHARACTER_SCENARIO,
+      CONCAT_SEQUENCE_COLUMN_SCENARIO,
+      CONCAT_INT_COLUMN_THROWS_SCENARIO,
+      CONCAT_DATE_COLUMN_THROWS_SCENARIO,
+      CONCAT_INT_LITERAL_THROWS_SCENARIO
    )
 );
