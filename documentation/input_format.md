@@ -53,7 +53,7 @@ schema:
 **Metadata Field Options**:
 - `name`: Field name (must match JSON key)
 - `type`: One of `string`, `int32` (32-bit integer, alias `int`), `int64` (64-bit integer), `float`, `date`, `boolean`
-- `generateIndex`: Set to `true` to create a bitmap index for fast equality lookups. This is only valid for `string` columns
+- `generateIndex`: Set to `true` to create a bitmap index for fast equality lookups. This is only valid for `string` and `date` columns
 - `generateLineageIndex`: Path to lineage definition file for hierarchical queries. This is only possible if `generateIndex` is also set.
   Preprocessing materializes the definition as a relation table named after the column and an alias table named `<column>_aliases`, which is what `lineage(...)` resolves against. See [lineage_definitions.md](lineage_definitions.md) for their schema.
 - `isPhyloTreeField`: Mark this column as a phyloTreeField, which enables the phylogenetic queries. See [phylogenetic_queries.md](phylogenetic_queries.md)

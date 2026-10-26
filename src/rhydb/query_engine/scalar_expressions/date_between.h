@@ -11,6 +11,8 @@
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
 #include "rhydb/schema/database_schema.h"
 #include "rhydb/storage/column/date32_column.h"
+#include "rhydb/storage/column/dictionary_encoded_column.h"
+#include "rhydb/storage/column/row_layout.h"
 
 namespace rhydb::query_engine::scalar_expressions {
 
@@ -22,6 +24,12 @@ class DateBetween : public ScalarExpression {
 
    [[nodiscard]] std::vector<rhydb::query_engine::filter::operators::RangeSelection::Range>
    computeRangesOfSortedColumn(const rhydb::storage::column::Date32Column& date_column) const;
+
+   /// Answers the range from the inverted index of a dictionary-encoded date column
+   [[nodiscard]] std::unique_ptr<filter::operators::Operator> compileOnDictionary(
+      const storage::column::DictionaryEncodedColumn<storage::column::Date32Column>& date_column,
+      const storage::column::RowLayout& row_layout
+   ) const;
 
   public:
    explicit DateBetween(

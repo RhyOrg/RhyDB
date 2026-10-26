@@ -64,7 +64,7 @@ class DataType {
    DataType() = default;
 
    [[nodiscard]] static constexpr bool canBeDictionaryEncoded(const DataType& value_type) {
-      return value_type.kind == Kind::STRING;
+      return value_type.kind == Kind::STRING || value_type.kind == Kind::DATE32;
    }
 
    /// A column storing each distinct value of type `value_type` once in a sorted dictionary

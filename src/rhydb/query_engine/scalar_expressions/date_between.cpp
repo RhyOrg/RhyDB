@@ -7,17 +7,22 @@
 
 #include <fmt/format.h>
 
+#include "rhydb/common/bitmap.h"
 #include "rhydb/common/date32.h"
 #include "rhydb/common/panic.h"
+#include "rhydb/query_engine/filter/operators/empty.h"
+#include "rhydb/query_engine/filter/operators/index_scan.h"
 #include "rhydb/query_engine/filter/operators/range_selection.h"
 #include "rhydb/query_engine/filter/operators/selection.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/storage/column/column.h"
 #include "rhydb/storage/column/date32_column.h"
+#include "rhydb/storage/column/dictionary_encoded_column.h"
 
 using rhydb::common::Date32;
 using rhydb::common::date32ToString;
 using rhydb::storage::column::Date32Column;
+using rhydb::storage::column::DictionaryEncodedColumn;
 
 namespace rhydb::query_engine::scalar_expressions {
 
@@ -53,6 +58,8 @@ std::unique_ptr<ScalarExpression> DateBetween::rewrite(
 
 using filter::operators::Comparator;
 using filter::operators::CompareToValueSelection;
+using filter::operators::Empty;
+using filter::operators::IndexScan;
 using filter::operators::Operator;
 using filter::operators::PredicateVector;
 using filter::operators::RangeSelection;
@@ -64,6 +71,11 @@ std::unique_ptr<Operator> DateBetween::compile(const storage::Table& table) cons
       "The database does not contain the column '{}'",
       column.name
    );
+   if (table.hasColumn<DictionaryEncodedColumn<Date32Column>>(column.name)) {
+      return compileOnDictionary(
+         table.getColumn<DictionaryEncodedColumn<Date32Column>>(column.name), table.row_layout
+      );
+   }
    CHECK_RHYDB_QUERY(
       table.hasColumn<Date32Column>(column.name), "The column '{}' is not of type date", column.name
    );
@@ -91,6 +103,27 @@ std::unique_ptr<Operator> DateBetween::compile(const storage::Table& table) cons
       )
    );
    return std::make_unique<Selection>(std::move(predicates), table.row_layout);
+}
+
+std::unique_ptr<Operator> DateBetween::compileOnDictionary(
+   const DictionaryEncodedColumn<Date32Column>& date_column,
+   const storage::column::RowLayout& row_layout
+) const {
+   const auto from = date_from.value_or(std::numeric_limits<Date32>::min());
+   const auto to = date_to.value_or(std::numeric_limits<Date32>::max());
+   // Every distinct date in the range contributes its row bitmap. Null rows are excluded, as the
+   // indexed bitmaps are disjoint from the null bitmap.
+   roaring::Roaring unioned;
+   for (const auto& [dict_id, bitmap] : date_column.getIndexedValues()) {
+      const Date32 date = date_column.lookupValue(dict_id);
+      if (from <= date && date <= to) {
+         unioned |= bitmap;
+      }
+   }
+   if (unioned.isEmpty()) {
+      return std::make_unique<Empty>(row_layout);
+   }
+   return std::make_unique<IndexScan>(Bitmap{std::move(unioned)}, row_layout);
 }
 
 using storage::column::RowId;

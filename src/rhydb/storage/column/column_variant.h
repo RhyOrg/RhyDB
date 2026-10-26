@@ -19,6 +19,7 @@ namespace rhydb::storage::column {
 using ColumnVariant = std::variant<
    StringColumn,
    DictionaryEncodedColumn<StringColumn>,
+   DictionaryEncodedColumn<Date32Column>,
    BoolColumn,
    Int32Column,
    Int64Column,

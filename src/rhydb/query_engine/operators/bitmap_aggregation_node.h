@@ -40,7 +40,7 @@ struct SequencePositionDimension {
    [[nodiscard]] nlohmann::json toJson() const;
 };
 
-/// Groups rows by the value of an indexed string column, straight from its inverted index.
+/// Groups rows by the value of a dictionary-encoded column, straight from its inverted index.
 struct IndexedColumnDimension {
    schema::ColumnIdentifier column;
    std::string output_name;

@@ -537,6 +537,14 @@ std::unique_ptr<Operator> Comparison::compile(const Table& table) const {
    }
 
    if (const auto* date_value = dynCast<DateLiteral>(value)) {
+      if (table.hasColumn<DictionaryEncodedColumn<Date32Column>>(column_name)) {
+         return compileDictionaryComparison(
+            table,
+            table.getColumn<DictionaryEncodedColumn<Date32Column>>(column_name),
+            effective_comparator,
+            date_value->value
+         );
+      }
       return compileTypedComparison<Date32Column>(
          table, column_name, effective_comparator, "date", date_value->value
       );

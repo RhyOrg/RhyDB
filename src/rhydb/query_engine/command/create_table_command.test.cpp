@@ -72,6 +72,7 @@ createTable(covid, {
    qc := float,
    complete := boolean,
    date := date,
+   sampled := date(generateIndex := true),
    main := nucleotideSequence(reference := main),
    segment := nucleotideSequence(reference := other),
    "S" := aminoAcidSequence(reference := "S"),
@@ -108,6 +109,7 @@ TEST(CreateTableCommand, createsTableWithFullSchema) {
          {.name = "key", .type = DataType::STRING},
          {.name = "main", .type = DataType::NUCLEOTIDE_SEQUENCE},
          {.name = "qc", .type = DataType::FLOAT},
+         {.name = "sampled", .type = DataType::dictionaryEncoded(DataType::DATE32)},
          {.name = "segment", .type = DataType::NUCLEOTIDE_SEQUENCE},
          {.name = "unaligned_main", .type = DataType::ZSTD_COMPRESSED_STRING},
       })
@@ -130,17 +132,23 @@ TEST(CreateTableCommand, createdTableAcceptsDataAndIsQueryable) {
    std::ignore = executeWrite(database, FULL_SCHEMA_STATEMENT);
 
    std::stringstream data;
-   data << R"({"key":"a","country":"CH","age":1,"big":10000000000,"qc":0.5,"complete":true,)"
-        << R"("date":"2021-03-18","main":{"sequence":"ACGA","insertions":[]},)"
-        << R"("segment":{"sequence":"TTTTT","insertions":[]},)"
-        << R"("S":{"sequence":"MYK*","insertions":[]},"unaligned_main":"ACGA"})" << "\n"
-        << R"({"key":"b","country":"US","age":2,"big":null,"qc":null,"complete":false,)"
-        << R"("date":null,"main":null,"segment":null,"S":null,"unaligned_main":null})" << "\n";
+   data
+      << R"({"key":"a","country":"CH","age":1,"big":10000000000,"qc":0.5,"complete":true,)"
+      << R"("date":"2021-03-18","sampled":"2021-03-01","main":{"sequence":"ACGA","insertions":[]},)"
+      << R"("segment":{"sequence":"TTTTT","insertions":[]},)"
+      << R"("S":{"sequence":"MYK*","insertions":[]},"unaligned_main":"ACGA"})" << "\n"
+      << R"({"key":"b","country":"US","age":2,"big":null,"qc":null,"complete":false,)"
+      << R"("date":null,"sampled":"2021-02-01","main":null,"segment":null,"S":null,)"
+      << R"("unaligned_main":null})" << "\n";
    database.appendData(TableName{"covid"}, data);
 
    EXPECT_EQ(
       executeQuery(database, "covid.filter(country='CH').project({key, age, main})"),
       nlohmann::json::parse(R"([{"key": "a", "age": 1, "main": "ACGA"}])")
+   );
+   EXPECT_EQ(
+      executeQuery(database, "covid.filter(sampled < '2021-03-01'::date).project({key, sampled})"),
+      nlohmann::json::parse(R"([{"key": "b", "sampled": "2021-02-01"}])")
    );
 }
 

@@ -24,6 +24,12 @@ TableChunkBuilder::getColumnBuilders<column::DictionaryEncodedColumn<column::Str
 }
 
 template <>
+std::map<std::string, column::DictionaryEncodedColumn<column::Date32Column>::Builder>&
+TableChunkBuilder::getColumnBuilders<column::DictionaryEncodedColumn<column::Date32Column>>() {
+   return dictionary_encoded_date32_column_builders;
+}
+
+template <>
 std::map<std::string, column::StringColumn::Builder>& TableChunkBuilder::getColumnBuilders<
    column::StringColumn>() {
    return string_column_builders;
@@ -232,8 +238,9 @@ class ColumnValueExtractor {
    }
 };
 
-template <>
-std::expected<void, std::string> ColumnValueExtractor::operator()<column::Date32Column>(
+/// Dates are given as strings in the input, so they are parsed rather than read as JSON values
+template <column::Column ColumnType>
+std::expected<void, std::string> insertToDateBuilder(
    TableChunkBuilder& builders,
    const schema::ColumnIdentifier& column,
    simdjson::ondemand::value& value
@@ -242,7 +249,7 @@ std::expected<void, std::string> ColumnValueExtractor::operator()<column::Date32
    auto error = value.is_null().get(is_null);
    RAISE_STRING_ERROR_WITH_CONTEXT(error, value, "error checking value for null: {}");
    if (is_null) {
-      builders.getColumnBuilders<column::Date32Column>().at(column.name).insertNull();
+      builders.getColumnBuilders<ColumnType>().at(column.name).insertNull();
    } else {
       std::string_view column_value;
       error = value.get(column_value);
@@ -253,11 +260,30 @@ std::expected<void, std::string> ColumnValueExtractor::operator()<column::Date32
       if (!date_result.has_value()) {
          return std::unexpected{date_result.error()};
       }
-      builders.getColumnBuilders<column::Date32Column>()
-         .at(column.name)
-         .insert(date_result.value());
+      builders.getColumnBuilders<ColumnType>().at(column.name).insert(date_result.value());
    }
    return {};
+}
+
+template <>
+std::expected<void, std::string> ColumnValueExtractor::operator()<column::Date32Column>(
+   TableChunkBuilder& builders,
+   const schema::ColumnIdentifier& column,
+   simdjson::ondemand::value& value
+) {
+   return insertToDateBuilder<column::Date32Column>(builders, column, value);
+}
+
+template <>
+std::expected<void, std::string> ColumnValueExtractor::operator()<
+   column::DictionaryEncodedColumn<column::Date32Column>>(
+   TableChunkBuilder& builders,
+   const schema::ColumnIdentifier& column,
+   simdjson::ondemand::value& value
+) {
+   return insertToDateBuilder<column::DictionaryEncodedColumn<column::Date32Column>>(
+      builders, column, value
+   );
 }
 
 template <>

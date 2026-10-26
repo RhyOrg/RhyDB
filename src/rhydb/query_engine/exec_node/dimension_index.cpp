@@ -24,10 +24,12 @@
 #include "rhydb/common/nucleotide_symbols.h"
 #include "rhydb/common/panic.h"
 #include "rhydb/common/symbol_map.h"
+#include "rhydb/common/types.h"
 #include "rhydb/query_engine/exec_node/arrow_util.h"
 #include "rhydb/query_engine/exec_node/table_scan.h"
 #include "rhydb/roaring_util/roaring_container.h"
 #include "rhydb/schema/database_schema.h"
+#include "rhydb/storage/column/date32_column.h"
 #include "rhydb/storage/column/dictionary_encoded_column.h"
 #include "rhydb/storage/column/sequence_column.h"
 #include "rhydb/storage/table.h"
@@ -228,42 +230,44 @@ class SequencePositionIndex : public DimensionIndex {
    }
 };
 
-/// Groups the rows by the value of an indexed string column, straight from its inverted index. Each
-/// value's rows are handed out as zero-copy views into the stored per-value bitmap (one per 2^16
-/// chunk), plus a null group from the column's null bitmap. Value groups get consecutive indices in
-/// sorted-value order (null last), so the combinations come out in the same order as the generic
-/// path.
+/// Groups the rows by the value of a dictionary-encoded column, straight from its inverted index.
+/// Each value's rows are handed out as zero-copy views into the stored per-value bitmap (one per
+/// 2^16 chunk), plus a null group from the column's null bitmap. Value groups get consecutive
+/// indices in sorted-value order (null last), so the combinations come out in the same order as the
+/// generic path.
+template <storage::column::DictionaryValueColumn ValueColumn>
 class IndexedColumnIndex : public DimensionIndex {
+   using DictionaryColumn = storage::column::DictionaryEncodedColumn<ValueColumn>;
+
+   const DictionaryColumn& column;
    // chunk key -> the groups holding a container in that chunk. Precomputed once (the inverted
    // index is unordered), so serving a chunk is a single map lookup returning views into stored
    // bitmaps.
    std::map<uint16_t, ValueBitmapDimension> groups_by_chunk;
-   // The distinct value of each group index, in sorted order (the null group has no entry; it is
+   // The dictionary id of each group index, in sorted order (the null group has no entry; it is
    // the trailing null appended by `values`).
-   std::vector<std::string> key_values;
+   std::vector<Idx> key_ids;
 
   public:
-   explicit IndexedColumnIndex(
-      const storage::column::DictionaryEncodedColumn<storage::column::StringColumn>& column
-   ) {
-      // One group per distinct value, ordered by the value string so the node has a deterministic
-      // output order. A null row lives only in `null_bitmap` (its value's bitmap does not contain
-      // it), so the null group stays disjoint from the value groups and no row is double-counted.
-      std::vector<std::pair<std::string, const roaring::Roaring*>> values;
+   explicit IndexedColumnIndex(const DictionaryColumn& column)
+       : column(column) {
+      // One group per distinct value, ordered by the value so the node has a deterministic output
+      // order. The dictionary ids are order-preserving, so sorting them sorts the values. A null
+      // row lives only in `null_bitmap` (its value's bitmap does not contain it), so the null group
+      // stays disjoint from the value groups and no row is double-counted.
+      std::vector<std::pair<Idx, const roaring::Roaring*>> values;
       values.reserve(column.getIndexedValues().size());
       for (const auto& [value_id, value_bitmap] : column.getIndexedValues()) {
-         values.emplace_back(std::string{column.lookupValue(value_id)}, &value_bitmap);
+         values.emplace_back(value_id, &value_bitmap);
       }
-      std::ranges::sort(values, [](const auto& lhs, const auto& rhs) {
-         return lhs.first < rhs.first;
-      });
+      std::ranges::sort(values, {}, &std::pair<Idx, const roaring::Roaring*>::first);
 
-      key_values.reserve(values.size());
+      key_ids.reserve(values.size());
       for (size_t group_index = 0; group_index < values.size(); ++group_index) {
          for (const auto& [chunk_id, view] : Bitmap{values[group_index].second}) {
             groups_by_chunk[chunk_id].emplace_back(group_index, CopyOnWriteContainer{view});
          }
-         key_values.emplace_back(std::move(values[group_index].first));
+         key_ids.push_back(values[group_index].first);
       }
       const size_t null_index = values.size();
       for (const auto& [chunk_id, view] : Bitmap::fromChunkContainers(column.null_bitmap)) {
@@ -282,9 +286,9 @@ class IndexedColumnIndex : public DimensionIndex {
    /// The distinct values in sorted order (the group indices `chunk` hands out), then a
    /// null for the trailing null group.
    [[nodiscard]] arrow::Result<std::shared_ptr<arrow::Array>> values() const override {
-      arrow::LargeStringBuilder builder;
-      for (const auto& value : key_values) {
-         ARROW_RETURN_NOT_OK(builder.Append(value));
+      ArrowBuilder<DictionaryColumn> builder;
+      for (const Idx key_id : key_ids) {
+         ARROW_RETURN_NOT_OK(builder.Append(column.lookupValue(key_id)));
       }
       ARROW_RETURN_NOT_OK(builder.AppendNull());  // null group
       std::shared_ptr<arrow::Array> array;
@@ -538,11 +542,17 @@ arrow::Result<std::unique_ptr<DimensionIndex>> buildDimensionIndex(
       return buildSequencePositionIndex<AminoAcid>(table, *sequence_position);
    }
    if (const auto* indexed_column = std::get_if<ResolvedIndexedColumnDimension>(&dimension)) {
-      const auto& column =
-         table.getColumn<storage::column::DictionaryEncodedColumn<storage::column::StringColumn>>(
-            indexed_column->column_name
+      using storage::column::Date32Column;
+      using storage::column::DictionaryEncodedColumn;
+      using storage::column::StringColumn;
+      if (table.hasColumn<DictionaryEncodedColumn<Date32Column>>(indexed_column->column_name)) {
+         return std::make_unique<IndexedColumnIndex<Date32Column>>(
+            table.getColumn<DictionaryEncodedColumn<Date32Column>>(indexed_column->column_name)
          );
-      return std::make_unique<IndexedColumnIndex>(column);
+      }
+      return std::make_unique<IndexedColumnIndex<StringColumn>>(
+         table.getColumn<DictionaryEncodedColumn<StringColumn>>(indexed_column->column_name)
+      );
    }
    const auto& scalar_expression = std::get<ResolvedScalarExpressionDimension>(dimension);
    using Kind = schema::DataType::Kind;
