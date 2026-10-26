@@ -1,7 +1,6 @@
 #include "rhydb/query_engine/operators/map_node.h"
 
 #include <algorithm>
-#include <chrono>
 #include <cstddef>
 #include <optional>
 #include <ranges>
@@ -14,7 +13,7 @@
 #include <nlohmann/json_fwd.hpp>
 
 #include "rhydb/common/size_constants.h"
-#include "rhydb/query_engine/exec_node/throttled_batch_reslicer.h"
+#include "rhydb/query_engine/exec_node/batch_reslicer.h"
 #include "rhydb/query_engine/scalar_expressions/at.h"
 #include "rhydb/query_engine/scalar_expressions/iso_week.h"
 #include "rhydb/query_engine/scalar_expressions/zstd_decompress_scalar.h"
@@ -46,28 +45,28 @@ size_t sumDecompressDictionarySizes(const ScalarExpression& expression) {
    return 0;
 }
 
-/// When any assignment uses zstd decompression, insert a backpressure sink/source pair into the
-/// plan so that Arrow can throttle the upstream scan appropriately. Decompression inflates each
-/// batch by (roughly) the reference/dictionary size, so we size the batches relative to the
-/// summed reference sizes to bound peak memory. Output names are unique (handleMap rejects
-/// duplicates).
-///
-/// Returns the new top node when a backpressure pair was inserted, or std::nullopt when no
-/// assignment decompresses (in which case the caller keeps its existing node).
-arrow::Result<std::optional<arrow::acero::ExecNode*>> insertBackpressureForDecompression(
-   arrow::acero::ExecPlan& plan,
-   const std::map<std::string, const MapNode::Assignment*>& assignment_by_name,
-   arrow::acero::ExecNode* input_node
+/// Estimates by how many bytes the assignments inflate each row, i.e. the summed dictionary sizes
+/// of their zstd decompressions. Decompression inflates each value by (roughly) the size of its
+/// dictionary (the reference sequence).
+size_t estimateInflatedBytesPerRow(
+   const std::map<std::string, const MapNode::Assignment*>& assignment_by_name
 ) {
-   size_t sum_of_reference_genome_sizes = 0;
+   size_t inflated_bytes_per_row = 0;
    for (const auto& assignment : assignment_by_name | std::views::values) {
-      sum_of_reference_genome_sizes += sumDecompressDictionarySizes(*assignment->expression);
+      inflated_bytes_per_row += sumDecompressDictionarySizes(*assignment->expression);
    }
+   return inflated_bytes_per_row;
+}
 
-   if (sum_of_reference_genome_sizes == 0) {
-      return std::nullopt;
-   }
-
+/// Insert a backpressure sink/source pair into the plan so that Arrow can throttle the upstream
+/// appropriately before decompression. The source reslices its input into batches of at most
+/// `maximum_batch_size` rows, for inputs that do not already honor the reduced
+/// `materialization_cutoff` (see `MapNode::addToExecPlan`).
+arrow::Result<arrow::acero::ExecNode*> insertBackpressureForDecompression(
+   arrow::acero::ExecPlan& plan,
+   arrow::acero::ExecNode* input_node,
+   int64_t maximum_batch_size
+) {
    const auto& input_ordering = input_node->ordering();
 
    arrow::AsyncGenerator<std::optional<arrow::ExecBatch>> batch_generator;
@@ -82,7 +81,10 @@ arrow::Result<std::optional<arrow::acero::ExecNode*>> insertBackpressureForDecom
          arrow::acero::SinkNodeOptions{
             &batch_generator,
             &schema_of_sequence_batches,
-            arrow::acero::BackpressureOptions{rhydb::common::S_16_KB, rhydb::common::S_64_MB},
+            // Pause as soon as one batch is queued and resume only once it is taken. The queued
+            // batches are still compressed, so a byte threshold would hold many times its size
+            // in decompressed sequences, all of which the reslicer below emits in one burst.
+            arrow::acero::BackpressureOptions{/*resume_if_below=*/1, /*pause_if_above=*/1},
             &backpressure_monitor,
          }
       )
@@ -90,11 +92,6 @@ arrow::Result<std::optional<arrow::acero::ExecNode*>> insertBackpressureForDecom
    current_node->SetLabel(
       "additional sink node to help backpressure application before zstd decompression"
    );
-
-   const auto maximum_batch_size =
-      static_cast<int64_t>(std::max(rhydb::common::S_64_MB / sum_of_reference_genome_sizes, 1UL));
-
-   constexpr std::chrono::milliseconds TARGET_BATCH_RATE{667};
 
    ARROW_ASSIGN_OR_RAISE(
       current_node,
@@ -104,10 +101,9 @@ arrow::Result<std::optional<arrow::acero::ExecNode*>> insertBackpressureForDecom
          {},
          arrow::acero::SourceNodeOptions{
             schema_of_sequence_batches,
-            rhydb::query_engine::exec_node::ThrottledBatchReslicer{
+            rhydb::query_engine::exec_node::BatchReslicer{
                batch_generator,
                maximum_batch_size,
-               TARGET_BATCH_RATE,
                backpressure_monitor,
             },
             input_ordering,
@@ -147,21 +143,44 @@ arrow::Result<arrow::acero::ExecNode*> MapNode::addToExecPlan(
    const std::map<schema::TableName, std::shared_ptr<storage::Table>>& tables,
    const config::QueryOptions& query_options
 ) const {
-   ARROW_ASSIGN_OR_RAISE(auto* current_node, child->addToExecPlan(plan, tables, query_options));
-
    std::map<std::string, const Assignment*> assignment_by_name;
    for (const auto& assignment : assignments) {
       assignment_by_name[assignment.output_column.name] = &assignment;
    }
 
-   ARROW_ASSIGN_OR_RAISE(
-      auto backpressure_node,
-      insertBackpressureForDecompression(plan, assignment_by_name, current_node)
-   );
-   if (backpressure_node.has_value()) {
-      current_node = backpressure_node.value();
+   const size_t inflated_bytes_per_row = estimateInflatedBytesPerRow(assignment_by_name);
+   if (inflated_bytes_per_row == 0) {
+      ARROW_ASSIGN_OR_RAISE(auto* current_node, child->addToExecPlan(plan, tables, query_options));
+      return addProjection(plan, current_node, assignment_by_name);
    }
 
+   // Restrict the batch size of the whole pipeline below, so that a batch takes up at most ~64MB
+   // once inflated. `materialization_cutoff` is the batch size minus one.
+   const size_t maximum_batch_size = std::max(common::S_64_MB / inflated_bytes_per_row, 1UL);
+   config::QueryOptions child_query_options = query_options;
+   child_query_options.materialization_cutoff =
+      std::min(query_options.materialization_cutoff, maximum_batch_size - 1);
+
+   ARROW_ASSIGN_OR_RAISE(
+      auto* current_node, child->addToExecPlan(plan, tables, child_query_options)
+   );
+   if (std::getenv("RHYDB_EXP_NO_RESLICER") != nullptr) {  // EXPERIMENT
+      return addProjection(plan, current_node, assignment_by_name);
+   }
+   ARROW_ASSIGN_OR_RAISE(
+      current_node,
+      insertBackpressureForDecompression(
+         plan, current_node, static_cast<int64_t>(maximum_batch_size)
+      )
+   );
+   return addProjection(plan, current_node, assignment_by_name);
+}
+
+arrow::Result<arrow::acero::ExecNode*> MapNode::addProjection(
+   arrow::acero::ExecPlan& plan,
+   arrow::acero::ExecNode* input_node,
+   const std::map<std::string, const Assignment*>& assignment_by_name
+) const {
    const auto output_schema = getOutputSchema();
    std::vector<arrow::Expression> expressions;
    std::vector<std::string> names;
@@ -180,7 +199,7 @@ arrow::Result<arrow::acero::ExecNode*> MapNode::addToExecPlan(
    }
 
    const arrow::acero::ProjectNodeOptions options{std::move(expressions), std::move(names)};
-   return arrow::acero::MakeExecNode("project", &plan, {current_node}, options);
+   return arrow::acero::MakeExecNode("project", &plan, {input_node}, options);
 }
 
 nlohmann::json MapNode::toJson() const {

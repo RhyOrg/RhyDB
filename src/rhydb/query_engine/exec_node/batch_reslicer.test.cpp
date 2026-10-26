@@ -1,4 +1,4 @@
-#include "rhydb/query_engine/exec_node/throttled_batch_reslicer.h"
+#include "rhydb/query_engine/exec_node/batch_reslicer.h"
 
 #include <arrow/acero/exec_plan.h>
 #include <arrow/api.h>
@@ -7,14 +7,13 @@
 #include <arrow/util/future.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <chrono>
 #include <vector>
 
 using arrow::AsyncGenerator;
 using arrow::ExecBatch;
 using arrow::acero::BackpressureMonitor;
 
-using rhydb::query_engine::exec_node::ThrottledBatchReslicer;
+using rhydb::query_engine::exec_node::BatchReslicer;
 
 namespace {
 
@@ -25,7 +24,7 @@ class MockBackpressureMonitor : public BackpressureMonitor {
    MOCK_METHOD(bool, is_paused, (), (override));
 };
 
-class ThrottledBatchReslicerTest : public ::testing::Test {
+class BatchReslicerTest : public ::testing::Test {
   protected:
    void SetUp() override {
       mock_backpressure_monitor = std::make_unique<MockBackpressureMonitor>();
@@ -70,23 +69,18 @@ class ThrottledBatchReslicerTest : public ::testing::Test {
 
 }  // namespace
 
-TEST_F(ThrottledBatchReslicerTest, ConstructorValidation) {
+TEST_F(BatchReslicerTest, ConstructorValidation) {
    auto generator = createGenerator({});
 
    // Valid construction should not throw
-   EXPECT_NO_THROW({
-      ThrottledBatchReslicer reslicer(
-         generator, 100, std::chrono::milliseconds(10), mock_backpressure_monitor.get()
-      );
-   });
+   EXPECT_NO_THROW({ BatchReslicer reslicer(generator, 100, mock_backpressure_monitor.get()); });
 
    // batch_size = 0 should trigger assertion
    EXPECT_THAT(
       [&]() {
-         ThrottledBatchReslicer reslicer(
+         BatchReslicer reslicer(
             generator,
             0,  // Invalid batch_size
-            std::chrono::milliseconds(10),
             mock_backpressure_monitor.get()
          );
       },
@@ -94,12 +88,10 @@ TEST_F(ThrottledBatchReslicerTest, ConstructorValidation) {
    );
 }
 
-TEST_F(ThrottledBatchReslicerTest, EmptyInput) {
+TEST_F(BatchReslicerTest, EmptyInput) {
    auto generator = createGenerator({std::nullopt});
 
-   ThrottledBatchReslicer reslicer(
-      generator, 100, std::chrono::milliseconds(10), mock_backpressure_monitor.get()
-   );
+   BatchReslicer reslicer(generator, 100, mock_backpressure_monitor.get());
 
    auto future = reslicer();
    const auto& result = future.result();
@@ -108,13 +100,11 @@ TEST_F(ThrottledBatchReslicerTest, EmptyInput) {
    EXPECT_FALSE(result.ValueOrDie().has_value());
 }
 
-TEST_F(ThrottledBatchReslicerTest, EmptyBatch) {
+TEST_F(BatchReslicerTest, EmptyBatch) {
    auto empty_batch = createTestBatch(0);
    auto generator = createGenerator({empty_batch, std::nullopt});
 
-   ThrottledBatchReslicer reslicer(
-      generator, 100, std::chrono::milliseconds(10), mock_backpressure_monitor.get()
-   );
+   BatchReslicer reslicer(generator, 100, mock_backpressure_monitor.get());
 
    auto future = reslicer();
    const auto& result = future.result();
@@ -125,14 +115,13 @@ TEST_F(ThrottledBatchReslicerTest, EmptyBatch) {
    EXPECT_EQ(batch->length, 0);
 }
 
-TEST_F(ThrottledBatchReslicerTest, BatchSmallerThanTargetSize) {
+TEST_F(BatchReslicerTest, BatchSmallerThanTargetSize) {
    auto small_batch = createTestBatch(50);  // Smaller than target size
    auto generator = createGenerator({small_batch, std::nullopt});
 
-   ThrottledBatchReslicer reslicer(
+   BatchReslicer reslicer(
       generator,
       100,  // Target size larger than input
-      std::chrono::milliseconds(10),
       mock_backpressure_monitor.get()
    );
 
@@ -151,14 +140,13 @@ TEST_F(ThrottledBatchReslicerTest, BatchSmallerThanTargetSize) {
    EXPECT_FALSE(result.ValueOrDie().has_value());
 }
 
-TEST_F(ThrottledBatchReslicerTest, BatchEqualToTargetSize) {
+TEST_F(BatchReslicerTest, BatchEqualToTargetSize) {
    auto exact_batch = createTestBatch(100);
    auto generator = createGenerator({exact_batch, std::nullopt});
 
-   ThrottledBatchReslicer reslicer(
+   BatchReslicer reslicer(
       generator,
       100,  // Exact target size
-      std::chrono::milliseconds(10),
       mock_backpressure_monitor.get()
    );
 
@@ -171,14 +159,13 @@ TEST_F(ThrottledBatchReslicerTest, BatchEqualToTargetSize) {
    EXPECT_EQ(batch->length, 100);
 }
 
-TEST_F(ThrottledBatchReslicerTest, BatchLargerThanTargetSize) {
+TEST_F(BatchReslicerTest, BatchLargerThanTargetSize) {
    auto large_batch = createTestBatch(250);
    auto generator = createGenerator({large_batch, std::nullopt});
 
-   ThrottledBatchReslicer reslicer(
+   BatchReslicer reslicer(
       generator,
-      100,                           // Target size smaller than input
-      std::chrono::milliseconds(1),  // Very short delay for testing
+      100,  // Target size smaller than input
       mock_backpressure_monitor.get()
    );
 
@@ -213,14 +200,12 @@ TEST_F(ThrottledBatchReslicerTest, BatchLargerThanTargetSize) {
    EXPECT_FALSE(result4.ValueOrDie().has_value());
 }
 
-TEST_F(ThrottledBatchReslicerTest, MultipleBatches) {
+TEST_F(BatchReslicerTest, MultipleBatches) {
    auto batch1 = createTestBatch(150, 0);
    auto batch2 = createTestBatch(75, 150);
    auto generator = createGenerator({batch1, batch2, std::nullopt});
 
-   ThrottledBatchReslicer reslicer(
-      generator, 100, std::chrono::milliseconds(1), mock_backpressure_monitor.get()
-   );
+   BatchReslicer reslicer(generator, 100, mock_backpressure_monitor.get());
 
    std::vector<int64_t> batch_sizes;
 
@@ -242,35 +227,7 @@ TEST_F(ThrottledBatchReslicerTest, MultipleBatches) {
    EXPECT_THAT(batch_sizes, ::testing::ElementsAre(100, 50, 75));
 }
 
-TEST_F(ThrottledBatchReslicerTest, ThrottlingDelay) {
-   auto large_batch = createTestBatch(200);
-   auto generator = createGenerator({large_batch, std::nullopt});
-
-   const auto delay = std::chrono::milliseconds(50);
-   ThrottledBatchReslicer reslicer(generator, 100, delay, mock_backpressure_monitor.get());
-
-   // First call should not have delay (no previous batch)
-   auto future1 = reslicer();
-   const auto& result1 = future1.result();
-   ASSERT_TRUE(result1.ok());
-   EXPECT_TRUE(result1.ValueOrDie().has_value());
-
-   auto first_batch_time = std::chrono::system_clock::now();
-
-   // Second call should have delay
-   auto future2 = reslicer();
-   const auto& result2 = future2.result();
-   ASSERT_TRUE(result2.ok());
-   EXPECT_TRUE(result2.ValueOrDie().has_value());
-
-   auto second_batch_time = std::chrono::system_clock::now();
-
-   // Check that delay was applied (with some tolerance)
-   auto actual_delay = second_batch_time - first_batch_time;
-   EXPECT_GE(actual_delay, delay - std::chrono::milliseconds(5));
-}
-
-TEST_F(ThrottledBatchReslicerTest, BackpressureMonitorLogging) {
+TEST_F(BatchReslicerTest, BackpressureMonitorLogging) {
    auto batch = createTestBatch(50);
    auto generator = createGenerator({batch, std::nullopt});
 
@@ -278,9 +235,7 @@ TEST_F(ThrottledBatchReslicerTest, BackpressureMonitorLogging) {
    EXPECT_CALL(*mock_backpressure_monitor, bytes_in_use()).Times(::testing::AtLeast(1));
    EXPECT_CALL(*mock_backpressure_monitor, is_paused()).Times(::testing::AtLeast(1));
 
-   ThrottledBatchReslicer reslicer(
-      generator, 100, std::chrono::milliseconds(1), mock_backpressure_monitor.get()
-   );
+   BatchReslicer reslicer(generator, 100, mock_backpressure_monitor.get());
 
    auto future = reslicer();
    const auto& result = future.result();
@@ -288,7 +243,7 @@ TEST_F(ThrottledBatchReslicerTest, BackpressureMonitorLogging) {
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST_F(ThrottledBatchReslicerTest, DataIntegrity) {
+TEST_F(BatchReslicerTest, DataIntegrity) {
    // Create a batch with known data
    auto builder = std::make_shared<arrow::Int32Builder>();
    for (int32_t i = 0; i < 150; ++i) {
@@ -300,9 +255,7 @@ TEST_F(ThrottledBatchReslicerTest, DataIntegrity) {
    auto batch = ExecBatch({array}, 150);
    auto generator = createGenerator({batch, std::nullopt});
 
-   ThrottledBatchReslicer reslicer(
-      generator, 100, std::chrono::milliseconds(1), mock_backpressure_monitor.get()
-   );
+   BatchReslicer reslicer(generator, 100, mock_backpressure_monitor.get());
 
    // Get first slice (0-99)
    auto future1 = reslicer();
@@ -333,15 +286,13 @@ TEST_F(ThrottledBatchReslicerTest, DataIntegrity) {
    }
 }
 
-TEST_F(ThrottledBatchReslicerTest, ExceptionHandling) {
+TEST_F(BatchReslicerTest, ExceptionHandling) {
    // Create a generator that throws an exception
    auto throwing_generator = [] -> arrow::Future<std::optional<ExecBatch>> {
       throw std::runtime_error("Test exception");
    };
 
-   ThrottledBatchReslicer reslicer(
-      throwing_generator, 100, std::chrono::milliseconds(10), mock_backpressure_monitor.get()
-   );
+   BatchReslicer reslicer(throwing_generator, 100, mock_backpressure_monitor.get());
 
    auto future = reslicer();
    const auto& result = future.result();
@@ -349,37 +300,4 @@ TEST_F(ThrottledBatchReslicerTest, ExceptionHandling) {
    // Should return an error status, not throw
    EXPECT_FALSE(result.ok());
    EXPECT_THAT(result.status().message(), ::testing::HasSubstr("Test exception"));
-}
-
-// Performance test to ensure throttling works correctly under load
-TEST_F(ThrottledBatchReslicerTest, PerformanceThrottling) {
-   auto large_batch = createTestBatch(1000);
-   auto generator = createGenerator({large_batch, std::nullopt});
-
-   const auto delay = std::chrono::milliseconds(10);
-   ThrottledBatchReslicer reslicer(generator, 100, delay, mock_backpressure_monitor.get());
-
-   auto start_time = std::chrono::system_clock::now();
-   int batch_count = 0;
-
-   while (true) {
-      auto future = reslicer();
-      const auto& result = future.result();
-      ASSERT_TRUE(result.ok());
-      const auto& batch = result.ValueOrDie();
-
-      if (!batch.has_value()) {
-         break;
-      }
-
-      batch_count++;
-   }
-
-   auto total_time = std::chrono::system_clock::now() - start_time;
-
-   // Should have processed 10 batches (1000 / 100)
-   EXPECT_EQ(batch_count, 10);
-
-   // With 9 delays of 10ms each (first batch has no delay), total should be at least 90ms
-   EXPECT_GE(total_time, std::chrono::milliseconds(90));
 }
