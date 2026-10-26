@@ -334,7 +334,9 @@ TEST(DictionaryEncodedColumn, dateNullKeepsApartFromThePlaceholderDate) {
    ASSERT_EQ(under_test.numDictionaryValues(), 2);
    EXPECT_EQ(under_test.getValue(RowId(0, 0)), under_test.getValue(RowId(0, 1)));
    ASSERT_EQ(*under_test.filter(0).value(), roaring::Roaring({1}));
-   ASSERT_EQ(*under_test.filter(std::nullopt).value(), roaring::Roaring({0}));
+   ASSERT_EQ(
+      rhydb::Bitmap::fromChunkContainers(under_test.null_bitmap).toRoaring(), roaring::Roaring({0})
+   );
    EXPECT_TRUE(under_test.isNull(RowId(0, 0)));
    EXPECT_FALSE(under_test.isNull(RowId(0, 1)));
 }
