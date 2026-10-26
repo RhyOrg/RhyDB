@@ -10,16 +10,23 @@
 #include "rhydb/storage/column/sequence_column.h"
 #include "rhydb/storage/column/zstd_compressed_string_column.h"
 
+using rhydb::AminoAcid;
+using rhydb::Nucleotide;
 using rhydb::ReferenceGenomes;
 using rhydb::common::LineageTreeAndIdMap;
 using rhydb::common::PhyloTree;
+using rhydb::config::DatabaseConfig;
 using rhydb::initialize::Initializer;
+using rhydb::schema::DataType;
+using rhydb::storage::column::DictionaryEncodedColumn;
+using rhydb::storage::column::SequenceColumn;
+using rhydb::storage::column::StringColumn;
+using rhydb::storage::column::ZstdCompressedStringColumn;
 
 TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
-   const rhydb::config::DatabaseConfig database_config =
-      rhydb::config::DatabaseConfig::getValidatedConfigFromFile(
-         "testBaseData/unitTestDummyDataset/database_config.yaml"
-      );
+   const DatabaseConfig database_config = DatabaseConfig::getValidatedConfigFromFile(
+      "testBaseData/unitTestDummyDataset/database_config.yaml"
+   );
    const ReferenceGenomes reference_genomes =
       ReferenceGenomes::readFromFile("testBaseData/unitTestDummyDataset/reference_genomes.json");
    const PhyloTree phylo_tree_file =
@@ -38,17 +45,12 @@ TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
    ASSERT_TRUE(table_schema->primary_key.has_value());
    ASSERT_EQ(table_schema->primary_key->name, database_config.schema.primary_key.value());
 
-   using rhydb::schema::DataType;
    ASSERT_TRUE(table_schema->getColumn("M").has_value());
    ASSERT_EQ(table_schema->getColumn("M").value().type, DataType::AMINO_ACID_SEQUENCE);
-   ASSERT_TRUE(table_schema
-                  ->getColumnMetadata<rhydb::storage::column::SequenceColumn<rhydb::AminoAcid>>("M")
-                  .has_value());
+   ASSERT_TRUE(table_schema->getColumnMetadata<SequenceColumn<AminoAcid>>("M").has_value());
    ASSERT_EQ(
-      table_schema->getColumnMetadata<rhydb::storage::column::SequenceColumn<rhydb::AminoAcid>>("M")
-         .value()
-         ->reference_sequence,
-      reference_genomes.stringToVector<rhydb::AminoAcid>("MADS*")
+      table_schema->getColumnMetadata<SequenceColumn<AminoAcid>>("M").value()->reference_sequence,
+      reference_genomes.stringToVector<AminoAcid>("MADS*")
    );
 
    ASSERT_TRUE(table_schema->getColumn("age").has_value());
@@ -58,9 +60,9 @@ TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
    ASSERT_EQ(
       table_schema->getColumn("country").value().type, DataType::dictionaryEncoded(DataType::STRING)
    );
-   ASSERT_TRUE(table_schema
-                  ->getColumnMetadata<rhydb::storage::column::DictionaryEncodedColumn>("country")
-                  .has_value());
+   ASSERT_TRUE(
+      table_schema->getColumnMetadata<DictionaryEncodedColumn<StringColumn>>("country").has_value()
+   );
 
    ASSERT_TRUE(table_schema->getColumn("date").has_value());
    ASSERT_EQ(table_schema->getColumn("date").value().type, DataType::DATE32);
@@ -70,23 +72,18 @@ TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
       table_schema->getColumn("division").value().type,
       DataType::dictionaryEncoded(DataType::STRING)
    );
-   ASSERT_TRUE(table_schema
-                  ->getColumnMetadata<rhydb::storage::column::DictionaryEncodedColumn>("division")
-                  .has_value());
+   ASSERT_TRUE(
+      table_schema->getColumnMetadata<DictionaryEncodedColumn<StringColumn>>("division").has_value()
+   );
 
    ASSERT_TRUE(table_schema->getColumn("main").has_value());
    ASSERT_EQ(table_schema->getColumn("main").value().type, DataType::NUCLEOTIDE_SEQUENCE);
-   ASSERT_TRUE(
-      table_schema
-         ->getColumnMetadata<rhydb::storage::column::SequenceColumn<rhydb::Nucleotide>>("main")
-         .has_value()
-   );
+   ASSERT_TRUE(table_schema->getColumnMetadata<SequenceColumn<Nucleotide>>("main").has_value());
    ASSERT_EQ(
-      table_schema
-         ->getColumnMetadata<rhydb::storage::column::SequenceColumn<rhydb::Nucleotide>>("main")
+      table_schema->getColumnMetadata<SequenceColumn<Nucleotide>>("main")
          .value()
          ->reference_sequence,
-      reference_genomes.stringToVector<rhydb::Nucleotide>("ACGTACGT")
+      reference_genomes.stringToVector<Nucleotide>("ACGTACGT")
    );
 
    ASSERT_TRUE(table_schema->getColumn("pango_lineage").has_value());
@@ -94,16 +91,13 @@ TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
       table_schema->getColumn("pango_lineage").value().type,
       DataType::dictionaryEncoded(DataType::STRING)
    );
-   ASSERT_TRUE(
-      table_schema
-         ->getColumnMetadata<rhydb::storage::column::DictionaryEncodedColumn>("pango_lineage")
-         .has_value()
-   );
+   ASSERT_TRUE(table_schema
+                  ->getColumnMetadata<DictionaryEncodedColumn<StringColumn>>("pango_lineage")
+                  .has_value());
 
    ASSERT_TRUE(table_schema->getColumn("primaryKey").has_value());
    ASSERT_EQ(table_schema->getColumn("primaryKey").value().type, DataType::STRING);
-   ASSERT_TRUE(table_schema->getColumnMetadata<rhydb::storage::column::StringColumn>("primaryKey")
-                  .has_value());
+   ASSERT_TRUE(table_schema->getColumnMetadata<StringColumn>("primaryKey").has_value());
 
    ASSERT_TRUE(table_schema->getColumn("qc_value").has_value());
    ASSERT_EQ(table_schema->getColumn("qc_value").value().type, DataType::FLOAT);
@@ -112,27 +106,22 @@ TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
    ASSERT_EQ(
       table_schema->getColumn("region").value().type, DataType::dictionaryEncoded(DataType::STRING)
    );
-   ASSERT_TRUE(table_schema
-                  ->getColumnMetadata<rhydb::storage::column::DictionaryEncodedColumn>("region")
-                  .has_value());
+   ASSERT_TRUE(
+      table_schema->getColumnMetadata<DictionaryEncodedColumn<StringColumn>>("region").has_value()
+   );
 
    ASSERT_TRUE(table_schema->getColumn("testSecondSequence").has_value());
    ASSERT_EQ(
       table_schema->getColumn("testSecondSequence").value().type, DataType::NUCLEOTIDE_SEQUENCE
    );
-   ASSERT_TRUE(table_schema
-                  ->getColumnMetadata<rhydb::storage::column::SequenceColumn<rhydb::Nucleotide>>(
-                     "testSecondSequence"
-                  )
-                  .has_value());
+   ASSERT_TRUE(
+      table_schema->getColumnMetadata<SequenceColumn<Nucleotide>>("testSecondSequence").has_value()
+   );
    ASSERT_EQ(
-      table_schema
-         ->getColumnMetadata<rhydb::storage::column::SequenceColumn<rhydb::Nucleotide>>(
-            "testSecondSequence"
-         )
+      table_schema->getColumnMetadata<SequenceColumn<Nucleotide>>("testSecondSequence")
          .value()
          ->reference_sequence,
-      reference_genomes.stringToVector<rhydb::Nucleotide>("ACGT")
+      reference_genomes.stringToVector<Nucleotide>("ACGT")
    );
 
    ASSERT_TRUE(table_schema->getColumn("test_boolean_column").has_value());
@@ -143,13 +132,10 @@ TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
       table_schema->getColumn("unaligned_main").value().type, DataType::ZSTD_COMPRESSED_STRING
    );
    ASSERT_TRUE(
-      table_schema
-         ->getColumnMetadata<rhydb::storage::column::ZstdCompressedStringColumn>("unaligned_main")
-         .has_value()
+      table_schema->getColumnMetadata<ZstdCompressedStringColumn>("unaligned_main").has_value()
    );
    ASSERT_EQ(
-      table_schema
-         ->getColumnMetadata<rhydb::storage::column::ZstdCompressedStringColumn>("unaligned_main")
+      table_schema->getColumnMetadata<ZstdCompressedStringColumn>("unaligned_main")
          .value()
          ->dictionary_string,
       "ACGTACGT"
@@ -161,15 +147,10 @@ TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
       DataType::ZSTD_COMPRESSED_STRING
    );
    ASSERT_TRUE(table_schema
-                  ->getColumnMetadata<rhydb::storage::column::ZstdCompressedStringColumn>(
-                     "unaligned_testSecondSequence"
-                  )
+                  ->getColumnMetadata<ZstdCompressedStringColumn>("unaligned_testSecondSequence")
                   .has_value());
    ASSERT_EQ(
-      table_schema
-         ->getColumnMetadata<rhydb::storage::column::ZstdCompressedStringColumn>(
-            "unaligned_testSecondSequence"
-         )
+      table_schema->getColumnMetadata<ZstdCompressedStringColumn>("unaligned_testSecondSequence")
          .value()
          ->dictionary_string,
       "ACGT"
@@ -184,7 +165,7 @@ TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
 }
 
 TEST(Initializer, rejectsCreatingTableWithNameOfExistingTable) {
-   const auto database_config = rhydb::config::DatabaseConfig::getValidatedConfigFromFile(
+   const auto database_config = DatabaseConfig::getValidatedConfigFromFile(
       "testBaseData/unitTestDummyDataset/database_config.yaml"
    );
    const ReferenceGenomes reference_genomes =

@@ -34,7 +34,7 @@ class TableChunkBuilder {
    std::vector<schema::ColumnIdentifier> metadata;
 
    std::map<std::string, column::StringColumn::Builder> string_column_builders;
-   std::map<std::string, column::DictionaryEncodedColumn::Builder>
+   std::map<std::string, column::DictionaryEncodedColumn<column::StringColumn>::Builder>
       dictionary_encoded_column_builders;
    std::map<std::string, column::BoolColumn::Builder> bool_column_builders;
    std::map<std::string, column::Int32Column::Builder> int32_column_builders;
@@ -85,8 +85,8 @@ template <>
 std::map<std::string, column::StringColumn::Builder>& TableChunkBuilder::getColumnBuilders<
    column::StringColumn>();
 template <>
-std::map<std::string, column::DictionaryEncodedColumn::Builder>& TableChunkBuilder::
-   getColumnBuilders<column::DictionaryEncodedColumn>();
+std::map<std::string, column::DictionaryEncodedColumn<column::StringColumn>::Builder>&
+TableChunkBuilder::getColumnBuilders<column::DictionaryEncodedColumn<column::StringColumn>>();
 template <>
 std::map<std::string, column::BoolColumn::Builder>& TableChunkBuilder::getColumnBuilders<
    column::BoolColumn>();

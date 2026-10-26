@@ -163,7 +163,7 @@ arrow::Status ColumnEntryAppender::operator()(
                auto value = column.getValueString(row_id);
                ARROW_RETURN_NOT_OK(array->Append(value));
             } else if constexpr (Column::KIND == schema::DataType::Kind::DICTIONARY_ENCODED) {
-               auto value = column.getValueString(row_id);
+               auto value = column.lookupValue(column.getValue(row_id));
                ARROW_RETURN_NOT_OK(array->Append(value));
             } else {
                auto value = column.getValue(row_id);

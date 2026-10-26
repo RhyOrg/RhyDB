@@ -23,7 +23,9 @@ static decltype(auto) visit(const schema::DataType& type, VisitorFunction&& func
          return func.template operator()<StringColumn>(std::forward<Args>(args)...);
       case Kind::DICTIONARY_ENCODED:
          RHYDB_ASSERT(type.getDictionaryValueType() == schema::DataType::STRING);
-         return func.template operator()<DictionaryEncodedColumn>(std::forward<Args>(args)...);
+         return func.template operator()<DictionaryEncodedColumn<StringColumn>>(
+            std::forward<Args>(args)...
+         );
       case Kind::DATE32:
          return func.template operator()<Date32Column>(std::forward<Args>(args)...);
       case Kind::BOOL:

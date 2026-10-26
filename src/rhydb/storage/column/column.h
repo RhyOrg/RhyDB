@@ -23,6 +23,10 @@ concept Column = requires(T column) {
 
    requires std::is_constructible_v<T, typename T::Metadata*>;
 
+   // The type of a single value as it is handed to the column during ingestion: the NDJSON reader
+   // turns a non-null JSON value into a `value_type` and passes it to `T::Builder::insert`. It
+   // may be a non-owning view (e.g. `std::string_view`), so the builder copies what it keeps.
+   // `void` for columns that are not ingested value by value (e.g. sequences).
    typename T::value_type;
 
    // A column stores its values as the immutable chunks in which they were ingested. Iterating the

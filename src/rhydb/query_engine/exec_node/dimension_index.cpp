@@ -243,7 +243,9 @@ class IndexedColumnIndex : public DimensionIndex {
    std::vector<std::string> key_values;
 
   public:
-   explicit IndexedColumnIndex(const storage::column::DictionaryEncodedColumn& column) {
+   explicit IndexedColumnIndex(
+      const storage::column::DictionaryEncodedColumn<storage::column::StringColumn>& column
+   ) {
       // One group per distinct value, ordered by the value string so the node has a deterministic
       // output order. A null row lives only in `null_bitmap` (its value's bitmap does not contain
       // it), so the null group stays disjoint from the value groups and no row is double-counted.
@@ -537,7 +539,9 @@ arrow::Result<std::unique_ptr<DimensionIndex>> buildDimensionIndex(
    }
    if (const auto* indexed_column = std::get_if<ResolvedIndexedColumnDimension>(&dimension)) {
       const auto& column =
-         table.getColumn<storage::column::DictionaryEncodedColumn>(indexed_column->column_name);
+         table.getColumn<storage::column::DictionaryEncodedColumn<storage::column::StringColumn>>(
+            indexed_column->column_name
+         );
       return std::make_unique<IndexedColumnIndex>(column);
    }
    const auto& scalar_expression = std::get<ResolvedScalarExpressionDimension>(dimension);

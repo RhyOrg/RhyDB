@@ -218,8 +218,10 @@ Comparator flipComparator(Comparator comparator) {
    RHYDB_UNREACHABLE();
 }
 
-/// Lexicographic evaluation of `actual <op> literal` for the dictionary fast path.
-bool matchesComparator(std::string_view actual, Comparator comparator, std::string_view literal) {
+/// Evaluation of `actual <op> literal` for the dictionary fast path, with the same semantics as the
+/// row-wise comparison of a plain column (lexicographic for strings).
+template <typename T>
+bool matchesComparator(const T& actual, Comparator comparator, const T& literal) {
    switch (comparator) {
       case Comparator::EQUALS:
          return actual == literal;
@@ -263,10 +265,11 @@ std::unique_ptr<Operator> compileTypedComparison(
 /// the literal plus the null rows (which never match a comparison), and both bitmaps are
 /// already indexed - so this needs one lookup instead of unioning the bitmap of every other
 /// distinct value, which matters on high-cardinality columns.
+template <storage::column::DictionaryValueColumn ValueColumn>
 std::unique_ptr<Operator> compileDictionaryInequality(
    const Table& table,
-   const DictionaryEncodedColumn& dictionary_column,
-   const std::string& literal
+   const DictionaryEncodedColumn<ValueColumn>& dictionary_column,
+   typename DictionaryEncodedColumn<ValueColumn>::Key literal
 ) {
    const auto literal_bitmap = dictionary_column.filter(literal);
    // The indexed value bitmaps are disjoint from the null bitmap
@@ -291,6 +294,42 @@ std::unique_ptr<Operator> compileDictionaryInequality(
    return Intersection::ofComplements(std::move(excluded), table.row_layout);
 }
 
+/// `column <op> literal` on a dictionary-encoded column, answered from its inverted index
+template <storage::column::DictionaryValueColumn ValueColumn>
+std::unique_ptr<Operator> compileDictionaryComparison(
+   const Table& table,
+   const DictionaryEncodedColumn<ValueColumn>& dictionary_column,
+   Comparator comparator,
+   typename DictionaryEncodedColumn<ValueColumn>::Key literal
+) {
+   using Key = DictionaryEncodedColumn<ValueColumn>::Key;
+   if (comparator == Comparator::EQUALS) {
+      const auto bitmap = dictionary_column.filter(literal);
+      if (bitmap == std::nullopt || bitmap.value()->isEmpty()) {
+         return std::make_unique<Empty>(table.row_layout);
+      }
+      return std::make_unique<IndexScan>(Bitmap{bitmap.value()}, table.row_layout);
+   }
+
+   if (comparator == Comparator::NOT_EQUALS) {
+      return compileDictionaryInequality(table, dictionary_column, literal);
+   }
+
+   // Bitmap-union fast path: every distinct dictionary value that matches the comparator
+   // contributes its row bitmap. Null rows are naturally excluded because the indexed bitmaps
+   // are disjoint from the null bitmap.
+   roaring::Roaring unioned;
+   for (const auto& [dict_id, bitmap] : dictionary_column.getIndexedValues()) {
+      if (matchesComparator<Key>(dictionary_column.lookupValue(dict_id), comparator, literal)) {
+         unioned |= bitmap;
+      }
+   }
+   if (unioned.isEmpty()) {
+      return std::make_unique<Empty>(table.row_layout);
+   }
+   return std::make_unique<IndexScan>(Bitmap{std::move(unioned)}, table.row_layout);
+}
+
 std::unique_ptr<Operator> compileStringComparison(
    const Table& table,
    const std::string& column_name,
@@ -310,38 +349,16 @@ std::unique_ptr<Operator> compileStringComparison(
    }
 
    CHECK_RHYDB_QUERY(
-      table.hasColumn<DictionaryEncodedColumn>(column_name),
+      table.hasColumn<DictionaryEncodedColumn<StringColumn>>(column_name),
       "The column '{}' is not of type string",
       column_name
    );
-
-   const auto& dictionary_column = table.getColumn<DictionaryEncodedColumn>(column_name);
-
-   if (comparator == Comparator::EQUALS) {
-      const auto bitmap = dictionary_column.filter(literal);
-      if (bitmap == std::nullopt || bitmap.value()->isEmpty()) {
-         return std::make_unique<Empty>(table.row_layout);
-      }
-      return std::make_unique<IndexScan>(Bitmap{bitmap.value()}, table.row_layout);
-   }
-
-   if (comparator == Comparator::NOT_EQUALS) {
-      return compileDictionaryInequality(table, dictionary_column, literal);
-   }
-
-   // Bitmap-union fast path: every distinct dictionary value whose string matches
-   // the comparator contributes its row bitmap. Null rows are naturally excluded
-   // because the indexed bitmaps are disjoint from the null bitmap.
-   roaring::Roaring unioned;
-   for (const auto& [dict_id, bitmap] : dictionary_column.getIndexedValues()) {
-      if (matchesComparator(dictionary_column.lookupValue(dict_id), comparator, literal)) {
-         unioned |= bitmap;
-      }
-   }
-   if (unioned.isEmpty()) {
-      return std::make_unique<Empty>(table.row_layout);
-   }
-   return std::make_unique<IndexScan>(Bitmap{std::move(unioned)}, table.row_layout);
+   return compileDictionaryComparison(
+      table,
+      table.getColumn<DictionaryEncodedColumn<StringColumn>>(column_name),
+      comparator,
+      literal
+   );
 }
 
 /// Boolean columns keep a bitmap per truth value, so (in)equality is a plain index
@@ -473,7 +490,7 @@ std::unique_ptr<ScalarExpression> Comparison::rewrite(
          );
          CHECK_RHYDB_QUERY(
             table.hasColumn<StringColumn>(column_name) ||
-               table.hasColumn<DictionaryEncodedColumn>(column_name),
+               table.hasColumn<DictionaryEncodedColumn<StringColumn>>(column_name),
             "The column '{}' is not of type string",
             column_name
          );

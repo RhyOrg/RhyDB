@@ -48,7 +48,9 @@ std::unique_ptr<ScalarExpression> StringInSet::rewrite(
    );
    CHECK_RHYDB_QUERY(
       table.hasColumn<StringColumn>(column.name) ||
-         table.hasColumn<storage::column::DictionaryEncodedColumn>(column.name),
+         table.hasColumn<storage::column::DictionaryEncodedColumn<storage::column::StringColumn>>(
+            column.name
+         ),
       "The column '{}' is not of type string",
       column.name
    );

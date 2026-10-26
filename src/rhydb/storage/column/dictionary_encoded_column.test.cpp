@@ -15,14 +15,15 @@
 using rhydb::storage::column::ColumnMetadata;
 using rhydb::storage::column::DictionaryEncodedColumn;
 using rhydb::storage::column::RowId;
+using rhydb::storage::column::StringColumn;
 
 namespace {
 // Buffers the values into a chunk and appends it to the column.
 [[nodiscard]] std::expected<void, std::string> appendValues(
-   DictionaryEncodedColumn& column,
+   DictionaryEncodedColumn<StringColumn>& column,
    std::initializer_list<std::string_view> values
 ) {
-   DictionaryEncodedColumn::Builder builder;
+   DictionaryEncodedColumn<StringColumn>::Builder builder;
    for (const auto& value : values) {
       builder.insert(value);
    }
@@ -34,7 +35,7 @@ namespace {
 
 TEST(DictionaryEncodedColumn, shouldReturnTheCorrectFilteredValues) {
    ColumnMetadata column_metadata("some_column");
-   DictionaryEncodedColumn under_test{&column_metadata};
+   DictionaryEncodedColumn<StringColumn> under_test{&column_metadata};
 
    ASSERT_TRUE(
       appendValues(under_test, {"value 1", "value 2", "value 2", "value 3", "value 1"}).has_value()
@@ -52,7 +53,7 @@ TEST(DictionaryEncodedColumn, shouldReturnTheCorrectFilteredValues) {
 
 TEST(DictionaryEncodedColumn, insertValuesToPartition) {
    ColumnMetadata column_metadata("some_column");
-   DictionaryEncodedColumn under_test{&column_metadata};
+   DictionaryEncodedColumn<StringColumn> under_test{&column_metadata};
 
    ASSERT_TRUE(
       appendValues(under_test, {"value 1", "value 2", "value 2", "value 3", "value 1"}).has_value()
@@ -72,7 +73,7 @@ TEST(DictionaryEncodedColumn, insertValuesToPartition) {
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST(DictionaryEncodedColumn, valuesSpanningMultipleAppendedChunks) {
    ColumnMetadata column_metadata("some_column");
-   DictionaryEncodedColumn under_test{&column_metadata};
+   DictionaryEncodedColumn<StringColumn> under_test{&column_metadata};
 
    // Each appendChunk starts a fresh, immutable chunk of value ids whose global row ids begin at a
    // fresh 2^16-aligned offset (chunk k starts at k << 16), while the inverted index accumulates
@@ -105,7 +106,7 @@ TEST(DictionaryEncodedColumn, valuesSpanningMultipleAppendedChunks) {
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST(DictionaryEncodedColumn, updateKeepsInvertedIndexConsistent) {
    ColumnMetadata column_metadata("some_column");
-   DictionaryEncodedColumn under_test{&column_metadata};
+   DictionaryEncodedColumn<StringColumn> under_test{&column_metadata};
 
    ASSERT_TRUE(
       appendValues(under_test, {"value 1", "value 2", "value 2", "value 3", "value 1"}).has_value()
@@ -133,7 +134,7 @@ TEST(DictionaryEncodedColumn, updateKeepsInvertedIndexConsistent) {
 
 TEST(DictionaryEncodedColumn, updateChunkAssignsEachRowItsOwnValue) {
    ColumnMetadata column_metadata("some_column");
-   DictionaryEncodedColumn under_test{&column_metadata};
+   DictionaryEncodedColumn<StringColumn> under_test{&column_metadata};
 
    ASSERT_TRUE(appendValues(under_test, {"value 1", "value 2", "value 2", "value 3"}).has_value());
 
@@ -153,7 +154,7 @@ TEST(DictionaryEncodedColumn, updateChunkAssignsEachRowItsOwnValue) {
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST(DictionaryEncodedColumn, dictionaryStaysSortedWhenSmallerValuesArriveLater) {
    ColumnMetadata column_metadata("some_column");
-   DictionaryEncodedColumn under_test{&column_metadata};
+   DictionaryEncodedColumn<StringColumn> under_test{&column_metadata};
 
    ASSERT_TRUE(appendValues(under_test, {"c", "e", "c"}).has_value());
    EXPECT_EQ(under_test.getValueId("c"), 0U);
@@ -189,14 +190,14 @@ TEST(DictionaryEncodedColumn, dictionaryStaysSortedWhenSmallerValuesArriveLater)
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST(DictionaryEncodedColumn, dictionarySpanningMultipleChunks) {
    ColumnMetadata column_metadata("some_column");
-   DictionaryEncodedColumn under_test{&column_metadata};
+   DictionaryEncodedColumn<StringColumn> under_test{&column_metadata};
 
    constexpr size_t CHUNK_SIZE = rhydb::storage::column::COLUMN_CHUNK_SIZE;
    constexpr size_t NUM_VALUES = CHUNK_SIZE + 10;
    // Descending values, flushed at the data chunk limit: the second data chunk interns the ten
    // smallest values, which shifts every id stored for the first data chunk past the boundary of
    // the dictionary's first chunk.
-   DictionaryEncodedColumn::Builder builder;
+   DictionaryEncodedColumn<StringColumn>::Builder builder;
    for (size_t i = NUM_VALUES; i > 0; --i) {
       builder.insert(fmt::format("value {:06}", i - 1));
       if (builder.numValues() == CHUNK_SIZE) {
@@ -231,13 +232,13 @@ TEST(DictionaryEncodedColumn, dictionarySpanningMultipleChunks) {
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST(DictionaryEncodedColumn, nullArrivingLaterKeepsNullAndEmptyStringApart) {
    ColumnMetadata column_metadata("some_column");
-   DictionaryEncodedColumn under_test{&column_metadata};
+   DictionaryEncodedColumn<StringColumn> under_test{&column_metadata};
 
    ASSERT_TRUE(appendValues(under_test, {"b", "c"}).has_value());
 
    // The first null interns the "" placeholder, which sorts before every existing value and so
    // shifts all their ids. A real "" shares that id, but only it is in the inverted index.
-   DictionaryEncodedColumn::Builder builder;
+   DictionaryEncodedColumn<StringColumn>::Builder builder;
    builder.insertNull();
    builder.insert("");
    builder.insert("a");
@@ -264,8 +265,8 @@ TEST(DictionaryEncodedColumn, nullArrivingLaterKeepsNullAndEmptyStringApart) {
 
 TEST(DictionaryEncodedColumn, columnsSharingMetadataKeepTheirOwnDictionaries) {
    ColumnMetadata column_metadata("some_column");
-   DictionaryEncodedColumn first{&column_metadata};
-   DictionaryEncodedColumn second{&column_metadata};
+   DictionaryEncodedColumn<StringColumn> first{&column_metadata};
+   DictionaryEncodedColumn<StringColumn> second{&column_metadata};
 
    // Interning "a" into `second` must not renumber the id `first` stores for "c".
    ASSERT_TRUE(appendValues(first, {"c"}).has_value());

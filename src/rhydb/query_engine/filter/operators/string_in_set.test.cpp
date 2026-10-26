@@ -33,12 +33,11 @@ std::pair<std::shared_ptr<StringColumnMetadata>, StringColumn> makeTestStringCol
    return {metadata, std::move(test_column)};
 }
 
-std::pair<std::shared_ptr<ColumnMetadata>, DictionaryEncodedColumn> makeTestDictionaryEncodedColumn(
-   const std::vector<std::string>& values
-) {
+std::pair<std::shared_ptr<ColumnMetadata>, DictionaryEncodedColumn<StringColumn>>
+makeTestDictionaryEncodedColumn(const std::vector<std::string>& values) {
    auto metadata = std::make_shared<ColumnMetadata>("test_indexed");
-   DictionaryEncodedColumn test_column{metadata.get()};
-   DictionaryEncodedColumn::Builder builder;
+   DictionaryEncodedColumn<StringColumn> test_column{metadata.get()};
+   DictionaryEncodedColumn<StringColumn>::Builder builder;
    for (const auto& value : values) {
       builder.insert(value);
    }
@@ -75,9 +74,9 @@ TEST(OperatorStringInSet, matchReturnsCorrectValuesForDictionaryEncodedColumn) {
    const auto row_layout = RowLayout::of(values.size());
 
    auto under_test = std::make_unique<Selection>(
-      std::make_unique<StringInSet<DictionaryEncodedColumn>>(
+      std::make_unique<StringInSet<DictionaryEncodedColumn<StringColumn>>>(
          &test_column,
-         StringInSet<DictionaryEncodedColumn>::Comparator::IN,
+         StringInSet<DictionaryEncodedColumn<StringColumn>>::Comparator::IN,
          std::unordered_set<std::string>{"Switzerland", "Germany"}
       ),
       row_layout

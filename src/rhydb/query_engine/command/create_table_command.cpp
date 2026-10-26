@@ -1,7 +1,6 @@
 #include "rhydb/query_engine/command/create_table_command.h"
 
 #include <algorithm>
-#include <concepts>
 #include <map>
 #include <memory>
 #include <optional>
@@ -30,8 +29,6 @@
 #include "rhydb/query_engine/saneql/function_registry.h"
 #include "rhydb/schema/builtin_tables.h"
 #include "rhydb/storage/column/column_metadata.h"
-#include "rhydb/storage/column/data_type_visitor.h"
-#include "rhydb/storage/column/dictionary_encoded_column.h"
 #include "rhydb/storage/column/sequence_column.h"
 #include "rhydb/storage/column/string_column.h"
 #include "rhydb/storage/column/zstd_compressed_string_column.h"
@@ -42,9 +39,7 @@ namespace rhydb::query_engine::command {
 using saneql::FunctionSignature;
 using saneql::ParameterDefinition;
 using schema::DataType;
-using storage::column::Column;
 using storage::column::ColumnMetadata;
-using storage::column::DictionaryEncodedColumn;
 using storage::column::SequenceColumnMetadata;
 using storage::column::StringColumn;
 using storage::column::StringColumnMetadata;
@@ -317,15 +312,6 @@ std::shared_ptr<ColumnMetadata> createColumnMetadata(
       case Kind::STRING:
          return std::make_shared<StringColumnMetadata>(column.name);
       case Kind::DICTIONARY_ENCODED:
-         return storage::column::visit(
-            column.type, [&]<Column ColumnClass> -> std::shared_ptr<ColumnMetadata> {
-               if constexpr (std::same_as<ColumnClass, DictionaryEncodedColumn>) {
-                  return std::make_shared<typename ColumnClass::Metadata>(column.name);
-               } else {
-                  RHYDB_UNREACHABLE();
-               }
-            }
-         );
       case Kind::DATE32:
       case Kind::BOOL:
       case Kind::INT32:

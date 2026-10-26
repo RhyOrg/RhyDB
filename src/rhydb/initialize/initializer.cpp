@@ -333,19 +333,6 @@ struct ColumnMetadataInitializer {
 };
 
 template <>
-void ColumnMetadataInitializer::operator()<storage::column::DictionaryEncodedColumn>(
-   std::shared_ptr<storage::column::ColumnMetadata>& metadata,
-   const config::DatabaseMetadata& config_metadata,
-   const ReferenceGenomes& /*reference_genomes*/,
-   const common::PhyloTree& /*phylo_tree_file*/
-) {
-   // A lineage definition on this column materializes as its own relation table (see
-   // createLineageRelationTable); the column itself is a plain dictionary either way.
-   metadata =
-      std::make_shared<storage::column::DictionaryEncodedColumn::Metadata>(config_metadata.name);
-}
-
-template <>
 void ColumnMetadataInitializer::operator()<storage::column::StringColumn>(
    std::shared_ptr<storage::column::ColumnMetadata>& metadata,
    const config::DatabaseMetadata& config_metadata,

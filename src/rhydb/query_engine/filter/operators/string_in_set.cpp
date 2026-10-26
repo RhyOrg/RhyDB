@@ -58,6 +58,6 @@ std::unique_ptr<Predicate> StringInSet<ColumnType>::negate() const {
 }
 
 template class StringInSet<storage::column::StringColumn>;
-template class StringInSet<storage::column::DictionaryEncodedColumn>;
+template class StringInSet<storage::column::DictionaryEncodedColumn<storage::column::StringColumn>>;
 
 }  // namespace rhydb::query_engine::filter::operators

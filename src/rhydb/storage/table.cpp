@@ -31,7 +31,6 @@ using schema::TableSchema;
 
 using column::BoolColumn;
 using column::Date32Column;
-using column::DictionaryEncodedColumn;
 using column::FloatColumn;
 using column::Int32Column;
 using column::Int64Column;

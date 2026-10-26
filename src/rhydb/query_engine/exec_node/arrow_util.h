@@ -33,11 +33,10 @@ struct ArrowBuilderSelector<storage::column::StringColumn> {
    using value_type = std::string;
 };
 
-template <>
-struct ArrowBuilderSelector<storage::column::DictionaryEncodedColumn> {
-   using builder_type = arrow::LargeStringBuilder;
-   using value_type = std::string;
-};
+/// A dictionary-encoded column is output like a plain column of its dictionary values
+template <storage::column::DictionaryValueColumn ValueColumn>
+struct ArrowBuilderSelector<storage::column::DictionaryEncodedColumn<ValueColumn>>
+    : ArrowBuilderSelector<ValueColumn> {};
 
 template <>
 struct ArrowBuilderSelector<storage::column::SequenceColumn<Nucleotide>> {
