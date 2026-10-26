@@ -41,6 +41,13 @@ class MapNode final : public QueryNode {
    [[nodiscard]] NodeKind kind() const override { return NodeKind::MAP; }
 
    [[nodiscard]] nlohmann::json toJson() const override;
+
+  private:
+   [[nodiscard]] arrow::Result<arrow::acero::ExecNode*> addProjection(
+      arrow::acero::ExecPlan& plan,
+      arrow::acero::ExecNode* input_node,
+      const std::map<std::string, const Assignment*>& assignment_by_name
+   ) const;
 };
 
 }  // namespace rhydb::query_engine::operators

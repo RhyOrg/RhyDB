@@ -1,9 +1,9 @@
-#include "rhydb/query_engine/exec_node/throttled_batch_reslicer.h"
+#include "rhydb/query_engine/exec_node/batch_reslicer.h"
 
 namespace rhydb::query_engine::exec_node {
 
 // By arrow specification, this function will not be called re-entrantly
-arrow::Future<std::optional<arrow::compute::ExecBatch>> ThrottledBatchReslicer::operator()() {
+arrow::Future<std::optional<arrow::compute::ExecBatch>> BatchReslicer::operator()() {
    try {
       if (!current_batch.has_value()) {
          auto future = input_batches();
@@ -38,20 +38,7 @@ arrow::Future<std::optional<arrow::compute::ExecBatch>> ThrottledBatchReslicer::
    }
 }
 
-void ThrottledBatchReslicer::delayForTargetBatchRate() {
-   auto now = std::chrono::system_clock::now();
-   if (last_batch_delivered == std::nullopt) {
-      last_batch_delivered = now;
-      return;
-   }
-   auto time_elapsed = now - last_batch_delivered.value();
-   if (time_elapsed < target_batch_rate) {
-      std::this_thread::sleep_for(target_batch_rate - time_elapsed);
-   }
-   last_batch_delivered = std::chrono::system_clock::now();
-}
-
-arrow::Result<std::optional<arrow::ExecBatch>> ThrottledBatchReslicer::deliverSlicedBatch() {
+arrow::Result<std::optional<arrow::ExecBatch>> BatchReslicer::deliverSlicedBatch() {
    if (current_batch.value().length <= batch_size) {
       arrow::ExecBatch batch = std::move(current_batch.value());
       current_batch = std::nullopt;
@@ -62,8 +49,6 @@ arrow::Result<std::optional<arrow::ExecBatch>> ThrottledBatchReslicer::deliverSl
       );
       return batch;
    }
-
-   delayForTargetBatchRate();
 
    int64_t chunk_size = std::min(batch_size, remaining);
    arrow::ExecBatch batch = current_batch.value().Slice(offset, chunk_size);
