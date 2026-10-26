@@ -26,6 +26,7 @@ class Date32Column {
    using Buffer = std::vector<std::optional<common::Date32>>;
 
    static constexpr const schema::DataType& TYPE = schema::DataType::DATE32;
+   static constexpr schema::DataType::Kind KIND = schema::DataType::Kind::DATE32;
    static schema::DataType type() { return TYPE; }
    using value_type = common::Date32;
 

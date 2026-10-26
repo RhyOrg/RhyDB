@@ -45,9 +45,8 @@ T orThrowQuery(arrow::Result<T> result) {
 }
 
 template <typename Column>
-constexpr bool IS_SEQUENCE_COLUMN =
-   std::is_same_v<Column, storage::column::SequenceColumn<Nucleotide>> ||
-   std::is_same_v<Column, storage::column::SequenceColumn<AminoAcid>>;
+constexpr bool IS_SEQUENCE_COLUMN = Column::KIND == DataType::Kind::NUCLEOTIDE_SEQUENCE ||
+                                    Column::KIND == DataType::Kind::AMINO_ACID_SEQUENCE;
 
 /// The type of the values a column of `column_type` holds, as queries see them: indexed and
 /// compressed string columns hold plain strings.
