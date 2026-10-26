@@ -350,6 +350,19 @@ const QueryTestScenario GROUP_BY_ISO_WEEK_EXPRESSION = {
    ])json"),
 };
 
+const QueryTestScenario GROUP_BY_CONCAT_EXPRESSION_AND_INDEXED_COLUMN = {
+   .name = "GROUP_BY_CONCAT_EXPRESSION_AND_INDEXED_COLUMN",
+   .query =
+      "data.map({c := concat(country, '!')})"
+      ".group(by:={c, region}, aggs:={count:=count()})"
+      ".order(by:={c, region})",
+   .expected_query_result = nlohmann::json::parse(R"([
+      {"c": "France!", "region": "Europe", "count": 1},
+      {"c": "Germany!", "region": "Europe", "count": 2},
+      {"c": "Japan!", "region": "Asia", "count": 1}
+   ])"),
+};
+
 // A sequence-less row carries no symbol at any position. The generic `at()`/group path emits a
 // null group key for such a row, so the rewritten bitmap aggregation node must do the same instead
 // of dropping the row or folding it into the missing symbol N/X. These scenarios pin that
@@ -456,6 +469,19 @@ const QueryTestScenario INDEXED_COLUMN_NULL_GROUP = {
    .expected_query_result = nlohmann::json::parse(R"([
       {"region": "Europe", "count": 3},
       {"region": null, "count": 1}
+   ])"),
+};
+
+const QueryTestScenario GROUP_BY_CONCAT_EXPRESSION_WITH_NULL = {
+   .name = "GROUP_BY_CONCAT_EXPRESSION_WITH_NULL",
+   .query =
+      "data.map({c := concat(country, segment1.at(1))})"
+      ".group(by:={c, region}, aggs:={count:=count()})"
+      ".order(by:={c, region})",
+   .expected_query_result = nlohmann::json::parse(R"([
+      {"c": null, "region": "Europe", "count": 1},
+      {"c": "GermanyA", "region": "Europe", "count": 2},
+      {"c": "GermanyC", "region": null, "count": 1}
    ])"),
 };
 
@@ -753,7 +779,8 @@ QUERY_TEST(
       MIXED_SEQUENCE_AND_ISO_WEEK,
       GROUP_BY_SEQUENCE_POSITION_EXPRESSIONS,
       GROUP_BY_EXPRESSION_AND_COLUMN_WITH_FILTER_ORDER_LIMIT,
-      GROUP_BY_ISO_WEEK_EXPRESSION
+      GROUP_BY_ISO_WEEK_EXPRESSION,
+      GROUP_BY_CONCAT_EXPRESSION_AND_INDEXED_COLUMN
    )
 );
 
@@ -777,7 +804,8 @@ QUERY_TEST(
       CO_OCCURRENCE_NULL_REFERENCE_IS_MISSING,
       CO_OCCURRENCE_NULL_MIXED_POSITIONS,
       CO_OCCURRENCE_NULL_CHUNKED_OUTPUT,
-      INDEXED_COLUMN_NULL_GROUP
+      INDEXED_COLUMN_NULL_GROUP,
+      GROUP_BY_CONCAT_EXPRESSION_WITH_NULL
    )
 );
 
