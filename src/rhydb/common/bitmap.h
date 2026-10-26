@@ -152,7 +152,10 @@ class Bitmap {
    /// `RoaringContainerView` (whose container must outlive the returned bitmap and must not be
    /// mutated while it exists) or as an owning `RoaringContainer`. Empty containers are skipped.
    template <typename ChunkContainer>
-   [[nodiscard]] static Bitmap fromChunks(size_t num_chunks, const ChunkContainer& chunk_container) {
+   [[nodiscard]] static Bitmap fromChunks(
+      size_t num_chunks,
+      const ChunkContainer& chunk_container
+   ) {
       Bitmap result;
       for (size_t chunk_id = 0; chunk_id < num_chunks; ++chunk_id) {
          auto container = chunk_container(chunk_id);

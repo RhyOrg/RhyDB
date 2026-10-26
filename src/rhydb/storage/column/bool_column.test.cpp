@@ -37,14 +37,19 @@ TEST(BoolColumn, updateAssignsScalarValue) {
    under_test.update(globalRows({RowId(0, 0), RowId(0, 2), RowId(1, 2)}), false);
    EXPECT_EQ(under_test.trueRows().toRoaring(), globalRows({RowId(1, 0)}));
    EXPECT_EQ(
-      under_test.falseRows().toRoaring(), globalRows({RowId(0, 0), RowId(0, 1), RowId(0, 2), RowId(1, 2)})
+      under_test.falseRows().toRoaring(),
+      globalRows({RowId(0, 0), RowId(0, 1), RowId(0, 2), RowId(1, 2)})
    );
    EXPECT_EQ(under_test.nullRows().toRoaring(), globalRows({RowId(1, 1)}));
 
    under_test.update(globalRows({RowId(0, 1), RowId(1, 0)}), std::nullopt);
    EXPECT_EQ(under_test.trueRows().toRoaring(), roaring::Roaring{});
-   EXPECT_EQ(under_test.falseRows().toRoaring(), globalRows({RowId(0, 0), RowId(0, 2), RowId(1, 2)}));
-   EXPECT_EQ(under_test.nullRows().toRoaring(), globalRows({RowId(0, 1), RowId(1, 0), RowId(1, 1)}));
+   EXPECT_EQ(
+      under_test.falseRows().toRoaring(), globalRows({RowId(0, 0), RowId(0, 2), RowId(1, 2)})
+   );
+   EXPECT_EQ(
+      under_test.nullRows().toRoaring(), globalRows({RowId(0, 1), RowId(1, 0), RowId(1, 1)})
+   );
 }
 
 TEST(BoolColumn, updateChunkAssignsEachRowItsOwnValue) {
@@ -59,7 +64,9 @@ TEST(BoolColumn, updateChunkAssignsEachRowItsOwnValue) {
    }
 
    // Every row is in exactly one bitmap, and the first chunk is untouched.
-   EXPECT_EQ(under_test.trueRows().toRoaring(), globalRows({RowId(0, 0), RowId(1, 1), RowId(1, 2)}));
+   EXPECT_EQ(
+      under_test.trueRows().toRoaring(), globalRows({RowId(0, 0), RowId(1, 1), RowId(1, 2)})
+   );
    EXPECT_EQ(under_test.falseRows().toRoaring(), globalRows({RowId(0, 1)}));
    EXPECT_EQ(under_test.nullRows().toRoaring(), globalRows({RowId(0, 2), RowId(1, 0)}));
    EXPECT_EQ(under_test.chunkSize(1), 3);

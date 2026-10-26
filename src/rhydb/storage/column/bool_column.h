@@ -29,11 +29,12 @@ struct BoolColumnChunk {
    roaring_util::RoaringContainer null_rows = roaring_util::RoaringContainer::withCapacity(0);
 
    [[nodiscard]] uint32_t size() const {
-      return true_rows.getCardinality() + false_rows.getCardinality() +
-             null_rows.getCardinality();
+      return true_rows.getCardinality() + false_rows.getCardinality() + null_rows.getCardinality();
    }
 
-   [[nodiscard]] bool isNull(uint16_t row_in_chunk) const { return null_rows.contains(row_in_chunk); }
+   [[nodiscard]] bool isNull(uint16_t row_in_chunk) const {
+      return null_rows.contains(row_in_chunk);
+   }
 
    [[nodiscard]] bool getValue(uint16_t row_in_chunk) const {
       RHYDB_ASSERT(!isNull(row_in_chunk));

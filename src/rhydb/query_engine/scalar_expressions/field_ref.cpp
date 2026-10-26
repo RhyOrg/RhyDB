@@ -44,9 +44,7 @@ std::unique_ptr<filter::operators::Operator> FieldRef::compile(const storage::Ta
       column.name
    );
    const auto& bool_column = table.getColumn<storage::column::BoolColumn>(column.name);
-   return std::make_unique<filter::operators::IndexScan>(
-      bool_column.trueRows(), table.row_layout
-   );
+   return std::make_unique<filter::operators::IndexScan>(bool_column.trueRows(), table.row_layout);
 }
 
 }  // namespace rhydb::query_engine::scalar_expressions
