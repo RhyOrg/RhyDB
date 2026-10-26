@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <expected>
 #include <optional>
 #include <string>
@@ -9,6 +10,8 @@
 #include <boost/serialization/vector.hpp>
 #include <roaring/roaring.hh>
 
+#include "rhydb/common/bitmap.h"
+#include "rhydb/common/panic.h"
 #include "rhydb/roaring_util/roaring_container.h"
 #include "rhydb/schema/database_schema.h"
 #include "rhydb/storage/column/column_metadata.h"
@@ -17,6 +20,40 @@
 namespace rhydb::storage::column {
 
 class BoolColumnBuilder;
+
+/// The rows of one chunk of a `BoolColumn`, as rows within the chunk. Every row of the chunk is in
+/// exactly one of the three containers.
+struct BoolColumnChunk {
+   roaring_util::RoaringContainer true_rows = roaring_util::RoaringContainer::withCapacity(0);
+   roaring_util::RoaringContainer false_rows = roaring_util::RoaringContainer::withCapacity(0);
+   roaring_util::RoaringContainer null_rows = roaring_util::RoaringContainer::withCapacity(0);
+
+   [[nodiscard]] uint32_t size() const {
+      return true_rows.getCardinality() + false_rows.getCardinality() +
+             null_rows.getCardinality();
+   }
+
+   [[nodiscard]] bool isNull(uint16_t row_in_chunk) const { return null_rows.contains(row_in_chunk); }
+
+   [[nodiscard]] bool getValue(uint16_t row_in_chunk) const {
+      RHYDB_ASSERT(!isNull(row_in_chunk));
+      return true_rows.contains(row_in_chunk);
+   }
+
+   /// Assigns `value` to the row `row_in_chunk`; `std::nullopt` marks it null.
+   void setValue(uint16_t row_in_chunk, std::optional<bool> value);
+
+  private:
+   friend class boost::serialization::access;
+   template <class Archive>
+   [[maybe_unused]] void serialize(Archive& archive, const uint32_t /*version*/) {
+      // clang-format off
+      archive & true_rows;
+      archive & false_rows;
+      archive & null_rows;
+      // clang-format on
+   }
+};
 
 class BoolColumn {
   public:
@@ -29,56 +66,38 @@ class BoolColumn {
    static schema::DataType type() { return TYPE; }
    using value_type = bool;
 
-   roaring::Roaring true_bitmap;
-   roaring::Roaring false_bitmap;
-   /// One container per chunk, indexed by chunk id: the rows of that chunk which are null.
-   std::vector<roaring_util::RoaringContainer> null_bitmap;
+   /// One entry per chunk, indexed by chunk id.
+   std::vector<BoolColumnChunk> chunks;
 
    Metadata* metadata;
 
-  private:
-   /// Number of appended chunks. The bitmaps are keyed by global row id, and chunk `k` starts at
-   /// `k << 16`, so this counter is needed to place each new chunk in its own 2^16 block.
-   uint16_t num_chunks = 0;
-
-  public:
    explicit BoolColumn(Metadata* metadata);
 
-   [[nodiscard]] size_t numChunks() const { return num_chunks; }
+   [[nodiscard]] size_t numChunks() const { return chunks.size(); }
 
-   /// Number of rows in chunk `chunk_id`. Every row lands in exactly one of the three disjoint
-   /// bitmaps at its sparse global id, so the chunk's size is the combined cardinality within its
-   /// 2^16-aligned block. Derived on demand (the column stores no per-chunk sizes), which is fine
-   /// as this only exists to satisfy the `Column` concept and is not on any hot path.
-   [[nodiscard]] uint32_t chunkSize(uint16_t chunk_id) const {
-      const uint64_t base = RowId::chunkStart(chunk_id);
-      const auto last = static_cast<uint32_t>(base + 0xFFFF);
-      const auto count_in_block = [&](const roaring::Roaring& bitmap) -> uint64_t {
-         const uint64_t up_to_last = bitmap.rank(last);
-         const uint64_t before_base = base == 0 ? 0 : bitmap.rank(static_cast<uint32_t>(base - 1));
-         return up_to_last - before_base;
-      };
-      return static_cast<uint32_t>(
-         count_in_block(true_bitmap) + count_in_block(false_bitmap) +
-         null_bitmap.at(chunk_id).getCardinality()
-      );
-   }
+   [[nodiscard]] uint32_t chunkSize(uint16_t chunk_id) const { return chunks.at(chunk_id).size(); }
 
    [[nodiscard]] bool getValue(RowId row_id) const {
-      RHYDB_ASSERT(!null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk));
-      return true_bitmap.contains(row_id.toGlobal());
+      return chunks[row_id.chunk_id].getValue(row_id.row_in_chunk);
    }
 
    [[nodiscard]] bool isNull(RowId row_id) const {
-      return null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk);
+      return chunks[row_id.chunk_id].isNull(row_id.row_in_chunk);
    }
+
+   /// The rows that are true, viewing into this column.
+   [[nodiscard]] Bitmap trueRows() const;
+
+   /// The rows that are false, viewing into this column.
+   [[nodiscard]] Bitmap falseRows() const;
+
+   /// The rows that are null, viewing into this column.
+   [[nodiscard]] Bitmap nullRows() const;
 
    std::expected<void, std::string> appendChunk(const Buffer& buffer);
 
-   /// Assigns `value` to every row in `row_ids` (physical global row ids). Each row is first
-   /// removed from all three bitmaps and then re-classified into the true, false or null bitmap
-   /// according to `value` (`std::nullopt` marks it null). Rows not in `row_ids` are left
-   /// untouched.
+   /// Assigns `value` to every row in `row_ids` (physical global row ids); `std::nullopt` marks
+   /// them null. Rows not in `row_ids` are left untouched.
    void update(const roaring::Roaring& row_ids, std::optional<bool> value);
 
    /// Assigns `new_values[i]` to the `i`-th row (in ascending order) of `rows` within the chunk
@@ -94,10 +113,7 @@ class BoolColumn {
    template <class Archive>
    [[maybe_unused]] void serialize(Archive& archive, const uint32_t /*version*/) {
       // clang-format off
-      archive & true_bitmap;
-      archive & false_bitmap;
-      archive & null_bitmap;
-      archive & num_chunks;
+      archive & chunks;
       // clang-format on
    }
 };

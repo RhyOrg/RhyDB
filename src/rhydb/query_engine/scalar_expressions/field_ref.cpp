@@ -45,7 +45,7 @@ std::unique_ptr<filter::operators::Operator> FieldRef::compile(const storage::Ta
    );
    const auto& bool_column = table.getColumn<storage::column::BoolColumn>(column.name);
    return std::make_unique<filter::operators::IndexScan>(
-      Bitmap{&bool_column.true_bitmap}, table.row_layout
+      bool_column.trueRows(), table.row_layout
    );
 }
 
