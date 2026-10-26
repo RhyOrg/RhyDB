@@ -26,13 +26,6 @@ size_t DictionaryEncodedColumn<ValueColumn>::numDictionaryValues() const {
 }
 
 template <DictionaryValueColumn ValueColumn>
-DictionaryEncodedColumn<ValueColumn>::Value DictionaryEncodedColumn<ValueColumn>::lookupValue(
-   Idx dict_id
-) const {
-   return Values::read(dictionary, RowId::fromGlobal(dict_id));
-}
-
-template <DictionaryValueColumn ValueColumn>
 std::optional<Idx> DictionaryEncodedColumn<ValueColumn>::findDictionaryId(Values::Key value) const {
    // `insertDictionaryValues` fills every chunk but the last one completely, so the ids are
    // contiguous
@@ -69,7 +62,7 @@ std::vector<Idx> DictionaryEncodedColumn<ValueColumn>::insertDictionaryValues(
       RHYDB_ASSERT(appended.has_value());
       chunk.clear();
    };
-   const auto push = [&](Values::Value value) {
+   const auto push = [&](auto value) {
       chunk.emplace_back(std::move(value));
       if (chunk.size() == COLUMN_CHUNK_SIZE) {
          flush();
@@ -79,10 +72,10 @@ std::vector<Idx> DictionaryEncodedColumn<ValueColumn>::insertDictionaryValues(
    Idx next_id = 0;
    auto new_value = new_values.begin();
    for (Idx old_id = 0; old_id < old_num_values; ++old_id) {
-      typename Values::Value old_value = lookupValue(old_id);
+      auto old_value = lookupValue(old_id);
       for (; new_value != new_values.end() && Values::compare(*new_value, old_value) < 0;
            ++new_value) {
-         push(typename Values::Value{*new_value});
+         push(*new_value);
          ++next_id;
       }
       RHYDB_ASSERT(new_value == new_values.end() || Values::compare(*new_value, old_value) != 0);
@@ -90,7 +83,7 @@ std::vector<Idx> DictionaryEncodedColumn<ValueColumn>::insertDictionaryValues(
       old_to_new_id.push_back(next_id++);
    }
    for (; new_value != new_values.end(); ++new_value) {
-      push(typename Values::Value{*new_value});
+      push(*new_value);
    }
    if (!chunk.empty()) {
       flush();
@@ -112,7 +105,7 @@ std::optional<const roaring::Roaring*> DictionaryEncodedColumn<ValueColumn>::fil
 
 template <DictionaryValueColumn ValueColumn>
 std::optional<const roaring::Roaring*> DictionaryEncodedColumn<ValueColumn>::filter(
-   const std::optional<Value>& value
+   std::optional<Key> value
 ) const {
    if (value == std::nullopt) {
       return &null_bitmap;
@@ -128,7 +121,6 @@ template <DictionaryValueColumn ValueColumn>
 DictionaryValues<ValueColumn>::KeyMap DictionaryEncodedColumn<ValueColumn>::internValues(
    const Buffer& buffer
 ) {
-   using Key = Values::Key;
    // Deduplicate by hash first, so that only the distinct values need to be sorted and searched
    typename Values::KeyMap value_ids_by_value;
    for (const auto& value : buffer) {
@@ -206,12 +198,12 @@ std::expected<void, std::string> DictionaryEncodedColumn<ValueColumn>::appendChu
 template <DictionaryValueColumn ValueColumn>
 void DictionaryEncodedColumn<ValueColumn>::update(
    const roaring::Roaring& row_ids,
-   const std::optional<Value>& value
+   const Buffer::value_type& value
 ) {
    // Null rows carry the placeholder id as their stored value (see `appendChunk`), so the target
    // id is that placeholder for a null update and the interned value id otherwise.
    const Buffer new_values{value};
-   const Idx new_value_id = internValues(new_values).at(value.value_or(Value{}));
+   const Idx new_value_id = internValues(new_values).at(value.has_value() ? Key{*value} : Key{});
    // `try_emplace` keeps the id present in the index even for the null placeholder, matching how
    // `appendChunk` treats null rows (present as a value id, absent from any match bitmap).
    indexed_values.try_emplace(new_value_id);
@@ -250,10 +242,10 @@ void DictionaryEncodedColumn<ValueColumn>::update(
    for (const uint16_t row_in_chunk : rows) {
       const RowId row_id{.chunk_id = chunk_id, .row_in_chunk = row_in_chunk};
       const uint32_t global_row_id = row_id.toGlobal();
-      const std::optional<Value>& value = new_values[index++];
+      const auto& value = new_values[index++];
       // As in the single-value `update`: a null row stores the placeholder id and is absent from
       // every match bitmap.
-      const Idx new_value_id = ids_by_value.at(value.value_or(Value{}));
+      const Idx new_value_id = ids_by_value.at(value.has_value() ? Key{*value} : Key{});
       indexed_values.try_emplace(new_value_id);
 
       if (!null_bitmap.contains(global_row_id)) {

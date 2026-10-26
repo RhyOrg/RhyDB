@@ -269,7 +269,7 @@ template <storage::column::DictionaryValueColumn ValueColumn>
 std::unique_ptr<Operator> compileDictionaryInequality(
    const Table& table,
    const DictionaryEncodedColumn<ValueColumn>& dictionary_column,
-   const typename DictionaryEncodedColumn<ValueColumn>::Value& literal
+   typename DictionaryEncodedColumn<ValueColumn>::Key literal
 ) {
    const auto literal_bitmap = dictionary_column.filter(literal);
    // The indexed value bitmaps are disjoint from the null bitmap
@@ -300,9 +300,9 @@ std::unique_ptr<Operator> compileDictionaryComparison(
    const Table& table,
    const DictionaryEncodedColumn<ValueColumn>& dictionary_column,
    Comparator comparator,
-   const typename DictionaryEncodedColumn<ValueColumn>::Value& literal
+   typename DictionaryEncodedColumn<ValueColumn>::Key literal
 ) {
-   using Value = DictionaryEncodedColumn<ValueColumn>::Value;
+   using Key = DictionaryEncodedColumn<ValueColumn>::Key;
    if (comparator == Comparator::EQUALS) {
       const auto bitmap = dictionary_column.filter(literal);
       if (bitmap == std::nullopt || bitmap.value()->isEmpty()) {
@@ -320,7 +320,7 @@ std::unique_ptr<Operator> compileDictionaryComparison(
    // are disjoint from the null bitmap.
    roaring::Roaring unioned;
    for (const auto& [dict_id, bitmap] : dictionary_column.getIndexedValues()) {
-      if (matchesComparator<Value>(dictionary_column.lookupValue(dict_id), comparator, literal)) {
+      if (matchesComparator<Key>(dictionary_column.lookupValue(dict_id), comparator, literal)) {
          unioned |= bitmap;
       }
    }

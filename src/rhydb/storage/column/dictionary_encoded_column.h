@@ -37,12 +37,10 @@ concept DictionaryValueColumn = std::same_as<ValueColumn, StringColumn>;
 /// How the values of a `ValueColumn` are held, viewed and ordered inside a dictionary.
 template <DictionaryValueColumn ValueColumn>
 struct DictionaryValues {
-   /// An owned value, as buffered for ingestion
-   using Value = ValueColumn::Buffer::value_type::value_type;
    /// A non-owning view of a value, used for lookups
-   using Key = std::conditional_t<std::is_same_v<Value, std::string>, std::string_view, Value>;
+   using Key = ValueColumn::value_type;
 
-   static constexpr bool IS_STRING = std::is_same_v<Value, std::string>;
+   static constexpr bool IS_STRING = std::is_same_v<Key, std::string_view>;
 
    /// The order of the dictionary: byte-wise for strings
    static std::strong_ordering compare(Key lhs, Key rhs) {
@@ -53,7 +51,8 @@ struct DictionaryValues {
       }
    }
 
-   static Value read(const ValueColumn& column, RowId row_id) {
+   /// An owned copy of the value at `row_id`, as strings cannot be viewed in place
+   static auto read(const ValueColumn& column, RowId row_id) {
       if constexpr (IS_STRING) {
          return column.getValueString(row_id);
       } else {
@@ -73,9 +72,6 @@ struct DictionaryValues {
    using KeyMap = std::unordered_map<Key, Idx>;
 };
 
-template <DictionaryValueColumn ValueColumn>
-class DictionaryEncodedColumnBuilder;
-
 /// A column storing for every row the id of its value in a sorted dictionary of the distinct
 /// values (held as a `ValueColumn`), plus an inverted index from each id to the rows carrying it.
 template <DictionaryValueColumn ValueColumn>
@@ -84,9 +80,11 @@ class DictionaryEncodedColumn {
 
   public:
    using Metadata = ColumnMetadata;
-   using Builder = DictionaryEncodedColumnBuilder<ValueColumn>;
-   using Value = Values::Value;
-   using Buffer = std::vector<std::optional<Value>>;
+   /// Ingestion buffers the values just like the value column does; they are dictionary-encoded
+   /// when a chunk is appended
+   using Builder = ValueColumn::Builder;
+   using Buffer = ValueColumn::Buffer;
+   using Key = Values::Key;
 
    static inline const schema::DataType TYPE =
       schema::DataType::dictionaryEncoded(ValueColumn::TYPE);
@@ -115,13 +113,11 @@ class DictionaryEncodedColumn {
    /// Not an overload of `filter`, which would otherwise be chosen for integer values
    [[nodiscard]] std::optional<const roaring::Roaring*> filterById(rhydb::Idx value_id) const;
 
-   [[nodiscard]] std::optional<const roaring::Roaring*> filter(
-      const std::optional<Value>& value
-   ) const;
+   [[nodiscard]] std::optional<const roaring::Roaring*> filter(std::optional<Key> value) const;
 
    std::expected<void, std::string> appendChunk(const Buffer& buffer);
 
-   void update(const roaring::Roaring& row_ids, const std::optional<Value>& value);
+   void update(const roaring::Roaring& row_ids, const Buffer::value_type& value);
 
    /// Assigns `new_values[i]` to the `i`-th row (in ascending order) of `rows` within the chunk
    /// `chunk_id`; a `std::nullopt` value marks the row null. Rows not in `rows` are left untouched.
@@ -154,7 +150,9 @@ class DictionaryEncodedColumn {
       return lookupValue(getValue(row_id));
    }
 
-   [[nodiscard]] Value lookupValue(Idx dict_id) const;
+   [[nodiscard]] auto lookupValue(Idx dict_id) const {
+      return Values::read(dictionary, RowId::fromGlobal(dict_id));
+   }
 
    [[nodiscard]] size_t numDictionaryValues() const;
 
@@ -186,32 +184,6 @@ class DictionaryEncodedColumn {
       archive & indexed_values;
       archive & null_bitmap;
       // clang-format on
-   }
-};
-
-template <DictionaryValueColumn ValueColumn>
-class DictionaryEncodedColumnBuilder {
-   using EncodedColumn = DictionaryEncodedColumn<ValueColumn>;
-
-   EncodedColumn::Buffer buffer;
-
-  public:
-   void insert(EncodedColumn::value_type value) {
-      buffer.emplace_back(typename EncodedColumn::Value{value});
-   }
-
-   void insertNull() { buffer.emplace_back(std::nullopt); }
-
-   void moveRowTo(size_t index, DictionaryEncodedColumnBuilder& destination) {
-      destination.buffer.push_back(std::move(buffer.at(index)));
-   }
-
-   [[nodiscard]] size_t numValues() const { return buffer.size(); }
-
-   [[nodiscard]] EncodedColumn::Buffer finalize() {
-      typename EncodedColumn::Buffer result = std::move(buffer);
-      buffer.clear();
-      return result;
    }
 };
 
