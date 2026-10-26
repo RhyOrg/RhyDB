@@ -381,13 +381,12 @@ std::unique_ptr<Operator> compileBoolComparison(
       column_name
    );
    const auto& bool_column = table.getColumn<storage::column::BoolColumn>(column_name);
-   // `column <> true` selects the same rows as `column = false`. Null rows are in
-   // neither bitmap, so they are excluded either way, consistent with the other
+   // `column <> true` selects the same rows as `column = false`. Null rows are neither
+   // true nor false, so they are excluded either way, consistent with the other
    // comparison operators.
-   const bool select_true_bitmap = (comparator == Comparator::EQUALS) == value;
+   const bool select_true_rows = (comparator == Comparator::EQUALS) == value;
    return std::make_unique<IndexScan>(
-      Bitmap{select_true_bitmap ? &bool_column.true_bitmap : &bool_column.false_bitmap},
-      table.row_layout
+      select_true_rows ? bool_column.trueRows() : bool_column.falseRows(), table.row_layout
    );
 }
 

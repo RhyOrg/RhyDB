@@ -1,5 +1,6 @@
 #include "rhydb/query_engine/scalar_expressions/is_null.h"
 
+#include <concepts>
 #include <utility>
 
 #include <arrow/compute/api.h>
@@ -10,6 +11,7 @@
 #include "rhydb/query_engine/filter/operators/operator.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
+#include "rhydb/storage/column/bool_column.h"
 #include "rhydb/storage/column/data_type_visitor.h"
 
 namespace rhydb::query_engine::scalar_expressions {
@@ -47,9 +49,15 @@ std::unique_ptr<filter::operators::Operator> IsNull::compile(const storage::Tabl
 
    return rhydb::storage::column::visit(target_column.type, [&]<storage::column::Column Column> {
       const auto& value_column = table.getColumn<Column>(column.name);
-      return std::make_unique<filter::operators::IndexScan>(
-         Bitmap::fromChunkContainers(value_column.null_bitmap), table.row_layout
-      );
+      if constexpr (std::same_as<Column, storage::column::BoolColumn>) {
+         return std::make_unique<filter::operators::IndexScan>(
+            value_column.nullRows(), table.row_layout
+         );
+      } else {
+         return std::make_unique<filter::operators::IndexScan>(
+            Bitmap::fromChunkContainers(value_column.null_bitmap), table.row_layout
+         );
+      }
    });
 }
 
