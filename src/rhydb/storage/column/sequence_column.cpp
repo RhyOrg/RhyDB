@@ -104,15 +104,18 @@ std::expected<void, std::string> SequenceColumn<SymbolType>::appendChunk(const B
    // spans `[k << 16, (k << 16) + buffer.size())` (see `RowId`). Assigning sparse, chunk-aligned
    // ids here keeps the sequence column's indexes consistent with the value columns and the shared
    // `RowLayout`, which is what the query path addresses rows by.
+   auto null_rows = roaring_util::RoaringContainer::withCapacity(0);
    for (size_t row_in_chunk = 0; row_in_chunk < buffer.size(); ++row_in_chunk) {
       const RowId row_id(num_chunks, row_in_chunk);
       const auto& buffered = buffer[row_in_chunk];
       if (buffered.is_null) {
+         null_rows.add(row_id.row_in_chunk);
          appendNullValue(row_id);
       } else {
          appendValue(row_id, buffered);
       }
    }
+   null_bitmap.push_back(std::move(null_rows));
    num_chunks++;
    // The vertical index keys its roaring containers by the row id's high 16 bits (= the chunk id),
    // so a chunk's mutations never share a container with another chunk's. Flushing the per-position
@@ -146,14 +149,13 @@ void SequenceColumn<SymbolType>::appendValue(RowId row_id, const BufferedSequenc
 
 template <typename SymbolType>
 void SequenceColumn<SymbolType>::appendNullValue(RowId row_id) {
-   null_bitmap.add(row_id.toGlobal());
    sequence_count += 1;
    horizontal_coverage_index.insertNullSequence(row_id);
 }
 
 template <typename SymbolType>
 bool SequenceColumn<SymbolType>::isNull(RowId row_id) const {
-   return null_bitmap.contains(row_id.toGlobal());
+   return null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk);
 }
 
 template <typename SymbolType>

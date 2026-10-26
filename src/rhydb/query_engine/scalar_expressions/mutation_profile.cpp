@@ -153,7 +153,7 @@ std::vector<typename SymbolType::Symbol> MutationProfile<SymbolType>::buildProfi
          table.getColumn<storage::column::DictionaryEncodedColumn<storage::column::StringColumn>>(
             primary_key_name
          );
-      const auto bitmap_opt = primary_key_column.filter(std::optional<std::string>(seq_id));
+      const auto bitmap_opt = primary_key_column.filter(seq_id);
       if (bitmap_opt.has_value() && !bitmap_opt.value()->isEmpty()) {
          found_row_id = RowId::fromGlobal(bitmap_opt.value()->minimum());
       }

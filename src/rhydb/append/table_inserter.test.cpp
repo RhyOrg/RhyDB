@@ -15,6 +15,7 @@
 #include <gtest/gtest.h>
 
 #include "rhydb/append/ndjson_line_reader.h"
+#include "rhydb/common/bitmap.h"
 #include "rhydb/common/nucleotide_symbols.h"
 #include "rhydb/schema/database_schema.h"
 #include "rhydb/storage/column/sequence_column.h"
@@ -170,7 +171,7 @@ TEST(ClusteredBuffering, nullSequencesClusterSeparatelyFromDataRows) {
    EXPECT_EQ(table->row_layout.numChunks(), 2);
    const auto& index = coverageIndex(*table);
    const auto& nuc_column = table->getColumn<SequenceColumn<Nucleotide>>(std::string{SEQ_COLUMN});
-   EXPECT_EQ(nuc_column.null_bitmap.cardinality(), 2);
+   EXPECT_EQ(rhydb::Bitmap::fromChunkContainers(nuc_column.null_bitmap).cardinality(), 2);
 
    // The data chunk's bounding range is exactly [0,25) — the null rows never widened it.
    bool found_data_batch = false;
@@ -216,7 +217,10 @@ TEST(ClusteredBuffering, preservesAllRowsRegardlessOfChunkAssignment) {
       clustered->getColumn<SequenceColumn<Nucleotide>>(std::string{SEQ_COLUMN});
    const auto& baseline_nuc =
       baseline->getColumn<SequenceColumn<Nucleotide>>(std::string{SEQ_COLUMN});
-   EXPECT_EQ(clustered_nuc.null_bitmap.cardinality(), baseline_nuc.null_bitmap.cardinality());
+   EXPECT_EQ(
+      rhydb::Bitmap::fromChunkContainers(clustered_nuc.null_bitmap).cardinality(),
+      rhydb::Bitmap::fromChunkContainers(baseline_nuc.null_bitmap).cardinality()
+   );
 
    // Clustering only reorders rows across chunks, so the multiset of covered ranges is invariant.
    auto clustered_ranges = allRowRanges(*clustered);

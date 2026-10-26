@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <functional>
 #include <queue>
+#include <span>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -380,6 +381,21 @@ Bitmap Bitmap::fromContainerViews(
          result.containers.emplace_back(roaring_util::fastUnion(group_views));
       }
       idx = group_end;
+   }
+   return result;
+}
+
+Bitmap Bitmap::fromChunkContainers(
+   std::span<const roaring_util::RoaringContainer> chunk_containers
+) {
+   Bitmap result;
+   for (size_t chunk_id = 0; chunk_id < chunk_containers.size(); ++chunk_id) {
+      const auto& container = chunk_containers[chunk_id];
+      if (container.empty()) {
+         continue;
+      }
+      result.keys.push_back(static_cast<uint16_t>(chunk_id));
+      result.containers.emplace_back(roaring_util::RoaringContainerView{container});
    }
    return result;
 }

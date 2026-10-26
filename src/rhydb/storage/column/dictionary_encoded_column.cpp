@@ -5,6 +5,7 @@
 #include <optional>
 #include <vector>
 
+#include "rhydb/common/bitmap.h"
 #include "rhydb/common/panic.h"
 #include "rhydb/storage/column/row_id.h"
 
@@ -105,12 +106,9 @@ std::optional<const roaring::Roaring*> DictionaryEncodedColumn<ValueColumn>::fil
 
 template <DictionaryValueColumn ValueColumn>
 std::optional<const roaring::Roaring*> DictionaryEncodedColumn<ValueColumn>::filter(
-   std::optional<Key> value
+   Key value
 ) const {
-   if (value == std::nullopt) {
-      return &null_bitmap;
-   }
-   const auto& value_id = findDictionaryId(value.value());
+   const auto& value_id = findDictionaryId(value);
    if (!value_id.has_value()) {
       return std::nullopt;
    }
@@ -174,11 +172,12 @@ std::expected<void, std::string> DictionaryEncodedColumn<ValueColumn>::appendChu
    const uint32_t base = RowId::chunkStart(static_cast<uint16_t>(value_ids.numChunks()));
    std::vector<Idx> chunk;
    chunk.reserve(buffer.size());
+   auto null_rows = roaring_util::RoaringContainer::withCapacity(0);
    for (size_t i = 0; i < buffer.size(); ++i) {
       const uint32_t row_id = base + static_cast<uint32_t>(i);
       const auto& maybe_value = buffer[i];
       if (!maybe_value.has_value()) {
-         null_bitmap.add(row_id);
+         null_rows.add(static_cast<uint16_t>(i));
          // We need to add something to the vector, so that the size of the vector remains equal to
          // row_id but we do not add our row_id to indexed_values[value_id]
          const Idx value_id = ids_by_value.at({});
@@ -192,6 +191,7 @@ std::expected<void, std::string> DictionaryEncodedColumn<ValueColumn>::appendChu
       chunk.push_back(value_id);
    }
    value_ids.appendChunk(std::move(chunk));
+   null_bitmap.push_back(std::move(null_rows));
    return {};
 }
 
@@ -212,7 +212,7 @@ void DictionaryEncodedColumn<ValueColumn>::update(
       const RowId row_id = RowId::fromGlobal(global_row_id);
       // Detach the row from its previous value's match bitmap. Previously-null rows are not members
       // of any match bitmap, so only non-null rows need detaching.
-      if (!null_bitmap.contains(global_row_id)) {
+      if (!null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk)) {
          const Idx old_value_id = value_ids.at(row_id);
          indexed_values.at(old_value_id).remove(global_row_id);
       }
@@ -223,9 +223,13 @@ void DictionaryEncodedColumn<ValueColumn>::update(
    }
 
    if (value.has_value()) {
-      null_bitmap -= row_ids;
+      for (const auto& [chunk_id, rows] : Bitmap{&row_ids}) {
+         null_bitmap.at(chunk_id) -= rows;
+      }
    } else {
-      null_bitmap |= row_ids;
+      for (const auto& [chunk_id, rows] : Bitmap{&row_ids}) {
+         null_bitmap.at(chunk_id) |= rows;
+      }
    }
 }
 
@@ -248,22 +252,22 @@ void DictionaryEncodedColumn<ValueColumn>::update(
       const Idx new_value_id = ids_by_value.at(value.has_value() ? Key{*value} : Key{});
       indexed_values.try_emplace(new_value_id);
 
-      if (!null_bitmap.contains(global_row_id)) {
+      if (!null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk)) {
          indexed_values.at(value_ids.at(row_id)).remove(global_row_id);
       }
       value_ids.setValue(row_id, new_value_id);
       if (value.has_value()) {
          indexed_values.at(new_value_id).add(global_row_id);
-         null_bitmap.remove(global_row_id);
+         null_bitmap.at(chunk_id).removeChecked(row_id.row_in_chunk);
       } else {
-         null_bitmap.add(global_row_id);
+         null_bitmap.at(chunk_id).addChecked(row_id.row_in_chunk);
       }
    }
 }
 
 template <DictionaryValueColumn ValueColumn>
 bool DictionaryEncodedColumn<ValueColumn>::isNull(RowId row_id) const {
-   return null_bitmap.contains(row_id.toGlobal());
+   return null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk);
 }
 
 template <DictionaryValueColumn ValueColumn>

@@ -123,7 +123,9 @@ TEST(DictionaryEncodedColumn, updateKeepsInvertedIndexConsistent) {
    // A nullopt update detaches rows from their value bitmap and marks them null.
    under_test.update(roaring::Roaring({0}), std::nullopt);
    ASSERT_EQ(*under_test.filter("value 1").value(), roaring::Roaring({4}));
-   ASSERT_EQ(*under_test.filter(std::optional<std::string>{}).value(), roaring::Roaring({0}));
+   ASSERT_EQ(
+      rhydb::Bitmap::fromChunkContainers(under_test.null_bitmap).toRoaring(), roaring::Roaring({0})
+   );
    EXPECT_TRUE(under_test.isNull(RowId(0, 0)));
 
    // A previously-null row can be reassigned to a concrete value again.
@@ -256,7 +258,7 @@ TEST(DictionaryEncodedColumn, nullArrivingLaterKeepsNullAndEmptyStringApart) {
    ASSERT_EQ(*under_test.filter("a").value(), roaring::Roaring({RowId::chunkStart(1) + 2}));
    ASSERT_EQ(*under_test.filter("").value(), roaring::Roaring({RowId::chunkStart(1) + 1}));
    ASSERT_EQ(
-      *under_test.filter(std::optional<std::string>{}).value(),
+      rhydb::Bitmap::fromChunkContainers(under_test.null_bitmap).toRoaring(),
       roaring::Roaring({RowId::chunkStart(1) + 0})
    );
    EXPECT_TRUE(under_test.isNull(RowId(1, 0)));

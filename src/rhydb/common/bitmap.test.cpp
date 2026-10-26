@@ -304,3 +304,22 @@ TEST(Bitmap, mutatingAViewDoesNotDisturbTheSource) {
    EXPECT_EQ(under_test.toRoaring(), roaring::Roaring{5});
    EXPECT_EQ(source, multiContainer());
 }
+
+TEST(Bitmap, fromChunkContainersViewsNonEmptyChunksKeyedByIndex) {
+   std::vector<RoaringContainer> chunks;
+   chunks.push_back(RoaringContainer::withCapacity(0));
+   chunks.push_back(RoaringContainer::withCapacity(0));
+   chunks.back().add(3);
+   chunks.push_back(RoaringContainer::withCapacity(0));
+   chunks.push_back(RoaringContainer::withCapacity(0));
+   chunks.back().add(7);
+   chunks.back().add(9);
+
+   const Bitmap under_test = Bitmap::fromChunkContainers(chunks);
+
+   EXPECT_EQ(under_test.cardinality(), 3);
+   EXPECT_EQ(
+      under_test.toRoaring(), (roaring::Roaring{(1U << 16) + 3, (3U << 16) + 7, (3U << 16) + 9})
+   );
+   EXPECT_TRUE(Bitmap::fromChunkContainers(std::vector<RoaringContainer>{}).isEmpty());
+}

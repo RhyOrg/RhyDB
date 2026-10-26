@@ -14,6 +14,7 @@
 #include <vector>
 
 #include <boost/serialization/access.hpp>
+#include <boost/serialization/vector.hpp>
 #include <roaring/roaring.hh>
 
 #include "rhydb/common/german_string.h"
@@ -93,7 +94,8 @@ class DictionaryEncodedColumn {
    using value_type = ValueColumn::value_type;
 
    Metadata* metadata;
-   roaring::Roaring null_bitmap;
+   /// One container per chunk, indexed by chunk id: the rows of that chunk which are null.
+   std::vector<roaring_util::RoaringContainer> null_bitmap;
 
   private:
    /// Owned by this column, because `insertDictionaryValues` renumbers the ids that only this
@@ -113,7 +115,8 @@ class DictionaryEncodedColumn {
    /// Not an overload of `filter`, which would otherwise be chosen for integer values
    [[nodiscard]] std::optional<const roaring::Roaring*> filterById(rhydb::Idx value_id) const;
 
-   [[nodiscard]] std::optional<const roaring::Roaring*> filter(std::optional<Key> value) const;
+   /// The rows holding `value`. Null rows are not indexed here, they are in `null_bitmap`.
+   [[nodiscard]] std::optional<const roaring::Roaring*> filter(Key value) const;
 
    std::expected<void, std::string> appendChunk(const Buffer& buffer);
 

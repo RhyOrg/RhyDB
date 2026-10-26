@@ -1,5 +1,6 @@
 #include "rhydb/storage/column/zstd_compressed_string_column.h"
 
+#include "rhydb/common/bitmap.h"
 #include "rhydb/common/panic.h"
 #include "rhydb/storage/column/row_id.h"
 
@@ -20,7 +21,7 @@ ZstdCompressedStringColumn::ZstdCompressedStringColumn(
     : metadata(metadata) {}
 
 std::expected<void, std::string> ZstdCompressedStringColumn::appendChunk(const Buffer& buffer) {
-   const uint32_t base = RowId::chunkStart(static_cast<uint16_t>(values.numChunks()));
+   auto null_rows = roaring_util::RoaringContainer::withCapacity(0);
    std::vector<std::string> chunk;
    chunk.reserve(buffer.size());
    for (size_t i = 0; i < buffer.size(); ++i) {
@@ -28,11 +29,12 @@ std::expected<void, std::string> ZstdCompressedStringColumn::appendChunk(const B
       if (value.has_value()) {
          chunk.emplace_back(*value);
       } else {
-         null_bitmap.add(base + static_cast<uint32_t>(i));
+         null_rows.add(static_cast<uint16_t>(i));
          chunk.emplace_back();
       }
    }
    values.appendChunk(std::move(chunk));
+   null_bitmap.push_back(std::move(null_rows));
    return {};
 }
 
@@ -45,9 +47,13 @@ void ZstdCompressedStringColumn::update(
    std::string stored_value;
    if (value.has_value()) {
       stored_value = metadata->compressor.compress(value->data(), value->size());
-      null_bitmap -= row_ids;
+      for (const auto& [chunk_id, rows] : Bitmap{&row_ids}) {
+         null_bitmap.at(chunk_id) -= rows;
+      }
    } else {
-      null_bitmap |= row_ids;
+      for (const auto& [chunk_id, rows] : Bitmap{&row_ids}) {
+         null_bitmap.at(chunk_id) |= rows;
+      }
    }
    for (const uint32_t global_row_id : row_ids) {
       values.setValue(RowId::fromGlobal(global_row_id), stored_value);
@@ -66,16 +72,16 @@ void ZstdCompressedStringColumn::update(
       const RowId row_id{.chunk_id = chunk_id, .row_in_chunk = row_in_chunk};
       const std::optional<std::string>& value = new_values[index++];
       if (value.has_value()) {
-         null_bitmap.remove(row_id.toGlobal());
+         null_bitmap.at(chunk_id).removeChecked(row_id.row_in_chunk);
       } else {
-         null_bitmap.add(row_id.toGlobal());
+         null_bitmap.at(chunk_id).addChecked(row_id.row_in_chunk);
       }
       values.setValue(row_id, value.value_or(std::string{}));
    }
 }
 
 bool ZstdCompressedStringColumn::isNull(RowId row_id) const {
-   return null_bitmap.contains(row_id.toGlobal());
+   return null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk);
 }
 
 std::optional<std::string> ZstdCompressedStringColumn::getDecompressed(RowId row_id) const {

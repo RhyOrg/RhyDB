@@ -132,16 +132,18 @@ std::expected<void, std::string> StringColumn::appendChunk(const Buffer& buffer)
       return result;
    }
    StringColumnChunk chunk;
+   auto null_rows = roaring_util::RoaringContainer::withCapacity(0);
    for (size_t i = 0; i < buffer.size(); ++i) {
       const auto& value = buffer[i];
       if (value.has_value()) {
          chunk.insert(*value);
       } else {
-         null_bitmap.add(base + i);
+         null_rows.add(static_cast<uint16_t>(i));
          chunk.insertNull();
       }
    }
    chunks.push_back(std::move(chunk));
+   null_bitmap.push_back(std::move(null_rows));
    return {};
 }
 
@@ -160,7 +162,6 @@ void StringColumn::rebuildChunk(
          .chunk_id = chunk_id,
          .row_in_chunk = static_cast<uint16_t>(row_in_chunk),
       };
-      const uint32_t global_row_id = row_id.toGlobal();
       if (
          next_updated_row != roaring_util::RoaringContainerView::end() &&
          *next_updated_row == row_in_chunk
@@ -170,12 +171,12 @@ void StringColumn::rebuildChunk(
          const std::optional<std::string>& value = value_of(index++);
          if (value.has_value()) {
             rebuilt_chunk.insert(*value);
-            null_bitmap.remove(global_row_id);
+            null_bitmap.at(chunk_id).removeChecked(row_id.row_in_chunk);
          } else {
             rebuilt_chunk.insertNull();
-            null_bitmap.add(global_row_id);
+            null_bitmap.at(chunk_id).addChecked(row_id.row_in_chunk);
          }
-      } else if (null_bitmap.contains(global_row_id)) {
+      } else if (null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk)) {
          // Untouched null row: reads from the old chunk are meaningless, keep it null.
          rebuilt_chunk.insertNull();
       } else {
@@ -209,7 +210,7 @@ void StringColumn::update(
 }
 
 bool StringColumn::isNull(RowId row_id) const {
-   return null_bitmap.contains(row_id.toGlobal());
+   return null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk);
 }
 
 void StringColumnBuilder::insert(std::string_view value) {

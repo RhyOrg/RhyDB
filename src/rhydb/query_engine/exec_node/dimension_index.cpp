@@ -77,7 +77,7 @@ class SequencePositionIndex : public DimensionIndex {
          );
       }
 
-      for (const auto& [chunk_id, view] : Bitmap{&column.null_bitmap}) {
+      for (const auto& [chunk_id, view] : Bitmap::fromChunkContainers(column.null_bitmap)) {
          null_views.emplace(chunk_id, view);
       }
    }
@@ -266,7 +266,7 @@ class IndexedColumnIndex : public DimensionIndex {
          key_values.emplace_back(std::move(values[group_index].first));
       }
       const size_t null_index = values.size();
-      for (const auto& [chunk_id, view] : Bitmap{&column.null_bitmap}) {
+      for (const auto& [chunk_id, view] : Bitmap::fromChunkContainers(column.null_bitmap)) {
          groups_by_chunk[chunk_id].emplace_back(null_index, CopyOnWriteContainer{view});
       }
    }

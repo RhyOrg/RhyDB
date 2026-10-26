@@ -65,6 +65,51 @@ TEST(RoaringContainer, addAndCardinality) {
    EXPECT_EQ(toRoaring(container), (roaring::Roaring{3, 7, 9}));
 }
 
+TEST(RoaringContainer, addCheckedAndRemoveCheckedAreIdempotent) {
+   // Starts with no allocated array at all, as the columns' per-chunk null containers do.
+   auto container = RoaringContainer::withCapacity(0);
+   EXPECT_FALSE(container.contains(4));
+
+   EXPECT_TRUE(container.addChecked(4));
+   EXPECT_FALSE(container.addChecked(4));
+   EXPECT_TRUE(container.addChecked(2));
+   EXPECT_EQ(container.getCardinality(), 2);
+   EXPECT_TRUE(container.contains(4));
+
+   EXPECT_TRUE(container.removeChecked(4));
+   EXPECT_FALSE(container.removeChecked(4));
+   EXPECT_EQ(container.getCardinality(), 1);
+   EXPECT_FALSE(container.contains(4));
+   EXPECT_EQ(toRoaring(container), (roaring::Roaring{2}));
+}
+
+TEST(RoaringContainer, removeCheckedShrinksBitsetBackToArray) {
+   auto container = RoaringContainer::withCapacity(1);
+   for (uint32_t value = 0; value <= 4096; ++value) {
+      container.add(static_cast<uint16_t>(value));
+   }
+   EXPECT_EQ(container.getTypecode(), BITSET_CONTAINER_TYPE);
+
+   EXPECT_TRUE(container.removeChecked(0));
+   EXPECT_EQ(container.getTypecode(), ARRAY_CONTAINER_TYPE);
+   EXPECT_EQ(container.getCardinality(), 4096);
+   EXPECT_FALSE(container.contains(0));
+   EXPECT_TRUE(container.contains(4096));
+}
+
+TEST(RoaringContainer, subtractAssignRemovesValues) {
+   auto container = makeContainer({1, 2, 3, 5});
+   const auto subtrahend = makeContainer({2, 5, 9});
+
+   container -= RoaringContainerView{subtrahend};
+   EXPECT_EQ(container.getCardinality(), 2);
+   EXPECT_EQ(toRoaring(container), (roaring::Roaring{1, 3}));
+
+   auto empty = makeContainer({});
+   empty -= RoaringContainerView{subtrahend};
+   EXPECT_TRUE(empty.empty());
+}
+
 TEST(RoaringContainer, growsFromArrayToBitset) {
    // A small capacity starts as an array container and must transparently grow past the array
    // container limit into a bitset as values are added.

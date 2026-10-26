@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <optional>
 
+#include "rhydb/common/bitmap.h"
 #include "rhydb/common/date32.h"
 #include "rhydb/common/panic.h"
 #include "rhydb/storage/column/row_id.h"
@@ -18,7 +19,7 @@ bool Date32Column::isSorted() const {
 }
 
 std::expected<void, std::string> Date32Column::appendChunk(const Buffer& buffer) {
-   const uint32_t base = RowId::chunkStart(static_cast<uint16_t>(values.numChunks()));
+   auto null_rows = roaring_util::RoaringContainer::withCapacity(0);
    std::vector<common::Date32> chunk;
    chunk.reserve(buffer.size());
    for (size_t i = 0; i < buffer.size(); ++i) {
@@ -29,20 +30,25 @@ std::expected<void, std::string> Date32Column::appendChunk(const Buffer& buffer)
          last_appended_value = buffer[i];
          chunk.push_back(*buffer[i]);
       } else {
-         null_bitmap.add(base + static_cast<uint32_t>(i));
+         null_rows.add(static_cast<uint16_t>(i));
          chunk.push_back(0);
          is_sorted = false;
       }
    }
    values.appendChunk(std::move(chunk));
+   null_bitmap.push_back(std::move(null_rows));
    return {};
 }
 
 void Date32Column::update(const roaring::Roaring& row_ids, std::optional<common::Date32> value) {
    if (value.has_value()) {
-      null_bitmap -= row_ids;
+      for (const auto& [chunk_id, rows] : Bitmap{&row_ids}) {
+         null_bitmap.at(chunk_id) -= rows;
+      }
    } else {
-      null_bitmap |= row_ids;
+      for (const auto& [chunk_id, rows] : Bitmap{&row_ids}) {
+         null_bitmap.at(chunk_id) |= rows;
+      }
    }
    const common::Date32 stored_value = value.value_or(0);
    for (const uint32_t global_row_id : row_ids) {
@@ -56,7 +62,7 @@ void Date32Column::update(const roaring::Roaring& row_ids, std::optional<common:
    is_sorted = true;
    last_appended_value = std::nullopt;
 
-   if (!null_bitmap.isEmpty()) {
+   if (!Bitmap::fromChunkContainers(null_bitmap).isEmpty()) {
       is_sorted = false;
       return;
    }
@@ -113,9 +119,9 @@ void Date32Column::update(
       const RowId row_id{.chunk_id = chunk_id, .row_in_chunk = row_in_chunk};
       const std::optional<common::Date32>& value = new_values[index++];
       if (value.has_value()) {
-         null_bitmap.remove(row_id.toGlobal());
+         null_bitmap.at(chunk_id).removeChecked(row_id.row_in_chunk);
       } else {
-         null_bitmap.add(row_id.toGlobal());
+         null_bitmap.at(chunk_id).addChecked(row_id.row_in_chunk);
          assigned_null = true;
       }
       values.setValue(row_id, value.value_or(0));

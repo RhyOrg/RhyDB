@@ -46,6 +46,30 @@ void RoaringContainer::add(uint16_t value) {
    cardinality += 1;
 }
 
+bool RoaringContainer::addChecked(uint16_t value) {
+   if (contains(value)) {
+      return false;
+   }
+   add(value);
+   return true;
+}
+
+bool RoaringContainer::removeChecked(uint16_t value) {
+   if (!contains(value)) {
+      return false;
+   }
+   uint8_t new_typecode;
+   auto* new_container =
+      roaring::internal::container_remove(container, value, typecode, &new_typecode);
+   if (new_container != container) {
+      roaring::internal::container_free(container, typecode);
+      container = new_container;
+   }
+   typecode = new_typecode;
+   cardinality -= 1;
+   return true;
+}
+
 size_t RoaringContainer::sizeInBytes() const {
    return roaring::internal::container_size_in_bytes(container, typecode);
 }
@@ -169,6 +193,14 @@ RoaringContainer& RoaringContainer::operator|=(RoaringContainerView addend) {
    typecode = new_typecode;
    cardinality =
       static_cast<uint32_t>(roaring::internal::container_get_cardinality(container, typecode));
+   return *this;
+}
+
+RoaringContainer& RoaringContainer::operator-=(RoaringContainerView subtrahend) {
+   if (subtrahend.empty() || empty()) {
+      return *this;
+   }
+   *this = RoaringContainerView{*this} - subtrahend;
    return *this;
 }
 

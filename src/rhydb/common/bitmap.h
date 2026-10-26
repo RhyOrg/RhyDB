@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <span>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -137,6 +138,13 @@ class Bitmap {
    /// order does not matter.
    [[nodiscard]] static Bitmap fromContainerViews(
       std::vector<std::pair<uint16_t, roaring_util::RoaringContainerView>> container_views
+   );
+
+   /// Views per-chunk containers, where `chunk_containers[k]` holds the low 16 bits of the row ids
+   /// in the 2^16 block `k` (e.g. a column's null bitmap). Empty containers are skipped. The
+   /// containers must outlive the returned bitmap and must not be mutated while it exists.
+   [[nodiscard]] static Bitmap fromChunkContainers(
+      std::span<const roaring_util::RoaringContainer> chunk_containers
    );
 
    /// Materializes into a standalone `roaring::Roaring`. Intended for the end of a query only,
