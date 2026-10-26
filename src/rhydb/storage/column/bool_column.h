@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <boost/serialization/access.hpp>
+#include <boost/serialization/vector.hpp>
 #include <roaring/roaring.hh>
 
 #include "rhydb/roaring_util/roaring_container.h"
@@ -30,7 +31,8 @@ class BoolColumn {
 
    roaring::Roaring true_bitmap;
    roaring::Roaring false_bitmap;
-   roaring::Roaring null_bitmap;
+   /// One container per chunk, indexed by chunk id: the rows of that chunk which are null.
+   std::vector<roaring_util::RoaringContainer> null_bitmap;
 
    Metadata* metadata;
 
@@ -57,16 +59,19 @@ class BoolColumn {
          return up_to_last - before_base;
       };
       return static_cast<uint32_t>(
-         count_in_block(true_bitmap) + count_in_block(false_bitmap) + count_in_block(null_bitmap)
+         count_in_block(true_bitmap) + count_in_block(false_bitmap) +
+         null_bitmap.at(chunk_id).getCardinality()
       );
    }
 
    [[nodiscard]] bool getValue(RowId row_id) const {
-      RHYDB_ASSERT(!null_bitmap.contains(row_id.toGlobal()));
+      RHYDB_ASSERT(!null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk));
       return true_bitmap.contains(row_id.toGlobal());
    }
 
-   [[nodiscard]] bool isNull(RowId row_id) const { return null_bitmap.contains(row_id.toGlobal()); }
+   [[nodiscard]] bool isNull(RowId row_id) const {
+      return null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk);
+   }
 
    std::expected<void, std::string> appendChunk(const Buffer& buffer);
 

@@ -113,14 +113,13 @@ std::unique_ptr<filter::operators::Operator> excludeNullSequences(
    const SequenceColumn<SymbolType>& sequence_column,
    const storage::column::RowLayout& row_layout
 ) {
-   if (sequence_column.null_bitmap.isEmpty()) {
+   Bitmap null_rows = Bitmap::fromChunkContainers(sequence_column.null_bitmap);
+   if (null_rows.isEmpty()) {
       return operator_;
    }
    return makeDifference(
       std::move(operator_),
-      std::make_unique<filter::operators::IndexScan>(
-         Bitmap{&sequence_column.null_bitmap}, row_layout
-      ),
+      std::make_unique<filter::operators::IndexScan>(std::move(null_rows), row_layout),
       row_layout
    );
 }

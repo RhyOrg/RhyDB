@@ -272,19 +272,18 @@ std::unique_ptr<Operator> compileDictionaryInequality(
    typename DictionaryEncodedColumn<ValueColumn>::Key literal
 ) {
    const auto literal_bitmap = dictionary_column.filter(literal);
+   Bitmap null_rows = Bitmap::fromChunkContainers(dictionary_column.null_bitmap);
    // The indexed value bitmaps are disjoint from the null bitmap
    const uint64_t excluded_rows =
-      dictionary_column.null_bitmap.cardinality() +
+      null_rows.cardinality() +
       (literal_bitmap == std::nullopt ? 0 : literal_bitmap.value()->cardinality());
    if (excluded_rows == table.row_layout.numRows()) {
       return std::make_unique<Empty>(table.row_layout);
    }
 
    OperatorVector excluded;
-   if (!dictionary_column.null_bitmap.isEmpty()) {
-      excluded.push_back(
-         std::make_unique<IndexScan>(Bitmap{&dictionary_column.null_bitmap}, table.row_layout)
-      );
+   if (!null_rows.isEmpty()) {
+      excluded.push_back(std::make_unique<IndexScan>(std::move(null_rows), table.row_layout));
    }
    if (literal_bitmap != std::nullopt) {
       excluded.push_back(

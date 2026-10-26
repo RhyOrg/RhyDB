@@ -108,7 +108,8 @@ class SequenceColumn {
    HorizontalCoverageIndex horizontal_coverage_index;
    insertion::InsertionIndex<SymbolType> insertion_index;
    SequenceColumnInfo sequence_column_info;
-   roaring::Roaring null_bitmap;
+   /// One container per chunk, indexed by chunk id: the rows of that chunk which are null.
+   std::vector<roaring_util::RoaringContainer> null_bitmap;
    uint32_t sequence_count = 0;
    /// Number of appended chunks; see `RowLayout`. Kept so the column satisfies the `Column` concept
    /// and the table can check every column was appended to in lockstep.

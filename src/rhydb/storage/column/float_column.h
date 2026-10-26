@@ -7,6 +7,7 @@
 #include <vector>
 
 #include <boost/serialization/access.hpp>
+#include <boost/serialization/vector.hpp>
 #include <roaring/roaring.hh>
 
 #include "rhydb/roaring_util/roaring_container.h"
@@ -34,7 +35,8 @@ class FloatColumn {
    ChunkedValueBuffer<double> values;
 
   public:
-   roaring::Roaring null_bitmap;
+   /// One container per chunk, indexed by chunk id: the rows of that chunk which are null.
+   std::vector<roaring_util::RoaringContainer> null_bitmap;
 
    [[maybe_unused]] Metadata* metadata;
 
@@ -44,7 +46,9 @@ class FloatColumn {
 
    [[nodiscard]] uint32_t chunkSize(uint16_t chunk_id) const { return values.chunkSize(chunk_id); }
 
-   [[nodiscard]] bool isNull(RowId row_id) const { return null_bitmap.contains(row_id.toGlobal()); }
+   [[nodiscard]] bool isNull(RowId row_id) const {
+      return null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk);
+   }
 
    [[nodiscard]] double getValue(RowId row_id) const { return values.at(row_id); }
 

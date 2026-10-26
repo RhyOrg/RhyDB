@@ -153,7 +153,7 @@ TEST(StringColumn, duplicatePhyloLeafLeavesColumnUnmodified) {
    ASSERT_FALSE(result.has_value());
    EXPECT_EQ(under_test.numChunks(), 1);
    EXPECT_EQ(under_test.chunkSize(0), 1);
-   EXPECT_TRUE(under_test.null_bitmap.isEmpty());
+   EXPECT_TRUE(rhydb::Bitmap::fromChunkContainers(under_test.null_bitmap).isEmpty());
    // CHILD3 must not have been bound, since the whole buffer was rejected.
    EXPECT_EQ(
       metadata.phylo_tree->nodes.at(rhydb::common::TreeNodeId{"CHILD3"})->row_index, std::nullopt

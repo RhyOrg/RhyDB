@@ -96,7 +96,7 @@ std::unique_ptr<filter::operators::Operator> IntBetween::compileFor(
    if (predicates.empty()) {
       return std::make_unique<filter::operators::Complement>(
          std::make_unique<filter::operators::IndexScan>(
-            Bitmap{&column_ref.null_bitmap}, table.row_layout
+            Bitmap::fromChunkContainers(column_ref.null_bitmap), table.row_layout
          ),
          table.row_layout
       );

@@ -6,6 +6,7 @@
 #include <vector>
 
 #include <boost/serialization/access.hpp>
+#include <boost/serialization/vector.hpp>
 #include <roaring/roaring.hh>
 
 #include "rhydb/common/date32.h"
@@ -31,7 +32,8 @@ class Date32Column {
    using value_type = common::Date32;
 
    [[maybe_unused]] Metadata* metadata;
-   roaring::Roaring null_bitmap;
+   /// One container per chunk, indexed by chunk id: the rows of that chunk which are null.
+   std::vector<roaring_util::RoaringContainer> null_bitmap;
 
   private:
    ChunkedValueBuffer<common::Date32> values;
@@ -70,7 +72,9 @@ class Date32Column {
 
    [[nodiscard]] uint32_t chunkSize(uint16_t chunk_id) const { return values.chunkSize(chunk_id); }
 
-   [[nodiscard]] bool isNull(RowId row_id) const { return null_bitmap.contains(row_id.toGlobal()); }
+   [[nodiscard]] bool isNull(RowId row_id) const {
+      return null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk);
+   }
 
    [[nodiscard]] common::Date32 getValue(RowId row_id) const { return values.at(row_id); }
 

@@ -13,6 +13,7 @@
 #include <boost/serialization/access.hpp>
 #include <boost/serialization/deque.hpp>
 #include <boost/serialization/split_free.hpp>
+#include <boost/serialization/vector.hpp>
 
 #include "rhydb/common/bidirectional_string_map.h"
 #include "rhydb/common/german_string.h"
@@ -113,7 +114,8 @@ class StringColumn {
 
    Metadata* metadata;
 
-   roaring::Roaring null_bitmap;
+   /// One container per chunk, indexed by chunk id: the rows of that chunk which are null.
+   std::vector<roaring_util::RoaringContainer> null_bitmap;
 
   private:
    /// One immutable chunk per `appendChunk` call. A row id is mapped to its chunk by splitting it

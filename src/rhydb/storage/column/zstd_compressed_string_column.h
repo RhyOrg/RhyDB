@@ -9,6 +9,7 @@
 #include <boost/serialization/access.hpp>
 #include <boost/serialization/split_free.hpp>
 #include <boost/serialization/string.hpp>
+#include <boost/serialization/vector.hpp>
 #include <roaring/roaring.hh>
 
 #include "rhydb/roaring_util/roaring_container.h"
@@ -51,7 +52,8 @@ class ZstdCompressedStringColumn {
    ChunkedValueBuffer<std::string> values;
 
   public:
-   roaring::Roaring null_bitmap;
+   /// One container per chunk, indexed by chunk id: the rows of that chunk which are null.
+   std::vector<roaring_util::RoaringContainer> null_bitmap;
    Metadata* metadata;
 
    explicit ZstdCompressedStringColumn(Metadata* metadata);

@@ -44,7 +44,8 @@ arrow::Status appendSequences(
    const Bitmap& row_ids,
    arrow::LargeBinaryBuilder& output_array
 ) {
-   const Bitmap non_null_row_ids = row_ids - Bitmap{&sequence_column.null_bitmap};
+   const Bitmap non_null_row_ids =
+      row_ids - Bitmap::fromChunkContainers(sequence_column.null_bitmap);
    auto reconstructed_non_null_sequences =
       reconstructNonNullSequences(sequence_column, non_null_row_ids);
 

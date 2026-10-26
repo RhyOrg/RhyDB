@@ -86,7 +86,18 @@ class RoaringContainer {
    /// that are not already present.
    void add(uint16_t value);
 
+   /// Adds `value` if it is not yet present. Returns whether it was added.
+   bool addChecked(uint16_t value);
+
+   /// Removes `value` if it is present. Returns whether it was removed.
+   bool removeChecked(uint16_t value);
+
+   [[nodiscard]] bool contains(uint16_t value) const {
+      return roaring::internal::container_contains(container, value, typecode);
+   }
+
    RoaringContainer& operator|=(RoaringContainerView addend);
+   RoaringContainer& operator-=(RoaringContainerView subtrahend);
 
    [[nodiscard]] uint32_t getCardinality() const { return cardinality; }
 
@@ -192,6 +203,10 @@ class RoaringContainerView {
    [[nodiscard]] uint32_t getCardinality() const { return cardinality; }
 
    [[nodiscard]] bool empty() const { return cardinality == 0; }
+
+   [[nodiscard]] bool contains(uint16_t value) const {
+      return roaring::internal::container_contains(container, value, typecode);
+   }
 
    [[nodiscard]] size_t sizeInBytes() const;
 

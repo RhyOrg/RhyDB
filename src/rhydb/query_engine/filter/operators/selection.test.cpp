@@ -30,7 +30,7 @@ std::pair<std::shared_ptr<ColumnMetadata>, Int32Column> makeTestColumn(
       builder.insert(value);
    }
    RHYDB_ASSERT(test_column.appendChunk(builder.finalize()).has_value());
-   return {metadata, test_column};
+   return {metadata, std::move(test_column)};
 }
 
 }  // namespace

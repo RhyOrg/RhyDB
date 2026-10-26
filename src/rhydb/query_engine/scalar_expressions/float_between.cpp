@@ -73,7 +73,7 @@ std::unique_ptr<filter::operators::Operator> FloatBetween::compile(
    if (predicates.empty()) {
       return std::make_unique<filter::operators::Complement>(
          std::make_unique<filter::operators::IndexScan>(
-            Bitmap{&float_column.null_bitmap}, table.row_layout
+            Bitmap::fromChunkContainers(float_column.null_bitmap), table.row_layout
          ),
          table.row_layout
       );

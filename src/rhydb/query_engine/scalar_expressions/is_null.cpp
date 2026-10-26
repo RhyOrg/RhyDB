@@ -48,7 +48,7 @@ std::unique_ptr<filter::operators::Operator> IsNull::compile(const storage::Tabl
    return rhydb::storage::column::visit(target_column.type, [&]<storage::column::Column Column> {
       const auto& value_column = table.getColumn<Column>(column.name);
       return std::make_unique<filter::operators::IndexScan>(
-         Bitmap{&value_column.null_bitmap}, table.row_layout
+         Bitmap::fromChunkContainers(value_column.null_bitmap), table.row_layout
       );
    });
 }

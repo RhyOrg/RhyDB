@@ -7,8 +7,10 @@
 #include <vector>
 
 #include <boost/serialization/access.hpp>
+#include <boost/serialization/vector.hpp>
 #include <roaring/roaring.hh>
 
+#include "rhydb/common/bitmap.h"
 #include "rhydb/common/panic.h"
 #include "rhydb/roaring_util/roaring_container.h"
 #include "rhydb/schema/database_schema.h"
@@ -58,17 +60,20 @@ class NumericColumn {
    ChunkedValueBuffer<T> values;
 
   public:
-   roaring::Roaring null_bitmap;
+   /// One container per chunk, indexed by chunk id: the rows of that chunk which are null.
+   std::vector<roaring_util::RoaringContainer> null_bitmap;
 
    Metadata* metadata;
 
    explicit NumericColumn(Metadata* metadata)
        : metadata(metadata) {}
 
-   [[nodiscard]] bool isNull(RowId row_id) const { return null_bitmap.contains(row_id.toGlobal()); }
+   [[nodiscard]] bool isNull(RowId row_id) const {
+      return null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk);
+   }
 
    [[nodiscard]] T getValue(RowId row_id) const {
-      RHYDB_ASSERT(!null_bitmap.contains(row_id.toGlobal()));
+      RHYDB_ASSERT(!null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk));
       return values.at(row_id);
    }
 
@@ -77,18 +82,19 @@ class NumericColumn {
    [[nodiscard]] uint32_t chunkSize(uint16_t chunk_id) const { return values.chunkSize(chunk_id); }
 
    std::expected<void, std::string> appendChunk(const Buffer& buffer) {
-      const uint32_t base = RowId::chunkStart(static_cast<uint16_t>(values.numChunks()));
+      auto null_rows = roaring_util::RoaringContainer::withCapacity(0);
       std::vector<T> chunk;
       chunk.reserve(buffer.size());
       for (size_t i = 0; i < buffer.size(); ++i) {
          if (buffer[i].has_value()) {
             chunk.push_back(*buffer[i]);
          } else {
-            null_bitmap.add(base + static_cast<uint32_t>(i));
+            null_rows.add(static_cast<uint16_t>(i));
             chunk.push_back(0);
          }
       }
       values.appendChunk(std::move(chunk));
+      null_bitmap.push_back(std::move(null_rows));
       return {};
    }
 
@@ -97,9 +103,13 @@ class NumericColumn {
    /// in place. Rows not in `row_ids` are left untouched.
    void update(const roaring::Roaring& row_ids, std::optional<T> value) {
       if (value == std::nullopt) {
-         null_bitmap |= row_ids;
+         for (const auto& [chunk_id, rows] : Bitmap{&row_ids}) {
+            null_bitmap.at(chunk_id) |= rows;
+         }
       } else {
-         null_bitmap -= row_ids;
+         for (const auto& [chunk_id, rows] : Bitmap{&row_ids}) {
+            null_bitmap.at(chunk_id) -= rows;
+         }
       }
       const T stored_value = value.value_or(0);
       for (const uint32_t global_row_id : row_ids) {
@@ -120,9 +130,9 @@ class NumericColumn {
          const RowId row_id{.chunk_id = chunk_id, .row_in_chunk = row_in_chunk};
          const std::optional<T>& value = new_values[index++];
          if (value.has_value()) {
-            null_bitmap.remove(row_id.toGlobal());
+            null_bitmap.at(chunk_id).removeChecked(row_id.row_in_chunk);
          } else {
-            null_bitmap.add(row_id.toGlobal());
+            null_bitmap.at(chunk_id).addChecked(row_id.row_in_chunk);
          }
          values.setValue(row_id, value.value_or(0));
       }
