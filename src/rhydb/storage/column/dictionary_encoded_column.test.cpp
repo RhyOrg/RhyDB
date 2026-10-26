@@ -11,8 +11,11 @@
 #include <gtest/gtest.h>
 
 #include "rhydb/common/bitmap.h"
+#include "rhydb/common/date32.h"
 
+using rhydb::common::Date32;
 using rhydb::storage::column::ColumnMetadata;
+using rhydb::storage::column::Date32Column;
 using rhydb::storage::column::DictionaryEncodedColumn;
 using rhydb::storage::column::RowId;
 using rhydb::storage::column::StringColumn;
@@ -26,6 +29,21 @@ namespace {
    DictionaryEncodedColumn<StringColumn>::Builder builder;
    for (const auto& value : values) {
       builder.insert(value);
+   }
+   return column.appendChunk(builder.finalize());
+}
+
+[[nodiscard]] std::expected<void, std::string> appendDates(
+   DictionaryEncodedColumn<Date32Column>& column,
+   std::initializer_list<std::optional<Date32>> values
+) {
+   DictionaryEncodedColumn<Date32Column>::Builder builder;
+   for (const auto& value : values) {
+      if (value.has_value()) {
+         builder.insert(*value);
+      } else {
+         builder.insertNull();
+      }
    }
    return column.appendChunk(builder.finalize());
 }
@@ -276,6 +294,65 @@ TEST(DictionaryEncodedColumn, columnsSharingMetadataKeepTheirOwnDictionaries) {
    ASSERT_EQ(*first.filter("c").value(), roaring::Roaring({0}));
    EXPECT_EQ(first.filter("a"), std::nullopt);
    EXPECT_EQ(second.getValueString(RowId(0, 0)), "a");
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST(DictionaryEncodedColumn, dateDictionaryIsSortedChronologically) {
+   ColumnMetadata column_metadata("some_column");
+   DictionaryEncodedColumn<Date32Column> under_test{&column_metadata};
+
+   ASSERT_TRUE(appendDates(under_test, {20, 10, 20}).has_value());
+   // Dates before 1970-01-01 are negative and must sort before the existing ones
+   ASSERT_TRUE(appendDates(under_test, {-5, 15}).has_value());
+
+   ASSERT_EQ(under_test.numDictionaryValues(), 4);
+   EXPECT_EQ(under_test.getValueId(-5), 0U);
+   EXPECT_EQ(under_test.getValueId(10), 1U);
+   EXPECT_EQ(under_test.getValueId(15), 2U);
+   EXPECT_EQ(under_test.getValueId(20), 3U);
+   EXPECT_EQ(under_test.getValueId(0), std::nullopt);
+
+   EXPECT_EQ(under_test.lookupValue(under_test.getValue(RowId(0, 0))), 20);
+   EXPECT_EQ(under_test.lookupValue(under_test.getValue(RowId(0, 1))), 10);
+   EXPECT_EQ(under_test.lookupValue(under_test.getValue(RowId(1, 0))), -5);
+   ASSERT_EQ(*under_test.filter(20).value(), roaring::Roaring({0, 2}));
+   ASSERT_EQ(*under_test.filter(15).value(), roaring::Roaring({RowId::chunkStart(1) + 1}));
+   EXPECT_EQ(under_test.filter(11), std::nullopt);
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST(DictionaryEncodedColumn, dateNullKeepsApartFromThePlaceholderDate) {
+   ColumnMetadata column_metadata("some_column");
+   DictionaryEncodedColumn<Date32Column> under_test{&column_metadata};
+
+   // A null row stores the id of the default date (1970-01-01, i.e. 0) as placeholder, but only the
+   // real occurrence of that date is in its bitmap
+   ASSERT_TRUE(appendDates(under_test, {std::nullopt, 0, 7}).has_value());
+
+   ASSERT_EQ(under_test.numDictionaryValues(), 2);
+   EXPECT_EQ(under_test.getValue(RowId(0, 0)), under_test.getValue(RowId(0, 1)));
+   ASSERT_EQ(*under_test.filter(0).value(), roaring::Roaring({1}));
+   ASSERT_EQ(*under_test.filter(std::nullopt).value(), roaring::Roaring({0}));
+   EXPECT_TRUE(under_test.isNull(RowId(0, 0)));
+   EXPECT_FALSE(under_test.isNull(RowId(0, 1)));
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST(DictionaryEncodedColumn, dateUpdateKeepsInvertedIndexConsistent) {
+   ColumnMetadata column_metadata("some_column");
+   DictionaryEncodedColumn<Date32Column> under_test{&column_metadata};
+
+   ASSERT_TRUE(appendDates(under_test, {10, 20, 10}).has_value());
+
+   under_test.update(roaring::Roaring({0, 1}), 5);
+   ASSERT_EQ(*under_test.filter(5).value(), roaring::Roaring({0, 1}));
+   ASSERT_EQ(*under_test.filter(10).value(), roaring::Roaring({2}));
+   ASSERT_TRUE(under_test.filter(20).value()->isEmpty());
+
+   under_test.update(roaring::Roaring({2}), std::nullopt);
+   EXPECT_TRUE(under_test.isNull(RowId(0, 2)));
+   ASSERT_TRUE(under_test.filter(10).value()->isEmpty());
+   EXPECT_EQ(under_test.lookupValue(under_test.getValue(RowId(0, 0))), 5);
 }
 
 // NOLINTEND(bugprone-unchecked-optional-access)

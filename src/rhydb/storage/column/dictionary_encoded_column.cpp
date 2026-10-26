@@ -274,5 +274,6 @@ std::optional<rhydb::Idx> DictionaryEncodedColumn<ValueColumn>::getValueId(
 }
 
 template class DictionaryEncodedColumn<StringColumn>;
+template class DictionaryEncodedColumn<Date32Column>;
 
 }  // namespace rhydb::storage::column

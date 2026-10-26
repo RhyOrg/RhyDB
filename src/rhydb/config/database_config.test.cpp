@@ -313,7 +313,30 @@ schema:
    ASSERT_THROW(DatabaseConfig::getValidatedConfig(config_yaml), ConfigException);
 }
 
-TEST(DatabaseConfig, givenMetadataToGenerateIndexForThatIsNotStringThenThrows) {
+TEST(DatabaseConfig, givenMetadataToGenerateIndexForThatIsNotStringOrDateThenThrows) {
+   const char* const config_yaml =
+      R"(
+schema:
+  instanceName: "testInstanceName"
+  metadata:
+    - name: "testPrimaryKey"
+      type: "string"
+    - name: "indexed int"
+      type: "int"
+      generateIndex: true
+  primaryKey: "testPrimaryKey"
+)";
+
+   EXPECT_THAT(
+      [&config_yaml]() { DatabaseConfig::getValidatedConfig(config_yaml); },
+      ThrowsMessage<ConfigException>(::testing::HasSubstr(
+         "Metadata 'indexed int' generateIndex is set, but generating an "
+         "index is only allowed for types STRING and DATE"
+      ))
+   );
+}
+
+TEST(DatabaseConfig, givenMetadataToGenerateIndexForDateThenItIsDictionaryEncoded) {
    const char* const config_yaml =
       R"(
 schema:
@@ -327,13 +350,10 @@ schema:
   primaryKey: "testPrimaryKey"
 )";
 
-   EXPECT_THAT(
-      [&config_yaml]() { DatabaseConfig::getValidatedConfig(config_yaml); },
-      ThrowsMessage<ConfigException>(::testing::HasSubstr(
-         "Metadata 'indexed date' generateIndex is set, but generating an "
-         "index is only allowed for types STRING"
-      ))
-   );
+   const auto config = DatabaseConfig::getValidatedConfig(config_yaml);
+   const auto metadata = config.getMetadata("indexed date");
+   ASSERT_TRUE(metadata.has_value());
+   EXPECT_EQ(metadata->getColumnType(), DataType::dictionaryEncoded(DataType::DATE32));
 }
 
 TEST(DatabaseConfig, givenLineageIndexAndNotGenerateThenThrows) {

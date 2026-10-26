@@ -140,7 +140,7 @@ IndexedColumnDimension::IndexedColumnDimension(
       output_name(std::move(output_name)) {}
 
 schema::ColumnIdentifier IndexedColumnDimension::outputColumn() const {
-   return {.name = output_name, .type = schema::DataType::STRING};
+   return {.name = output_name, .type = column.type.getPlainType()};
 }
 
 nlohmann::json IndexedColumnDimension::toJson() const {

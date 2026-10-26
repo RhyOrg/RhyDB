@@ -203,7 +203,8 @@ std::map<std::string, DataType> validateMetadataDefinitions(const DatabaseConfig
       if (metadata.generate_index && !DataType::canBeDictionaryEncoded(metadata.type)) {
          throw ConfigException(
             "Metadata '" + metadata.name +
-            "' generateIndex is set, but generating an index is only allowed for types STRING"
+            "' generateIndex is set, but generating an index is only allowed for types STRING "
+            "and DATE"
          );
       }
 

@@ -26,7 +26,7 @@ struct ResolvedSequencePositionDimension {
    bool is_nucleotide;
 };
 
-/// Groups rows by the value of an indexed string column, straight from its inverted index.
+/// Groups rows by the value of a dictionary-encoded column, straight from its inverted index.
 struct ResolvedIndexedColumnDimension {
    std::string column_name;
 };

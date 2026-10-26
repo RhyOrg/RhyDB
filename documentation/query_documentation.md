@@ -733,7 +733,7 @@ identifiers can be written as quoted identifiers, e.g. `"S:ORF1a" := aminoAcidSe
 | `int32` / `int`, `int64`      |                                   | 32 / 64 bit integer                                           |
 | `float`                       |                                   | floating point number                                         |
 | `boolean`                     |                                   | boolean                                                       |
-| `date`                        |                                   | date                                                          |
+| `date`                        | `generateIndex := <bool>`         | date; with `generateIndex := true` dictionary encoded and indexed |
 | `nucleotideSequence`          | `reference := <name>` (required)  | aligned nucleotide sequence                                   |
 | `aminoAcidSequence`           | `reference := <name>` (required)  | aligned amino acid sequence                                   |
 | `zstdCompressedString`        | `dictionary := <query>` (required) | string, zstd compressed with a dictionary (e.g. unaligned sequences) |

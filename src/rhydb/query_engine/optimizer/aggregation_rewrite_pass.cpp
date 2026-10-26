@@ -164,11 +164,7 @@ std::optional<operators::GroupingDimension> matchIndexedColumnDimension(
       column_name = field_ref->column.name;
    }
    const auto column = source.scan.table->schema->getColumn(column_name);
-   // The inverted-index grouping emits the dictionary values as strings
-   if (
-      !column.has_value() ||
-      column->type != schema::DataType::dictionaryEncoded(schema::DataType::STRING)
-   ) {
+   if (!column.has_value() || !column->type.isDictionaryEncoded()) {
       return std::nullopt;
    }
    return operators::IndexedColumnDimension{column.value(), group_by_field.name};

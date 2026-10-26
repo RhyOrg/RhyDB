@@ -24,6 +24,7 @@
 #include "rhydb/storage/column/chunked_value_buffer.h"
 #include "rhydb/storage/column/column.h"
 #include "rhydb/storage/column/column_metadata.h"
+#include "rhydb/storage/column/date32_column.h"
 #include "rhydb/storage/column/row_id.h"
 #include "rhydb/storage/column/string_column.h"
 
@@ -32,7 +33,8 @@ namespace rhydb::storage::column {
 /// A column type that can hold the dictionary of a `DictionaryEncodedColumn`: one for each value
 /// type that `schema::DataType::canBeDictionaryEncoded`
 template <typename ValueColumn>
-concept DictionaryValueColumn = std::same_as<ValueColumn, StringColumn>;
+concept DictionaryValueColumn =
+   std::same_as<ValueColumn, StringColumn> || std::same_as<ValueColumn, Date32Column>;
 
 /// How the values of a `ValueColumn` are held, viewed and ordered inside a dictionary.
 template <DictionaryValueColumn ValueColumn>
@@ -42,7 +44,7 @@ struct DictionaryValues {
 
    static constexpr bool IS_STRING = std::is_same_v<Key, std::string_view>;
 
-   /// The order of the dictionary: byte-wise for strings
+   /// The order of the dictionary: byte-wise for strings, chronological for dates
    static std::strong_ordering compare(Key lhs, Key rhs) {
       if constexpr (IS_STRING) {
          return compareBytesUnsigned(lhs, rhs);
@@ -188,5 +190,6 @@ class DictionaryEncodedColumn {
 };
 
 extern template class DictionaryEncodedColumn<StringColumn>;
+extern template class DictionaryEncodedColumn<Date32Column>;
 
 }  // namespace rhydb::storage::column
