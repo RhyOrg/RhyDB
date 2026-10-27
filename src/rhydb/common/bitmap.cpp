@@ -388,16 +388,9 @@ Bitmap Bitmap::fromContainerViews(
 Bitmap Bitmap::fromChunkContainers(
    std::span<const roaring_util::RoaringContainer> chunk_containers
 ) {
-   Bitmap result;
-   for (size_t chunk_id = 0; chunk_id < chunk_containers.size(); ++chunk_id) {
-      const auto& container = chunk_containers[chunk_id];
-      if (container.empty()) {
-         continue;
-      }
-      result.keys.push_back(static_cast<uint16_t>(chunk_id));
-      result.containers.emplace_back(roaring_util::RoaringContainerView{container});
-   }
-   return result;
+   return fromChunks(chunk_containers.size(), [&](size_t chunk_id) {
+      return roaring_util::RoaringContainerView{chunk_containers[chunk_id]};
+   });
 }
 
 roaring::Roaring Bitmap::toRoaring() const {

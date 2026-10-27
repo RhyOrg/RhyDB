@@ -147,6 +147,27 @@ class Bitmap {
       std::span<const roaring_util::RoaringContainer> chunk_containers
    );
 
+   /// Builds a bitmap from one container per chunk: `chunk_container(k)` returns the low 16 bits of
+   /// the row ids in the 2^16 block `k`, for `k < num_chunks`, either as a
+   /// `RoaringContainerView` (whose container must outlive the returned bitmap and must not be
+   /// mutated while it exists) or as an owning `RoaringContainer`. Empty containers are skipped.
+   template <typename ChunkContainer>
+   [[nodiscard]] static Bitmap fromChunks(
+      size_t num_chunks,
+      const ChunkContainer& chunk_container
+   ) {
+      Bitmap result;
+      for (size_t chunk_id = 0; chunk_id < num_chunks; ++chunk_id) {
+         auto container = chunk_container(chunk_id);
+         if (container.empty()) {
+            continue;
+         }
+         result.keys.push_back(static_cast<uint16_t>(chunk_id));
+         result.containers.emplace_back(std::move(container));
+      }
+      return result;
+   }
+
    /// Materializes into a standalone `roaring::Roaring`. Intended for the end of a query only,
    /// where the result is handed to a consumer -- not for intermediate computation.
    [[nodiscard]] roaring::Roaring toRoaring() const;

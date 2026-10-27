@@ -1,6 +1,8 @@
 #include "rhydb/query_engine/query_plan.h"
 
 #include <atomic>
+#include <chrono>
+#include <optional>
 #include <thread>
 #include <vector>
 
@@ -103,35 +105,39 @@ TEST(QueryPlan, timesOutWhenAnInvalidPlanDoesNotFinish) {
    EXPECT_THAT(
       ([]() {
          auto arrow_plan = arrow::acero::ExecPlan::Make().ValueOrDie();
-         auto table = setupTestTable().ValueOrDie();
-         auto node =
-            arrow::acero::MakeExecNode(
-               "table_source", arrow_plan.get(), {}, arrow::acero::TableSourceNodeOptions{table}
-            )
-               .ValueOrDie();
-
-         auto count_options = std::make_shared<arrow::compute::CountOptions>(
-            arrow::compute::CountOptions::CountMode::ALL
-         );
-         const arrow::compute::Aggregate aggregate{
-            "hash_count_all", count_options, std::vector<arrow::FieldRef>{}, "count"
-         };
-         const arrow::acero::AggregateNodeOptions aggregate_node_options(
-            {aggregate}, {arrow::FieldRef{"id"}}
-         );
-         node = arrow::acero::MakeExecNode(
-                   "aggregate", arrow_plan.get(), {node}, aggregate_node_options
+         // The source stalls on its first batch, so no batch can be ready when the timeout is
+         // checked. Waiting for a batch from a fast plan (e.g. an aggregate over a small table)
+         // instead races against the plan finishing before the first wait (flaky in CI).
+         auto stalled_batch = arrow::Future<std::optional<arrow::ExecBatch>>::Make();
+         auto node = arrow::acero::MakeExecNode(
+                        "source",
+                        arrow_plan.get(),
+                        {},
+                        arrow::acero::SourceNodeOptions{
+                           arrow::schema({arrow::field("id", arrow::int32())}),
+                           [stalled_batch]() { return stalled_batch; },
+                        }
          )
-                   .ValueOrDie();
+                        .ValueOrDie();
 
          auto under_test = QueryPlan::makeQueryPlan(arrow_plan, node, "some_id").ValueOrDie();
 
+         // The plan can only be torn down once the source's pending batch completes, so release
+         // it eventually. One second is far beyond the time until the timeout is checked.
+         std::thread release_stalled_batch{[stalled_batch]() mutable {
+            std::this_thread::sleep_for(std::chrono::seconds{1});
+            stalled_batch.MarkFinished(std::nullopt);
+         }};
+
          std::stringstream dummy_output{};
          NdjsonSink output_sink{&dummy_output, under_test.results_schema};
-         // Set time-out to zero, so it immediately cancels execution (only works with pipeline
-         // breakers like aggregate, because otherwise the StartProducing call might already do all
-         // the work)
-         under_test.executeAndWrite(output_sink, 0);
+         try {
+            under_test.executeAndWrite(output_sink, 0);
+         } catch (...) {
+            release_stalled_batch.join();
+            throw;
+         }
+         release_stalled_batch.join();
       }),
       ThrowsMessage<std::runtime_error>(::testing::HasSubstr(
          "Internal server error. Please notify developers. RhyDB likely constructed an invalid "
