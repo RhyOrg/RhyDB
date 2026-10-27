@@ -157,7 +157,7 @@ class DictionaryEncodedColumn {
 
    /// The rows holding a value whose id satisfies `matches_id`, which is called once per
    /// dictionary id. Null rows never hold a value.
-   template <typename MatchesId>
+   template <std::predicate<Idx> MatchesId>
    [[nodiscard]] Bitmap filterByIds(const MatchesId& matches_id) const {
       std::vector<bool> matching_ids(numDictionaryValues());
       for (size_t value_id = 0; value_id < matching_ids.size(); ++value_id) {
