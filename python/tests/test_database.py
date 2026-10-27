@@ -12,6 +12,9 @@ import pyarrow as pa
 TEST_DATA_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'testBaseData', 'exampleDataset')
 REFERENCE_GENOMES_FILE = os.path.join(TEST_DATA_DIR, 'reference_genomes.json')
 INPUT_FILE = os.path.join(TEST_DATA_DIR, 'input_file.ndjson')
+DATABASE_CONFIG_FILE = os.path.join(TEST_DATA_DIR, 'database_config.yaml')
+LINEAGE_DEFINITION_FILE = os.path.join(TEST_DATA_DIR, 'lineage_definition.yaml')
+PHYLOGENETIC_TREE_FILE = os.path.join(TEST_DATA_DIR, 'phylogenetic_tree.nwk')
 
 # A serialized database (checked into the repo) whose schema has scalar value columns
 # (age:int, qc_value:float, date:date, test_boolean_column:bool), filled with real data.
@@ -96,6 +99,7 @@ class TestDatabaseCreation:
     def test_database_has_expected_methods(self, empty_database):
         """Test that the database has all expected methods."""
         expected_methods = [
+            'preprocess',
             'append_data_from_file',
             'append_data_from_string',
             'query',
@@ -117,6 +121,99 @@ class TestDatabaseCreation:
         from rhydb import Database
         with Database() as db:
             assert db is not None
+
+
+def preprocess_example_dataset(database):
+    """Preprocess the example dataset into the default table `data` of `database`."""
+    database.preprocess(
+        database_config=DATABASE_CONFIG_FILE,
+        reference_genomes=REFERENCE_GENOMES_FILE,
+        input_file=INPUT_FILE,
+        lineage_definitions=[LINEAGE_DEFINITION_FILE],
+        phylogenetic_tree=PHYLOGENETIC_TREE_FILE,
+    )
+
+
+class TestPreprocess:
+    """Test preprocessing initialization files and NDJSON data into the default table."""
+
+    def test_preprocess_fills_default_table(self, empty_database):
+        preprocess_example_dataset(empty_database)
+        assert len(empty_database.get_filtered_bitmap("data")) == 100
+
+    def test_preprocess_fills_reference_genomes(self, empty_database, main_reference_sequence):
+        preprocess_example_dataset(empty_database)
+        assert empty_database.get_nucleotide_reference_sequence("data", "main") == main_reference_sequence
+        result = empty_database.query(
+            "reference_genomes.filter(name = 'main' && type = 'nucleotide').project({sequence})"
+        )
+        assert result.to_pydict() == {"sequence": [main_reference_sequence]}
+
+    def test_preprocess_supports_lineage_queries(self, empty_database):
+        preprocess_example_dataset(empty_database)
+        assert empty_database.get_filtered_bitmap("data", "lineage(pango_lineage, 'B.1.1.7')")
+
+    def test_preprocess_accepts_path_objects(self, empty_database):
+        from pathlib import Path
+        empty_database.preprocess(
+            database_config=Path(DATABASE_CONFIG_FILE),
+            reference_genomes=Path(REFERENCE_GENOMES_FILE),
+            input_file=Path(INPUT_FILE),
+            lineage_definitions=[Path(LINEAGE_DEFINITION_FILE)],
+        )
+        assert len(empty_database.get_filtered_bitmap("data")) == 100
+
+    def test_preprocessed_database_survives_checkpoint(self, empty_database, temp_dir):
+        from rhydb import Database
+        preprocess_example_dataset(empty_database)
+        save_path = os.path.join(temp_dir, "checkpoint")
+        empty_database.save_checkpoint(save_path)
+
+        loaded = Database(save_path)
+        assert len(loaded.get_filtered_bitmap("data")) == 100
+
+    def test_preprocess_twice_raises(self, empty_database):
+        preprocess_example_dataset(empty_database)
+        with pytest.raises(RuntimeError, match="already exists"):
+            preprocess_example_dataset(empty_database)
+
+    def test_preprocess_missing_lineage_definition_raises(self, empty_database):
+        with pytest.raises(RuntimeError, match="lineage"):
+            empty_database.preprocess(
+                database_config=DATABASE_CONFIG_FILE,
+                reference_genomes=REFERENCE_GENOMES_FILE,
+                input_file=INPUT_FILE,
+            )
+
+    def test_preprocess_duplicate_primary_key_raises(self, empty_database, temp_dir):
+        input_file = os.path.join(temp_dir, "input.ndjson")
+        with open(INPUT_FILE) as source, open(input_file, "w") as target:
+            first_line = source.readline()
+            target.write(first_line)
+            target.write(first_line)
+        with pytest.raises(RuntimeError, match="primary key"):
+            empty_database.preprocess(
+                database_config=DATABASE_CONFIG_FILE,
+                reference_genomes=REFERENCE_GENOMES_FILE,
+                input_file=input_file,
+                lineage_definitions=[LINEAGE_DEFINITION_FILE],
+            )
+
+    def test_preprocess_nonexistent_file_raises(self, empty_database):
+        with pytest.raises(FileNotFoundError):
+            empty_database.preprocess(
+                database_config=DATABASE_CONFIG_FILE,
+                reference_genomes=REFERENCE_GENOMES_FILE,
+                input_file="/nonexistent/input.ndjson",
+            )
+
+    def test_preprocess_empty_path_raises(self, empty_database):
+        with pytest.raises(ValueError):
+            empty_database.preprocess(
+                database_config="",
+                reference_genomes=REFERENCE_GENOMES_FILE,
+                input_file=INPUT_FILE,
+            )
 
 
 class TestCreateTableQuery:

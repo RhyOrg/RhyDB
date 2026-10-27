@@ -61,6 +61,32 @@ with Database("path/to/rhydb-dir") as db:
     result = db.query("data")
 ```
 
+### Preprocessing
+
+**`preprocess(database_config, reference_genomes, input_file, lineage_definitions=(), phylogenetic_tree=None, without_unaligned_sequences=False)`**
+Does what the `preprocessing` command does, but into this in-memory database instead of a saved
+state. It takes the same initialization files as the command, given as paths (`str` or
+`os.PathLike`). It creates the default table `data` from the database config and the reference
+genomes, and fills the built-in `reference_genomes` and `lineage_definitions` tables. It then builds
+the lineage relation tables, appends the NDJSON input and checks that the primary key is unique. A
+column's `generateLineageIndex` names its lineage definition file, with or without the `.yaml`
+extension.
+
+```python
+db = Database()
+db.preprocess(
+    database_config="database_config.yaml",
+    reference_genomes="reference_genomes.json",
+    input_file="input.ndjson",
+    lineage_definitions=["lineage_definition.yaml"],
+)
+db.save_checkpoint("path/to/rhydb-dir")
+```
+
+The built-in tables must still be empty, so `preprocess` only runs once on a fresh database. Raises
+`FileNotFoundError` for a missing file and `RuntimeError` for invalid input. Invalid input may leave
+the database partially filled.
+
 ### Building a database in memory
 
 Tables are created with the SaneQL [`createTable`](query_documentation.md#createtabletable-symbol-columns-record-primarykey-symbol)

@@ -6,10 +6,19 @@ from libcpp.optional cimport optional
 from libc.stdint cimport uint64_t, uint32_t
 from libc.stdlib cimport malloc, free
 from cython.operator cimport dereference as deref
-from database cimport Database as CppDatabase, Roaring as CppRoaring
+from database cimport Database as CppDatabase, Roaring as CppRoaring, preprocessDatabase
 import os
 import pyroaring
 import pyarrow as pa
+
+def _existing_path(str name, path):
+    """The UTF-8 encoded path of an existing file, for an argument named `name`"""
+    path = os.fspath(path)
+    if not path or not path.strip():
+        raise ValueError(f"{name} cannot be empty")
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"File not found: {path}")
+    return path.encode('utf-8')
 
 cdef class PyDatabase:
     """Python wrapper for C++ Database"""
@@ -56,6 +65,70 @@ cdef class PyDatabase:
             self.c_database.saveDatabaseState(cpp_save_directory)
         except Exception as e:
             raise RuntimeError(f"Failed to save checkpoint to '{save_directory}': {e}")
+
+    def preprocess(
+        self,
+        database_config,
+        reference_genomes,
+        input_file,
+        lineage_definitions=(),
+        phylogenetic_tree=None,
+        bint without_unaligned_sequences=False,
+    ):
+        """
+        Create the default table from initialization files and fill it with NDJSON data
+
+        This does what the ``preprocessing`` command does, but into this database instead of a
+        saved database state: it creates the table from the database config and the reference
+        genomes, fills the built-in ``reference_genomes`` and ``lineage_definitions`` tables, builds
+        the lineage relation tables, appends the input data and validates that the primary key is
+        unique. The built-in tables of this database must still be empty.
+
+        Parameters
+        ----------
+        database_config : str or os.PathLike
+            Path to the database config (YAML or JSON)
+        reference_genomes : str or os.PathLike
+            Path to the reference genomes JSON file
+        input_file : str or os.PathLike
+            Path to the NDJSON input data
+        lineage_definitions : iterable of str or os.PathLike, optional
+            Paths to the lineage definition files. A column's ``generateLineageIndex`` names its
+            file, with or without the ``.yaml`` extension
+        phylogenetic_tree : str or os.PathLike, optional
+            Path to the phylogenetic tree file
+        without_unaligned_sequences : bool, optional
+            Do not create the ``unaligned_<sequence>`` columns (default: False)
+        """
+        cdef vector[string] cpp_lineage_definitions
+        cdef optional[string] cpp_phylogenetic_tree
+        cdef string cpp_database_config
+        cdef string cpp_reference_genomes
+        cdef string cpp_input_file
+
+        cpp_database_config = _existing_path("database_config", database_config)
+        cpp_reference_genomes = _existing_path("reference_genomes", reference_genomes)
+        cpp_input_file = _existing_path("input_file", input_file)
+        for path in lineage_definitions:
+            cpp_lineage_definitions.push_back(_existing_path("lineage_definitions", path))
+        if phylogenetic_tree is not None:
+            cpp_phylogenetic_tree = <string> _existing_path("phylogenetic_tree", phylogenetic_tree)
+
+        try:
+            preprocessDatabase(
+                deref(self.c_database),
+                cpp_database_config,
+                cpp_reference_genomes,
+                cpp_input_file,
+                cpp_lineage_definitions,
+                cpp_phylogenetic_tree,
+                without_unaligned_sequences,
+            )
+        except Exception as e:
+            raise RuntimeError(
+                f"""Failed to preprocess: {e}
+                The database object might be invalid now. Any further operations can lead to undefined behavior."""
+            )
 
     def append_data_from_file(self, str table_name, str file_name):
         """

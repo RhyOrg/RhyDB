@@ -28,3 +28,14 @@ cdef extern from "rhydb/database.h" namespace "rhydb":
 
         @staticmethod
         optional[Database] loadDatabaseStateFromPath(string save_directory) except +
+
+cdef extern from "preprocessing_bindings.h":
+    void preprocessDatabase(
+        Database& database,
+        string database_config_file,
+        string reference_genome_file,
+        string input_file,
+        vector[string] lineage_definition_files,
+        optional[string] phylogenetic_tree_file,
+        bint without_unaligned_sequences
+    ) except +handleRhyDBException
