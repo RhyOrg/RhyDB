@@ -113,17 +113,14 @@ std::unique_ptr<Operator> DateBetween::compileOnDictionary(
    const auto to = date_to.value_or(std::numeric_limits<Date32>::max());
    // Every distinct date in the range contributes its row bitmap. Null rows are excluded, as the
    // indexed bitmaps are disjoint from the null bitmap.
-   roaring::Roaring unioned;
-   for (const auto& [dict_id, bitmap] : date_column.getIndexedValues()) {
+   Bitmap unioned = date_column.filterByIds([&](Idx dict_id) {
       const Date32 date = date_column.lookupValue(dict_id);
-      if (from <= date && date <= to) {
-         unioned |= bitmap;
-      }
-   }
+      return from <= date && date <= to;
+   });
    if (unioned.isEmpty()) {
       return std::make_unique<Empty>(row_layout);
    }
-   return std::make_unique<IndexScan>(Bitmap{std::move(unioned)}, row_layout);
+   return std::make_unique<IndexScan>(std::move(unioned), row_layout);
 }
 
 using storage::column::RowId;

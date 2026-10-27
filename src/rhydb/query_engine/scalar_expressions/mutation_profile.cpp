@@ -154,8 +154,9 @@ std::vector<typename SymbolType::Symbol> MutationProfile<SymbolType>::buildProfi
             primary_key_name
          );
       const auto bitmap_opt = primary_key_column.filter(seq_id);
-      if (bitmap_opt.has_value() && !bitmap_opt.value()->isEmpty()) {
-         found_row_id = RowId::fromGlobal(bitmap_opt.value()->minimum());
+      if (bitmap_opt.has_value() && !bitmap_opt->isEmpty()) {
+         const auto& [chunk_id, rows] = *bitmap_opt->begin();
+         found_row_id = RowId{.chunk_id = chunk_id, .row_in_chunk = *rows.begin()};
       }
    } else {
       throw IllegalQueryException(

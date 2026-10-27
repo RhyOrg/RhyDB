@@ -14,15 +14,15 @@
 #include <vector>
 
 #include <boost/serialization/access.hpp>
+#include <boost/serialization/unordered_map.hpp>
 #include <boost/serialization/vector.hpp>
 #include <roaring/roaring.hh>
 
+#include "rhydb/common/bitmap.h"
 #include "rhydb/common/german_string.h"
 #include "rhydb/common/types.h"
 #include "rhydb/roaring_util/roaring_container.h"
-#include "rhydb/roaring_util/roaring_serialize.h"
 #include "rhydb/schema/database_schema.h"
-#include "rhydb/storage/column/chunked_value_buffer.h"
 #include "rhydb/storage/column/column.h"
 #include "rhydb/storage/column/column_metadata.h"
 #include "rhydb/storage/column/date32_column.h"
@@ -75,6 +75,41 @@ struct DictionaryValues {
    using KeyMap = std::unordered_map<Key, Idx>;
 };
 
+/// The rows of one chunk of a `DictionaryEncodedColumn`, as rows within the chunk.
+struct DictionaryEncodedColumnChunk {
+   /// The dictionary id of the value of every row. A null row holds the id of the
+   /// default-constructed placeholder value, and is in `null_rows` instead of `rows_by_value_id`.
+   std::vector<Idx> value_ids;
+   roaring_util::RoaringContainer null_rows = roaring_util::RoaringContainer::withCapacity(0);
+   /// The inverted index: for every dictionary id that a non-null row holds, those rows. Holds no
+   /// empty containers.
+   std::unordered_map<Idx, roaring_util::RoaringContainer> rows_by_value_id;
+
+   [[nodiscard]] uint32_t size() const { return static_cast<uint32_t>(value_ids.size()); }
+
+   [[nodiscard]] bool isNull(uint16_t row_in_chunk) const {
+      return null_rows.contains(row_in_chunk);
+   }
+
+   /// Assigns the value with id `value_id` to the row `row_in_chunk`, or makes it null with the
+   /// placeholder id `value_id` if `is_null`.
+   void setValueId(uint16_t row_in_chunk, Idx value_id, bool is_null);
+
+   /// Adds the row `row_in_chunk` to the rows of `value_id` in the inverted index.
+   void addToRowsByValueId(uint16_t row_in_chunk, Idx value_id);
+
+  private:
+   friend class boost::serialization::access;
+   template <class Archive>
+   [[maybe_unused]] void serialize(Archive& archive, const uint32_t /*version*/) {
+      // clang-format off
+      archive & value_ids;
+      archive & null_rows;
+      archive & rows_by_value_id;
+      // clang-format on
+   }
+};
+
 /// A column storing for every row the id of its value in a sorted dictionary of the distinct
 /// values (held as a `ValueColumn`), plus an inverted index from each id to the rows carrying it.
 template <DictionaryValueColumn ValueColumn>
@@ -96,29 +131,55 @@ class DictionaryEncodedColumn {
    using value_type = ValueColumn::value_type;
 
    Metadata* metadata;
-   /// One container per chunk, indexed by chunk id: the rows of that chunk which are null.
-   std::vector<roaring_util::RoaringContainer> null_bitmap;
 
   private:
    /// Owned by this column, because `insertDictionaryValues` renumbers the ids that only this
-   /// column's `value_ids` and `indexed_values` refer to. Behind a pointer so that `dictionary`
-   /// keeps pointing to it when the column is moved.
+   /// column's chunks refer to. Behind a pointer so that `dictionary` keeps pointing to it when the
+   /// column is moved.
    std::unique_ptr<typename ValueColumn::Metadata> dictionary_metadata;
    /// The dictionary: every distinct value of the column exactly once, in ascending order (see
    /// `DictionaryValues::compare`). A value's dictionary id is its row id in this sub-column, so
    /// ids are order-preserving.
    ValueColumn dictionary;
-   ChunkedValueBuffer<Idx> value_ids;
-   std::unordered_map<Idx, roaring::Roaring> indexed_values;
+   /// One entry per chunk, indexed by chunk id.
+   std::vector<DictionaryEncodedColumnChunk> chunks;
 
   public:
    explicit DictionaryEncodedColumn(Metadata* metadata);
 
-   /// Not an overload of `filter`, which would otherwise be chosen for integer values
-   [[nodiscard]] std::optional<const roaring::Roaring*> filterById(rhydb::Idx value_id) const;
+   /// The rows holding the value with id `value_id`, viewing into this column. Not an overload of
+   /// `filter`, which would otherwise be chosen for integer values
+   [[nodiscard]] Bitmap filterById(rhydb::Idx value_id) const;
 
-   /// The rows holding `value`. Null rows are not indexed here, they are in `null_bitmap`.
-   [[nodiscard]] std::optional<const roaring::Roaring*> filter(Key value) const;
+   /// The rows holding `value`, viewing into this column, or nullopt if the column has never held
+   /// it. Null rows never hold a value, they are in `nullRows`.
+   [[nodiscard]] std::optional<Bitmap> filter(Key value) const;
+
+   /// The rows holding a value whose id satisfies `matches_id`, which is called once per
+   /// dictionary id. Null rows never hold a value.
+   template <std::predicate<Idx> MatchesId>
+   [[nodiscard]] Bitmap filterByIds(const MatchesId& matches_id) const {
+      std::vector<bool> matching_ids(numDictionaryValues());
+      for (size_t value_id = 0; value_id < matching_ids.size(); ++value_id) {
+         matching_ids[value_id] = matches_id(static_cast<Idx>(value_id));
+      }
+      return Bitmap::fromChunks(chunks.size(), [&](size_t chunk_id) {
+         std::vector<roaring_util::RoaringContainerView> matching_rows;
+         for (const auto& [value_id, rows] : chunks[chunk_id].rows_by_value_id) {
+            if (matching_ids[value_id]) {
+               matching_rows.emplace_back(rows);
+            }
+         }
+         return roaring_util::fastUnion(matching_rows);
+      });
+   }
+
+   /// The rows that are null, viewing into this column.
+   [[nodiscard]] Bitmap nullRows() const;
+
+   [[nodiscard]] const std::vector<DictionaryEncodedColumnChunk>& getChunks() const {
+      return chunks;
+   }
 
    std::expected<void, std::string> appendChunk(const Buffer& buffer);
 
@@ -132,22 +193,17 @@ class DictionaryEncodedColumn {
       const Buffer& new_values
    );
 
-   [[nodiscard]] size_t numChunks() const { return value_ids.numChunks(); }
+   [[nodiscard]] size_t numChunks() const { return chunks.size(); }
 
-   [[nodiscard]] uint32_t chunkSize(uint16_t chunk_id) const {
-      return value_ids.chunkSize(chunk_id);
+   [[nodiscard]] uint32_t chunkSize(uint16_t chunk_id) const { return chunks.at(chunk_id).size(); }
+
+   [[nodiscard]] const Idx& getValue(RowId row_id) const {
+      return chunks[row_id.chunk_id].value_ids[row_id.row_in_chunk];
    }
 
-   [[nodiscard]] const Idx& getValue(RowId row_id) const { return value_ids.at(row_id); }
-
-   /// The inverted index: for every distinct dictionary id that occurs, the rows carrying it. Null
-   /// rows are excluded (they live in `null_bitmap`), so these bitmaps are disjoint from it. Used
-   /// by the bitmap-aggregation node to group by this column straight from the index.
-   [[nodiscard]] const std::unordered_map<Idx, roaring::Roaring>& getIndexedValues() const {
-      return indexed_values;
+   [[nodiscard]] bool isNull(RowId row_id) const {
+      return chunks[row_id.chunk_id].isNull(row_id.row_in_chunk);
    }
-
-   [[nodiscard]] bool isNull(RowId row_id) const;
 
    [[nodiscard]] std::string getValueString(RowId row_id) const
       requires(Values::IS_STRING)
@@ -176,8 +232,8 @@ class DictionaryEncodedColumn {
 
    /// Returns the dictionary id of every distinct value in `buffer` (a null maps to the
    /// default-constructed placeholder value), inserting the missing ones into the dictionary first.
-   /// String keys view into `buffer`. Inserting renumbers existing ids, so the stored ids and the
-   /// inverted index are remapped before this returns.
+   /// String keys view into `buffer`. Inserting renumbers existing ids, so the chunks are remapped
+   /// before this returns.
    Values::KeyMap internValues(const Buffer& buffer);
 
    friend class boost::serialization::access;
@@ -185,9 +241,7 @@ class DictionaryEncodedColumn {
    [[maybe_unused]] void serialize(Archive& archive, const uint32_t /*version*/) {
       // clang-format off
       archive & dictionary;
-      archive & value_ids;
-      archive & indexed_values;
-      archive & null_bitmap;
+      archive & chunks;
       // clang-format on
    }
 };
