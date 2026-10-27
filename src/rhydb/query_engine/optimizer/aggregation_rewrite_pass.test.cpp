@@ -17,6 +17,7 @@
 #include "rhydb/query_engine/operators/query_node.h"
 #include "rhydb/query_engine/operators/table_scan_node.h"
 #include "rhydb/query_engine/scalar_expressions/at.h"
+#include "rhydb/query_engine/scalar_expressions/concat.h"
 #include "rhydb/query_engine/scalar_expressions/field_ref.h"
 #include "rhydb/query_engine/scalar_expressions/iso_week.h"
 #include "rhydb/query_engine/scalar_expressions/literal.h"
@@ -114,6 +115,24 @@ operators::QueryNodePtr makeMapWithIsoWeek(
       .output_column = {.name = field, .type = DataType::STRING},
       .expression = std::make_unique<scalar_expressions::IsoWeek>(
          std::make_unique<scalar_expressions::FieldRef>(date_column)
+      ),
+   });
+   return std::make_unique<operators::MapNode>(std::move(child), std::move(assignments));
+}
+
+/// map({<field> := concat(<left_column>, <right_column>)}) over `child`.
+operators::QueryNodePtr makeMapWithConcat(
+   operators::QueryNodePtr child,
+   const std::string& field,
+   const ColumnIdentifier& left_column,
+   const ColumnIdentifier& right_column
+) {
+   std::vector<operators::MapNode::Assignment> assignments;
+   assignments.push_back({
+      .output_column = {.name = field, .type = DataType::STRING},
+      .expression = std::make_unique<scalar_expressions::Concat>(
+         std::make_unique<scalar_expressions::FieldRef>(left_column),
+         std::make_unique<scalar_expressions::FieldRef>(right_column)
       ),
    });
    return std::make_unique<operators::MapNode>(std::move(child), std::move(assignments));
@@ -293,6 +312,38 @@ TEST(AggregationRewritePass, declinesMapIsoWeekExpressionAlone) {
 
 TEST(AggregationRewritePass, declinesAtOnNonSequenceColumnAlone) {
    auto node = makeGroupByCount(makeMapWithAt(makeScan(), "p", ID_COLUMN), {"p"});
+
+   auto result = AggregationRewritePass::run(std::move(node));
+
+   EXPECT_EQ(result->kind(), operators::NodeKind::AGGREGATE);
+}
+
+// `concat` of two groupable (string) columns is a general scalar expression the grouper can
+// evaluate, so next to an indexed column it is rewritten via the scalar-expression path.
+TEST(AggregationRewritePass, rewritesMapConcatExpressionWithIndexedColumn) {
+   auto map_child = makeMapWithConcat(makeScan(), "c", ID_COLUMN, ID_COLUMN);
+   auto node = makeGroupByCount(std::move(map_child), {"c", "division"});
+
+   auto result = AggregationRewritePass::run(std::move(node));
+
+   EXPECT_EQ(result->kind(), operators::NodeKind::BITMAP_AGGREGATION);
+}
+
+// Grouping on a concat expression alone reuses no existing bitmap, so the pass declines.
+TEST(AggregationRewritePass, declinesMapConcatExpressionAlone) {
+   auto map_child = makeMapWithConcat(makeScan(), "c", ID_COLUMN, ID_COLUMN);
+   auto node = makeGroupByCount(std::move(map_child), {"c"});
+
+   auto result = AggregationRewritePass::run(std::move(node));
+
+   EXPECT_EQ(result->kind(), operators::NodeKind::AGGREGATE);
+}
+
+// A concat with a non-groupable child (a sequence column) cannot be evaluated by the grouper, so
+// the pass declines even next to an indexed column. This pins that BOTH children are checked.
+TEST(AggregationRewritePass, declinesMapConcatWithNonGroupableChild) {
+   auto map_child = makeMapWithConcat(makeScan(), "c", ID_COLUMN, NUC_COLUMN);
+   auto node = makeGroupByCount(std::move(map_child), {"c", "division"});
 
    auto result = AggregationRewritePass::run(std::move(node));
 

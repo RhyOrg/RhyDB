@@ -12,6 +12,7 @@
 #include "rhydb/query_engine/operators/map_node.h"
 #include "rhydb/query_engine/operators/order_by_node.h"
 #include "rhydb/query_engine/scalar_expressions/at.h"
+#include "rhydb/query_engine/scalar_expressions/concat.h"
 #include "rhydb/query_engine/scalar_expressions/field_ref.h"
 #include "rhydb/query_engine/scalar_expressions/iso_week.h"
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
@@ -58,6 +59,16 @@ std::unique_ptr<ScalarExpression> substituteColumns(
          auto input = substituteColumns(*iso_week.input, produced);
          return input == nullptr ? nullptr
                                  : std::make_unique<scalar_expressions::IsoWeek>(std::move(input));
+      }
+      case Kind::CONCAT: {
+         const auto& concat = static_cast<const scalar_expressions::Concat&>(expression);
+         auto left = substituteColumns(*concat.left, produced);
+         auto right = substituteColumns(*concat.right, produced);
+         return (left == nullptr || right == nullptr)
+                   ? nullptr
+                   : std::make_unique<scalar_expressions::Concat>(
+                        std::move(left), std::move(right)
+                     );
       }
       case Kind::ZSTD_DECOMPRESS_SCALAR: {
          const auto& zstd =

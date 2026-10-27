@@ -790,6 +790,18 @@ Maps a date `input` to its ISO 8601 week date, formatted as `<ISO-year>-W<ISO-we
 data.map({week := date.isoWeek()})
 ```
 
+### `concat(left, right)`
+
+Concatenates the two string arguments `left` and `right` into a single string.
+Both arguments must be strings (any scalar string expression).
+If either side is `null`, the result is `null`.
+To concatenate more than two strings, nest the calls: `concat(concat(a, b), c)`.
+
+```
+data.map({full_name := concat(concat(first_name, ' '), last_name)})
+data.map({greeting := 'Hi '.concat(first_name)})
+```
+
 ### `between(column, from, to)`
 
 True if `column` is between `from` and `to` (inclusive). Use `null` for an open bound. Works for dates, integers, and floats.
