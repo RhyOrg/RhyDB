@@ -11,6 +11,25 @@
 
 namespace rhydb::storage::column {
 
+void DictionaryEncodedColumnChunk::setValueId(uint16_t row_in_chunk, Idx value_id, bool is_null) {
+   // Detach the row from its previous value's rows. A null row is not in any of them
+   if (!null_rows.removeChecked(row_in_chunk)) {
+      const auto previous_rows = rows_by_value_id.find(value_ids.at(row_in_chunk));
+      RHYDB_ASSERT(previous_rows != rows_by_value_id.end());
+      previous_rows->second.removeChecked(row_in_chunk);
+      if (previous_rows->second.empty()) {
+         rows_by_value_id.erase(previous_rows);
+      }
+   }
+   value_ids.at(row_in_chunk) = value_id;
+   if (is_null) {
+      null_rows.add(row_in_chunk);
+   } else {
+      rows_by_value_id.try_emplace(value_id, roaring_util::RoaringContainer::withCapacity(0))
+         .first->second.add(row_in_chunk);
+   }
+}
+
 template <DictionaryValueColumn ValueColumn>
 DictionaryEncodedColumn<ValueColumn>::DictionaryEncodedColumn(Metadata* metadata)
     : metadata(metadata),
@@ -95,19 +114,20 @@ std::vector<Idx> DictionaryEncodedColumn<ValueColumn>::insertDictionaryValues(
 }
 
 template <DictionaryValueColumn ValueColumn>
-std::optional<const roaring::Roaring*> DictionaryEncodedColumn<ValueColumn>::filterById(
-   Idx value_id
-) const {
-   if (indexed_values.contains(value_id)) {
-      return &indexed_values.at(value_id);
-   }
-   return std::nullopt;
+Bitmap DictionaryEncodedColumn<ValueColumn>::filterById(Idx value_id) const {
+   return Bitmap::fromChunks(chunks.size(), [&](size_t chunk_id) {
+      const auto& rows_by_value_id = chunks[chunk_id].rows_by_value_id;
+      const auto rows = rows_by_value_id.find(value_id);
+      if (rows == rows_by_value_id.end()) {
+         // An empty view, which `fromChunks` skips
+         return roaring_util::RoaringContainerView{nullptr, 0, ARRAY_CONTAINER_TYPE};
+      }
+      return roaring_util::RoaringContainerView{rows->second};
+   });
 }
 
 template <DictionaryValueColumn ValueColumn>
-std::optional<const roaring::Roaring*> DictionaryEncodedColumn<ValueColumn>::filter(
-   Key value
-) const {
+std::optional<Bitmap> DictionaryEncodedColumn<ValueColumn>::filter(Key value) const {
    const auto& value_id = findDictionaryId(value);
    if (!value_id.has_value()) {
       return std::nullopt;
@@ -141,21 +161,17 @@ DictionaryValues<ValueColumn>::KeyMap DictionaryEncodedColumn<ValueColumn>::inte
    });
 
    const std::vector<Idx> old_to_new_id = insertDictionaryValues(missing_values);
-   for (size_t chunk_id = 0; chunk_id < value_ids.numChunks(); ++chunk_id) {
-      for (uint32_t row_in_chunk = 0; row_in_chunk < value_ids.chunkSize(chunk_id);
-           ++row_in_chunk) {
-         const RowId row_id{
-            .chunk_id = static_cast<uint16_t>(chunk_id),
-            .row_in_chunk = static_cast<uint16_t>(row_in_chunk),
-         };
-         value_ids.setValue(row_id, old_to_new_id.at(value_ids.at(row_id)));
+   for (auto& chunk : chunks) {
+      for (Idx& value_id : chunk.value_ids) {
+         value_id = old_to_new_id.at(value_id);
       }
+      std::unordered_map<Idx, roaring_util::RoaringContainer> remapped_rows_by_value_id;
+      remapped_rows_by_value_id.reserve(chunk.rows_by_value_id.size());
+      for (auto& [old_id, rows] : chunk.rows_by_value_id) {
+         remapped_rows_by_value_id.emplace(old_to_new_id.at(old_id), std::move(rows));
+      }
+      chunk.rows_by_value_id = std::move(remapped_rows_by_value_id);
    }
-   std::unordered_map<Idx, roaring::Roaring> remapped_indexed_values;
-   for (auto& [old_id, bitmap] : indexed_values) {
-      remapped_indexed_values.emplace(old_to_new_id.at(old_id), std::move(bitmap));
-   }
-   indexed_values = std::move(remapped_indexed_values);
 
    // The ids of the values that were already present have shifted as well, so look all up anew
    for (auto& [value, value_id] : value_ids_by_value) {
@@ -169,29 +185,23 @@ std::expected<void, std::string> DictionaryEncodedColumn<ValueColumn>::appendChu
    const Buffer& buffer
 ) {
    const auto ids_by_value = internValues(buffer);
-   const uint32_t base = RowId::chunkStart(static_cast<uint16_t>(value_ids.numChunks()));
-   std::vector<Idx> chunk;
-   chunk.reserve(buffer.size());
-   auto null_rows = roaring_util::RoaringContainer::withCapacity(0);
+   DictionaryEncodedColumnChunk chunk;
+   chunk.value_ids.reserve(buffer.size());
    for (size_t i = 0; i < buffer.size(); ++i) {
-      const uint32_t row_id = base + static_cast<uint32_t>(i);
+      const auto row_in_chunk = static_cast<uint16_t>(i);
       const auto& maybe_value = buffer[i];
       if (!maybe_value.has_value()) {
-         null_rows.add(static_cast<uint16_t>(i));
-         // We need to add something to the vector, so that the size of the vector remains equal to
-         // row_id but we do not add our row_id to indexed_values[value_id]
-         const Idx value_id = ids_by_value.at({});
-         indexed_values.try_emplace(value_id);
-         chunk.push_back(value_id);
+         // A null row still holds an id, the placeholder's, so that every row has one
+         chunk.null_rows.add(row_in_chunk);
+         chunk.value_ids.push_back(ids_by_value.at({}));
          continue;
       }
       const Idx value_id = ids_by_value.at(*maybe_value);
-
-      indexed_values[value_id].add(row_id);
-      chunk.push_back(value_id);
+      chunk.rows_by_value_id.try_emplace(value_id, roaring_util::RoaringContainer::withCapacity(0))
+         .first->second.add(row_in_chunk);
+      chunk.value_ids.push_back(value_id);
    }
-   value_ids.appendChunk(std::move(chunk));
-   null_bitmap.push_back(std::move(null_rows));
+   chunks.push_back(std::move(chunk));
    return {};
 }
 
@@ -204,31 +214,10 @@ void DictionaryEncodedColumn<ValueColumn>::update(
    // id is that placeholder for a null update and the interned value id otherwise.
    const Buffer new_values{value};
    const Idx new_value_id = internValues(new_values).at(value.has_value() ? Key{*value} : Key{});
-   // `try_emplace` keeps the id present in the index even for the null placeholder, matching how
-   // `appendChunk` treats null rows (present as a value id, absent from any match bitmap).
-   indexed_values.try_emplace(new_value_id);
-
-   for (const uint32_t global_row_id : row_ids) {
-      const RowId row_id = RowId::fromGlobal(global_row_id);
-      // Detach the row from its previous value's match bitmap. Previously-null rows are not members
-      // of any match bitmap, so only non-null rows need detaching.
-      if (!null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk)) {
-         const Idx old_value_id = value_ids.at(row_id);
-         indexed_values.at(old_value_id).remove(global_row_id);
-      }
-      value_ids.setValue(row_id, new_value_id);
-      if (value.has_value()) {
-         indexed_values.at(new_value_id).add(global_row_id);
-      }
-   }
-
-   if (value.has_value()) {
-      for (const auto& [chunk_id, rows] : Bitmap{&row_ids}) {
-         null_bitmap.at(chunk_id) -= rows;
-      }
-   } else {
-      for (const auto& [chunk_id, rows] : Bitmap{&row_ids}) {
-         null_bitmap.at(chunk_id) |= rows;
+   for (const auto& [chunk_id, rows] : Bitmap{&row_ids}) {
+      auto& chunk = chunks.at(chunk_id);
+      for (const uint16_t row_in_chunk : rows) {
+         chunk.setValueId(row_in_chunk, new_value_id, !value.has_value());
       }
    }
 }
@@ -242,32 +231,21 @@ void DictionaryEncodedColumn<ValueColumn>::update(
    RHYDB_ASSERT_EQ(new_values.size(), static_cast<size_t>(rows.getCardinality()));
 
    const auto ids_by_value = internValues(new_values);
+   auto& chunk = chunks.at(chunk_id);
    size_t index = 0;
    for (const uint16_t row_in_chunk : rows) {
-      const RowId row_id{.chunk_id = chunk_id, .row_in_chunk = row_in_chunk};
-      const uint32_t global_row_id = row_id.toGlobal();
       const auto& value = new_values[index++];
-      // As in the single-value `update`: a null row stores the placeholder id and is absent from
-      // every match bitmap.
+      // As in the single-value `update`: a null row stores the placeholder id
       const Idx new_value_id = ids_by_value.at(value.has_value() ? Key{*value} : Key{});
-      indexed_values.try_emplace(new_value_id);
-
-      if (!null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk)) {
-         indexed_values.at(value_ids.at(row_id)).remove(global_row_id);
-      }
-      value_ids.setValue(row_id, new_value_id);
-      if (value.has_value()) {
-         indexed_values.at(new_value_id).add(global_row_id);
-         null_bitmap.at(chunk_id).removeChecked(row_id.row_in_chunk);
-      } else {
-         null_bitmap.at(chunk_id).addChecked(row_id.row_in_chunk);
-      }
+      chunk.setValueId(row_in_chunk, new_value_id, !value.has_value());
    }
 }
 
 template <DictionaryValueColumn ValueColumn>
-bool DictionaryEncodedColumn<ValueColumn>::isNull(RowId row_id) const {
-   return null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk);
+Bitmap DictionaryEncodedColumn<ValueColumn>::nullRows() const {
+   return Bitmap::fromChunks(chunks.size(), [&](size_t chunk_id) {
+      return roaring_util::RoaringContainerView{chunks[chunk_id].null_rows};
+   });
 }
 
 template <DictionaryValueColumn ValueColumn>

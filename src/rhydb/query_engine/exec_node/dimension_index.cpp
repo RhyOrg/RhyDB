@@ -231,64 +231,48 @@ class SequencePositionIndex : public DimensionIndex {
 };
 
 /// Groups the rows by the value of a dictionary-encoded column, straight from its inverted index.
-/// Each value's rows are handed out as zero-copy views into the stored per-value bitmap (one per
-/// 2^16 chunk), plus a null group from the column's null bitmap. Value groups get consecutive
-/// indices in sorted-value order (null last), so the combinations come out in the same order as the
-/// generic path.
+/// Each chunk's groups are zero-copy views into that chunk's inverted index, plus a null group from
+/// its null rows. The value groups are indexed by dictionary id, so in sorted-value order (null
+/// last), and the combinations come out in the same order as the generic path.
 template <storage::column::DictionaryValueColumn ValueColumn>
 class IndexedColumnIndex : public DimensionIndex {
    using DictionaryColumn = storage::column::DictionaryEncodedColumn<ValueColumn>;
 
    const DictionaryColumn& column;
-   // chunk key -> the groups holding a container in that chunk. Precomputed once (the inverted
-   // index is unordered), so serving a chunk is a single map lookup returning views into stored
-   // bitmaps.
-   std::map<uint16_t, ValueBitmapDimension> groups_by_chunk;
-   // The dictionary id of each group index, in sorted order (the null group has no entry; it is
-   // the trailing null appended by `values`).
-   std::vector<Idx> key_ids;
 
   public:
    explicit IndexedColumnIndex(const DictionaryColumn& column)
-       : column(column) {
-      // One group per distinct value, ordered by the value so the node has a deterministic output
-      // order. The dictionary ids are order-preserving, so sorting them sorts the values. A null
-      // row lives only in `null_bitmap` (its value's bitmap does not contain it), so the null group
-      // stays disjoint from the value groups and no row is double-counted.
-      std::vector<std::pair<Idx, const roaring::Roaring*>> values;
-      values.reserve(column.getIndexedValues().size());
-      for (const auto& [value_id, value_bitmap] : column.getIndexedValues()) {
-         values.emplace_back(value_id, &value_bitmap);
-      }
-      std::ranges::sort(values, {}, &std::pair<Idx, const roaring::Roaring*>::first);
+       : column(column) {}
 
-      key_ids.reserve(values.size());
-      for (size_t group_index = 0; group_index < values.size(); ++group_index) {
-         for (const auto& [chunk_id, view] : Bitmap{values[group_index].second}) {
-            groups_by_chunk[chunk_id].emplace_back(group_index, CopyOnWriteContainer{view});
-         }
-         key_ids.push_back(values[group_index].first);
-      }
-      const size_t null_index = values.size();
-      for (const auto& [chunk_id, view] : Bitmap::fromChunkContainers(column.null_bitmap)) {
-         groups_by_chunk[chunk_id].emplace_back(null_index, CopyOnWriteContainer{view});
-      }
-   }
-
+   /// One group per dictionary id, so that the groups are ordered by value (the ids are
+   /// order-preserving), plus the null group after them. A null row is only in the chunk's null
+   /// rows (no value's rows contain it), so the null group stays disjoint from the value groups and
+   /// no row is double-counted. Views into the chunk's inverted index.
    [[nodiscard]] DimensionIndexChunk
    chunk(uint16_t chunk_id, RoaringContainerView /*filter_view*/) const override {
-      if (auto iter = groups_by_chunk.find(chunk_id); iter != groups_by_chunk.end()) {
-         return iter->second;
+      const auto& column_chunk = column.getChunks().at(chunk_id);
+      ValueBitmapDimension groups;
+      groups.reserve(column_chunk.rows_by_value_id.size() + 1);
+      for (const auto& [value_id, rows] : column_chunk.rows_by_value_id) {
+         groups.emplace_back(value_id, CopyOnWriteContainer{RoaringContainerView{rows}});
       }
-      return ValueBitmapDimension{};
+      std::ranges::sort(groups, {}, [](const auto& group) { return group.first; });
+      if (!column_chunk.null_rows.empty()) {
+         groups.emplace_back(
+            column.numDictionaryValues(),
+            CopyOnWriteContainer{RoaringContainerView{column_chunk.null_rows}}
+         );
+      }
+      return groups;
    }
 
-   /// The distinct values in sorted order (the group indices `chunk` hands out), then a
+   /// The dictionary values in sorted order (the group indices `chunk` hands out), then a
    /// null for the trailing null group.
    [[nodiscard]] arrow::Result<std::shared_ptr<arrow::Array>> values() const override {
       ArrowBuilder<DictionaryColumn> builder;
-      for (const Idx key_id : key_ids) {
-         ARROW_RETURN_NOT_OK(builder.Append(column.lookupValue(key_id)));
+      const auto num_values = static_cast<Idx>(column.numDictionaryValues());
+      for (Idx value_id = 0; value_id < num_values; ++value_id) {
+         ARROW_RETURN_NOT_OK(builder.Append(column.lookupValue(value_id)));
       }
       ARROW_RETURN_NOT_OK(builder.AppendNull());  // null group
       std::shared_ptr<arrow::Array> array;

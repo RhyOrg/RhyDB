@@ -271,12 +271,12 @@ std::unique_ptr<Operator> compileDictionaryInequality(
    const DictionaryEncodedColumn<ValueColumn>& dictionary_column,
    typename DictionaryEncodedColumn<ValueColumn>::Key literal
 ) {
-   const auto literal_bitmap = dictionary_column.filter(literal);
-   Bitmap null_rows = Bitmap::fromChunkContainers(dictionary_column.null_bitmap);
+   auto literal_bitmap = dictionary_column.filter(literal);
+   Bitmap null_rows = dictionary_column.nullRows();
    // The indexed value bitmaps are disjoint from the null bitmap
    const uint64_t excluded_rows =
       null_rows.cardinality() +
-      (literal_bitmap == std::nullopt ? 0 : literal_bitmap.value()->cardinality());
+      (literal_bitmap == std::nullopt ? 0 : literal_bitmap->cardinality());
    if (excluded_rows == table.row_layout.numRows()) {
       return std::make_unique<Empty>(table.row_layout);
    }
@@ -286,9 +286,7 @@ std::unique_ptr<Operator> compileDictionaryInequality(
       excluded.push_back(std::make_unique<IndexScan>(std::move(null_rows), table.row_layout));
    }
    if (literal_bitmap != std::nullopt) {
-      excluded.push_back(
-         std::make_unique<IndexScan>(Bitmap{literal_bitmap.value()}, table.row_layout)
-      );
+      excluded.push_back(std::make_unique<IndexScan>(std::move(*literal_bitmap), table.row_layout));
    }
    return Intersection::ofComplements(std::move(excluded), table.row_layout);
 }
@@ -303,11 +301,11 @@ std::unique_ptr<Operator> compileDictionaryComparison(
 ) {
    using Key = DictionaryEncodedColumn<ValueColumn>::Key;
    if (comparator == Comparator::EQUALS) {
-      const auto bitmap = dictionary_column.filter(literal);
-      if (bitmap == std::nullopt || bitmap.value()->isEmpty()) {
+      auto bitmap = dictionary_column.filter(literal);
+      if (bitmap == std::nullopt || bitmap->isEmpty()) {
          return std::make_unique<Empty>(table.row_layout);
       }
-      return std::make_unique<IndexScan>(Bitmap{bitmap.value()}, table.row_layout);
+      return std::make_unique<IndexScan>(std::move(*bitmap), table.row_layout);
    }
 
    if (comparator == Comparator::NOT_EQUALS) {
@@ -317,16 +315,13 @@ std::unique_ptr<Operator> compileDictionaryComparison(
    // Bitmap-union fast path: every distinct dictionary value that matches the comparator
    // contributes its row bitmap. Null rows are naturally excluded because the indexed bitmaps
    // are disjoint from the null bitmap.
-   roaring::Roaring unioned;
-   for (const auto& [dict_id, bitmap] : dictionary_column.getIndexedValues()) {
-      if (matchesComparator<Key>(dictionary_column.lookupValue(dict_id), comparator, literal)) {
-         unioned |= bitmap;
-      }
-   }
+   Bitmap unioned = dictionary_column.filterByIds([&](Idx dict_id) {
+      return matchesComparator<Key>(dictionary_column.lookupValue(dict_id), comparator, literal);
+   });
    if (unioned.isEmpty()) {
       return std::make_unique<Empty>(table.row_layout);
    }
-   return std::make_unique<IndexScan>(Bitmap{std::move(unioned)}, table.row_layout);
+   return std::make_unique<IndexScan>(std::move(unioned), table.row_layout);
 }
 
 std::unique_ptr<Operator> compileStringComparison(
