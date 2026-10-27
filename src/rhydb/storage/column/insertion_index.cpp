@@ -106,7 +106,7 @@ const RE2& InsertionSearchPattern<SymbolType>::getRegex() const {
 }
 
 template <typename SymbolType>
-std::unique_ptr<roaring::Roaring> InsertionPosition<SymbolType>::searchWithThreeMerIndex(
+roaring_util::RoaringContainer InsertionPosition<SymbolType>::searchWithThreeMerIndex(
    const std::vector<std::array<typename SymbolType::Symbol, 3>>& search_three_mers,
    const RE2& search_pattern
 ) const {
@@ -127,7 +127,7 @@ std::unique_ptr<roaring::Roaring> InsertionPosition<SymbolType>::searchWithThree
    }
 
    if (min_heap.size() < search_three_mers.size()) {
-      return std::make_unique<roaring::Roaring>();
+      return roaring_util::RoaringContainer::withCapacity(0);
    }
 
    const auto cmp = [](const std::pair<it, it>& lhs_it_pair, const std::pair<it, it>& rhs_it_pair) {
@@ -135,7 +135,7 @@ std::unique_ptr<roaring::Roaring> InsertionPosition<SymbolType>::searchWithThree
    };
    std::ranges::make_heap(min_heap, cmp);
 
-   auto result = std::make_unique<roaring::Roaring>();
+   std::vector<roaring_util::RoaringContainerView> matching_rows;
 
    size_t count = 0;
    uint32_t current_insertion_id = *min_heap.front().first;
@@ -155,7 +155,7 @@ std::unique_ptr<roaring::Roaring> InsertionPosition<SymbolType>::searchWithThree
          if (count == search_three_mers.size()) {
             const auto& insertion = insertions[current_insertion_id];
             if (RE2::FullMatch(insertion.value, search_pattern)) {
-               *result |= insertion.row_ids;
+               matching_rows.emplace_back(insertion.row_ids);
             }
          }
          count = 1;
@@ -168,24 +168,24 @@ std::unique_ptr<roaring::Roaring> InsertionPosition<SymbolType>::searchWithThree
    if (count == search_three_mers.size()) {
       const auto& insertion = insertions[current_insertion_id];
       if (RE2::FullMatch(insertion.value, search_pattern)) {
-         *result |= insertion.row_ids;
+         matching_rows.emplace_back(insertion.row_ids);
       }
    }
 
-   return result;
+   return roaring_util::fastUnion(matching_rows);
 }
 
 template <typename SymbolType>
-std::unique_ptr<roaring::Roaring> InsertionPosition<SymbolType>::searchWithRegex(
+roaring_util::RoaringContainer InsertionPosition<SymbolType>::searchWithRegex(
    const RE2& regex_search_pattern
 ) const {
-   auto result = std::make_unique<roaring::Roaring>();
+   std::vector<roaring_util::RoaringContainerView> matching_rows;
    for (const auto& [value, row_ids] : insertions) {
       if (RE2::FullMatch(value, regex_search_pattern)) {
-         *result |= row_ids;
+         matching_rows.emplace_back(row_ids);
       }
    }
-   return result;
+   return roaring_util::fastUnion(matching_rows);
 }
 
 template <>
@@ -254,7 +254,7 @@ void InsertionPosition<AminoAcid>::buildThreeMerIndex() {
 }
 
 template <typename SymbolType>
-std::unique_ptr<roaring::Roaring> InsertionPosition<SymbolType>::search(
+roaring_util::RoaringContainer InsertionPosition<SymbolType>::search(
    const InsertionSearchPattern<SymbolType>& search_pattern
 ) const {
    if (!search_pattern.getThreeMers().empty()) {
@@ -265,56 +265,62 @@ std::unique_ptr<roaring::Roaring> InsertionPosition<SymbolType>::search(
 }
 
 template <typename SymbolType>
-void InsertionIndex<SymbolType>::addLazily(
-   uint32_t position_idx,
-   const std::string& insertion,
-   const uint32_t row_id
+InsertionIndexChunk<SymbolType> InsertionIndexChunk<SymbolType>::build(
+   std::unordered_map<uint32_t, std::unordered_map<std::string, roaring_util::RoaringContainer>>&&
+      rows_by_insertion
 ) {
-   auto& insertions_at_position =
-      collected_insertions
-         .emplace(position_idx, std::unordered_map<std::string, roaring::Roaring>{})
-         .first->second;
-   auto& sequence_ids_at_position =
-      insertions_at_position.emplace(insertion, roaring::Roaring{}).first->second;
-   sequence_ids_at_position.add(row_id);
+   InsertionIndexChunk result;
+   result.insertion_positions.reserve(rows_by_insertion.size());
+   for (auto& [position_idx, rows_by_value] : rows_by_insertion) {
+      InsertionPosition<SymbolType> insertion_position;
+      insertion_position.insertions.reserve(rows_by_value.size());
+      for (auto& [value, row_ids] : rows_by_value) {
+         row_ids.runOptimizeAndShrink();
+         insertion_position.insertions.push_back(Insertion{value, std::move(row_ids)});
+      }
+      insertion_position.buildThreeMerIndex();
+      result.insertion_positions.emplace(position_idx, std::move(insertion_position));
+   }
+   return result;
 }
 
 template <typename SymbolType>
-void InsertionIndex<SymbolType>::buildIndex() {
-   insertion_positions.reserve(collected_insertions.size());
-
-   for (auto [pos, insertion_info] : collected_insertions) {
-      InsertionPosition<SymbolType> insertion_position;
-      insertion_position.insertions.reserve(insertion_info.size());
-      std::ranges::transform(
-         insertion_info, std::back_inserter(insertion_position.insertions), [](auto& insertion) {
-            return Insertion{std::move(insertion.first), std::move(insertion.second)};
-         }
-      );
-      insertion_position.buildThreeMerIndex();
-      insertion_positions.emplace(pos, std::move(insertion_position));
+roaring_util::RoaringContainer InsertionIndexChunk<SymbolType>::search(
+   uint32_t position_idx,
+   const InsertionSearchPattern<SymbolType>& search_pattern
+) const {
+   const auto insertion_position = insertion_positions.find(position_idx);
+   if (insertion_position == insertion_positions.end()) {
+      return roaring_util::RoaringContainer::withCapacity(0);
    }
+   return insertion_position->second.search(search_pattern);
+}
 
-   // free up the memory
+template <typename SymbolType>
+void InsertionIndex<SymbolType>::add(
+   uint32_t position_idx,
+   const std::string& insertion,
+   uint16_t row_in_chunk
+) {
+   collected_insertions[position_idx]
+      .try_emplace(insertion, roaring_util::RoaringContainer::withCapacity(0))
+      .first->second.addChecked(row_in_chunk);
+}
+
+template <typename SymbolType>
+void InsertionIndex<SymbolType>::appendChunk() {
+   chunks.push_back(InsertionIndexChunk<SymbolType>::build(std::move(collected_insertions)));
    collected_insertions.clear();
 }
 
 template <typename SymbolType>
-const std::unordered_map<uint32_t, InsertionPosition<SymbolType>>& InsertionIndex<
-   SymbolType>::getInsertionPositions() const {
-   return insertion_positions;
-}
-
-template <typename SymbolType>
-std::unique_ptr<roaring::Roaring> InsertionIndex<SymbolType>::search(
+Bitmap InsertionIndex<SymbolType>::search(
    uint32_t position_idx,
    const InsertionSearchPattern<SymbolType>& search_pattern
 ) const {
-   const auto insertion_pos_it = insertion_positions.find(position_idx);
-   if (insertion_pos_it == insertion_positions.end()) {
-      return std::make_unique<roaring::Roaring>();
-   }
-   return insertion_pos_it->second.search(search_pattern);
+   return Bitmap::fromChunks(chunks.size(), [&](size_t chunk_id) {
+      return chunks[chunk_id].search(position_idx, search_pattern);
+   });
 }
 
 template class ThreeMerHash<Nucleotide>;
@@ -322,6 +328,9 @@ template class ThreeMerHash<AminoAcid>;
 
 template class InsertionSearchPattern<Nucleotide>;
 template class InsertionSearchPattern<AminoAcid>;
+
+template class InsertionIndexChunk<Nucleotide>;
+template class InsertionIndexChunk<AminoAcid>;
 
 template class InsertionIndex<Nucleotide>;
 template class InsertionIndex<AminoAcid>;

@@ -83,8 +83,7 @@ std::unique_ptr<filter::operators::Operator> InsertionContains<SymbolType>::comp
    }
    return std::make_unique<filter::operators::BitmapProducer>(
       [&sequence_store, position_idx = position_idx, search_pattern] {
-         auto search_result = sequence_store.insertion_index.search(position_idx, *search_pattern);
-         return Bitmap(std::move(*search_result));
+         return sequence_store.insertion_index.search(position_idx, *search_pattern);
       },
       table.row_layout
    );

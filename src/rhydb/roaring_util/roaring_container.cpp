@@ -108,6 +108,15 @@ RoaringContainer operator&(RoaringContainerView lhs, RoaringContainerView rhs) {
    return ownContainer(result, typecode);
 }
 
+uint32_t andCardinality(RoaringContainerView lhs, RoaringContainerView rhs) {
+   if (lhs.empty() || rhs.empty()) {
+      return 0;
+   }
+   return static_cast<uint32_t>(roaring::internal::container_and_cardinality(
+      lhs.rawContainer(), lhs.getTypecode(), rhs.rawContainer(), rhs.getTypecode()
+   ));
+}
+
 RoaringContainer operator-(RoaringContainerView lhs, RoaringContainerView rhs) {
    if (lhs.empty()) {
       return RoaringContainer::withCapacity(1);
