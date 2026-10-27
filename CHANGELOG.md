@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.2](https://github.com/RhyOrg/RhyDB/compare/v0.17.1...v0.17.2) (2026-10-26)
+
+
+### Features
+
+* **rhydb:** enable dictionary encoded columns of type date32 ([#1750](https://github.com/RhyOrg/RhyDB/issues/1750)) ([2c8a4a6](https://github.com/RhyOrg/RhyDB/commit/2c8a4a6c81a8897361d6dfa1a4acd5d06facd006))
+
+
+### Performance Improvements
+
+* **query_engine:** replace the fixed delay before zstd decompression by backpressure ([#1751](https://github.com/RhyOrg/RhyDB/issues/1751)) ([ba6f012](https://github.com/RhyOrg/RhyDB/commit/ba6f01293de5250faa0b4332aee79992d9fc5024))
+
 ## [0.17.1](https://github.com/RhyOrg/RhyDB/compare/v0.17.0...v0.17.1) (2026-10-22)
 
 
