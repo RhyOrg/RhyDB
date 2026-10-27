@@ -95,6 +95,9 @@ struct DictionaryEncodedColumnChunk {
    /// placeholder id `value_id` if `is_null`.
    void setValueId(uint16_t row_in_chunk, Idx value_id, bool is_null);
 
+   /// Adds the row `row_in_chunk` to the rows of `value_id` in the inverted index.
+   void addToRowsByValueId(uint16_t row_in_chunk, Idx value_id);
+
   private:
    friend class boost::serialization::access;
    template <class Archive>

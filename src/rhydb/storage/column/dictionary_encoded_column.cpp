@@ -25,9 +25,18 @@ void DictionaryEncodedColumnChunk::setValueId(uint16_t row_in_chunk, Idx value_i
    if (is_null) {
       null_rows.add(row_in_chunk);
    } else {
-      rows_by_value_id.try_emplace(value_id, roaring_util::RoaringContainer::withCapacity(0))
-         .first->second.add(row_in_chunk);
+      addToRowsByValueId(row_in_chunk, value_id);
    }
+}
+
+void DictionaryEncodedColumnChunk::addToRowsByValueId(uint16_t row_in_chunk, Idx value_id) {
+   // Look up first, so that only a missing value id pays for constructing a container
+   auto rows = rows_by_value_id.find(value_id);
+   if (rows == rows_by_value_id.end()) {
+      rows =
+         rows_by_value_id.emplace(value_id, roaring_util::RoaringContainer::withCapacity(0)).first;
+   }
+   rows->second.add(row_in_chunk);
 }
 
 template <DictionaryValueColumn ValueColumn>
@@ -197,8 +206,7 @@ std::expected<void, std::string> DictionaryEncodedColumn<ValueColumn>::appendChu
          continue;
       }
       const Idx value_id = ids_by_value.at(*maybe_value);
-      chunk.rows_by_value_id.try_emplace(value_id, roaring_util::RoaringContainer::withCapacity(0))
-         .first->second.add(row_in_chunk);
+      chunk.addToRowsByValueId(row_in_chunk, value_id);
       chunk.value_ids.push_back(value_id);
    }
    chunks.push_back(std::move(chunk));
