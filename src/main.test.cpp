@@ -3,10 +3,9 @@
 
 #include <filesystem>
 
-#include <arrow/compute/api.h>
 #include <spdlog/spdlog.h>
 
-#include "rhydb/common/panic.h"
+#include "rhydb/query_engine/arrow_compute.h"
 
 namespace {
 
@@ -38,7 +37,7 @@ int main(int argc, char* argv[]) {
    if (spdlog::get_level() > spdlog::level::debug) {
       spdlog::set_level(spdlog::level::trace);
    }
-   RHYDB_ASSERT(arrow::compute::Initialize().ok());
+   rhydb::query_engine::initializeArrowCompute();
    ::testing::InitGoogleMock(&argc, argv);
    return RUN_ALL_TESTS();
 }
