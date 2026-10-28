@@ -169,7 +169,7 @@ class SequenceColumn {
 
    void flushBuffer();
 
-   [[nodiscard]] SequenceColumnInfo calculateInfo();
+   SequenceColumnInfo calculateInfo();
 
    [[nodiscard]] size_t computeVerticalBitmapsSize() const;
 
