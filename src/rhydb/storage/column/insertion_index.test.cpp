@@ -78,7 +78,7 @@ TEST(InsertionIndex, deleteRowsCompactsEveryChunk) {
       rhydb::storage::column::RowLayout::of(3, 1, 2),
       rhydb::Bitmap{
          roaring::Roaring({RowId(0, 0).toGlobal(), RowId(0, 1).toGlobal(), RowId(1, 0).toGlobal()})
-      }
+      },
    };
    under_test.deleteRows(compaction);
 

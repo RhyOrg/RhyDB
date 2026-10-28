@@ -96,11 +96,6 @@ class RoaringContainer {
       return roaring::internal::container_contains(container, value, typecode);
    }
 
-   /// The number of values that are smaller than or equal to `value`.
-   [[nodiscard]] uint32_t rank(uint16_t value) const {
-      return static_cast<uint32_t>(roaring::internal::container_rank(container, typecode, value));
-   }
-
    RoaringContainer& operator|=(RoaringContainerView addend);
    RoaringContainer& operator-=(RoaringContainerView subtrahend);
 

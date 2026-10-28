@@ -84,7 +84,7 @@ TEST(BoolColumn, deleteRowsCompactsEveryChunk) {
    // The first chunk loses its false row, the second chunk all its rows
    const RowCompaction compaction{
       RowLayout::of(3, 3, 2),
-      rhydb::Bitmap{globalRows({RowId(0, 1), RowId(1, 0), RowId(1, 1), RowId(1, 2)})}
+      rhydb::Bitmap{globalRows({RowId(0, 1), RowId(1, 0), RowId(1, 1), RowId(1, 2)})},
    };
    under_test.deleteRows(compaction);
 
