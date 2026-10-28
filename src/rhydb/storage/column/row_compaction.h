@@ -74,7 +74,11 @@ class RowCompaction {
    /// chunk changes, in ascending order, so that `to < from` and `to` is free. Returns the number
    /// of remaining rows.
    template <typename MoveRow>
-   uint32_t compactRows(uint16_t chunk_id, uint32_t chunk_size, const MoveRow& move_row) const {
+   [[nodiscard]] uint32_t compactRows(
+      uint16_t chunk_id,
+      uint32_t chunk_size,
+      const MoveRow& move_row
+   ) const {
       const roaring_util::RoaringContainerView deleted_rows{chunks.at(chunk_id).deleted_rows};
       uint32_t deleted_before = 0;
       uint32_t next_row = 0;

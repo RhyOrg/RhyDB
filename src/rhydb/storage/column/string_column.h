@@ -93,10 +93,10 @@ class StringColumnChunk {
    /// work with the RhyDBString and @getValue instead
    [[nodiscard]] std::string lookupValue(RhyDBString string) const;
 
-   /// Removes the rows of this chunk, the chunk `chunk_id`, that `compaction` deletes, by moving the
-   /// strings of the remaining rows down in place. The suffixes in `variable_string_data` are left
-   /// where they are, as the moved strings still refer to them, so the space of the suffixes of
-   /// deleted strings longer than 12 bytes is not reclaimed.
+   /// Removes the rows of this chunk, the chunk `chunk_id`, that `compaction` deletes, by moving
+   /// the strings of the remaining rows down in place. The suffixes in `variable_string_data` are
+   /// left where they are, as the moved strings still refer to them, so the space of the suffixes
+   /// of deleted strings longer than 12 bytes is not reclaimed.
    void deleteRows(uint16_t chunk_id, const RowCompaction& compaction);
 
    template <class Archive>

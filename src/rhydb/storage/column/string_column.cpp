@@ -211,9 +211,9 @@ void StringColumn::update(
 
 void StringColumnChunk::deleteRows(uint16_t chunk_id, const RowCompaction& compaction) {
    const uint32_t remaining_rows = compaction.compactRows(
-      chunk_id,
-      static_cast<uint32_t>(numValues()),
-      [&](uint32_t from, uint32_t to) { fixed_string_data.set(to, fixed_string_data.get(from)); }
+      chunk_id, static_cast<uint32_t>(numValues()), [&](uint32_t from, uint32_t to) {
+         fixed_string_data.set(to, fixed_string_data.get(from));
+      }
    );
    fixed_string_data.truncate(remaining_rows);
 }
@@ -234,9 +234,8 @@ void StringColumn::deleteRows(const RowCompaction& compaction) {
          }
          const auto new_row_id =
             compaction.map(RowId::fromGlobal(static_cast<uint32_t>(*node->row_index)));
-         node->row_index = new_row_id.transform([](RowId row_id) -> size_t {
-            return row_id.toGlobal();
-         });
+         node->row_index =
+            new_row_id.transform([](RowId row_id) -> size_t { return row_id.toGlobal(); });
       }
    }
 }

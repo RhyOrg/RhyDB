@@ -22,6 +22,7 @@ uint32_t globalId(uint16_t chunk_id, uint16_t row_in_chunk) {
 /// Splits `rows` into one container per chunk of a layout with `num_chunks` chunks.
 std::vector<RoaringContainer> perChunk(const roaring::Roaring& rows, size_t num_chunks) {
    std::vector<RoaringContainer> result;
+   result.reserve(num_chunks);
    for (size_t chunk_id = 0; chunk_id < num_chunks; ++chunk_id) {
       result.push_back(RoaringContainer::withCapacity(0));
    }

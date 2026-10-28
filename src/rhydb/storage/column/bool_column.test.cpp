@@ -74,6 +74,7 @@ TEST(BoolColumn, updateChunkAssignsEachRowItsOwnValue) {
    EXPECT_EQ(under_test.chunkSize(1), 3);
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST(BoolColumn, deleteRowsCompactsEveryChunk) {
    ColumnMetadata column_metadata("bool_column");
    BoolColumn under_test{&column_metadata};

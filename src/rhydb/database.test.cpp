@@ -444,14 +444,13 @@ std::string generatedRow(const std::string& key, size_t index, const std::string
       lineages.at(index % 3),
       divisions.at(index % 4),
       index % 6 == 0 ? "null" : std::to_string(index % 10),
-      0.9 + static_cast<double>(index % 10) / 100.0,
+      0.9 + (static_cast<double>(index % 10) / 100.0),
       booleans.at(index % 3),
-      index % 9 == 0 ? "null"
-                     : fmt::format(
-                          R"({{"sequence": "{}", "insertions": [{}]}})",
-                          main,
-                          index % 5 == 1 ? R"("3:TT")" : ""
-                       ),
+      index % 9 == 0
+         ? "null"
+         : fmt::format(
+              R"({{"sequence": "{}", "insertions": [{}]}})", main, index % 5 == 1 ? R"("3:TT")" : ""
+           ),
       index % 9 == 0 ? "null" : fmt::format("\"{}\"", main),
       index % 4 == 2 ? R"("4:EPE")" : "",
       index % 2 == 0 ? "MADS*" : "XXXX*"
@@ -572,8 +571,7 @@ TEST(DatabaseDeleteQueryTest, keepsEveryColumnAndIndexConsistentAcrossChunks) {
       ASSERT_GT(expected_deleted, 0);
 
       EXPECT_EQ(
-         deleteRows(*database, fmt::format("delete(data, where := {})", deletion)),
-         expected_deleted
+         deleteRows(*database, fmt::format("delete(data, where := {})", deletion)), expected_deleted
       );
 
       const auto& table = defaultTable(*database);

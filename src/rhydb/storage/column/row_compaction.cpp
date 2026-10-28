@@ -48,9 +48,8 @@ RowCompaction::RowCompaction(const RowLayout& layout, const Bitmap& deleted_rows
    }
    for (size_t chunk_id = 0; chunk_id < chunks.size(); ++chunk_id) {
       auto& chunk = chunks[chunk_id];
-      const auto remaining_rows = static_cast<uint32_t>(
-         layout.chunkSize(static_cast<uint16_t>(chunk_id)) - chunk.deleted_rows.getCardinality()
-      );
+      const auto remaining_rows =
+         (layout.chunkSize(static_cast<uint16_t>(chunk_id)) - chunk.deleted_rows.getCardinality());
       if (remaining_rows > 0) {
          chunk.new_chunk_id = static_cast<uint16_t>(compacted_layout.numChunks());
          compacted_layout.appendChunk(remaining_rows);
