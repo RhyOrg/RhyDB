@@ -283,6 +283,8 @@ class RoaringContainerView {
 };
 
 [[nodiscard]] RoaringContainer operator&(RoaringContainerView lhs, RoaringContainerView rhs);
+/// Cardinality of the intersection, without materializing it.
+[[nodiscard]] uint32_t andCardinality(RoaringContainerView lhs, RoaringContainerView rhs);
 [[nodiscard]] RoaringContainer operator-(RoaringContainerView lhs, RoaringContainerView rhs);
 [[nodiscard]] RoaringContainer operator|(RoaringContainerView lhs, RoaringContainerView rhs);
 
