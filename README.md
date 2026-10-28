@@ -28,25 +28,22 @@ db = Database("/path/to/saved/database")
 db.append_data_from_string(
     "reference_genomes", '{"name": "main", "type": "nucleotide", "sequence": "ACGT..."}'
 )
-db.query("createTable(sequences, {id := string, main := nucleotideSequence(reference := main)}, primaryKey := id)")
+db.query(
+    "createTable(sequences, {id := string, country := string, main := nucleotideSequence(reference := main)}, primaryKey := id)"
+)
 
 # Append data from file
 db.append_data_from_file("sequences", "/path/to/data.ndjson")
 
-# Get reference sequence
-ref = db.get_nucleotide_reference_sequence("sequences", "main")
-
-# Get filtered bitmap (list of matching row indices)
-indices = db.get_filtered_bitmap("sequences", "some_filter")
-
 # Query data through the SaneQL front-end
 table = db.query("sequences.filter(true)")
 
+# Update and delete rows in place
+db.query("update(sequences, set := {country := 'Switzerland'}, where := country = 'CH')")
+db.query("delete(sequences, where := country.isNull())")
+
 # Save database state
 db.save_checkpoint("/path/to/save/directory")
-
-# Print all data (to stdout)
-db.print_all_data("sequences")
 ```
 
 ## Configuration Files

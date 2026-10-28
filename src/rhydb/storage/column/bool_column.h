@@ -15,6 +15,7 @@
 #include "rhydb/roaring_util/roaring_container.h"
 #include "rhydb/schema/database_schema.h"
 #include "rhydb/storage/column/column_metadata.h"
+#include "rhydb/storage/column/row_compaction.h"
 #include "rhydb/storage/column/row_id.h"
 
 namespace rhydb::storage::column {
@@ -108,6 +109,9 @@ class BoolColumn {
       roaring_util::RoaringContainerView rows,
       const Buffer& new_values
    );
+
+   /// Removes the rows `compaction` deletes and renumbers the remaining ones, see `RowCompaction`.
+   void deleteRows(const RowCompaction& compaction);
 
   private:
    friend class boost::serialization::access;

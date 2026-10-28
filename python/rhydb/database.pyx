@@ -334,10 +334,11 @@ cdef class PyDatabase:
         """
         Execute a query and return results as a PyArrow Table
 
-        Write statements such as ``createTable(...)``, ``<query>.insertInto(<table>)`` and
-        ``update(<table>, set := {...}, where := ...)`` are applied to this database in place and
-        return a single-row summary of their effect (e.g. ``{createdTable: "sequences"}`` or
-        ``{updatedRows: 2}``). Sequence columns take their reference from the
+        Write statements such as ``createTable(...)``, ``<query>.insertInto(<table>)``,
+        ``update(<table>, set := {...}, where := ...)`` and ``delete(<table>, where := ...)`` are
+        applied to this database in place and return a single-row summary of their effect (e.g.
+        ``{createdTable: "sequences"}`` or ``{deletedRows: 2}``). Sequence columns take their
+        reference from the
         built-in ``reference_genomes`` table, so add the reference there before creating a table
         with a sequence column. Not thread-safe: write statements mutate the in-memory database
         with no internal locking.

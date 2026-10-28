@@ -18,4 +18,26 @@ RhyDBString GermanStringRegistry::get(Idx row_id) const {
    return german_string_pages.at(page_id).get(row_in_page);
 }
 
+void GermanStringRegistry::set(Idx row_id, const RhyDBString& rhydb_string) {
+   const Idx page_id = row_id / GermanStringPage::MAX_STRINGS_PER_PAGE;
+   const Idx row_in_page = row_id - (page_id * GermanStringPage::MAX_STRINGS_PER_PAGE);
+   german_string_pages.at(page_id).set(row_in_page, rhydb_string);
+}
+
+void GermanStringRegistry::truncate(size_t num_values) {
+   RHYDB_ASSERT(num_values <= numValues());
+   const size_t num_pages = (num_values + GermanStringPage::MAX_STRINGS_PER_PAGE - 1) /
+                            GermanStringPage::MAX_STRINGS_PER_PAGE;
+   while (german_string_pages.size() > num_pages) {
+      german_string_pages.pop_back();
+   }
+   if (num_pages > 0) {
+      german_string_pages.back().truncate(
+         static_cast<uint16_t>(
+            num_values - ((num_pages - 1) * GermanStringPage::MAX_STRINGS_PER_PAGE)
+         )
+      );
+   }
+}
+
 }  // namespace rhydb::storage::vector

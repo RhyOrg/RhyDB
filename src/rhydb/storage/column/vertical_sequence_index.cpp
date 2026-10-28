@@ -295,6 +295,32 @@ void VerticalSequenceIndex<SymbolType>::overwriteSymbolsInSequences(
    }
 };
 
+template <typename SymbolType>
+void VerticalSequenceIndex<SymbolType>::deleteRows(const RowCompaction& compaction) {
+   // A container belongs to the chunk its `v_index` names. Chunks keep their order when chunks
+   // before them are dropped, so relabelling the keys one by one keeps the map sorted at every
+   // step: a relabelled node is reinserted where it was, without copying its container.
+   for (auto entry = vertical_bitmaps.begin(); entry != vertical_bitmaps.end();) {
+      const auto next = std::next(entry);
+      const uint16_t chunk_id = entry->first.v_index;
+      const auto new_chunk_id = compaction.newChunkId(chunk_id);
+      if (!new_chunk_id.has_value()) {
+         vertical_bitmaps.erase(entry);
+         entry = next;
+         continue;
+      }
+      compaction.compact(chunk_id, entry->second);
+      if (entry->second.empty()) {
+         vertical_bitmaps.erase(entry);
+      } else if (*new_chunk_id != chunk_id) {
+         auto node = vertical_bitmaps.extract(entry);
+         node.key().v_index = *new_chunk_id;
+         vertical_bitmaps.insert(next, std::move(node));
+      }
+      entry = next;
+   }
+}
+
 template class VerticalSequenceIndex<Nucleotide>;
 template class VerticalSequenceIndex<AminoAcid>;
 

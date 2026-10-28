@@ -67,6 +67,9 @@ class FloatColumn {
       const Buffer& new_values
    );
 
+   /// Removes the rows `compaction` deletes and renumbers the remaining ones, see `RowCompaction`.
+   void deleteRows(const RowCompaction& compaction);
+
   private:
    friend class boost::serialization::access;
    template <class Archive>

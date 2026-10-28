@@ -10,8 +10,6 @@
 #include "rhydb/database.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/query_engine/saneql/ast.h"
-#include "rhydb/query_engine/saneql/ast_to_query.h"
-#include "rhydb/query_engine/scalar_expressions/literal.h"
 #include "rhydb/storage/table.h"
 
 namespace rhydb::query_engine::command {
@@ -25,17 +23,7 @@ WriteCommandPtr buildUpdate(const saneql::BoundArguments& args, const saneql::Ta
       table != tables.end(), "update() table '{}' not found in database", table_name.getName()
    );
 
-   // Without a `where` predicate every row is updated, as in SQL
-   const auto* where = args.get("where");
-   std::unique_ptr<scalar_expressions::ScalarExpression> predicate =
-      std::make_unique<scalar_expressions::BoolLiteral>(true);
-   if (where != nullptr) {
-      const auto columns = saneql::makeTableScan(
-                              table->second, std::make_unique<scalar_expressions::BoolLiteral>(true)
-      )
-                              ->getOutputSchema();
-      predicate = saneql::convertToFilter(*where, columns, tables);
-   }
+   auto predicate = buildWherePredicate(args, table->second, tables);
 
    const auto* set = std::get_if<ast::RecordLiteral>(&args.at("set").value);
    CHECK_RHYDB_QUERY(

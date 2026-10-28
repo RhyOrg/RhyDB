@@ -127,7 +127,7 @@ db.append_data_from_string(
 
 **`query(query_string)`** → `pyarrow.Table`
 Executes a [SaneQL](query_documentation.md) query. The leading identifier is the table name.
-Write statements (`createTable(...)`, `<query>.insertInto(<table>)`, `update(...)`) are applied to
+Write statements (`createTable(...)`, `<query>.insertInto(<table>)`, `update(...)`, `delete(...)`) are applied to
 the in-memory database in place and return a single-row summary, e.g. `{createdTable: "sequences"}`.
 
 ```python
@@ -176,6 +176,21 @@ db.query("update(data, set := {test_boolean_column := null}, where := region = '
 The update mutates only the **in-memory** database. On-disk state is left untouched until you call `save_checkpoint`. Because the update bumps the data version, a subsequently saved checkpoint is written as a new versioned state.
 
 **Not thread-safe.** `update` mutates the in-memory database in place with no internal locking.
+
+### Deleting rows
+
+Rows are deleted with the SaneQL
+[`delete`](query_documentation.md#deletetable-symbol-where-expression) statement, run through
+`query()`. It returns the number of deleted rows, e.g. `{deletedRows: 2}`. Like `update`, it only
+changes the in-memory database until `save_checkpoint` is called, and it is not thread-safe.
+
+```python
+# Delete the rows currently equal to 4
+db.query("delete(data, where := age = 4)")
+
+# Delete every row
+db.query("delete(data)")
+```
 
 ### Persisting state
 

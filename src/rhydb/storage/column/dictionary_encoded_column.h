@@ -26,6 +26,7 @@
 #include "rhydb/storage/column/column.h"
 #include "rhydb/storage/column/column_metadata.h"
 #include "rhydb/storage/column/date32_column.h"
+#include "rhydb/storage/column/row_compaction.h"
 #include "rhydb/storage/column/row_id.h"
 #include "rhydb/storage/column/string_column.h"
 
@@ -192,6 +193,10 @@ class DictionaryEncodedColumn {
       roaring_util::RoaringContainerView rows,
       const Buffer& new_values
    );
+
+   /// Removes the rows `compaction` deletes and renumbers the remaining ones, see `RowCompaction`.
+   /// Values whose rows are all deleted stay in the dictionary.
+   void deleteRows(const RowCompaction& compaction);
 
    [[nodiscard]] size_t numChunks() const { return chunks.size(); }
 

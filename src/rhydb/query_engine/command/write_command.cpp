@@ -8,12 +8,14 @@
 #include <arrow/table.h>
 
 #include "rhydb/query_engine/command/create_table_command.h"
+#include "rhydb/query_engine/command/delete_command.h"
 #include "rhydb/query_engine/command/insert_command.h"
 #include "rhydb/query_engine/command/update_command.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/query_engine/saneql/ast.h"
 #include "rhydb/query_engine/saneql/ast_to_query.h"
 #include "rhydb/query_engine/saneql/parser.h"
+#include "rhydb/query_engine/scalar_expressions/literal.h"
 
 namespace rhydb::query_engine::command {
 
@@ -44,6 +46,21 @@ arrow::Status writeToSink(
       ARROW_RETURN_NOT_OK(output_sink.writeBatch(arrow::compute::ExecBatch{*batch}));
    }
    return output_sink.finish();
+}
+
+std::unique_ptr<scalar_expressions::ScalarExpression> buildWherePredicate(
+   const BoundArguments& args,
+   const std::shared_ptr<storage::Table>& table,
+   const Tables& tables
+) {
+   const auto* where = args.get("where");
+   if (where == nullptr) {
+      return std::make_unique<scalar_expressions::BoolLiteral>(true);
+   }
+   const auto columns =
+      saneql::makeTableScan(table, std::make_unique<scalar_expressions::BoolLiteral>(true))
+         ->getOutputSchema();
+   return saneql::convertToFilter(*where, columns, tables);
 }
 
 namespace {
@@ -91,6 +108,16 @@ WriteStatementRegistry::WriteStatementRegistry() {
          },
       },
       buildUpdate
+   );
+   registerStatement(
+      "delete",
+      FunctionSignature{
+         {
+            ParameterDefinition{.name = "table"},
+            ParameterDefinition{.name = "where", .required = false, .positional = false},
+         },
+      },
+      buildDelete
    );
 }
 

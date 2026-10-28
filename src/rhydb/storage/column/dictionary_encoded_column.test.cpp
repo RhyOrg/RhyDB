@@ -17,7 +17,9 @@ using rhydb::common::Date32;
 using rhydb::storage::column::ColumnMetadata;
 using rhydb::storage::column::Date32Column;
 using rhydb::storage::column::DictionaryEncodedColumn;
+using rhydb::storage::column::RowCompaction;
 using rhydb::storage::column::RowId;
+using rhydb::storage::column::RowLayout;
 using rhydb::storage::column::StringColumn;
 
 namespace {
@@ -352,6 +354,36 @@ TEST(DictionaryEncodedColumn, dateUpdateKeepsInvertedIndexConsistent) {
    EXPECT_TRUE(under_test.isNull(RowId(0, 2)));
    ASSERT_TRUE(under_test.filter(10)->isEmpty());
    EXPECT_EQ(under_test.lookupValue(under_test.getValue(RowId(0, 0))), 5);
+}
+
+TEST(DictionaryEncodedColumn, deleteRowsCompactsEveryChunk) {
+   ColumnMetadata column_metadata("some_column");
+   DictionaryEncodedColumn<StringColumn> under_test{&column_metadata};
+   ASSERT_TRUE(appendValues(under_test, {"a", "b", "a", "c"}).has_value());
+   ASSERT_TRUE(appendValues(under_test, {"b"}).has_value());
+   DictionaryEncodedColumn<StringColumn>::Builder builder;
+   builder.insertNull();
+   builder.insert("c");
+   ASSERT_TRUE(under_test.appendChunk(builder.finalize()).has_value());
+
+   // The first chunk loses its first "a" and its "b", the second chunk its only row
+   roaring::Roaring deleted{0, 1, RowId::chunkStart(1)};
+   const RowCompaction compaction{RowLayout::of(4, 1, 2), rhydb::Bitmap{&deleted}};
+   under_test.deleteRows(compaction);
+
+   ASSERT_EQ(under_test.numChunks(), 2);
+   EXPECT_EQ(under_test.chunkSize(0), 2);
+   EXPECT_EQ(under_test.chunkSize(1), 2);
+   EXPECT_EQ(under_test.getValueString(RowId(0, 0)), "a");
+   EXPECT_EQ(under_test.getValueString(RowId(0, 1)), "c");
+   EXPECT_EQ(under_test.getValueString(RowId(1, 1)), "c");
+   EXPECT_EQ(under_test.filter("a")->toRoaring(), roaring::Roaring({0}));
+   // "b" has no rows left, but stays in the dictionary
+   EXPECT_TRUE(under_test.filter("b")->isEmpty());
+   EXPECT_EQ(under_test.filter("c")->toRoaring(), roaring::Roaring({1, RowId::chunkStart(1) + 1}));
+   EXPECT_EQ(under_test.nullRows().toRoaring(), roaring::Roaring({RowId::chunkStart(1)}));
+   EXPECT_TRUE(under_test.getChunks()[0].rows_by_value_id.contains(*under_test.getValueId("a")));
+   EXPECT_FALSE(under_test.getChunks()[0].rows_by_value_id.contains(*under_test.getValueId("b")));
 }
 
 // NOLINTEND(bugprone-unchecked-optional-access)

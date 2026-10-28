@@ -6,6 +6,9 @@
 #include <string>
 #include <variant>
 
+#include <roaring/roaring.hh>
+
+#include "rhydb/common/bitmap.h"
 #include "rhydb/schema/database_schema.h"
 #include "rhydb/storage/column/column_variant.h"
 #include "rhydb/storage/column/row_layout.h"
@@ -71,6 +74,11 @@ class Table {
    /// Apply a finalized ingestion chunk (one buffer per column) to the columns'
    /// global structures. Consumes (clears) the builder's buffers.
    std::expected<void, std::string> bulkInsert(TableChunkBuilder& block);
+
+   /// Deletes the rows `row_ids` (valid row ids of this table) from every column. The remaining
+   /// rows are renumbered (see `column::RowCompaction`), so row ids taken before the deletion are
+   /// no longer valid afterwards. `row_ids` may view into this table's columns.
+   void deleteRows(const Bitmap& row_ids);
 
    void finalize();
 

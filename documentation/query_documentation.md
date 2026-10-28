@@ -696,6 +696,39 @@ It bumps the data version and, like `insertInto`, mutates the table in place, so
 run next to other queries against the same database; over the API it is issued through
 [`POST /admin/query`](api.md#post-adminquery).
 
+### `delete(table: symbol, where?: expression)`
+
+Removes the rows of a table, like SQL's `DELETE FROM <table> WHERE <predicate>`. Like `insertInto`,
+it is a write statement: it must be the whole query and returns a summary instead of rows:
+
+```json
+{"deletedRows": 2}
+```
+
+```
+delete(data, where := primaryKey = 'key1')
+delete(data, where := division = 'Bern' && age < 10)
+delete(data, where := main.at(2) = 'A')
+delete(data)
+data.delete(where := age.isNull())
+```
+
+**Rows.** `where` is a filter predicate over the columns of `table`, as in `filter(...)`; only the
+matching rows are deleted. As in SQL, without `where` every row of the table is deleted. `where` can
+only be passed by name. The rows are selected before any is removed, so a predicate that cannot be
+evaluated rejects the statement without changing the table.
+
+The rows are removed from every column of the table and from its indexes, including sequence columns
+and string columns backed by a phylogenetic tree; a deleted primary key can be inserted again. The
+remaining rows are moved together in place, and only the parts of the table holding deleted rows
+are touched. Some memory of the deleted rows is not reclaimed: values of indexed string columns and
+insertions that no longer occur stay in their dictionaries, and the characters beyond the first 12
+of deleted plain strings stay in their chunk.
+
+It bumps the data version and, like `insertInto`, mutates the table in place, so it is not safe to
+run next to other queries against the same database; over the API it is issued through
+[`POST /admin/query`](api.md#post-adminquery).
+
 ### `createTable(table: symbol, columns: record, primaryKey?: symbol)`
 
 Creates a new, empty table with the given schema. Like `insertInto`, it is a write statement: it must

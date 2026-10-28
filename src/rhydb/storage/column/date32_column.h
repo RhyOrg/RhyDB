@@ -65,6 +65,9 @@ class Date32Column {
       const Buffer& new_values
    );
 
+   /// Removes the rows `compaction` deletes and renumbers the remaining ones, see `RowCompaction`.
+   void deleteRows(const RowCompaction& compaction);
+
    /// The per-chunk value buffers. Used by `DateBetween` to binary search a sorted column.
    [[nodiscard]] const ChunkedValueBuffer<common::Date32>& getValueBuffer() const { return values; }
 
@@ -79,6 +82,9 @@ class Date32Column {
    [[nodiscard]] common::Date32 getValue(RowId row_id) const { return values.at(row_id); }
 
   private:
+   /// Recomputes `is_sorted` and `last_appended_value` by scanning the whole column.
+   void recomputeSortedness();
+
    friend class boost::serialization::access;
    template <class Archive>
    void serialize(Archive& archive, const uint32_t /*version*/) {

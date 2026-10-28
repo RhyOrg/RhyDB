@@ -6,6 +6,7 @@
 #include <boost/serialization/access.hpp>
 #include <boost/serialization/vector.hpp>
 
+#include "rhydb/storage/column/row_compaction.h"
 #include "rhydb/storage/column/row_id.h"
 
 namespace rhydb::storage::column {
@@ -45,6 +46,9 @@ class ChunkedValueBuffer {
 
    /// The most recently appended value (the last value of the last chunk).
    [[nodiscard]] const T& lastValue() const { return chunks.back().back(); }
+
+   /// Removes the values of the rows `compaction` deletes, see `RowCompaction`.
+   void deleteRows(const RowCompaction& compaction) { compaction.compactChunks(chunks); }
 
   private:
    friend class boost::serialization::access;
