@@ -276,7 +276,9 @@ InsertionIndexChunk<SymbolType> InsertionIndexChunk<SymbolType>::build(
       insertion_position.insertions.reserve(rows_by_value.size());
       for (auto& [value, row_ids] : rows_by_value) {
          row_ids.runOptimizeAndShrink();
-         insertion_position.insertions.push_back(Insertion{value, std::move(row_ids)});
+         insertion_position.insertions.push_back(
+            Insertion{.value = value, .row_ids = std::move(row_ids)}
+         );
       }
       insertion_position.buildThreeMerIndex();
       result.insertion_positions.emplace(position_idx, std::move(insertion_position));
@@ -302,9 +304,15 @@ void InsertionIndex<SymbolType>::add(
    const std::string& insertion,
    uint16_t row_in_chunk
 ) {
-   collected_insertions[position_idx]
-      .try_emplace(insertion, roaring_util::RoaringContainer::withCapacity(0))
-      .first->second.addChecked(row_in_chunk);
+   auto& insertions_at_position = collected_insertions[position_idx];
+   auto insertion_it = insertions_at_position.find(insertion);
+   // Only allocate a container for an insertion not seen before in this chunk
+   if (insertion_it == insertions_at_position.end()) {
+      insertion_it =
+         insertions_at_position.emplace(insertion, roaring_util::RoaringContainer::withCapacity(0))
+            .first;
+   }
+   insertion_it->second.addChecked(row_in_chunk);
 }
 
 template <typename SymbolType>
