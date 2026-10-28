@@ -25,8 +25,9 @@ class RowCompaction {
    struct ChunkCompaction {
       /// The id of the chunk after the compaction, or nullopt if all its rows are deleted
       std::optional<uint16_t> new_chunk_id;
-      /// The rows of the chunk that are deleted (as rows within the chunk); empty if none is
-      roaring_util::RoaringContainer deleted_rows = roaring_util::RoaringContainer::withCapacity(0);
+      /// The position of every row of the chunk after the compaction, or nullopt if it is deleted;
+      /// empty unless the chunk keeps some, but not all of its rows
+      std::vector<std::optional<uint16_t>> new_rows;
    };
 
    std::vector<ChunkCompaction> chunks;
@@ -54,8 +55,7 @@ class RowCompaction {
 
    /// Whether chunk `chunk_id` keeps some, but not all of its rows.
    [[nodiscard]] bool losesSomeRows(uint16_t chunk_id) const {
-      const auto& chunk = chunks.at(chunk_id);
-      return chunk.new_chunk_id.has_value() && !chunk.deleted_rows.empty();
+      return !chunks.at(chunk_id).new_rows.empty();
    }
 
    /// The id of the row `row_id` after the compaction, or nullopt if it is deleted.
@@ -79,23 +79,23 @@ class RowCompaction {
       uint32_t chunk_size,
       const MoveRow& move_row
    ) const {
-      const roaring_util::RoaringContainerView deleted_rows{chunks.at(chunk_id).deleted_rows};
-      uint32_t deleted_before = 0;
-      uint32_t next_row = 0;
-      auto move_rows_up_to = [&](uint32_t end) {
-         if (deleted_before > 0) {
-            for (uint32_t row = next_row; row < end; ++row) {
-               move_row(row, row - deleted_before);
-            }
-         }
-      };
-      for (const uint32_t deleted_row : deleted_rows) {
-         move_rows_up_to(deleted_row);
-         ++deleted_before;
-         next_row = deleted_row + 1;
+      const auto& chunk = chunks.at(chunk_id);
+      if (chunk.new_rows.empty()) {
+         return chunk.new_chunk_id.has_value() ? chunk_size : 0;
       }
-      move_rows_up_to(chunk_size);
-      return chunk_size - deleted_before;
+      RHYDB_ASSERT_EQ(chunk.new_rows.size(), chunk_size);
+      uint32_t remaining_rows = 0;
+      for (uint32_t row = 0; row < chunk_size; ++row) {
+         const std::optional<uint16_t> new_row = chunk.new_rows[row];
+         if (!new_row.has_value()) {
+            continue;
+         }
+         if (*new_row != row) {
+            move_row(row, *new_row);
+         }
+         ++remaining_rows;
+      }
+      return remaining_rows;
    }
 
    /// Removes the elements of the chunks that lose all their rows from `per_chunk`, where

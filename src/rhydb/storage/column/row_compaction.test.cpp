@@ -141,3 +141,33 @@ TEST(RowCompaction, compactsBitsetAndRunContainersIntoValidContainers) {
    EXPECT_EQ(rhydb::Bitmap::fromChunkContainers(sparse_containers).toRoaring(), expected);
    EXPECT_EQ(sparse_containers[1].getTypecode(), ARRAY_CONTAINER_TYPE);
 }
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST(RowCompaction, renumbersManySmallContainersOfAFullChunk) {
+   // Deletes every other row of a full chunk, so that the deleted rows form a bitset container
+   constexpr uint32_t CHUNK_SIZE = uint32_t{UINT16_MAX} + 1;
+   roaring::Roaring deleted;
+   for (uint32_t row = 0; row < CHUNK_SIZE; row += 2) {
+      deleted.add(globalId(0, static_cast<uint16_t>(row)));
+   }
+   const RowCompaction compaction{RowLayout::of(CHUNK_SIZE), rhydb::Bitmap{&deleted}};
+   ASSERT_EQ(compaction.compactedLayout().chunkSize(0), CHUNK_SIZE / 2);
+
+   // One container per row, as a column with a distinct value in every row has
+   for (uint32_t row = 0; row < CHUNK_SIZE; ++row) {
+      auto container = RoaringContainer::withCapacity(1);
+      container.add(static_cast<uint16_t>(row));
+      compaction.compact(0, container);
+      const std::optional<RowId> mapped =
+         compaction.map({.chunk_id = 0, .row_in_chunk = static_cast<uint16_t>(row)});
+      if (row % 2 == 0) {
+         ASSERT_TRUE(container.empty()) << row;
+         ASSERT_EQ(mapped, std::nullopt) << row;
+      } else {
+         const auto new_row = static_cast<uint16_t>(row / 2);
+         ASSERT_EQ(container.getCardinality(), 1) << row;
+         ASSERT_TRUE(container.contains(new_row)) << row;
+         ASSERT_EQ(mapped, (RowId{0, new_row})) << row;
+      }
+   }
+}
