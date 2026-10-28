@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.17.3](https://github.com/RhyOrg/RhyDB/compare/v0.17.2...v0.17.3) (2026-10-28)
+
+
+### Features
+
+* **python:** allow running preprocessing directly from python bindings ([#1760](https://github.com/RhyOrg/RhyDB/issues/1760)) ([942e718](https://github.com/RhyOrg/RhyDB/commit/942e718e1b357c5794c87714022fdb42b4520527))
+* **rhydb:** add a delete operator to the query language ([#1764](https://github.com/RhyOrg/RhyDB/issues/1764)) ([cccacc8](https://github.com/RhyOrg/RhyDB/commit/cccacc8de96aff1a87f94b3853fcc49e9ccc0813))
+
 ## [0.17.2](https://github.com/RhyOrg/RhyDB/compare/v0.17.1...v0.17.2) (2026-10-26)
 
 
