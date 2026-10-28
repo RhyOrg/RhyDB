@@ -14,7 +14,7 @@ Checks: >-
   portability-*,
   readability-*,
   performance-*,
-  readability-magic-numbers,
+  clang-analyzer-cplusplus.NewDeleteLeaks,
   -modernize-use-trailing-return-type,
   -portability-avoid-pragma-once,
   -portability-template-virtual-member-function,
@@ -24,28 +24,19 @@ Checks: >-
   -abseil-string-find-str-contains,
   -bugprone-easily-swappable-parameters,
   -bugprone-unchecked-optional-access,
-  -bugprone-unused-return-value,
-  -bugprone-derived-method-shadowing-base-method,
   -readability-magic-numbers,
   -misc-const-correctness,
-  -bugprone-signed-bitwise,
-  -bugprone-throwing-static-initialization,
-  -misc-multiple-inheritance
+  -bugprone-throwing-static-initialization
 # Not using google-readability-avoid-underscore-in-googletest-name
 # because it also fails for test_name.
 # Not using abseil-string-find-str-contains because we don't want
 # to include more libraries.
-# Not using bugprone-unused-return-value because we get spurious
-# positives for overridden 'T& operator=(T&)'.
 # The following checks are disabled for now after the clang-tidy 23 upgrade;
 # they fire widely on existing code and should be addressed in follow-ups:
-# misc-const-correctness, bugprone-signed-bitwise,
-# bugprone-throwing-static-initialization, misc-multiple-inheritance
-# (misc-multiple-inheritance is a false positive on the Overloaded visitor idiom).
-# Not using bugprone-derived-method-shadowing-base-method: the optimizer passes
-# intentionally override PipelinePassBase's operator() overloads and re-import the
-# rest via `using PipelinePassBase<...>::operator();`, so nothing is actually hidden.
+# misc-const-correctness, bugprone-throwing-static-initialization
 CheckOptions:
+  - key: bugprone-signed-bitwise.IgnorePositiveIntegerLiterals
+    value: true
   - key: readability-identifier-length.IgnoredVariableNames
     value: '_|to|it|op'
   - key: readability-identifier-length.IgnoredParameterNames
