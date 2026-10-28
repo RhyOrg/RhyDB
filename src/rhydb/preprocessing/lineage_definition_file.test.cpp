@@ -1,8 +1,13 @@
 #include "rhydb/preprocessing/lineage_definition_file.h"
 
+#include <string>
+#include <utility>
+#include <vector>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <yaml-cpp/exceptions.h>
+#include <yaml-cpp/yaml.h>
 
 #include "rhydb/preprocessing/preprocessing_exception.h"
 
@@ -90,4 +95,73 @@ some_other_lineage:
          "some_value"
       ))
    );
+}
+
+namespace {
+
+/// The lineages of `yaml` as `fromYAMLString` reads them (with the streaming parser where it
+/// can), or the error message, next to those of the node-based `fromYAML`
+std::pair<std::string, std::string> parsedBothWays(const std::string& yaml) {
+   const auto describe = [](const LineageDefinitionFile& file) {
+      std::string description;
+      for (const auto& lineage : file.lineages) {
+         description += lineage.lineage_name.string + " parents:";
+         for (const auto& parent : lineage.parents) {
+            description += ' ' + parent.string;
+         }
+         description += " aliases:";
+         for (const auto& alias : lineage.aliases) {
+            description += ' ' + alias.string;
+         }
+         description += '\n';
+      }
+      return description;
+   };
+   const auto parse = [&](const auto& parse_function) -> std::string {
+      try {
+         return describe(parse_function());
+      } catch (const std::exception& exception) {
+         return std::string{"error: "} + exception.what();
+      }
+   };
+   return {
+      parse([&] { return LineageDefinitionFile::fromYAMLString(yaml); }),
+      parse([&] { return LineageDefinitionFile::fromYAML(YAML::Load(yaml)); }),
+   };
+}
+
+}  // namespace
+
+TEST(LineageDefinitionFile, readsDefinitionsLikeTheNodeBasedParser) {
+   const std::vector<std::string> definitions{
+      "",
+      "A:\n",
+      "A: {}\nB:\n  parents: [A]\n",
+      "A:\n  aliases:\n    - a\n    - \"quoted: alias\"\nB:\n  aliases: [b]\n  parents:\n  - A\n",
+      "{A: {parents: []}, B: {parents: [A], aliases: [x, y]}}",
+      "'1':\n  parents: []\n\"2\":\n  parents: ['1']\n3:\n  parents: [\"2\"]\n",
+      "A:\n  parents: []\nA:\n  parents: []\n",
+      // Not of the plain form: anchors and aliases, tags, nulls, scalars and invalid fields
+      "A: &anchor\n  parents: []\nB: *anchor\n",
+      "A:\n  parents: [&p X]\nB:\n  parents: [*p]\n",
+      "!!str A:\n  parents: []\n",
+      "A:\n  parents: [!!str 1]\n",
+      "A:\n  parents:\n",
+      "A:\n  parents: null\n",
+      "A:\n  parents: [~]\n",
+      "~:\n  parents: []\n",
+      "null:\n  parents: []\n",
+      "A: B\n",
+      "A:\n  parents: B\n",
+      "A:\n  parents: [[B]]\n",
+      "A:\n  parents: []\n  parents: [B]\n",
+      "A:\n  parent: []\n",
+      "- A\n- B\n",
+      "A\n",
+      "A:\n  parents: [B]\n---\nC:\n  parents: []\n",
+   };
+   for (const auto& definition : definitions) {
+      const auto [streamed, node_based] = parsedBothWays(definition);
+      EXPECT_EQ(streamed, node_based) << definition;
+   }
 }

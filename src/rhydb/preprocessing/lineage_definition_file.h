@@ -24,7 +24,7 @@ class LineageDefinitionFile {
 
    static LineageDefinitionFile fromYAMLFile(const std::filesystem::path& yaml_path);
 
-   static LineageDefinitionFile fromYAMLString(const std::string& yaml_string);
+   static LineageDefinitionFile fromYAMLString(std::string yaml_string);
 
    static LineageDefinitionFile fromYAML(const YAML::Node& yaml_node);
 };
