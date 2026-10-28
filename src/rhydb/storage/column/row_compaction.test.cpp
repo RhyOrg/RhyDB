@@ -104,6 +104,7 @@ TEST(RowCompaction, deletingAllRowsLeavesNoChunk) {
    EXPECT_EQ(compacted(compaction, layout.fullBitmap(), 2), roaring::Roaring{});
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST(RowCompaction, compactsBitsetAndRunContainersIntoValidContainers) {
    // Deletes three of every four rows of a chunk of 40000 rows, leaving 10000
    roaring::Roaring deleted;
