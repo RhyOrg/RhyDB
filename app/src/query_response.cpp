@@ -18,6 +18,7 @@
 #include <evobench/evobench.hpp>
 
 #include "bad_request.h"
+#include "response_body_stream.h"
 
 namespace rhydb_app {
 
@@ -75,7 +76,8 @@ void writeResult(
 void sendQueryResult(
    Poco::Net::HTTPServerRequest& request,
    Poco::Net::HTTPServerResponse& response,
-   const QueryResult& query_result
+   const QueryResult& query_result,
+   size_t response_buffer_limit
 ) {
    const auto request_id = response.get("X-Request-Id");
 
@@ -87,9 +89,9 @@ void sendQueryResult(
    const std::string accept_header = request.has("Accept") ? request.get("Accept") : "";
    const bool use_arrow_ipc = accept_header.contains("application/vnd.apache.arrow.stream");
 
+   ResponseBodyStream output_stream{request, response, response_buffer_limit};
    if (use_arrow_ipc) {
       response.setContentType("application/vnd.apache.arrow.stream");
-      std::ostream& output_stream = response.send();
       auto output_sink =
          rhydb::query_engine::exec_node::ArrowIpcSink::make(&output_stream, query_result.schema);
       if (!output_sink.ok()) {
@@ -98,10 +100,10 @@ void sendQueryResult(
       writeResult(query_result, *output_sink, request_id);
    } else {
       response.setContentType("application/x-ndjson");
-      std::ostream& output_stream = response.send();
       rhydb::query_engine::exec_node::NdjsonSink output_sink{&output_stream, query_result.schema};
       writeResult(query_result, output_sink, request_id);
    }
+   output_stream.finish();
 }
 
 }  // namespace rhydb_app
