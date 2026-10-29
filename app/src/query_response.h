@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <string>
@@ -13,6 +14,8 @@
 
 #include <rhydb/common/data_version.h>
 #include <rhydb/query_engine/exec_node/arrow_batch_sink.h>
+
+#include "response_body_stream.h"
 
 namespace rhydb_app {
 
@@ -38,13 +41,17 @@ struct QueryResult {
    std::function<arrow::Status(rhydb::query_engine::exec_node::ArrowBatchSink&)> write_to_sink;
 };
 
-/// Sets the `data-version` and `result-ordering` headers and streams the result in the format the
+/// Sets the `data-version` and `result-ordering` headers and sends the result in the format the
 /// `Accept` header asks for: Arrow IPC stream for `application/vnd.apache.arrow.stream`, NDJSON
 /// otherwise.
+///
+/// A result of up to `response_buffer_limit` bytes is sent with a `Content-Length`, a larger one is
+/// streamed (see ResponseBodyStream).
 void sendQueryResult(
    Poco::Net::HTTPServerRequest& request,
    Poco::Net::HTTPServerResponse& response,
-   const QueryResult& query_result
+   const QueryResult& query_result,
+   size_t response_buffer_limit = ResponseBodyStream::DEFAULT_BUFFER_LIMIT
 );
 
 }  // namespace rhydb_app
