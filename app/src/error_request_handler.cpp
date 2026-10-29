@@ -35,9 +35,9 @@ void sendErrorResponse(
 namespace {
 
 /// Called when the handler failed after it began sending its response, so the status line is out
-/// and an error response is no longer possible: a second `send()` fails Poco's assertions, and an
-/// error body would be appended to the partial result. Shutting the connection down is the only
-/// signal left.
+/// and an error response is no longer possible. Shutting the connection down keeps the client from
+/// mistaking the partial body for a complete one: a chunked body then lacks its terminating chunk,
+/// which Poco would otherwise write when the response is destroyed.
 /// Must be called while an exception is being handled.
 void abortStartedResponse(
    Poco::Net::HTTPServerRequest& request,
