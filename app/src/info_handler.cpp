@@ -23,9 +23,8 @@ void InfoHandler::get(
 
    response.set("data-version", database->getDataVersionTimestamp().value);
 
-   const nlohmann::json database_info = nlohmann::json(database->getDatabaseInfo());
+   const std::string database_info = nlohmann::json(database->getDatabaseInfo()).dump();
    response.setContentType("application/json");
-   std::ostream& out_stream = response.send();
-   out_stream << database_info;
+   response.sendBuffer(database_info.data(), database_info.size());
 }
 }  // namespace rhydb_app
