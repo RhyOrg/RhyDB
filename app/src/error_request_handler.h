@@ -26,6 +26,12 @@ struct ErrorResponse {
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ErrorResponse, error, message);
 
+/// Sends `error_response` as JSON body with a Content-Length. The status must be set before.
+void sendErrorResponse(
+   Poco::Net::HTTPServerResponse& response,
+   const ErrorResponse& error_response
+);
+
 class ErrorRequestHandler : public Poco::Net::HTTPRequestHandler {
   private:
    std::unique_ptr<Poco::Net::HTTPRequestHandler> wrapped_handler;
