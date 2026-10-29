@@ -12,6 +12,7 @@
 #include <string>
 
 #include <Poco/Net/HTTPRequestHandler.h>
+#include <Poco/Net/HTTPServerResponse.h>
 #include <nlohmann/json.hpp>
 
 #include <rhydb/config/runtime_config.h>
@@ -42,6 +43,9 @@ class ErrorRequestHandler : public Poco::Net::HTTPRequestHandler {
    ) override;
 
   private:
+   /// Maps the exception that is currently being handled to an error response
+   void respondToCurrentException(Poco::Net::HTTPServerResponse& response);
+
    std::optional<std::string> computeRetryAfterHintForStartupTime();
 };
 

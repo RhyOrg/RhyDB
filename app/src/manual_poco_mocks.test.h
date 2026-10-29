@@ -12,6 +12,8 @@ namespace rhydb_app::test {
 class MockResponse : public Poco::Net::HTTPServerResponse {
   public:
    std::stringstream out_stream;
+   /// Whether the status line and headers went out, as with Poco's own response
+   bool was_sent = false;
 
    void sendContinue() override;
 

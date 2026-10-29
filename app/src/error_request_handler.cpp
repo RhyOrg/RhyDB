@@ -1,11 +1,13 @@
 #include "error_request_handler.h"
 
 #include <exception>
+#include <string>
 #include <typeinfo>
 
 #include <cxxabi.h>
 
 #include <Poco/Net/HTTPResponse.h>
+#include <Poco/Net/HTTPServerRequestImpl.h>
 #include <Poco/Net/HTTPServerResponse.h>
 #include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
@@ -21,12 +23,55 @@ ErrorRequestHandler::ErrorRequestHandler(
     : wrapped_handler(std::move(wrapped_handler)),
       runtime_config(runtime_config) {}
 
+namespace {
+
+/// Called when the handler failed after it began sending its response, so the status line is out
+/// and an error response is no longer possible: a second `send()` fails Poco's assertions, and an
+/// error body would be appended to the partial result. Shutting the connection down is the only
+/// signal left.
+/// Must be called while an exception is being handled.
+void abortStartedResponse(
+   Poco::Net::HTTPServerRequest& request,
+   const Poco::Net::HTTPServerResponse& response
+) {
+   std::string reason;
+   try {
+      throw;
+   } catch (const std::exception& exception) {
+      reason = exception.what();
+   } catch (...) {
+      reason = abi::__cxa_current_exception_type()->name();
+   }
+   SPDLOG_ERROR(
+      "Request Id [{}] - failed after the response was started, aborting the connection: {}",
+      response.get("X-Request-Id", ""),
+      reason
+   );
+   if (auto* request_impl = dynamic_cast<Poco::Net::HTTPServerRequestImpl*>(&request)) {
+      request_impl->session().abort();
+   }
+}
+
+}  // namespace
+
 void ErrorRequestHandler::handleRequest(
    Poco::Net::HTTPServerRequest& request,
    Poco::Net::HTTPServerResponse& response
 ) {
    try {
       wrapped_handler->handleRequest(request, response);
+   } catch (...) {
+      if (response.sent()) {
+         abortStartedResponse(request, response);
+         return;
+      }
+      respondToCurrentException(response);
+   }
+}
+
+void ErrorRequestHandler::respondToCurrentException(Poco::Net::HTTPServerResponse& response) {
+   try {
+      throw;
    } catch (const rhydb_app::UninitializedDatabaseException& exception) {
       SPDLOG_INFO("Caught exception: {}", exception.what());
 

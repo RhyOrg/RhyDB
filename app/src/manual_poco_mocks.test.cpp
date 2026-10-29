@@ -9,6 +9,7 @@ namespace rhydb_app::test {
 void MockResponse::sendContinue() {}
 
 std::ostream& MockResponse::send() {
+   was_sent = true;
    return out_stream;
 }
 
@@ -22,7 +23,7 @@ void MockResponse::redirect(const std::string& uri, HTTPStatus status) {}
 void MockResponse::requireAuthentication(const std::string& realm) {}
 
 bool MockResponse::sent() const {
-   return true;
+   return was_sent;
 }
 
 MockRequest::MockRequest(MockResponse& mockResponse)
