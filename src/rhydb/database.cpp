@@ -27,6 +27,7 @@
 #include "rhydb/common/version.h"
 #include "rhydb/database_info.h"
 #include "rhydb/persistence/exception.h"
+#include "rhydb/query_engine/arrow_compute.h"
 #include "rhydb/query_engine/command/write_command.h"
 #include "rhydb/query_engine/exec_node/arrow_ipc_sink.h"
 #include "rhydb/query_engine/exec_node/ndjson_sink.h"
@@ -70,11 +71,13 @@ std::string tableDataFilename(std::string_view table_name) {
 }  // namespace
 
 Database::Database() {
+   query_engine::initializeArrowCompute();
    createMissingBuiltinTables();
 }
 
 Database::Database(schema::DatabaseSchema database_schema)
     : schema(std::move(database_schema)) {
+   query_engine::initializeArrowCompute();
    for (const auto& [table_name, table_schema] : schema.tables) {
       tables.emplace(table_name, std::make_shared<storage::Table>(table_name, table_schema));
    }
@@ -163,7 +166,10 @@ void Database::printAllData(const std::string& table_name) const {
    );
 
    auto query_plan = query_engine::Planner::planQuery(
-      std::move(query_node), tables, config::QueryOptions{}, "printAllData"
+      std::move(query_node),
+      tables,
+      config::RuntimeConfig::withDefaults().query_options,
+      "printAllData"
    );
    query_engine::exec_node::NdjsonSink output_sink{&std::cout, query_plan.results_schema};
    query_plan.executeAndWrite(output_sink, /*timeout_in_seconds=*/100);
@@ -426,8 +432,9 @@ std::string Database::executeQueryAsArrowIpc(const std::string& query_string) {
    };
 
    if (auto* command = std::get_if<query_engine::command::WriteCommandPtr>(&request)) {
-      const auto write_result =
-         valueOrThrow((*command)->execute(*this, config::QueryOptions{}, REQUEST_ID));
+      const auto write_result = valueOrThrow(
+         (*command)->execute(*this, config::RuntimeConfig::withDefaults().query_options, REQUEST_ID)
+      );
       auto output_sink = make_output_sink(write_result->schema());
       const auto status = query_engine::command::writeToSink(*write_result, output_sink);
       if (!status.ok()) {
@@ -441,7 +448,7 @@ std::string Database::executeQueryAsArrowIpc(const std::string& query_string) {
    auto query_plan = query_engine::Planner::planQuery(
       std::move(std::get<query_engine::operators::QueryNodePtr>(request)),
       tables,
-      config::QueryOptions{},
+      config::RuntimeConfig::withDefaults().query_options,
       REQUEST_ID
    );
    constexpr uint64_t DEFAULT_TIMEOUT_SECONDS = 120;

@@ -715,6 +715,21 @@ class TestCreatedTablesQueryable:
 class TestQuery:
     """Test the query method that returns PyArrow Tables."""
 
+    def test_query_orders_rows(self, empty_database):
+        """order() needs Arrow's compute functions, which the bindings register on import."""
+        empty_database.query("createTable(t, {id := string, age := int}, primaryKey := id)")
+        empty_database.append_data_from_string(
+            "t", '{"id": "b", "age": 1}\n{"id": "a", "age": 3}\n{"id": "c", "age": 2}'
+        )
+
+        assert empty_database.query("t.order(by := {id})").to_pydict() == {
+            "age": [3, 1, 2],
+            "id": ["a", "b", "c"],
+        }
+        assert empty_database.query("t.order(by := {age}).limit(2).project({id})").to_pydict() == {
+            "id": ["b", "c"],
+        }
+
     def test_query_returns_pyarrow_table(self, empty_database, main_reference_sequence):
         """Test that query returns a PyArrow Table."""
         create_sequence_table(
