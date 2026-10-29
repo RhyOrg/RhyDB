@@ -48,6 +48,10 @@ int Api::runApi(const rhydb::config::RuntimeConfig& runtime_config) {
    SPDLOG_INFO("Using {} threads for http connections", worker_threads_to_use);
    poco_parameter->setMaxThreads(worker_threads_to_use);
 
+   // Poco serves a kept-alive connection on one worker thread until it times out, even while it is
+   // idle, so with more clients than threads, requests would wait for idle connections
+   poco_parameter->setKeepAlive(false);
+
    // For better profiling, we do not want requests to allocate new threads in the thread pool.
    // Instead, just allocate all of them directly on start-up (by setting minCapacity)
    Poco::ThreadPool thread_pool(
