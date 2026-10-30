@@ -13,7 +13,9 @@
 #include <arrow/array/builder_base.h>
 #include <arrow/builder.h>
 #include <arrow/compute/api.h>
+#include <arrow/result.h>
 #include <arrow/scalar.h>
+#include <arrow/status.h>
 #include <arrow/table.h>
 #include <arrow/type.h>
 #include <fmt/format.h>
@@ -30,26 +32,20 @@ namespace rhydb::query_engine::saneql {
 
 namespace {
 
-// Building a table() literal goes through arrow::Result; this raises its failures as query errors.
-template <typename T>
-T tableCellOrThrow(arrow::Result<T> result) {
-   CHECK_RHYDB_QUERY(result.ok(), "table() could not be built: {}", result.status().ToString());
-   return std::move(result).ValueOrDie();
-}
-
 /// Evaluates a constant scalar expression (a cell of a table() literal) to a single Arrow scalar.
-std::shared_ptr<arrow::Scalar> evaluateConstantCell(
+arrow::Result<std::shared_ptr<arrow::Scalar>> evaluateConstantCell(
    const scalar_expressions::ScalarExpression& value
 ) {
-   const auto expression =
-      tableCellOrThrow(tableCellOrThrow(value.toArrowExpression()).Bind(arrow::Schema{{}}));
-   const auto datum = tableCellOrThrow(
-      arrow::compute::ExecuteScalarExpression(expression, arrow::ExecBatch{{}, 1})
+   ARROW_ASSIGN_OR_RAISE(auto expression, value.toArrowExpression());
+   ARROW_ASSIGN_OR_RAISE(auto bound_expression, expression.Bind(arrow::Schema{{}}));
+   ARROW_ASSIGN_OR_RAISE(
+      const auto datum,
+      arrow::compute::ExecuteScalarExpression(bound_expression, arrow::ExecBatch{{}, 1})
    );
    if (datum.is_scalar()) {
       return datum.scalar();
    }
-   return tableCellOrThrow(datum.make_array()->GetScalar(0));
+   return datum.make_array()->GetScalar(0);
 }
 
 /// The cell expressions of a single column of a table() literal, kept in row order. A null entry is
@@ -62,10 +58,14 @@ struct TableLiteralColumn {
 
 /// Converts one cell expression, enforcing that it is a constant (no column references). A `null`
 /// cell yields a nullptr scalar whose column type is resolved later.
-void addCell(TableLiteralColumn& column, const ast::Expression& cell, const Tables& tables) {
+arrow::Status addCell(
+   TableLiteralColumn& column,
+   const ast::Expression& cell,
+   const Tables& tables
+) {
    if (ast::isNullLiteral(cell)) {
       column.cells.push_back(nullptr);
-      return;
+      return arrow::Status::OK();
    }
    const auto error_context = fmt::format("table() cell for column '{}'", column.name);
    auto expression = convertToScalar(cell, {}, error_context, tables);
@@ -81,11 +81,15 @@ void addCell(TableLiteralColumn& column, const ast::Expression& cell, const Tabl
       cell.location.column
    );
    column.type = cell_type;
-   column.cells.push_back(evaluateConstantCell(*expression));
+   ARROW_ASSIGN_OR_RAISE(auto scalar, evaluateConstantCell(*expression));
+   column.cells.push_back(std::move(scalar));
+   return arrow::Status::OK();
 }
 
 /// Builds the Arrow array of a fully-collected column, filling `null` cells with a typed null.
-std::shared_ptr<arrow::Array> buildTableLiteralColumnArray(const TableLiteralColumn& column) {
+arrow::Result<std::shared_ptr<arrow::Array>> buildTableLiteralColumnArray(
+   const TableLiteralColumn& column
+) {
    CHECK_RHYDB_QUERY(
       column.type.has_value(),
       "table() column '{}' has only null values, so its type cannot be inferred; give at least one "
@@ -101,15 +105,9 @@ std::shared_ptr<arrow::Array> buildTableLiteralColumnArray(const TableLiteralCol
       scalars.push_back(cell == nullptr ? null_scalar : cell);
    }
 
-   auto builder = tableCellOrThrow(arrow::MakeBuilder(arrow_type));
-   const auto append_status = builder->AppendScalars(scalars);
-   CHECK_RHYDB_QUERY(
-      append_status.ok(),
-      "table() could not build column '{}': {}",
-      column.name,
-      append_status.ToString()
-   );
-   return tableCellOrThrow(builder->Finish());
+   ARROW_ASSIGN_OR_RAISE(auto builder, arrow::MakeBuilder(arrow_type));
+   ARROW_RETURN_NOT_OK(builder->AppendScalars(scalars));
+   return builder->Finish();
 }
 
 /// The rows of a table() literal: a non-empty set whose first element names the columns.
@@ -170,7 +168,7 @@ std::vector<TableLiteralColumn> makeTableColumns(
 }
 
 /// Every row after the first is positional and must have as many values as there are columns.
-void addPositionalRow(
+arrow::Status addPositionalRow(
    std::vector<TableLiteralColumn>& columns,
    const ast::Expression& row,
    const Tables& tables
@@ -191,11 +189,12 @@ void addPositionalRow(
       row.location.column
    );
    for (size_t value_index = 0; value_index < values.size(); ++value_index) {
-      addCell(columns.at(value_index), *values.at(value_index), tables);
+      ARROW_RETURN_NOT_OK(addCell(columns.at(value_index), *values.at(value_index), tables));
    }
+   return arrow::Status::OK();
 }
 
-operators::QueryNodePtr makeTableLiteralNode(
+arrow::Result<operators::QueryNodePtr> makeTableLiteralNode(
    const std::vector<TableLiteralColumn>& columns,
    size_t row_count
 ) {
@@ -204,7 +203,8 @@ operators::QueryNodePtr makeTableLiteralNode(
    arrow::ArrayVector arrays;
    arrays.reserve(columns.size());
    for (const auto& column : columns) {
-      arrays.push_back(buildTableLiteralColumnArray(column));
+      ARROW_ASSIGN_OR_RAISE(auto array, buildTableLiteralColumnArray(column));
+      arrays.push_back(std::move(array));
       output_schema.push_back({.name = column.name, .type = *column.type});
    }
 
@@ -213,21 +213,35 @@ operators::QueryNodePtr makeTableLiteralNode(
    return std::make_unique<operators::TableLiteralNode>(std::move(output_schema), std::move(table));
 }
 
-}  // namespace
-
-operators::QueryNodePtr buildTableLiteralNode(const BoundArguments& args, const Tables& tables) {
+/// Builds the table() QueryNode, returning any Arrow failure as a status for the caller to raise.
+arrow::Result<operators::QueryNodePtr> buildTableLiteralNodeOrStatus(
+   const BoundArguments& args,
+   const Tables& tables
+) {
    const auto& rows = tableRowsOrThrow(args.at("rows"));
    const auto& first_row = *rows.front();
    const auto& header = tableHeaderOrThrow(first_row);
    auto columns = makeTableColumns(header, first_row);
 
    for (size_t field_index = 0; field_index < header.fields.size(); ++field_index) {
-      addCell(columns.at(field_index), *header.fields.at(field_index).value, tables);
+      ARROW_RETURN_NOT_OK(
+         addCell(columns.at(field_index), *header.fields.at(field_index).value, tables)
+      );
    }
    for (size_t row_index = 1; row_index < rows.size(); ++row_index) {
-      addPositionalRow(columns, *rows.at(row_index), tables);
+      ARROW_RETURN_NOT_OK(addPositionalRow(columns, *rows.at(row_index), tables));
    }
    return makeTableLiteralNode(columns, rows.size());
+}
+
+}  // namespace
+
+operators::QueryNodePtr buildTableLiteralNode(const BoundArguments& args, const Tables& tables) {
+   auto result = buildTableLiteralNodeOrStatus(args, tables);
+   // Arrow failures while materializing the literal are user-input errors (e.g. a constant that
+   // cannot be evaluated), so surface them as query errors (HTTP 400) rather than internal errors.
+   CHECK_RHYDB_QUERY(result.ok(), "table() could not be built: {}", result.status().ToString());
+   return std::move(result).ValueOrDie();
 }
 
 }  // namespace rhydb::query_engine::saneql
