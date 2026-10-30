@@ -18,6 +18,7 @@
 #include "rhydb/query_engine/operators/phylo_subtree_node.h"
 #include "rhydb/query_engine/operators/project_node.h"
 #include "rhydb/query_engine/operators/schema_node.h"
+#include "rhydb/query_engine/operators/table_literal_node.h"
 #include "rhydb/query_engine/operators/table_scan_node.h"
 #include "rhydb/query_engine/operators/tables_node.h"
 #include "rhydb/query_engine/operators/transitive_closure_node.h"
@@ -93,6 +94,8 @@ decltype(auto) visit(QueryNode& node, Func&& func) {
          return std::forward<Func>(func)(static_cast<SchemaNode&>(node));
       case NodeKind::TABLES_LIST:
          return std::forward<Func>(func)(static_cast<TablesNode&>(node));
+      case NodeKind::TABLE_LITERAL:
+         return std::forward<Func>(func)(static_cast<TableLiteralNode&>(node));
       case NodeKind::BITMAP_AGGREGATION:
          return std::forward<Func>(func)(static_cast<BitmapAggregationNode&>(node));
       case NodeKind::TRANSITIVE_CLOSURE:

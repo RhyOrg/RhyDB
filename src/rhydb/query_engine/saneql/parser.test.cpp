@@ -411,6 +411,24 @@ TEST(SaneQLParser, parsesRecordWithSingleField) {
    EXPECT_EQ(expr->toString(), "{x:=1}");
 }
 
+TEST(SaneQLParser, parsesTableLiteralWithNestedBraces) {
+   // table({{a:=1,b:=2},{3,4}}) is a function call whose single positional argument is a set of
+   // rows: a record (named) row and a positional set row.
+   Parser parser("table({{a:=1,b:=2},{3,4}})");
+   auto expr = parser.parse();
+   ASSERT_TRUE(std::holds_alternative<ast::FunctionCall>(expr->value));
+   const auto& call = std::get<ast::FunctionCall>(expr->value);
+   EXPECT_EQ(call.function_name, "table");
+   ASSERT_EQ(call.positional_arguments.size(), 1);
+   const auto& rows_argument = *call.positional_arguments[0].value;
+   ASSERT_TRUE(std::holds_alternative<ast::SetLiteral>(rows_argument.value));
+   const auto& rows = std::get<ast::SetLiteral>(rows_argument.value).elements;
+   ASSERT_EQ(rows.size(), 2);
+   EXPECT_TRUE(std::holds_alternative<ast::RecordLiteral>(rows[0]->value));
+   EXPECT_TRUE(std::holds_alternative<ast::SetLiteral>(rows[1]->value));
+   EXPECT_EQ(expr->toString(), "table({{a:=1, b:=2}, {3, 4}})");
+}
+
 TEST(SaneQLParser, parsesNamedArgWithComplexValue) {
    Parser parser("f(x:=(a && b))");
    auto expr = parser.parse();
