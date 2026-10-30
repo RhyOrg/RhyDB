@@ -44,6 +44,15 @@ void assertHoldsHandlerType(std::unique_ptr<Poco::Net::HTTPRequestHandler>& hand
    EXPECT_NE(handler, nullptr);
    EXPECT_NE(dynamic_cast<HandlerType*>(handler.get()), nullptr);
 }
+
+std::unique_ptr<RhyDBRequestHandlerFactory> createRequestHandlerWithCors(
+   const std::string& cors_allowed_origins
+) {
+   auto handle = std::make_shared<rhydb_app::ActiveDatabase>();
+   auto runtime_config = rhydb::config::RuntimeConfig::withDefaults();
+   runtime_config.api_options.cors_allowed_origins = cors_allowed_origins;
+   return std::make_unique<RhyDBRequestHandlerFactory>(std::move(runtime_config), handle);
+}
 }  // namespace
 
 TEST(RhyDBRequestHandlerFactory, returns503ResponseWhenDatabaseIsNotInitializedOnInfoEndpoint) {
@@ -156,6 +165,48 @@ TEST(RhyDBRequestHandlerFactory, routesUnknownUrlToNotFoundHandler) {
    auto handler = under_test->routeRequest(uri);
 
    assertHoldsHandlerType<rhydb_app::NotFoundHandler>(handler);
+}
+
+// The CorsHandler runs before routing, so a preflight to any path (even an unknown one) is
+// answered with 204 and never reaches the database.
+TEST(RhyDBRequestHandlerFactory, preflightToUnknownPathReturns204WhenCorsEnabled) {
+   rhydb_app::test::MockResponse response;
+   rhydb_app::test::MockRequest request(response);
+   request.setMethod("OPTIONS");
+   request.setURI("/unknown");
+   request.set("Origin", "https://example.org");
+   request.set("Access-Control-Request-Method", "POST");
+
+   auto under_test = createRequestHandlerWithCors("https://example.org");
+   std::unique_ptr<Poco::Net::HTTPRequestHandler> handler{
+      under_test->createRequestHandler(request)
+   };
+
+   handler->handleRequest(request, response);
+
+   EXPECT_EQ(response.getStatus(), Poco::Net::HTTPResponse::HTTP_NO_CONTENT);
+   EXPECT_EQ(response.get("Access-Control-Allow-Origin"), "https://example.org");
+   // Preflights still go through RequestIdHandler, so they carry a request id.
+   EXPECT_TRUE(response.has("X-Request-Id"));
+}
+
+// A 404 response still carries CORS headers so the browser can read the error.
+TEST(RhyDBRequestHandlerFactory, notFoundResponseCarriesCorsHeadersWhenCorsEnabled) {
+   rhydb_app::test::MockResponse response;
+   rhydb_app::test::MockRequest request(response);
+   request.setMethod("GET");
+   request.setURI("/unknown");
+   request.set("Origin", "https://example.org");
+
+   auto under_test = createRequestHandlerWithCors("https://example.org");
+   std::unique_ptr<Poco::Net::HTTPRequestHandler> handler{
+      under_test->createRequestHandler(request)
+   };
+
+   handler->handleRequest(request, response);
+
+   EXPECT_EQ(response.getStatus(), Poco::Net::HTTPResponse::HTTP_NOT_FOUND);
+   EXPECT_EQ(response.get("Access-Control-Allow-Origin"), "https://example.org");
 }
 
 TEST(RhyDBRequestHandlerFactory, routesToHealth) {

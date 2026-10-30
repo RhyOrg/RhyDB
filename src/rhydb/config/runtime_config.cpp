@@ -10,6 +10,7 @@
 #include "config/source/yaml_file.h"
 #include "rhydb/common/json_type_definitions.h"
 #include "rhydb/config/config_defaults.h"
+#include "rhydb/config/cors_policy.h"
 
 namespace {
 using rhydb::config::ConfigKeyPath;
@@ -47,6 +48,9 @@ ConfigKeyPath softMemoryLimitOptionKey() {
 }
 ConfigKeyPath apiAllowAdminEndpointOptionKey() {
    return YamlFile::stringToConfigKeyPath("api.allowAdminEndpoint");
+}
+ConfigKeyPath apiCorsAllowedOriginsOptionKey() {
+   return YamlFile::stringToConfigKeyPath("api.corsAllowedOrigins");
 }
 ConfigKeyPath queryMaterializationOptionKey() {
    return YamlFile::stringToConfigKeyPath("query.materializationCutoff");
@@ -127,6 +131,15 @@ ConfigSpecification RuntimeConfig::getConfigSpecification() {
             "\n"
             "responds with 404 and the instance stays read-only."
          ),
+         ConfigAttributeSpecification::createWithoutDefault(
+            apiCorsAllowedOriginsOptionKey(),
+            ConfigValueType::STRING,
+            "Which origins are allowed for Cross-Origin Resource Sharing (CORS). \n"
+            "Unset by default, which disables CORS so no CORS headers are sent. \n"
+            "Set to '*' to allow any origin, or to a comma-separated list of exact origins \n"
+            "(e.g. 'https://example.org,https://other.org:8443'). Origins must not have a \n"
+            "trailing slash. When enabled, preflight (OPTIONS) requests are answered."
+         ),
          ConfigAttributeSpecification::createWithDefault(
             queryMaterializationOptionKey(),
             ConfigValue::fromUint32(DEFAULT_ARROW_BATCH_SIZE),
@@ -136,6 +149,13 @@ ConfigSpecification RuntimeConfig::getConfigSpecification() {
          ),
       },
    };
+}
+
+void RuntimeConfig::validate() const {
+   // Parse eagerly so a malformed value fails at startup rather than on the first request.
+   if (api_options.cors_allowed_origins.has_value()) {
+      CorsPolicy::parse(api_options.cors_allowed_origins.value());
+   }
 }
 
 RuntimeConfig RuntimeConfig::withDefaults() {
@@ -188,6 +208,9 @@ void RuntimeConfig::overwriteFrom(const VerifiedConfigAttributes& config_source)
    if (auto var = config_source.getBool(apiAllowAdminEndpointOptionKey())) {
       api_options.allow_admin_endpoint = var.value();
    }
+   if (auto var = config_source.getString(apiCorsAllowedOriginsOptionKey())) {
+      api_options.cors_allowed_origins = var.value();
+   }
    if (auto var = config_source.getUint32(queryMaterializationOptionKey())) {
       query_options.materialization_cutoff = var.value();
    }
@@ -204,7 +227,8 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
    address,
    port,
    estimated_startup_end,
-   allow_admin_endpoint
+   allow_admin_endpoint,
+   cors_allowed_origins
 )
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(rhydb::config::QueryOptions, materialization_cutoff)
