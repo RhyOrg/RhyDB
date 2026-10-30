@@ -1,0 +1,47 @@
+name: Monthly Changelog Reminder
+
+on:
+  schedule:
+    # 08:00 UTC on the first day of every month
+    - cron: "0 8 1 * *"
+  workflow_dispatch:
+    inputs:
+      month:
+        description: "Month to create the reminder for (YYYY-MM). Defaults to the previous month."
+        required: false
+
+jobs:
+  createReminder:
+    name: Create Monthly Changelog Reminder Issue
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Create reminder issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          MONTH_INPUT: ${{ inputs.month }}
+        run: |
+          month=${MONTH_INPUT:-$(date -u -d "$(date -u +%Y-%m-01) -1 month" +%Y-%m)}
+          title="Publish aggregated changelog for $month"
+
+          if gh issue list --state all --search "\"$title\" in:title" --json title --jq '.[].title' | grep --quiet --fixed-strings --line-regexp "$title"; then
+            echo "Issue '$title' already exists, nothing to do."
+            exit 0
+          fi
+
+          body_file=$(mktemp)
+          cat > "$body_file" <<EOF
+          RhyDB releases very often, so the individual changelog entries are small and spread across many versions.
+          This issue wants to create a document outlining the changes of **$month**.
+
+          - [ ] Summarize the most important changes (highlight breaking changes and required migrations)
+          - [ ] Publish the summary
+          - [ ] Close this issue
+
+          Sources: [CHANGELOG.md](https://github.com/$GH_REPO/blob/main/CHANGELOG.md), [commit history](https://github.com/$GH_REPO/commits/main)
+          EOF
+
+          gh label create changelog-digest --color 0E8A16 --description "Monthly aggregated changelog" --force
+          gh issue create --title "$title" --body-file "$body_file" --label changelog-digest
