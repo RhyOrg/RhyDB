@@ -730,6 +730,24 @@ class TestQuery:
             "id": ["b", "c"],
         }
 
+    def test_query_with_regex_after_importing_pyarrow_first(self):
+        """like() runs RE2, which uses Abseil. pyarrow ships its own Abseil, which must not replace
+        the one of the bindings when pyarrow is imported first. Runs in a subprocess to control the
+        import order and to turn a crash into a failure."""
+        import subprocess
+        import sys
+        script = """
+import pyarrow
+from rhydb import Database
+db = Database()
+db.query("createTable(t, {id := string, name := string}, primaryKey := id)")
+db.append_data_from_string("t", '{"id": "1", "name": "first:main"}\\n{"id": "2", "name": "x"}')
+print(db.query("t.filter(name.like('.*:main')).project({name})").to_pydict())
+"""
+        result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr[-2000:]
+        assert "{'name': ['first:main']}" in result.stdout
+
     def test_query_returns_pyarrow_table(self, empty_database, main_reference_sequence):
         """Test that query returns a PyArrow Table."""
         create_sequence_table(
