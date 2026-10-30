@@ -19,6 +19,16 @@ uint32_t globalId(uint16_t chunk_id, uint16_t row_in_chunk) {
    return RowId{.chunk_id = chunk_id, .row_in_chunk = row_in_chunk}.toGlobal();
 }
 
+/// Every valid global row id of `layout`
+roaring::Roaring allRows(const RowLayout& layout) {
+   roaring::Roaring result;
+   for (size_t chunk_id = 0; chunk_id < layout.numChunks(); ++chunk_id) {
+      const uint64_t start = RowId::chunkStart(static_cast<uint16_t>(chunk_id));
+      result.addRange(start, start + layout.chunkSize(static_cast<uint16_t>(chunk_id)));
+   }
+   return result;
+}
+
 /// Splits `rows` into one container per chunk of a layout with `num_chunks` chunks.
 std::vector<RoaringContainer> perChunk(const roaring::Roaring& rows, size_t num_chunks) {
    std::vector<RoaringContainer> result;
@@ -97,11 +107,11 @@ TEST(RowCompaction, keepsChunksWithoutDeletedRowsAsTheyAre) {
 }
 
 TEST(RowCompaction, deletingAllRowsLeavesNoChunk) {
-   RowLayout layout = RowLayout::of(2, 1);
-   const RowCompaction compaction{layout, rhydb::Bitmap{layout.fullBitmap()}};
+   const RowLayout layout = RowLayout::of(2, 1);
+   const RowCompaction compaction{layout, rhydb::Bitmap{allRows(layout)}};
 
    EXPECT_EQ(compaction.compactedLayout().numChunks(), 0);
-   EXPECT_EQ(compacted(compaction, layout.fullBitmap(), 2), roaring::Roaring{});
+   EXPECT_EQ(compacted(compaction, allRows(layout), 2), roaring::Roaring{});
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -115,11 +125,11 @@ TEST(RowCompaction, compactsBitsetAndRunContainersIntoValidContainers) {
    }
    const RowCompaction compaction{RowLayout::of(3, 40000), rhydb::Bitmap{&deleted}};
 
-   auto all_rows = perChunk(RowLayout::of(3, 40000).fullBitmap(), 2);
+   auto all_rows = perChunk(allRows(RowLayout::of(3, 40000)), 2);
    compaction.compact(all_rows);
    EXPECT_EQ(
       rhydb::Bitmap::fromChunkContainers(all_rows).toRoaring(),
-      compaction.compactedLayout().fullBitmap()
+      allRows(compaction.compactedLayout())
    );
    EXPECT_EQ(all_rows[1].getTypecode(), RUN_CONTAINER_TYPE);
 
