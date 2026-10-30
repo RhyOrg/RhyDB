@@ -6,12 +6,12 @@
 #include <functional>
 #include <queue>
 #include <span>
-#include <type_traits>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include <roaring/roaring.hh>
+
+#include "rhydb/common/panic.h"
 
 namespace rhydb {
 
@@ -30,28 +30,6 @@ void Bitmap::pushIfNonEmpty(
    }
    out_keys.push_back(key);
    out_containers.emplace_back(roaring_util::RoaringContainer{container, cardinality, typecode});
-}
-
-roaring_util::RoaringContainerView Bitmap::viewOf(const Container& container) {
-   return std::visit(
-      [](const auto& held) { return roaring_util::RoaringContainerView{held}; }, container
-   );
-}
-
-Bitmap::Container Bitmap::copyContainer(const Container& container) {
-   return std::visit(
-      [](const auto& held) -> Container {
-         using Held = std::decay_t<decltype(held)>;
-         if constexpr (std::is_same_v<Held, roaring_util::RoaringContainerView>) {
-            return held;
-         } else {
-            return roaring_util::RoaringContainer::clonedFrom(
-               held.rawContainer(), held.getTypecode()
-            );
-         }
-      },
-      container
-   );
 }
 
 Bitmap::Bitmap(const roaring::Roaring* bitmap) {
@@ -95,37 +73,37 @@ Bitmap::Bitmap(roaring::Roaring&& bitmap) {
    roaring::internal::ra_clear_without_containers(&roaring_array);
 }
 
-Bitmap::Bitmap(const Bitmap& other)
-    : keys(other.keys) {
-   containers.reserve(other.containers.size());
-   for (const auto& container : other.containers) {
-      containers.push_back(copyContainer(container));
-   }
-}
+Bitmap::Bitmap(const Bitmap& other) = default;
 
-Bitmap& Bitmap::operator=(const Bitmap& other) {
-   if (this != &other) {
-      std::vector<Container> containers_copy;
-      containers_copy.reserve(other.containers.size());
-      for (const auto& container : other.containers) {
-         containers_copy.push_back(copyContainer(container));
-      }
-      keys = other.keys;
-      containers = std::move(containers_copy);
-   }
-   return *this;
-}
+Bitmap& Bitmap::operator=(const Bitmap& other) = default;
 
 uint64_t Bitmap::cardinality() const {
    uint64_t total = 0;
    for (const auto& container : containers) {
-      total += viewOf(container).getCardinality();
+      total += container.getCardinality();
    }
    return total;
 }
 
 bool Bitmap::isEmpty() const {
    return keys.empty();
+}
+
+Bitmap::Container Bitmap::containerAt(uint16_t key) const {
+   const auto key_it = std::ranges::lower_bound(keys, key);
+   if (key_it == keys.end() || *key_it != key) {
+      return Container{};
+   }
+   return containers[static_cast<size_t>(key_it - keys.begin())];
+}
+
+void Bitmap::append(uint16_t key, Container container) {
+   RHYDB_ASSERT(keys.empty() || keys.back() < key);
+   if (container.empty()) {
+      return;
+   }
+   keys.push_back(key);
+   containers.push_back(std::move(container));
 }
 
 uint64_t Bitmap::andCardinality(const Bitmap& other) const {
@@ -138,8 +116,8 @@ uint64_t Bitmap::andCardinality(const Bitmap& other) const {
       } else if (keys[left] > other.keys[right]) {
          ++right;
       } else {
-         const auto left_view = viewOf(containers[left]);
-         const auto right_view = viewOf(other.containers[right]);
+         const auto left_view = containers[left].view();
+         const auto right_view = other.containers[right].view();
          total += static_cast<uint64_t>(roaring::internal::container_and_cardinality(
             left_view.rawContainer(),
             left_view.getTypecode(),
@@ -164,8 +142,8 @@ Bitmap& Bitmap::operator&=(const Bitmap& other) {
       } else if (keys[left] > other.keys[right]) {
          ++right;
       } else {
-         const auto left_view = viewOf(containers[left]);
-         const auto right_view = viewOf(other.containers[right]);
+         const auto left_view = containers[left].view();
+         const auto right_view = other.containers[right].view();
          uint8_t result_typecode = 0;
          auto* result_container = roaring::internal::container_and(
             left_view.rawContainer(),
@@ -199,8 +177,8 @@ Bitmap& Bitmap::operator-=(const Bitmap& other) {
       } else if (keys[left] > other.keys[right]) {
          ++right;
       } else {
-         const auto left_view = viewOf(containers[left]);
-         const auto right_view = viewOf(other.containers[right]);
+         const auto left_view = containers[left].view();
+         const auto right_view = other.containers[right].view();
          uint8_t result_typecode = 0;
          auto* result_container = roaring::internal::container_andnot(
             left_view.rawContainer(),
@@ -233,11 +211,11 @@ Bitmap& Bitmap::operator|=(const Bitmap& other) {
          ++left;
       } else if (left >= keys.size() || keys[left] > other.keys[right]) {
          result_keys.push_back(other.keys[right]);
-         result_containers.push_back(copyContainer(other.containers[right]));
+         result_containers.push_back(other.containers[right]);
          ++right;
       } else {
-         const auto left_view = viewOf(containers[left]);
-         const auto right_view = viewOf(other.containers[right]);
+         const auto left_view = containers[left].view();
+         const auto right_view = other.containers[right].view();
          uint8_t result_typecode = 0;
          auto* result_container = roaring::internal::container_or(
             left_view.rawContainer(),
@@ -268,8 +246,8 @@ Bitmap Bitmap::operator&(const Bitmap& other) const {
       } else if (keys[left] > other.keys[right]) {
          ++right;
       } else {
-         const auto left_view = viewOf(containers[left]);
-         const auto right_view = viewOf(other.containers[right]);
+         const auto left_view = containers[left].view();
+         const auto right_view = other.containers[right].view();
          uint8_t result_typecode = 0;
          auto* result_container = roaring::internal::container_and(
             left_view.rawContainer(),
@@ -325,7 +303,7 @@ Bitmap Bitmap::fastUnion(const std::vector<Bitmap>& bitmaps) {
          heap.pop();
          const Bitmap& bitmap = bitmaps[cursor.bitmap_idx];
          last_in_group = &bitmap.containers[cursor.container_position];
-         group_views.push_back(viewOf(*last_in_group));
+         group_views.push_back(last_in_group->view());
          if (cursor.container_position + 1 < bitmap.keys.size()) {
             heap.push({
                .key = bitmap.keys[cursor.container_position + 1],
@@ -338,7 +316,7 @@ Bitmap Bitmap::fastUnion(const std::vector<Bitmap>& bitmaps) {
       result.keys.push_back(key);
       if (group_views.size() == 1) {
          // A container only one input has for this key is taken over as is, a view staying a view
-         result.containers.push_back(copyContainer(*last_in_group));
+         result.containers.push_back(*last_in_group);
       } else {
          result.containers.emplace_back(roaring_util::fastUnion(group_views));
       }
@@ -396,7 +374,7 @@ Bitmap Bitmap::fromChunkContainers(
 roaring::Roaring Bitmap::toRoaring() const {
    roaring::Roaring result;
    for (size_t idx = 0; idx < keys.size(); ++idx) {
-      const auto container_view = viewOf(containers[idx]);
+      const auto container_view = containers[idx].view();
       auto* clone = roaring::internal::container_clone(
          container_view.rawContainer(), container_view.getTypecode()
       );

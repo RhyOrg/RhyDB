@@ -51,6 +51,9 @@ class RoaringContainer {
    /// Creates an empty container sized for `capacity` elements
    static RoaringContainer withCapacity(int32_t capacity);
 
+   /// Creates a container holding exactly the values in `[start, end)`, with `end <= 2^16`
+   static RoaringContainer ofRange(uint32_t start, uint32_t end);
+
    /// Deep-copies an externally owned container and computes its cardinality.
    static RoaringContainer clonedFrom(
       const roaring::internal::container_t* source,
@@ -287,6 +290,10 @@ class RoaringContainerView {
 [[nodiscard]] uint32_t andCardinality(RoaringContainerView lhs, RoaringContainerView rhs);
 [[nodiscard]] RoaringContainer operator-(RoaringContainerView lhs, RoaringContainerView rhs);
 [[nodiscard]] RoaringContainer operator|(RoaringContainerView lhs, RoaringContainerView rhs);
+
+/// The values in `[0, universe_size)` that `view` does not hold, with `universe_size <= 2^16`.
+/// `view` must not hold values outside of that range.
+[[nodiscard]] RoaringContainer complement(RoaringContainerView view, uint32_t universe_size);
 
 /// Union of any number of containers. Like roaring's `or_many`, more than two containers are OR-ed
 /// lazily -- without maintaining the cardinality after every step -- into a bitset, which is
