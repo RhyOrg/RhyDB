@@ -51,6 +51,18 @@ foreach(module ${CYTHON_MODULES})
     # library directly pulls in its objects and usage requirements.
     target_link_libraries(${module} PRIVATE rhydblib)
 
+    # Export only PyInit_<module>, the extension's sole entry point (as pybind11 and nanobind do by
+    # default). Otherwise the symbols of statically linked dependencies leak out, and on macOS the
+    # loader merges their weak definitions with those of previously loaded libraries. E.g. after
+    # `import pyarrow`, RE2 would call pyarrow's incompatible Abseil and crash.
+    if(APPLE)
+        target_link_options(${module} PRIVATE "LINKER:-exported_symbol,_PyInit_${module}")
+    elseif(UNIX)
+        set(version_script "${CMAKE_BINARY_DIR}/python/${module}.version")
+        file(WRITE ${version_script} "{ global: PyInit_${module}; local: *; };\n")
+        target_link_options(${module} PRIVATE "LINKER:--version-script=${version_script}")
+    endif()
+
     # Set output name and location
     set_target_properties(${module} PROPERTIES
             PREFIX ""
