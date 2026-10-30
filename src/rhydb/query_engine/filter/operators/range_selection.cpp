@@ -1,6 +1,6 @@
 #include "rhydb/query_engine/filter/operators/range_selection.h"
 
-#include <roaring/roaring.hh>
+#include <algorithm>
 #include <string>
 #include <utility>
 #include <vector>
@@ -24,8 +24,16 @@ RangeSelection::Range::Range(RowId start, RowId end)
       end(end) {}
 
 RangeSelection::RangeSelection(std::vector<Range>&& ranges, storage::column::RowLayout row_layout)
-    : ranges(std::move(ranges)),
-      row_layout(std::move(row_layout)) {}
+    : Operator(std::move(row_layout)),
+      ranges(std::move(ranges)) {
+   for (const auto& range : this->ranges) {
+      RHYDB_ASSERT(
+         (range.end.chunk_id < this->row_layout.numChunks() &&
+          range.end.row_in_chunk < this->row_layout.chunkSize(range.end.chunk_id)) ||
+         (range.end.chunk_id == this->row_layout.numChunks() && range.end.row_in_chunk == 0)
+      );
+   }
+}
 
 RangeSelection::~RangeSelection() noexcept = default;
 
@@ -49,39 +57,23 @@ Type RangeSelection::type() const {
    return RANGE_SELECTION;
 }
 
-Bitmap RangeSelection::evaluate() const {
-   EVOBENCH_SCOPE("RangeSelection", "evaluate");
-   roaring::Roaring result_bitmap;
+roaring_util::CopyOnWriteContainer RangeSelection::evaluateChunk(uint16_t chunk_id) const {
+   EVOBENCH_SCOPE("RangeSelection", "evaluateChunk");
+   // The global row ids of the chunk's rows. A range spanning several chunks also spans the unused
+   // row ids between them, which this intersection drops.
+   const uint32_t chunk_start = RowId::chunkStart(chunk_id);
+   const uint32_t chunk_end = chunk_start + row_layout.chunkSize(chunk_id);
+   roaring_util::CopyOnWriteContainer result;
    for (const auto& [start, end] : ranges) {
-      RHYDB_ASSERT(
-         (end.chunk_id < row_layout.numChunks() &&
-          end.row_in_chunk < row_layout.chunkSize(end.chunk_id)) ||
-         (end.chunk_id == row_layout.numChunks() && end.row_in_chunk == 0)
-      );
-      if (start.chunk_id == end.chunk_id) {
-         result_bitmap.addRange(start.toGlobal(), end.toGlobal());
-      } else {
-         // Add all chunks [start.chunk_id, ..., end.chunk_id]. The first and last possibly partial
-
-         auto end_of_start_chunk =
-            RowId::chunkStart(start.chunk_id) + row_layout.chunkSize(start.chunk_id);
-         if (start.toGlobal() != end_of_start_chunk) {
-            result_bitmap.addRange(start.toGlobal(), end_of_start_chunk);
-         }
-
-         for (uint16_t chunk_id = start.chunk_id + 1; chunk_id < end.chunk_id; chunk_id++) {
-            auto chunk_start = RowId::chunkStart(chunk_id);
-            auto chunk_end = RowId::chunkStart(chunk_id) + row_layout.chunkSize(chunk_id);
-            result_bitmap.addRange(chunk_start, chunk_end);
-         }
-
-         auto start_of_end_chunk = RowId{.chunk_id = end.chunk_id, .row_in_chunk = 0};
-         if (end != start_of_end_chunk) {
-            result_bitmap.addRange(start_of_end_chunk.toGlobal(), end.toGlobal());
-         }
+      const uint32_t range_start = std::max(start.toGlobal(), chunk_start);
+      const uint32_t range_end = std::min(end.toGlobal(), chunk_end);
+      if (range_start < range_end) {
+         result |= roaring_util::RoaringContainerView{roaring_util::RoaringContainer::ofRange(
+            range_start - chunk_start, range_end - chunk_start
+         )};
       }
    }
-   return Bitmap{std::move(result_bitmap)};
+   return result;
 }
 
 std::unique_ptr<Operator> RangeSelection::negate(

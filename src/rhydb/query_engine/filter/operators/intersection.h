@@ -21,7 +21,6 @@ class Intersection : public Operator {
 
    OperatorVector children;
    OperatorVector negated_children;
-   storage::column::RowLayout row_layout;
 
   public:
    explicit Intersection(
@@ -43,7 +42,7 @@ class Intersection : public Operator {
 
    [[nodiscard]] Type type() const override;
 
-   [[nodiscard]] Bitmap evaluate() const override;
+   [[nodiscard]] roaring_util::CopyOnWriteContainer evaluateChunk(uint16_t chunk_id) const override;
 
    static std::unique_ptr<Operator> negate(std::unique_ptr<Intersection>&& intersection);
 };

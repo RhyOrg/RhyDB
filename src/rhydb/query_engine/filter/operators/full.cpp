@@ -11,7 +11,7 @@
 namespace rhydb::query_engine::filter::operators {
 
 Full::Full(storage::column::RowLayout row_layout)
-    : row_layout(std::move(row_layout)) {}
+    : Operator(std::move(row_layout)) {}
 
 Full::~Full() noexcept = default;
 
@@ -23,9 +23,10 @@ Type Full::type() const {
    return FULL;
 }
 
-Bitmap Full::evaluate() const {
-   EVOBENCH_SCOPE("Full", "evaluate");
-   return Bitmap{row_layout.fullBitmap()};
+roaring_util::CopyOnWriteContainer Full::evaluateChunk(uint16_t chunk_id) const {
+   return roaring_util::CopyOnWriteContainer{
+      roaring_util::RoaringContainer::ofRange(0, row_layout.chunkSize(chunk_id))
+   };
 }
 
 std::unique_ptr<Operator> Full::negate(std::unique_ptr<Full>&& full) {

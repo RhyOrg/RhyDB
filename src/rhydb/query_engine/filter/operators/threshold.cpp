@@ -4,14 +4,13 @@
 #include <utility>
 #include <vector>
 
-#include <roaring/roaring.hh>
-
 #include "evobench/evobench.hpp"
 #include "rhydb/common/bitmap.h"
 #include "rhydb/common/string_utils.h"
 #include "rhydb/query_engine/filter/operators/complement.h"
 #include "rhydb/query_engine/filter/operators/operator.h"
 #include "rhydb/query_engine/query_compilation_exception.h"
+#include "rhydb/roaring_util/roaring_container.h"
 
 namespace rhydb::query_engine::filter::operators {
 
@@ -22,11 +21,11 @@ Threshold::Threshold(
    bool match_exactly,
    storage::column::RowLayout row_layout
 )
-    : non_negated_children(std::move(non_negated_children)),
+    : Operator(std::move(row_layout)),
+      non_negated_children(std::move(non_negated_children)),
       negated_children(std::move(negated_children)),
       number_of_matchers(number_of_matchers),
-      match_exactly(match_exactly),
-      row_layout(std::move(row_layout)) {
+      match_exactly(match_exactly) {
    if (number_of_matchers >= this->non_negated_children.size() + this->negated_children.size()) {
       throw QueryCompilationException(
          "Compilation Error: number_of_matchers must be less than the number of children of a "
@@ -61,8 +60,11 @@ Type Threshold::type() const {
    return THRESHOLD;
 }
 
-Bitmap Threshold::evaluate() const {
-   EVOBENCH_SCOPE("Threshold", "evaluate");
+roaring_util::CopyOnWriteContainer Threshold::evaluateChunk(uint16_t chunk_id) const {
+   EVOBENCH_SCOPE("Threshold", "evaluateChunk");
+   using roaring_util::CopyOnWriteContainer;
+   using roaring_util::RoaringContainerView;
+   const uint32_t chunk_size = row_layout.chunkSize(chunk_id);
    uint32_t dp_table_size;
    if (this->match_exactly) {
       // We need to keep track of the ones that matched too many
@@ -70,15 +72,13 @@ Bitmap Threshold::evaluate() const {
    } else {
       dp_table_size = number_of_matchers;
    }
-   std::vector<roaring::Roaring> bitmaps(dp_table_size);
+   std::vector<CopyOnWriteContainer> containers(dp_table_size);
    if (non_negated_children.empty()) {
-      bitmaps[0] = negated_children[0]->evaluate().toRoaring();
+      containers[0] = CopyOnWriteContainer{
+         roaring_util::complement(negated_children[0]->evaluateChunk(chunk_id).view(), chunk_size)
+      };
    } else {
-      bitmaps[0] = non_negated_children[0]->evaluate().toRoaring();
-   }
-
-   if (non_negated_children.empty()) {
-      row_layout.complementInPlace(bitmaps[0]);
+      containers[0] = non_negated_children[0]->evaluateChunk(chunk_id);
    }
 
    // NOLINTBEGIN(readability-identifier-length)
@@ -91,16 +91,16 @@ Bitmap Threshold::evaluate() const {
    );  // Number of loop iterations
 
    for (int i = 1; i < non_negated_child_count; ++i) {
-      const roaring::Roaring bitmap = non_negated_children[i]->evaluate().toRoaring();
+      const CopyOnWriteContainer child = non_negated_children[i]->evaluateChunk(chunk_id);
       // positions higher than (i-1) cannot have been reached yet, are therefore all 0s and the
       // conjunction would return 0
       // positions lower than n - k + i - 1 are unable to affect the result, because only (k - i)
       // iterations are left
       for (int j = std::min(max_table_index, i); j > std::max(0, n - k + i - 1); --j) {
-         bitmaps[j] |= bitmaps[j - 1] & bitmap;
+         containers[j] |= RoaringContainerView{containers[j - 1].view() & child.view()};
       }
       if (k - i > n - 1) {
-         bitmaps[0] |= bitmap;
+         containers[0] |= child.view();
       }
    }
 
@@ -112,29 +112,28 @@ Bitmap Threshold::evaluate() const {
    // (Number of children left is less than the distance we need to cross to reach the result)
    const int took_first_offset = non_negated_children.empty() ? 1 : 0;
    for (int local_i = took_first_offset; local_i < negated_child_count; ++local_i) {
-      roaring::Roaring bitmap = negated_children[local_i]->evaluate().toRoaring();
+      const CopyOnWriteContainer child = negated_children[local_i]->evaluateChunk(chunk_id);
       const int i = local_i + non_negated_child_count;
       // positions higher than (i-1) cannot have been reached yet, are therefore all 0s and the
       // conjunction would return 0
       // positions lower than (n-1) - (k-i) are unable to affect the result, because only (k-i)
       // iterations are left
       for (int j = std::min(max_table_index, i); j > std::max(0, n - k + i - 1); --j) {
-         bitmaps[j] |= bitmaps[j - 1] - bitmap;
+         containers[j] |= RoaringContainerView{containers[j - 1].view() - child.view()};
       }
       if (k - i > n - 1) {
-         row_layout.complementInPlace(bitmap);
-         bitmaps[0] |= bitmap;
+         containers[0] |= RoaringContainerView{roaring_util::complement(child.view(), chunk_size)};
       }
    }
    // NOLINTEND(readability-identifier-length)
 
    if (this->match_exactly) {
       // Because exact, we remove all that have too many
-      bitmaps[number_of_matchers - 1] -= bitmaps[number_of_matchers];
+      containers[number_of_matchers - 1] -= containers[number_of_matchers].view();
 
-      return Bitmap(std::move(bitmaps[number_of_matchers - 1]));
+      return std::move(containers[number_of_matchers - 1]);
    }
-   return Bitmap(std::move(bitmaps.back()));
+   return std::move(containers.back());
 }
 
 std::unique_ptr<Operator> Threshold::negate(std::unique_ptr<Threshold>&& threshold) {

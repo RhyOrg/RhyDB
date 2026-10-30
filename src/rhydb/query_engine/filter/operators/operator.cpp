@@ -1,6 +1,9 @@
 #include "rhydb/query_engine/filter/operators/operator.h"
 
 #include <cstdlib>
+#include <utility>
+
+#include <evobench/evobench.hpp>
 
 #include "rhydb/common/panic.h"
 #include "rhydb/query_engine/filter/operators/bitmap_producer.h"
@@ -16,9 +19,21 @@
 
 namespace rhydb::query_engine::filter::operators {
 
-Operator::Operator() = default;
+Operator::Operator(storage::column::RowLayout row_layout)
+    : row_layout(std::move(row_layout)) {}
 
 Operator::~Operator() noexcept = default;
+
+Bitmap Operator::evaluate() const {
+   EVOBENCH_SCOPE("Operator", "evaluate");
+   Bitmap result;
+   for (size_t chunk_id = 0; chunk_id < row_layout.numChunks(); ++chunk_id) {
+      result.append(
+         static_cast<uint16_t>(chunk_id), evaluateChunk(static_cast<uint16_t>(chunk_id))
+      );
+   }
+   return result;
+}
 
 std::unique_ptr<Operator> Operator::negate(std::unique_ptr<Operator>&& some_operator) {
    switch (some_operator->type()) {

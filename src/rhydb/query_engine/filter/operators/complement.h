@@ -13,7 +13,6 @@ class Complement : public Operator {
    friend class Operator;
 
    std::unique_ptr<Operator> child;
-   storage::column::RowLayout row_layout;
 
   public:
    explicit Complement(std::unique_ptr<Operator> child, storage::column::RowLayout row_layout);
@@ -27,7 +26,7 @@ class Complement : public Operator {
 
    [[nodiscard]] Type type() const override;
 
-   [[nodiscard]] Bitmap evaluate() const override;
+   [[nodiscard]] roaring_util::CopyOnWriteContainer evaluateChunk(uint16_t chunk_id) const override;
 
    [[nodiscard]] std::string toString() const override;
 

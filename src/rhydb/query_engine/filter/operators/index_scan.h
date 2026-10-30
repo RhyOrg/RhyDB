@@ -23,7 +23,6 @@ class IndexScan : public Operator {
   private:
    std::optional<std::unique_ptr<scalar_expressions::ScalarExpression>> logical_equivalent;
    Bitmap bitmap;
-   storage::column::RowLayout row_layout;
 
   public:
    explicit IndexScan(Bitmap bitmap, storage::column::RowLayout row_layout);
@@ -38,7 +37,7 @@ class IndexScan : public Operator {
 
    [[nodiscard]] Type type() const override;
 
-   [[nodiscard]] Bitmap evaluate() const override;
+   [[nodiscard]] roaring_util::CopyOnWriteContainer evaluateChunk(uint16_t chunk_id) const override;
 
    [[nodiscard]] std::string toString() const override;
 

@@ -16,7 +16,6 @@ class Threshold : public Operator {
    OperatorVector negated_children;
    uint32_t number_of_matchers;
    bool match_exactly;
-   storage::column::RowLayout row_layout;
 
   public:
    Threshold(
@@ -31,7 +30,7 @@ class Threshold : public Operator {
 
    [[nodiscard]] Type type() const override;
 
-   [[nodiscard]] Bitmap evaluate() const override;
+   [[nodiscard]] roaring_util::CopyOnWriteContainer evaluateChunk(uint16_t chunk_id) const override;
 
    [[nodiscard]] std::string toString() const override;
 
