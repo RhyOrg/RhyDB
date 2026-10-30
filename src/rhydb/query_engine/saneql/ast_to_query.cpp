@@ -1325,10 +1325,8 @@ std::shared_ptr<arrow::Array> buildTableLiteralColumnArray(const TableLiteralCol
    return tableCellOrThrow(builder->Finish());
 }
 
-}  // namespace
-
-operators::QueryNodePtr handleTable(const BoundArguments& args, const Tables& tables) {
-   const auto& rows_argument = args.at("rows");
+/// The rows of a table() literal: a non-empty set whose first element names the columns.
+const std::vector<ast::ExpressionPtr>& tableRowsOrThrow(const ast::Expression& rows_argument) {
    CHECK_RHYDB_QUERY(
       std::holds_alternative<ast::SetLiteral>(rows_argument.value),
       "table() expects a set of rows like {{a:=1,b:=2}},{{3,4}} at {}:{}",
@@ -1342,9 +1340,11 @@ operators::QueryNodePtr handleTable(const BoundArguments& args, const Tables& ta
       rows_argument.location.line,
       rows_argument.location.column
    );
+   return rows;
+}
 
-   // The first row names the columns and fixes their count and order.
-   const auto& first_row = *rows.front();
+/// The first row names the columns and fixes their count and order.
+const ast::RecordLiteral& tableHeaderOrThrow(const ast::Expression& first_row) {
    CHECK_RHYDB_QUERY(
       std::holds_alternative<ast::RecordLiteral>(first_row.value),
       "table()'s first row must name its columns like {{a:=1,b:=2}} at {}:{}",
@@ -1358,7 +1358,14 @@ operators::QueryNodePtr handleTable(const BoundArguments& args, const Tables& ta
       first_row.location.line,
       first_row.location.column
    );
+   return header;
+}
 
+/// One empty column per header field; column names must be unique.
+std::vector<TableLiteralColumn> makeTableColumns(
+   const ast::RecordLiteral& header,
+   const ast::Expression& first_row
+) {
    std::vector<TableLiteralColumn> columns;
    columns.reserve(header.fields.size());
    std::unordered_set<std::string> seen_names;
@@ -1372,35 +1379,39 @@ operators::QueryNodePtr handleTable(const BoundArguments& args, const Tables& ta
       );
       columns.push_back({.name = field.name, .cells = {}, .type = std::nullopt});
    }
+   return columns;
+}
 
-   const ScalarConversionContext context{.tables = tables};
-   for (size_t field_index = 0; field_index < header.fields.size(); ++field_index) {
-      addCell(columns.at(field_index), *header.fields.at(field_index).value, context);
+/// Every row after the first is positional and must have as many values as there are columns.
+void addPositionalRow(
+   std::vector<TableLiteralColumn>& columns,
+   const ast::Expression& row,
+   const ScalarConversionContext& context
+) {
+   CHECK_RHYDB_QUERY(
+      std::holds_alternative<ast::SetLiteral>(row.value),
+      "table() rows after the first must be positional like {{3,4}} at {}:{}",
+      row.location.line,
+      row.location.column
+   );
+   const auto& values = std::get<ast::SetLiteral>(row.value).elements;
+   CHECK_RHYDB_QUERY(
+      values.size() == columns.size(),
+      "table() row has {} values but the table has {} columns at {}:{}",
+      values.size(),
+      columns.size(),
+      row.location.line,
+      row.location.column
+   );
+   for (size_t value_index = 0; value_index < values.size(); ++value_index) {
+      addCell(columns.at(value_index), *values.at(value_index), context);
    }
+}
 
-   // Every later row is positional and must have the same number of values as the header.
-   for (size_t row_index = 1; row_index < rows.size(); ++row_index) {
-      const auto& row = *rows.at(row_index);
-      CHECK_RHYDB_QUERY(
-         std::holds_alternative<ast::SetLiteral>(row.value),
-         "table() rows after the first must be positional like {{3,4}} at {}:{}",
-         row.location.line,
-         row.location.column
-      );
-      const auto& values = std::get<ast::SetLiteral>(row.value).elements;
-      CHECK_RHYDB_QUERY(
-         values.size() == columns.size(),
-         "table() row has {} values but the table has {} columns at {}:{}",
-         values.size(),
-         columns.size(),
-         row.location.line,
-         row.location.column
-      );
-      for (size_t value_index = 0; value_index < values.size(); ++value_index) {
-         addCell(columns.at(value_index), *values.at(value_index), context);
-      }
-   }
-
+operators::QueryNodePtr makeTableLiteralNode(
+   const std::vector<TableLiteralColumn>& columns,
+   size_t row_count
+) {
    std::vector<schema::ColumnIdentifier> output_schema;
    output_schema.reserve(columns.size());
    arrow::ArrayVector arrays;
@@ -1411,8 +1422,26 @@ operators::QueryNodePtr handleTable(const BoundArguments& args, const Tables& ta
    }
 
    const auto arrow_schema = exec_node::columnsToArrowSchema(output_schema);
-   auto table = arrow::Table::Make(arrow_schema, arrays, static_cast<int64_t>(rows.size()));
+   auto table = arrow::Table::Make(arrow_schema, arrays, static_cast<int64_t>(row_count));
    return std::make_unique<operators::TableLiteralNode>(std::move(output_schema), std::move(table));
+}
+
+}  // namespace
+
+operators::QueryNodePtr handleTable(const BoundArguments& args, const Tables& tables) {
+   const auto& rows = tableRowsOrThrow(args.at("rows"));
+   const auto& first_row = *rows.front();
+   const auto& header = tableHeaderOrThrow(first_row);
+   auto columns = makeTableColumns(header, first_row);
+
+   const ScalarConversionContext context{.tables = tables};
+   for (size_t field_index = 0; field_index < header.fields.size(); ++field_index) {
+      addCell(columns.at(field_index), *header.fields.at(field_index).value, context);
+   }
+   for (size_t row_index = 1; row_index < rows.size(); ++row_index) {
+      addPositionalRow(columns, *rows.at(row_index), context);
+   }
+   return makeTableLiteralNode(columns, rows.size());
 }
 
 // NOLINTNEXTLINE(misc-no-recursion)
