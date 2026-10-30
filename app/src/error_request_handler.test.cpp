@@ -79,6 +79,27 @@ TEST(ErrorRequestHandler, handlesOtherErrors) {
    EXPECT_EQ(response.out_stream.str(), R"({"error":"Internal Server Error","message":"PKc"})");
 }
 
+TEST(ErrorRequestHandler, doesNotAppendAnErrorToAResponseThatWasAlreadyStarted) {
+   const std::string_view partial_body = "{\"row\":1}\n";
+   auto wrapped_handler_mock = std::make_unique<MockRequestHandler>();
+   ON_CALL(*wrapped_handler_mock, handleRequest)
+      .WillByDefault([&](Poco::Net::HTTPServerRequest&, Poco::Net::HTTPServerResponse& response) {
+         response.setStatus(Poco::Net::HTTPResponse::HTTP_OK);
+         response.send() << partial_body;
+         throw std::runtime_error("failed in the middle of the result");
+      });
+
+   auto under_test =
+      rhydb_app::ErrorRequestHandler(std::move(wrapped_handler_mock), TEST_RUNTIME_CONFIG);
+
+   rhydb_app::test::MockResponse response;
+   rhydb_app::test::MockRequest request(response);
+   under_test.handleRequest(request, response);
+
+   EXPECT_EQ(response.getStatus(), Poco::Net::HTTPResponse::HTTP_OK);
+   EXPECT_EQ(response.out_stream.str(), partial_body);
+}
+
 TEST(ErrorRequestHandler, doesNothingIfNoExceptionIsThrown) {
    const std::string_view wrapped_request_handler_message =
       "A message that the actual handler would write";
@@ -105,8 +126,6 @@ TEST(
    ErrorRequestHandler,
    givenDuringStartupTime_whenIQueryUninitializedDatabase_thenReturnsRetryAfter
 ) {
-   const std::string_view wrapped_request_handler_message =
-      "A message that the actual handler would write";
    auto wrapped_handler_mock = std::make_unique<MockRequestHandler>();
 
    auto database = std::make_shared<rhydb_app::ActiveDatabase>();
@@ -123,9 +142,6 @@ TEST(
    rhydb_app::test::MockResponse response;
    rhydb_app::test::MockRequest request(response);
 
-   response.setStatus(Poco::Net::HTTPResponse::HTTP_OK);
-   response.send() << wrapped_request_handler_message;
-
    under_test.handleRequest(request, response);
 
    const auto retry_after = std::stoi(response.get("Retry-After"));
@@ -140,8 +156,6 @@ TEST(
    ErrorRequestHandler,
    givenStartupTimeIsOver_whenIQueryUninitializedDatabase_thenReturnsErrorWithoutRetryAfter
 ) {
-   const std::string_view wrapped_request_handler_message =
-      "A message that the actual handler would write";
    auto wrapped_handler_mock = std::make_unique<MockRequestHandler>();
 
    auto database = std::make_shared<rhydb_app::ActiveDatabase>();
@@ -157,9 +171,6 @@ TEST(
 
    rhydb_app::test::MockResponse response;
    rhydb_app::test::MockRequest request(response);
-
-   response.setStatus(Poco::Net::HTTPResponse::HTTP_OK);
-   response.send() << wrapped_request_handler_message;
 
    under_test.handleRequest(request, response);
 
