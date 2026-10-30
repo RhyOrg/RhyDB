@@ -2,6 +2,7 @@
 
 #include <map>
 #include <string>
+#include <string_view>
 
 #include <Poco/Net/HTTPServerRequest.h>
 #include <Poco/Net/HTTPServerResponse.h>
@@ -15,6 +16,7 @@ void HealthHandler::get(
 ) {
    response.setContentType("application/json");
    response.setStatus(Poco::Net::HTTPResponse::HTTP_OK);
-   response.send() << R"({"status":"UP"})";
+   constexpr std::string_view BODY = R"({"status":"UP"})";
+   response.sendBuffer(BODY.data(), BODY.size());
 }
 }  // namespace rhydb_app

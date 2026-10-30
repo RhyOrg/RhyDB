@@ -79,6 +79,7 @@ TEST(ErrorRequestHandler, handlesOtherErrors) {
    EXPECT_EQ(response.out_stream.str(), R"({"error":"Internal Server Error","message":"PKc"})");
 }
 
+// That the connection is then aborted needs a real Poco request, see response_framing.test.cpp
 TEST(ErrorRequestHandler, doesNotAppendAnErrorToAResponseThatWasAlreadyStarted) {
    const std::string_view partial_body = "{\"row\":1}\n";
    auto wrapped_handler_mock = std::make_unique<MockRequestHandler>();

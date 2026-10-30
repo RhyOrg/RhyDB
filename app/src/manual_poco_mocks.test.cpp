@@ -16,7 +16,11 @@ std::ostream& MockResponse::send() {
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void MockResponse::sendFile(const std::string& path, const std::string& mediaType) {}
 
-void MockResponse::sendBuffer(const void* pBuffer, std::size_t length) {}
+void MockResponse::sendBuffer(const void* pBuffer, std::size_t length) {
+   setContentLength64(static_cast<Poco::Int64>(length));
+   was_sent = true;
+   out_stream.write(static_cast<const char*>(pBuffer), static_cast<std::streamsize>(length));
+}
 
 void MockResponse::redirect(const std::string& uri, HTTPStatus status) {}
 
