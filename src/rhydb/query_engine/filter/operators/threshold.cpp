@@ -1,5 +1,6 @@
 #include "rhydb/query_engine/filter/operators/threshold.h"
 
+#include <algorithm>
 #include <string>
 #include <utility>
 #include <vector>
@@ -60,48 +61,145 @@ Type Threshold::type() const {
    return THRESHOLD;
 }
 
-roaring_util::CopyOnWriteContainer Threshold::evaluateChunk(uint16_t chunk_id) const {
-   EVOBENCH_SCOPE("Threshold", "evaluateChunk");
-   using roaring_util::CopyOnWriteContainer;
-   using roaring_util::RoaringContainerView;
-   const uint32_t chunk_size = row_layout.chunkSize(chunk_id);
-   uint32_t dp_table_size;
-   if (this->match_exactly) {
-      // We need to keep track of the ones that matched too many
-      dp_table_size = number_of_matchers + 1;
-   } else {
-      dp_table_size = number_of_matchers;
+namespace {
+
+using roaring_util::CopyOnWriteContainer;
+using roaring_util::RoaringContainer;
+using roaring_util::RoaringContainerView;
+
+/// The table of the threshold's dynamic program over one chunk: after adding the first `i + 1`
+/// children, entry `j` holds the rows that at least `j + 1` of them match, for the entries that can
+/// still affect the result. Entries above `highest_reached` are empty, as no row has been matched
+/// that often yet. When the children are sparse, most entries stay empty, so they are skipped
+/// instead of combining empty containers.
+class MatchCounts {
+   std::vector<CopyOnWriteContainer> entries;
+   int highest_reached = -1;
+   int number_of_matchers;
+   int child_count;
+   uint32_t chunk_size;
+
+   void markReached(int entry) {
+      if (!entries[entry].empty()) {
+         highest_reached = std::max(highest_reached, entry);
+      }
    }
-   std::vector<CopyOnWriteContainer> containers(dp_table_size);
-   if (non_negated_children.empty()) {
-      containers[0] = CopyOnWriteContainer{
-         roaring_util::complement(negated_children[0]->evaluateChunk(chunk_id).view(), chunk_size)
-      };
-   } else {
-      containers[0] = non_negated_children[0]->evaluateChunk(chunk_id);
+
+   void addRows(int entry, RoaringContainer rows) {
+      if (entries[entry].empty()) {
+         entries[entry] = CopyOnWriteContainer{std::move(rows)};
+      } else if (!rows.empty()) {
+         entries[entry] |= RoaringContainerView{rows};
+      }
+      markReached(entry);
    }
 
    // NOLINTBEGIN(readability-identifier-length)
-   const int max_table_index = static_cast<int>(dp_table_size - 1);
-   const int non_negated_child_count = static_cast<int>(non_negated_children.size());
-   const int negated_child_count = static_cast<int>(negated_children.size());
-   const int n = static_cast<int>(number_of_matchers);  // The threshold
-   const int k = static_cast<int>(
-      non_negated_children.size() + negated_children.size()
-   );  // Number of loop iterations
+   /// The entries to update when adding the `i`-th child, from `highestEntry(i)` down to (but
+   /// excluding) `lowestEntry(i)`:
+   /// positions higher than (i-1) cannot have been reached yet, are therefore all 0s and the
+   /// conjunction would return 0
+   /// positions lower than (n-1) - (k-i) are unable to affect the result, because only (k-i)
+   /// iterations are left
+   [[nodiscard]] int highestEntry(int i) const {
+      return std::min({static_cast<int>(entries.size()) - 1, i, highest_reached + 1});
+   }
 
-   for (int i = 1; i < non_negated_child_count; ++i) {
-      const CopyOnWriteContainer child = non_negated_children[i]->evaluateChunk(chunk_id);
-      // positions higher than (i-1) cannot have been reached yet, are therefore all 0s and the
-      // conjunction would return 0
-      // positions lower than n - k + i - 1 are unable to affect the result, because only (k - i)
-      // iterations are left
-      for (int j = std::min(max_table_index, i); j > std::max(0, n - k + i - 1); --j) {
-         containers[j] |= RoaringContainerView{containers[j - 1].view() & child.view()};
+   [[nodiscard]] int lowestEntry(int i) const {
+      return std::max(0, number_of_matchers - child_count + i - 1);
+   }
+
+   /// Whether entry 0 can still affect the result, as `k - i` children are left
+   [[nodiscard]] bool firstEntryMatters(int i) const {
+      return child_count - i > number_of_matchers - 1;
+   }
+
+  public:
+   MatchCounts(
+      CopyOnWriteContainer first_child_rows,
+      size_t table_size,
+      uint32_t number_of_matchers,
+      size_t child_count,
+      uint32_t chunk_size
+   )
+       : entries(table_size),
+         number_of_matchers(static_cast<int>(number_of_matchers)),
+         child_count(static_cast<int>(child_count)),
+         chunk_size(chunk_size) {
+      entries[0] = std::move(first_child_rows);
+      markReached(0);
+   }
+
+   /// Adds the `i`-th child, which matches `child`
+   void addChild(int i, const CopyOnWriteContainer& child) {
+      if (child.empty()) {
+         return;
       }
-      if (k - i > n - 1) {
-         containers[0] |= child.view();
+      for (int j = highestEntry(i); j > lowestEntry(i); --j) {
+         if (!entries[j - 1].empty()) {
+            addRows(j, entries[j - 1].view() & child.view());
+         }
       }
+      if (firstEntryMatters(i)) {
+         entries[0] |= child.view();
+         markReached(0);
+      }
+   }
+
+   /// Adds the `i`-th child, which matches the rows that are not in `child`
+   void addNegatedChild(int i, const CopyOnWriteContainer& child) {
+      for (int j = highestEntry(i); j > lowestEntry(i); --j) {
+         if (entries[j - 1].empty()) {
+            continue;
+         }
+         if (child.empty()) {
+            // The negated child matches every row of `entries[j - 1]`
+            const CopyOnWriteContainer previous = entries[j - 1];
+            if (entries[j].empty()) {
+               entries[j] = previous;
+            } else {
+               entries[j] |= previous.view();
+            }
+            markReached(j);
+         } else {
+            addRows(j, entries[j - 1].view() - child.view());
+         }
+      }
+      if (firstEntryMatters(i)) {
+         entries[0] |= RoaringContainerView{roaring_util::complement(child.view(), chunk_size)};
+         markReached(0);
+      }
+   }
+   // NOLINTEND(readability-identifier-length)
+
+   /// The rows that at least `count` children match
+   [[nodiscard]] CopyOnWriteContainer& atLeast(uint32_t count) { return entries[count - 1]; }
+};
+
+}  // namespace
+
+roaring_util::CopyOnWriteContainer Threshold::evaluateChunk(uint16_t chunk_id) const {
+   EVOBENCH_SCOPE("Threshold", "evaluateChunk");
+   const uint32_t chunk_size = row_layout.chunkSize(chunk_id);
+   // When matching exactly, we need to keep track of the ones that matched too many
+   const size_t table_size = match_exactly ? number_of_matchers + 1 : number_of_matchers;
+   const size_t child_count = non_negated_children.size() + negated_children.size();
+
+   CopyOnWriteContainer first_child_rows;
+   if (non_negated_children.empty()) {
+      first_child_rows = CopyOnWriteContainer{
+         roaring_util::complement(negated_children[0]->evaluateChunk(chunk_id).view(), chunk_size)
+      };
+   } else {
+      first_child_rows = non_negated_children[0]->evaluateChunk(chunk_id);
+   }
+   MatchCounts counts{
+      std::move(first_child_rows), table_size, number_of_matchers, child_count, chunk_size
+   };
+
+   const int non_negated_child_count = static_cast<int>(non_negated_children.size());
+   for (int idx = 1; idx < non_negated_child_count; ++idx) {
+      counts.addChild(idx, non_negated_children[idx]->evaluateChunk(chunk_id));
    }
 
    // Only now iterate over negated children.
@@ -111,29 +209,18 @@ roaring_util::CopyOnWriteContainer Threshold::evaluateChunk(uint16_t chunk_id) c
    // We hope the case of flipping does not occur, as 'k - i' might always be '< n - 1'
    // (Number of children left is less than the distance we need to cross to reach the result)
    const int took_first_offset = non_negated_children.empty() ? 1 : 0;
-   for (int local_i = took_first_offset; local_i < negated_child_count; ++local_i) {
-      const CopyOnWriteContainer child = negated_children[local_i]->evaluateChunk(chunk_id);
-      const int i = local_i + non_negated_child_count;
-      // positions higher than (i-1) cannot have been reached yet, are therefore all 0s and the
-      // conjunction would return 0
-      // positions lower than (n-1) - (k-i) are unable to affect the result, because only (k-i)
-      // iterations are left
-      for (int j = std::min(max_table_index, i); j > std::max(0, n - k + i - 1); --j) {
-         containers[j] |= RoaringContainerView{containers[j - 1].view() - child.view()};
-      }
-      if (k - i > n - 1) {
-         containers[0] |= RoaringContainerView{roaring_util::complement(child.view(), chunk_size)};
-      }
+   const int negated_child_count = static_cast<int>(negated_children.size());
+   for (int local_idx = took_first_offset; local_idx < negated_child_count; ++local_idx) {
+      counts.addNegatedChild(
+         local_idx + non_negated_child_count, negated_children[local_idx]->evaluateChunk(chunk_id)
+      );
    }
-   // NOLINTEND(readability-identifier-length)
 
-   if (this->match_exactly) {
+   if (match_exactly) {
       // Because exact, we remove all that have too many
-      containers[number_of_matchers - 1] -= containers[number_of_matchers].view();
-
-      return std::move(containers[number_of_matchers - 1]);
+      counts.atLeast(number_of_matchers) -= counts.atLeast(number_of_matchers + 1).view();
    }
-   return std::move(containers.back());
+   return std::move(counts.atLeast(number_of_matchers));
 }
 
 std::unique_ptr<Operator> Threshold::negate(std::unique_ptr<Threshold>&& threshold) {
