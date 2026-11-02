@@ -39,7 +39,10 @@ The query endpoints (`POST /query` and `POST /admin/query`) additionally return 
 
 ## Cross-Origin Resource Sharing (CORS)
 
-By default RhyDB sends no CORS headers, so browsers block cross-origin requests from page JavaScript. Set [`api.corsAllowedOrigins`](#runtime-configuration) to enable CORS; the value is either `*` (allow any origin) or a comma-separated list of exact origins. Origins are matched exactly and case-sensitively, so they must have no trailing slash. A malformed value makes the server fail at startup.
+By default, RhyDB sends no CORS headers, so browsers block cross-origin requests from page JavaScript.
+Set [`api.corsAllowedOrigins`](#runtime-configuration) to enable CORS;
+the value is either `*` (allow any origin) or a comma-separated list of exact origins.
+Origins are matched exactly and case-sensitively, so they must have no trailing slash.
 
 When CORS is enabled and a request carries an allowed `Origin`:
 
@@ -49,9 +52,12 @@ When CORS is enabled and a request carries an allowed `Origin`:
 | `Access-Control-Expose-Headers` | `X-Request-Id, data-version, result-ordering, Retry-After` |
 | `Vary` | `Origin` (list mode only, so caches key on the origin) |
 
-Preflight (`OPTIONS`) requests that carry an `Access-Control-Request-Method` header are answered directly: an allowed origin receives `204` with `Access-Control-Allow-Methods: GET, POST, OPTIONS`, the reflected `Access-Control-Request-Headers`, and `Access-Control-Max-Age: 7200`; a disallowed origin receives `403`.
+Preflight (`OPTIONS`) requests that carry an `Access-Control-Request-Method` header are answered directly:
+an allowed origin receives `204` with `Access-Control-Allow-Methods: GET, POST, OPTIONS`,
+the reflected `Access-Control-Request-Headers`, and `Access-Control-Max-Age: 7200`;
+a disallowed origin receives `403`.
 
-CORS applies uniformly to all endpoints, including [`POST /admin/query`](#post-adminquery). Note that CORS only governs what browser JavaScript may read; it is not access control. Credentials (`Access-Control-Allow-Credentials`) are not supported.
+CORS applies uniformly to all endpoints. Credentials (`Access-Control-Allow-Credentials`) are not supported.
 
 ## Endpoints
 

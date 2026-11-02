@@ -44,7 +44,7 @@ TEST(CorsHandler, disabled_passesThroughWithoutHeaders) {
    ASSERT_FALSE(fixture.response.has("Access-Control-Allow-Origin"));
 }
 
-TEST(CorsHandler, noOriginHeader_passesThroughWithoutHeaders) {
+TEST(CorsHandler, noOriginHeaderWildcard_passesThroughWithoutHeaders) {
    Fixture fixture;
    EXPECT_CALL(*fixture.wrapped_ptr, handleRequest);
    auto under_test = CorsHandler(std::move(fixture.wrapped), CorsPolicy::parse("*"));
@@ -53,6 +53,22 @@ TEST(CorsHandler, noOriginHeader_passesThroughWithoutHeaders) {
    under_test.handleRequest(fixture.request, fixture.response);
 
    ASSERT_FALSE(fixture.response.has("Access-Control-Allow-Origin"));
+   ASSERT_FALSE(fixture.response.has("Vary"));
+}
+
+// Even without an Origin, a list-mode response must carry Vary: Origin so a cache does not reuse
+// it for a later allowed cross-origin request.
+TEST(CorsHandler, noOriginHeaderList_setsVaryButNoAllowOrigin) {
+   Fixture fixture;
+   EXPECT_CALL(*fixture.wrapped_ptr, handleRequest);
+   auto under_test =
+      CorsHandler(std::move(fixture.wrapped), CorsPolicy::parse("https://example.org"));
+
+   fixture.request.setMethod("GET");
+   under_test.handleRequest(fixture.request, fixture.response);
+
+   ASSERT_FALSE(fixture.response.has("Access-Control-Allow-Origin"));
+   ASSERT_EQ(fixture.response.get("Vary"), "Origin");
 }
 
 TEST(CorsHandler, wildcard_setsStarAndExposeHeaders) {

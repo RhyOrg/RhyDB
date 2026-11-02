@@ -46,20 +46,30 @@ void CorsHandler::handleRequest(
    Poco::Net::HTTPServerRequest& request,
    Poco::Net::HTTPServerResponse& response
 ) {
-   // CORS disabled, or a non-browser request without an Origin: pass through unchanged.
-   if (!cors_policy.has_value() || !request.has(ORIGIN_HEADER)) {
+   // CORS disabled: pass through unchanged, without any CORS semantics.
+   if (!cors_policy.has_value()) {
       wrapped_handler->handleRequest(request, response);
       return;
    }
 
    const auto& policy = cors_policy.value();
-   const std::string origin = request.get(ORIGIN_HEADER);
 
-   // In list mode the response depends on the Origin, so caches must key on it. This holds even
-   // when the origin is not allowed (and thus gets no Allow-Origin header).
+   // In list mode the response depends on the Origin, so caches must key on it. This must be set
+   // on every CORS-enabled response, including ones without an Origin or with a disallowed origin
+   // (which get no Allow-Origin header); otherwise a cache could serve such a response to an
+   // allowed origin, which the browser would then reject. Wildcard mode sends `*` regardless of
+   // the origin, so it needs no Vary.
    if (!policy.allowsAnyOrigin()) {
       response.add(VARY_HEADER, ORIGIN_HEADER);
    }
+
+   // A non-browser request without an Origin gets no CORS headers (but keeps Vary in list mode).
+   if (!request.has(ORIGIN_HEADER)) {
+      wrapped_handler->handleRequest(request, response);
+      return;
+   }
+
+   const std::string origin = request.get(ORIGIN_HEADER);
 
    if (isPreflight(request)) {
       handlePreflight(policy, origin, request, response);

@@ -14,8 +14,11 @@ namespace rhydb::config {
 namespace {
 
 // Matches an exact origin: scheme://host[:port]. No trailing slash, no path, no query.
-// Host allows letters, digits, dots and hyphens, which covers domain names, IPv4 and `localhost`.
-const std::regex ORIGIN_PATTERN{R"(^[a-zA-Z][a-zA-Z0-9+.-]*://[a-zA-Z0-9.-]+(:[0-9]+)?$)"};
+// The host is either a name/IPv4 (letters, digits, dots, hyphens, covering domain names and
+// `localhost`) or a bracketed IPv6 literal such as `[::1]`.
+const std::regex ORIGIN_PATTERN{
+   R"(^[a-zA-Z][a-zA-Z0-9+.-]*://([a-zA-Z0-9.-]+|\[[0-9a-fA-F:]+\])(:[0-9]+)?$)"
+};
 
 }  // namespace
 

@@ -35,6 +35,13 @@ TEST(CorsPolicy, listOfOriginsWithWhitespaceAndPorts) {
    ASSERT_FALSE(policy.isAllowed("https://c.example"));
 }
 
+TEST(CorsPolicy, allowsBracketedIpv6Origin) {
+   const auto policy = CorsPolicy::parse("http://[::1]:3000,https://[2001:db8::1]");
+   ASSERT_TRUE(policy.isAllowed("http://[::1]:3000"));
+   ASSERT_TRUE(policy.isAllowed("https://[2001:db8::1]"));
+   ASSERT_FALSE(policy.isAllowed("http://[::1]"));
+}
+
 TEST(CorsPolicy, matchingIsCaseSensitive) {
    const auto policy = CorsPolicy::parse("https://example.org");
    ASSERT_FALSE(policy.isAllowed("https://EXAMPLE.org"));
