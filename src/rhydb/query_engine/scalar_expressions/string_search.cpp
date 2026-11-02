@@ -118,7 +118,8 @@ std::unique_ptr<Operator> StringSearch::compile(const storage::Table& table) con
    );
 
    if (table.hasColumn<DictionaryEncodedColumn<StringColumn>>(column.name)) {
-      const auto& string_column = table.getColumn<DictionaryEncodedColumn<StringColumn>>(column.name);
+      const auto& string_column =
+         table.getColumn<DictionaryEncodedColumn<StringColumn>>(column.name);
       return createMatchingSelection(string_column, search_expression, table.row_layout);
    }
    RHYDB_ASSERT(table.hasColumn<StringColumn>(column.name));
