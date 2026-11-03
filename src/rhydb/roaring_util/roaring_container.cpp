@@ -23,6 +23,18 @@ RoaringContainer RoaringContainer::withCapacity(int32_t capacity) {
    return RoaringContainer{container, 0, typecode};
 }
 
+RoaringContainer RoaringContainer::ofRange(uint32_t start, uint32_t end) {
+   RHYDB_ASSERT_LE(start, end);
+   RHYDB_ASSERT_LE(end, uint32_t{1} << 16);
+   if (start == end) {
+      return withCapacity(1);
+   }
+   uint8_t typecode = 0;
+   auto* container = roaring::internal::container_range_of_ones(start, end, &typecode);
+   RHYDB_ASSERT(container != nullptr);
+   return RoaringContainer{container, end - start, typecode};
+}
+
 RoaringContainer RoaringContainer::clonedFrom(
    const roaring::internal::container_t* source,
    uint8_t typecode
@@ -145,6 +157,18 @@ RoaringContainer operator|(RoaringContainerView lhs, RoaringContainerView rhs) {
    return ownContainer(result, typecode);
 }
 
+RoaringContainer complement(RoaringContainerView view, uint32_t universe_size) {
+   RHYDB_ASSERT_LE(universe_size, uint32_t{1} << 16);
+   if (view.empty()) {
+      return RoaringContainer::ofRange(0, universe_size);
+   }
+   uint8_t typecode = 0;
+   auto* result = roaring::internal::container_not_range(
+      view.rawContainer(), view.getTypecode(), 0, universe_size, &typecode
+   );
+   return ownContainer(result, typecode);
+}
+
 RoaringContainer fastUnion(std::span<const RoaringContainerView> views) {
    if (views.empty()) {
       return RoaringContainer::withCapacity(1);
@@ -263,18 +287,18 @@ CopyOnWriteContainer& CopyOnWriteContainer::operator|=(RoaringContainerView adde
    return *this;
 }
 
+// The difference and intersection are computed into a new container anyway, so a borrowed
+// container is not cloned first.
 CopyOnWriteContainer& CopyOnWriteContainer::operator-=(RoaringContainerView subtrahend) {
    if (subtrahend.empty()) {
       return *this;  // removing the empty set changes nothing
    }
-   RoaringContainer& owned = materializeOwned();
-   owned = RoaringContainerView{owned} - subtrahend;
+   container = view() - subtrahend;
    return *this;
 }
 
 CopyOnWriteContainer& CopyOnWriteContainer::operator&=(RoaringContainerView other) {
-   RoaringContainer& owned = materializeOwned();
-   owned = RoaringContainerView{owned} & other;
+   container = view() & other;
    return *this;
 }
 

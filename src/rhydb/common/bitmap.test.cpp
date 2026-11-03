@@ -323,3 +323,26 @@ TEST(Bitmap, fromChunkContainersViewsNonEmptyChunksKeyedByIndex) {
    );
    EXPECT_TRUE(Bitmap::fromChunkContainers(std::vector<RoaringContainer>{}).isEmpty());
 }
+
+TEST(Bitmap, containerAtReturnsTheBlocksValuesOrEmpty) {
+   const roaring::Roaring source = multiContainer();
+   const Bitmap under_test{&source};
+
+   const auto first_block = under_test.containerAt(0);
+   EXPECT_EQ(first_block.getCardinality(), 3);
+   EXPECT_TRUE(under_test.containerAt(2).empty());
+   EXPECT_EQ(*under_test.containerAt(3).begin(), 7);
+   EXPECT_TRUE(under_test.containerAt(4).empty());
+}
+
+TEST(Bitmap, appendBuildsTheBitmapBlockByBlock) {
+   const roaring::Roaring source = multiContainer();
+   const Bitmap original{&source};
+
+   Bitmap under_test;
+   for (uint16_t key = 0; key < 5; ++key) {
+      // Empty blocks are dropped
+      under_test.append(key, original.containerAt(key));
+   }
+   EXPECT_EQ(under_test.toRoaring(), source);
+}
