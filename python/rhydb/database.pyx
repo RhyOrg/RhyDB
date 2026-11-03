@@ -74,15 +74,21 @@ cdef class PyDatabase:
         lineage_definitions=(),
         phylogenetic_tree=None,
         bint without_unaligned_sequences=False,
+        str table_name="data",
     ):
         """
-        Create the default table from initialization files and fill it with NDJSON data
+        Create a table from initialization files and fill it with NDJSON data
 
         This does what the ``preprocessing`` command does, but into this database instead of a
         saved database state: it creates the table from the database config and the reference
-        genomes, fills the built-in ``reference_genomes`` and ``lineage_definitions`` tables, builds
-        the lineage relation tables, appends the input data and validates that the primary key is
-        unique. The built-in tables of this database must still be empty.
+        genomes, adds to the built-in ``reference_genomes`` and ``lineage_definitions`` tables,
+        builds the lineage relation tables, appends the input data and validates that the primary
+        key is unique.
+
+        Call it once per table to preprocess several inputs into the same database. For a table
+        other than ``data``, the names of its reference sequences in the ``reference_genomes`` table
+        and of its lineage tables are prefixed with the table name, e.g. ``dengue_main`` for the
+        sequence ``main`` and ``dengue_lineage`` for the lineage column ``lineage``.
 
         Parameters
         ----------
@@ -99,12 +105,18 @@ cdef class PyDatabase:
             Path to the phylogenetic tree file
         without_unaligned_sequences : bool, optional
             Do not create the ``unaligned_<sequence>`` columns (default: False)
+        table_name : str, optional
+            Name of the table to create (default: ``data``)
         """
+        if not table_name or not table_name.strip():
+            raise ValueError("table_name cannot be empty")
+
         cdef vector[string] cpp_lineage_definitions
         cdef optional[string] cpp_phylogenetic_tree
         cdef string cpp_database_config
         cdef string cpp_reference_genomes
         cdef string cpp_input_file
+        cdef string cpp_table_name = table_name.encode('utf-8')
 
         cpp_database_config = _existing_path("database_config", database_config)
         cpp_reference_genomes = _existing_path("reference_genomes", reference_genomes)
@@ -117,6 +129,7 @@ cdef class PyDatabase:
         try:
             preprocessDatabase(
                 deref(self.c_database),
+                cpp_table_name,
                 cpp_database_config,
                 cpp_reference_genomes,
                 cpp_input_file,
