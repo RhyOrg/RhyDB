@@ -14,6 +14,14 @@
 
 namespace rhydb::query_engine::scalar_expressions {
 
+using filter::operators::Operator;
+using filter::operators::Predicate;
+using filter::operators::Selection;
+using storage::column::DictionaryEncodedColumn;
+using storage::column::RowId;
+using storage::column::RowLayout;
+using storage::column::StringColumn;
+
 StringSearch::StringSearch(
    schema::ColumnIdentifier column,
    std::unique_ptr<re2::RE2> search_expression
@@ -33,7 +41,7 @@ namespace {
 
 /// Matches the rows whose value contains a match of `search_expression` (or, if negated, does not)
 template <typename GenericStringColumn>
-class MatchesSearchExpression : public filter::operators::Predicate {
+class MatchesSearchExpression : public Predicate {
    const GenericStringColumn& string_column;
    std::shared_ptr<const RE2> search_expression;
    bool negated;
@@ -57,27 +65,27 @@ class MatchesSearchExpression : public filter::operators::Predicate {
       );
    }
 
-   [[nodiscard]] bool match(storage::column::RowId row_id) const override {
+   [[nodiscard]] bool match(RowId row_id) const override {
       const std::string full_string = string_column.getValueString(row_id);
       return re2::RE2::PartialMatch(full_string, *search_expression) != negated;
    }
 
-   [[nodiscard]] std::unique_ptr<filter::operators::Predicate> copy() const override {
+   [[nodiscard]] std::unique_ptr<Predicate> copy() const override {
       return std::make_unique<MatchesSearchExpression>(string_column, search_expression, negated);
    }
 
-   [[nodiscard]] std::unique_ptr<filter::operators::Predicate> negate() const override {
+   [[nodiscard]] std::unique_ptr<Predicate> negate() const override {
       return std::make_unique<MatchesSearchExpression>(string_column, search_expression, !negated);
    }
 };
 
 template <typename GenericStringColumn>
-std::unique_ptr<filter::operators::Operator> createMatchingSelection(
+std::unique_ptr<Operator> createMatchingSelection(
    const GenericStringColumn& string_column,
    const std::shared_ptr<const RE2>& search_expression,
-   storage::column::RowLayout row_layout
+   RowLayout row_layout
 ) {
-   return std::make_unique<filter::operators::Selection>(
+   return std::make_unique<Selection>(
       std::make_unique<MatchesSearchExpression<GenericStringColumn>>(
          string_column, search_expression, /*negated=*/false
       ),
@@ -96,36 +104,26 @@ std::unique_ptr<ScalarExpression> StringSearch::rewrite(
    );
 }
 
-std::unique_ptr<filter::operators::Operator> StringSearch::compile(
-   const storage::Table& table
-) const {
+std::unique_ptr<Operator> StringSearch::compile(const storage::Table& table) const {
    CHECK_RHYDB_QUERY(
       table.schema->getColumn(column.name).has_value(),
       "The database does not contain the column '{}'",
       column.name
    );
    CHECK_RHYDB_QUERY(
-      table.hasColumn<storage::column::StringColumn>(column.name) ||
-         table.hasColumn<storage::column::DictionaryEncodedColumn<storage::column::StringColumn>>(
-            column.name
-         ),
+      table.hasColumn<StringColumn>(column.name) ||
+         table.hasColumn<DictionaryEncodedColumn<StringColumn>>(column.name),
       "The column '{}' is not of type string",
       column.name
    );
 
-   if (
-      table.hasColumn<storage::column::DictionaryEncodedColumn<storage::column::StringColumn>>(
-         column.name
-      )
-   ) {
+   if (table.hasColumn<DictionaryEncodedColumn<StringColumn>>(column.name)) {
       const auto& string_column =
-         table.getColumn<storage::column::DictionaryEncodedColumn<storage::column::StringColumn>>(
-            column.name
-         );
+         table.getColumn<DictionaryEncodedColumn<StringColumn>>(column.name);
       return createMatchingSelection(string_column, search_expression, table.row_layout);
    }
-   RHYDB_ASSERT(table.hasColumn<storage::column::StringColumn>(column.name));
-   const auto& string_column = table.getColumn<storage::column::StringColumn>(column.name);
+   RHYDB_ASSERT(table.hasColumn<StringColumn>(column.name));
+   const auto& string_column = table.getColumn<StringColumn>(column.name);
    return createMatchingSelection(string_column, search_expression, table.row_layout);
 }
 
