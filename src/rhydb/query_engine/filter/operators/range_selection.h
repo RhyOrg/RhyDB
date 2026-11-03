@@ -22,7 +22,6 @@ class RangeSelection : public Operator {
 
   private:
    std::vector<Range> ranges;
-   storage::column::RowLayout row_layout;
 
   public:
    explicit RangeSelection(std::vector<Range>&& ranges, storage::column::RowLayout row_layout);
@@ -31,7 +30,7 @@ class RangeSelection : public Operator {
 
    [[nodiscard]] Type type() const override;
 
-   [[nodiscard]] Bitmap evaluate() const override;
+   [[nodiscard]] roaring_util::CopyOnWriteContainer evaluateChunk(uint16_t chunk_id) const override;
 
    [[nodiscard]] std::string toString() const override;
 

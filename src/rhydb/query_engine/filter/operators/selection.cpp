@@ -29,9 +29,9 @@ Selection::Selection(
    std::vector<std::unique_ptr<Predicate>>&& predicates,
    storage::column::RowLayout row_layout
 )
-    : child_operator(std::move(child_operator)),
-      predicates(std::move(predicates)),
-      row_layout(std::move(row_layout)) {
+    : Operator(std::move(row_layout)),
+      child_operator(std::move(child_operator)),
+      predicates(std::move(predicates)) {
    const auto row_count = this->row_layout.numRows();
    std::ranges::sort(this->predicates, [row_count](const auto& left, const auto& right) {
       return left->estimateSelectivity(row_count) < right->estimateSelectivity(row_count);
@@ -54,8 +54,8 @@ Selection::Selection(
    std::unique_ptr<Predicate> predicate,
    storage::column::RowLayout row_layout
 )
-    : child_operator(std::move(child_operator)),
-      row_layout(std::move(row_layout)) {
+    : Operator(std::move(row_layout)),
+      child_operator(std::move(child_operator)) {
    predicates.emplace_back(std::move(predicate));
 }
 
@@ -66,7 +66,7 @@ Selection::Selection(
     : Selection(std::nullopt, std::move(predicates), std::move(row_layout)) {}
 
 Selection::Selection(std::unique_ptr<Predicate> predicate, storage::column::RowLayout row_layout)
-    : row_layout(std::move(row_layout)) {
+    : Operator(std::move(row_layout)) {
    predicates.emplace_back(std::move(predicate));
 }
 
@@ -91,55 +91,68 @@ Type Selection::type() const {
    return SELECTION;
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
-Bitmap Selection::evaluate() const {
-   EVOBENCH_SCOPE("Selection", "evaluate");
+namespace {
+
+/// The rows of `rows`, which belong to chunk `chunk_id`, that match all `predicates`
+template <std::ranges::range PredicateRange>
+roaring_util::RoaringContainer filterRows(
+   roaring_util::RoaringContainerView rows,
+   const PredicateRange& predicates,
+   uint16_t chunk_id
+) {
+   auto result = roaring_util::RoaringContainer::withCapacity(
+      static_cast<int32_t>(std::max(rows.getCardinality(), uint32_t{1}))
+   );
+   for (const uint16_t row_in_chunk : rows) {
+      const storage::column::RowId row_id{.chunk_id = chunk_id, .row_in_chunk = row_in_chunk};
+      if (std::ranges::all_of(predicates, [row_id](const auto& predicate) {
+             return predicate->match(row_id);
+          })) {
+         result.add(row_in_chunk);
+      }
+   }
+   return result;
+}
+
+}  // namespace
+
+roaring_util::CopyOnWriteContainer Selection::evaluateChunk(uint16_t chunk_id) const {
+   EVOBENCH_SCOPE("Selection", "evaluateChunk");
    RHYDB_ASSERT(!predicates.empty());
+   const uint32_t chunk_size = row_layout.chunkSize(chunk_id);
 
    // Build the candidate rows that already satisfy the most selective predicate. Predicates are
    // sorted most-selective-first at construction
-   Bitmap candidates;
+   roaring_util::CopyOnWriteContainer candidates;
    if (child_operator.has_value()) {
-      Bitmap child_bitmap = (*child_operator)->evaluate();
-      // For a small child, matching each of its rows against every predicate is cheaper than
-      // materializing the first predicate over the whole partition.
-      if (child_bitmap.cardinality() <= row_layout.numRows() / 10) {
-         roaring::Roaring result;
-         for (const auto& [chunk_id, container_view] : child_bitmap) {
-            for (const uint16_t row_in_chunk : container_view) {
-               const storage::column::RowId row_id{
-                  .chunk_id = chunk_id,
-                  .row_in_chunk = row_in_chunk,
-               };
-               if (matchesPredicates(predicates, row_id)) {
-                  result.add(row_id.toGlobal());
-               }
-            }
-         }
-         return Bitmap{std::move(result)};
+      auto child_rows = (*child_operator)->evaluateChunk(chunk_id);
+      if (child_rows.empty()) {
+         return child_rows;
       }
-      candidates = std::move(child_bitmap);
-      candidates &= Bitmap{predicates.front()->makeBitmap(row_layout)};
+      // For a small child, matching each of its rows against every predicate is cheaper than
+      // materializing the first predicate over the whole chunk.
+      if (child_rows.getCardinality() <= chunk_size / 10) {
+         return roaring_util::CopyOnWriteContainer{
+            filterRows(child_rows.view(), predicates, chunk_id)
+         };
+      }
+      candidates = std::move(child_rows);
+      candidates &=
+         roaring_util::RoaringContainerView{predicates.front()->makeChunk(chunk_id, chunk_size)};
    } else {
-      candidates = Bitmap{predicates.front()->makeBitmap(row_layout)};
+      candidates =
+         roaring_util::CopyOnWriteContainer{predicates.front()->makeChunk(chunk_id, chunk_size)};
    }
 
    // `candidates` already satisfies predicates.front(); apply the remaining predicates row by row.
    if (predicates.size() == 1) {
-      return Bitmap{std::move(candidates)};
+      return candidates;
    }
    const auto remaining_predicates =
       std::ranges::subrange(predicates.begin() + 1, predicates.end());
-   roaring::Roaring result;
-   for (const auto& [chunk_id, container_view] : candidates) {
-      for (const uint16_t row_in_chunk : container_view) {
-         const storage::column::RowId row_id{.chunk_id = chunk_id, .row_in_chunk = row_in_chunk};
-         if (matchesPredicates(remaining_predicates, row_id)) {
-            result.add(row_id.toGlobal());
-         }
-      }
-   }
-   return Bitmap{std::move(result)};
+   return roaring_util::CopyOnWriteContainer{
+      filterRows(candidates.view(), remaining_predicates, chunk_id)
+   };
 }
 
 std::unique_ptr<Operator> Selection::negate(std::unique_ptr<Selection>&& selection) {

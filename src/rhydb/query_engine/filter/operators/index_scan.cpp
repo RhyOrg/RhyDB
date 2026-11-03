@@ -14,17 +14,17 @@
 namespace rhydb::query_engine::filter::operators {
 
 IndexScan::IndexScan(Bitmap bitmap, storage::column::RowLayout row_layout)
-    : bitmap(std::move(bitmap)),
-      row_layout(std::move(row_layout)) {}
+    : Operator(std::move(row_layout)),
+      bitmap(std::move(bitmap)) {}
 
 IndexScan::IndexScan(
    std::unique_ptr<scalar_expressions::ScalarExpression>&& logical_equivalent,
    Bitmap bitmap,
    storage::column::RowLayout row_layout
 )
-    : logical_equivalent(std::move(logical_equivalent)),
-      bitmap(std::move(bitmap)),
-      row_layout(std::move(row_layout)) {}
+    : Operator(std::move(row_layout)),
+      logical_equivalent(std::move(logical_equivalent)),
+      bitmap(std::move(bitmap)) {}
 
 IndexScan::~IndexScan() noexcept = default;
 
@@ -40,9 +40,9 @@ Type IndexScan::type() const {
    return INDEX_SCAN;
 }
 
-Bitmap IndexScan::evaluate() const {
-   EVOBENCH_SCOPE("IndexScan", "evaluate");
-   return bitmap;
+roaring_util::CopyOnWriteContainer IndexScan::evaluateChunk(uint16_t chunk_id) const {
+   // A copy, so that a container owned by `bitmap` is cloned instead of borrowed
+   return bitmap.containerAt(chunk_id);
 }
 std::unique_ptr<Operator> IndexScan::negate(std::unique_ptr<IndexScan>&& index_scan) {
    auto row_layout = index_scan->row_layout;

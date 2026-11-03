@@ -10,8 +10,6 @@
 namespace rhydb::query_engine::filter::operators {
 
 class Full : public Operator {
-   storage::column::RowLayout row_layout;
-
   public:
    explicit Full(storage::column::RowLayout row_layout);
 
@@ -19,7 +17,7 @@ class Full : public Operator {
 
    [[nodiscard]] Type type() const override;
 
-   [[nodiscard]] Bitmap evaluate() const override;
+   [[nodiscard]] roaring_util::CopyOnWriteContainer evaluateChunk(uint16_t chunk_id) const override;
 
    [[nodiscard]] std::string toString() const override;
 

@@ -13,8 +13,8 @@
 namespace rhydb::query_engine::filter::operators {
 
 Complement::Complement(std::unique_ptr<Operator> child, storage::column::RowLayout row_layout)
-    : child(std::move(child)),
-      row_layout(std::move(row_layout)) {}
+    : Operator(std::move(row_layout)),
+      child(std::move(child)) {}
 
 Complement::~Complement() noexcept = default;
 
@@ -48,11 +48,11 @@ Type Complement::type() const {
    return COMPLEMENT;
 }
 
-Bitmap Complement::evaluate() const {
-   EVOBENCH_SCOPE("Complement", "evaluate");
-   roaring::Roaring result = child->evaluate().toRoaring();
-   row_layout.complementInPlace(result);
-   return Bitmap{std::move(result)};
+roaring_util::CopyOnWriteContainer Complement::evaluateChunk(uint16_t chunk_id) const {
+   EVOBENCH_SCOPE("Complement", "evaluateChunk");
+   return roaring_util::CopyOnWriteContainer{roaring_util::complement(
+      child->evaluateChunk(chunk_id).view(), row_layout.chunkSize(chunk_id)
+   )};
 }
 
 std::unique_ptr<Operator> Complement::negate(std::unique_ptr<Complement>&& complement) {
