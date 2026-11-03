@@ -1,13 +1,14 @@
 #include "rhydb/query_engine/scalar_expressions/string_search.h"
 
 #include <memory>
+#include <string>
 #include <utility>
 
 #include <fmt/format.h>
 
 #include "rhydb/common/panic.h"
-#include "rhydb/query_engine/filter/operators/bitmap_producer.h"
 #include "rhydb/query_engine/filter/operators/operator.h"
+#include "rhydb/query_engine/filter/operators/selection.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
 
@@ -29,24 +30,58 @@ std::vector<schema::ColumnIdentifier> StringSearch::freeIUs() const {
 }
 
 namespace {
+
+/// Matches the rows whose value contains a match of `search_expression` (or, if negated, does not)
 template <typename GenericStringColumn>
-std::unique_ptr<filter::operators::Operator> createMatchingBitmap(
+class MatchesSearchExpression : public filter::operators::Predicate {
+   const GenericStringColumn& string_column;
+   std::shared_ptr<const RE2> search_expression;
+   bool negated;
+
+  public:
+   MatchesSearchExpression(
+      const GenericStringColumn& string_column,
+      std::shared_ptr<const RE2> search_expression,
+      bool negated
+   )
+       : string_column(string_column),
+         search_expression(std::move(search_expression)),
+         negated(negated) {}
+
+   [[nodiscard]] std::string toString() const override {
+      return fmt::format(
+         "{}{} regex_matches \"{}\"",
+         negated ? "!" : "",
+         string_column.metadata->column_name,
+         search_expression->pattern()
+      );
+   }
+
+   [[nodiscard]] bool match(storage::column::RowId row_id) const override {
+      const std::string full_string = string_column.getValueString(row_id);
+      return re2::RE2::PartialMatch(full_string, *search_expression) != negated;
+   }
+
+   [[nodiscard]] std::unique_ptr<filter::operators::Predicate> copy() const override {
+      return std::make_unique<MatchesSearchExpression>(string_column, search_expression, negated);
+   }
+
+   [[nodiscard]] std::unique_ptr<filter::operators::Predicate> negate() const override {
+      return std::make_unique<MatchesSearchExpression>(string_column, search_expression, !negated);
+   }
+};
+
+template <typename GenericStringColumn>
+std::unique_ptr<filter::operators::Operator> createMatchingSelection(
    const GenericStringColumn& string_column,
    const std::shared_ptr<const RE2>& search_expression,
    storage::column::RowLayout row_layout
 ) {
-   auto producer = [&string_column, search_expression, row_layout] {
-      roaring::Roaring result_bitmap;
-      for (const auto row_id : row_layout) {
-         const std::string full_string = string_column.getValueString(row_id);
-         if (re2::RE2::PartialMatch(full_string, *search_expression)) {
-            result_bitmap.add(row_id.toGlobal());
-         }
-      }
-      return Bitmap(std::move(result_bitmap));
-   };
-   return std::make_unique<filter::operators::BitmapProducer>(
-      std::move(producer), std::move(row_layout)
+   return std::make_unique<filter::operators::Selection>(
+      std::make_unique<MatchesSearchExpression<GenericStringColumn>>(
+         string_column, search_expression, /*negated=*/false
+      ),
+      std::move(row_layout)
    );
 }
 
@@ -87,11 +122,11 @@ std::unique_ptr<filter::operators::Operator> StringSearch::compile(
          table.getColumn<storage::column::DictionaryEncodedColumn<storage::column::StringColumn>>(
             column.name
          );
-      return createMatchingBitmap(string_column, search_expression, table.row_layout);
+      return createMatchingSelection(string_column, search_expression, table.row_layout);
    }
    RHYDB_ASSERT(table.hasColumn<storage::column::StringColumn>(column.name));
    const auto& string_column = table.getColumn<storage::column::StringColumn>(column.name);
-   return createMatchingBitmap(string_column, search_expression, table.row_layout);
+   return createMatchingSelection(string_column, search_expression, table.row_layout);
 }
 
 }  // namespace rhydb::query_engine::scalar_expressions
