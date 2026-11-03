@@ -14,6 +14,16 @@
 
 using rhydb::schema::DataType;
 
+namespace {
+
+/// Whether an optional config entry is given. `null` counts as not given, e.g. LAPIS serves
+/// `"generateLineageIndex": null` for columns without a lineage index.
+bool isSet(const YAML::Node& node) {
+   return node.IsDefined() && !node.IsNull();
+}
+
+}  // namespace
+
 DataType rhydb::config::toDatabaseDataType(std::string_view type) {
    const auto data_type = rhydb::schema::fromSchemaTypeName(type);
    // Sequence columns are declared separately, as `nucleotideSequences` etc.
@@ -47,7 +57,7 @@ bool YAML::convert<rhydb::config::DatabaseSchema>::decode(
    rhydb::config::DatabaseSchema& schema
 ) {
    schema.instance_name = node["instanceName"].as<std::string>();
-   if (node["primaryKey"].IsDefined() && !node["primaryKey"].IsNull()) {
+   if (isSet(node["primaryKey"])) {
       schema.primary_key = node["primaryKey"].as<std::string>();
    } else {
       schema.primary_key = std::nullopt;
@@ -81,17 +91,17 @@ bool YAML::convert<rhydb::config::DatabaseMetadata>::decode(
 ) {
    metadata.name = node["name"].as<std::string>();
    metadata.type = rhydb::config::toDatabaseDataType(node["type"].as<std::string>());
-   if (node["generateIndex"].IsDefined()) {
+   if (isSet(node["generateIndex"])) {
       metadata.generate_index = node["generateIndex"].as<bool>();
    } else {
       metadata.generate_index = false;
    }
-   if (node["generateLineageIndex"].IsDefined()) {
+   if (isSet(node["generateLineageIndex"])) {
       metadata.generate_lineage_index = node["generateLineageIndex"].as<std::string>();
    } else {
       metadata.generate_lineage_index = std::nullopt;
    }
-   if (node["isPhyloTreeField"].IsDefined()) {
+   if (isSet(node["isPhyloTreeField"])) {
       metadata.phylo_tree_node_identifier = node["isPhyloTreeField"].as<bool>();
    } else {
       metadata.phylo_tree_node_identifier = false;
