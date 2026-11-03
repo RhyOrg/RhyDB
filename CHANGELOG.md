@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.5](https://github.com/RhyOrg/RhyDB/compare/v0.17.4...v0.17.5) (2026-11-03)
+
+
+### Bug Fixes
+
+* **config:** treat null metadata options as not set ([#1795](https://github.com/RhyOrg/RhyDB/issues/1795)) ([36d6e3b](https://github.com/RhyOrg/RhyDB/commit/36d6e3b033c2084100b94e20ed4475ee6dd34947))
+
 ## [0.17.4](https://github.com/RhyOrg/RhyDB/compare/v0.17.3...v0.17.4) (2026-11-02)
 
 
