@@ -1,8 +1,10 @@
 #include "rhydb/common/date32.h"
 
+#include <algorithm>
 #include <charconv>
 #include <chrono>
 #include <expected>
+#include <ranges>
 #include <string>
 
 #include <fmt/format.h>
@@ -11,6 +13,16 @@ namespace rhydb::common {
 
 std::expected<Date32, std::string> stringToDate32(std::string_view value) {
    if (value.size() != 10 || value[4] != '-' || value[7] != '-') {
+      return std::unexpected{
+         fmt::format("Invalid date format '{}': expected exactly YYYY-MM-DD", value),
+      };
+   }
+   // `from_chars` accepts a leading '-' (e.g. year "-999"); only plain digits are valid.
+   const bool only_digits = std::ranges::all_of(
+      std::views::iota(size_t{0}, value.size()),
+      [&](size_t i) { return i == 4 || i == 7 || (value[i] >= '0' && value[i] <= '9'); }
+   );
+   if (!only_digits) {
       return std::unexpected{
          fmt::format("Invalid date format '{}': expected exactly YYYY-MM-DD", value),
       };
