@@ -15,18 +15,18 @@
 #include <Poco/Net/HTTPServerRequest.h>
 #include <Poco/Net/HTTPServerResponse.h>
 
-#include <rhydb/config/cors_policy.h>
+#include "cors_policy.h"
 
 namespace rhydb_app {
 
 class CorsHandler : public Poco::Net::HTTPRequestHandler {
    std::unique_ptr<Poco::Net::HTTPRequestHandler> wrapped_handler;
-   std::optional<rhydb::config::CorsPolicy> cors_policy;
+   std::optional<CorsPolicy> cors_policy;
 
   public:
    CorsHandler(
       std::unique_ptr<Poco::Net::HTTPRequestHandler> wrapped_handler,
-      std::optional<rhydb::config::CorsPolicy> cors_policy
+      std::optional<CorsPolicy> cors_policy
    );
 
    void handleRequest(
@@ -37,13 +37,13 @@ class CorsHandler : public Poco::Net::HTTPRequestHandler {
   private:
    /// Sets Access-Control-Allow-Origin (and Vary: Origin in list mode) for an allowed origin.
    void setAllowOriginHeaders(
-      const rhydb::config::CorsPolicy& policy,
+      const CorsPolicy& policy,
       const std::string& origin,
       Poco::Net::HTTPServerResponse& response
    );
 
    void handlePreflight(
-      const rhydb::config::CorsPolicy& policy,
+      const CorsPolicy& policy,
       const std::string& origin,
       Poco::Net::HTTPServerRequest& request,
       Poco::Net::HTTPServerResponse& response

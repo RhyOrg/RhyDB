@@ -9,6 +9,8 @@
 #include <rhydb/common/rhydb_directory.h>
 
 #include "active_database.h"
+#include "config/config_exception.h"
+#include "cors_policy.h"
 #include "memory_monitor.h"
 #include "request_handler_factory.h"
 #include "rhydb_directory_watcher.h"
@@ -17,6 +19,18 @@ namespace rhydb_app {
 
 int Api::runApi(const rhydb::config::RuntimeConfig& runtime_config) {
    SPDLOG_INFO("Starting RhyDB API");
+
+   // Validate the CORS configuration up front so a malformed value fails fast with a clear message,
+   // rather than when the first request builds the handler. The parsed policy is rebuilt inside the
+   // request handler factory.
+   if (runtime_config.api_options.cors_allowed_origins.has_value()) {
+      try {
+         CorsPolicy::parse(runtime_config.api_options.cors_allowed_origins.value());
+      } catch (const rhydb::config::ConfigException& e) {
+         SPDLOG_ERROR("{}", e.what());
+         return EXIT_FAILURE;
+      }
+   }
 
    const Poco::Net::SocketAddress address(
       runtime_config.api_options.address, runtime_config.api_options.port

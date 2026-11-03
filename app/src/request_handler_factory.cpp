@@ -21,14 +21,13 @@
 namespace rhydb_app {
 
 namespace {
-std::optional<rhydb::config::CorsPolicy> buildCorsPolicy(
-   const rhydb::config::RuntimeConfig& runtime_config
-) {
+std::optional<CorsPolicy> buildCorsPolicy(const rhydb::config::RuntimeConfig& runtime_config) {
    if (!runtime_config.api_options.cors_allowed_origins.has_value()) {
       return std::nullopt;
    }
-   // Validated at startup for configs loaded via the config pipeline (RuntimeConfig::validate).
-   return rhydb::config::CorsPolicy::parse(runtime_config.api_options.cors_allowed_origins.value());
+   // The value is validated once at startup (see runApi in api.cpp), so parsing here cannot fail in
+   // practice.
+   return CorsPolicy::parse(runtime_config.api_options.cors_allowed_origins.value());
 }
 }  // namespace
 

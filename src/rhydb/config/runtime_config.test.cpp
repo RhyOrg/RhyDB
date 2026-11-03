@@ -2,7 +2,6 @@
 
 #include <gtest/gtest.h>
 
-#include "config/config_exception.h"
 #include "config/source/yaml_file.h"
 
 using rhydb::config::RuntimeConfig;
@@ -31,14 +30,8 @@ TEST(RuntimeConfig, adminEndpointIsDisabledByDefault) {
    ASSERT_FALSE(RuntimeConfig::withDefaults().api_options.allow_admin_endpoint);
 }
 
-// CORS is opt-in: without configuration no CORS headers must be sent.
+// CORS is opt-in: without configuration no CORS headers must be sent. The core only stores the raw
+// string; validation and parsing of it live in the API layer (see rhydb_app::CorsPolicy).
 TEST(RuntimeConfig, corsIsDisabledByDefault) {
    ASSERT_FALSE(RuntimeConfig::withDefaults().api_options.cors_allowed_origins.has_value());
-}
-
-// A malformed value must fail at startup, not on the first request.
-TEST(RuntimeConfig, validateRejectsMalformedCorsOrigins) {
-   auto runtime_config = RuntimeConfig::withDefaults();
-   runtime_config.api_options.cors_allowed_origins = "not-an-origin";
-   EXPECT_THROW(runtime_config.validate(), rhydb::config::ConfigException);
 }

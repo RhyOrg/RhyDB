@@ -10,7 +10,6 @@
 #include "config/source/yaml_file.h"
 #include "rhydb/common/json_type_definitions.h"
 #include "rhydb/config/config_defaults.h"
-#include "rhydb/config/cors_policy.h"
 
 namespace {
 using rhydb::config::ConfigKeyPath;
@@ -149,13 +148,6 @@ ConfigSpecification RuntimeConfig::getConfigSpecification() {
          ),
       },
    };
-}
-
-void RuntimeConfig::validate() const {
-   // Parse eagerly so a malformed value fails at startup rather than on the first request.
-   if (api_options.cors_allowed_origins.has_value()) {
-      CorsPolicy::parse(api_options.cors_allowed_origins.value());
-   }
 }
 
 RuntimeConfig RuntimeConfig::withDefaults() {

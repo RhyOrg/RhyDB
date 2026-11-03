@@ -37,7 +37,7 @@ bool isPreflight(const Poco::Net::HTTPServerRequest& request) {
 
 CorsHandler::CorsHandler(
    std::unique_ptr<Poco::Net::HTTPRequestHandler> wrapped_handler,
-   std::optional<rhydb::config::CorsPolicy> cors_policy
+   std::optional<CorsPolicy> cors_policy
 )
     : wrapped_handler(std::move(wrapped_handler)),
       cors_policy(std::move(cors_policy)) {}
@@ -85,7 +85,7 @@ void CorsHandler::handleRequest(
 }
 
 void CorsHandler::setAllowOriginHeaders(
-   const rhydb::config::CorsPolicy& policy,
+   const CorsPolicy& policy,
    const std::string& origin,
    Poco::Net::HTTPServerResponse& response
 ) {
@@ -97,7 +97,7 @@ void CorsHandler::setAllowOriginHeaders(
 }
 
 void CorsHandler::handlePreflight(
-   const rhydb::config::CorsPolicy& policy,
+   const CorsPolicy& policy,
    const std::string& origin,
    Poco::Net::HTTPServerRequest& request,
    Poco::Net::HTTPServerResponse& response

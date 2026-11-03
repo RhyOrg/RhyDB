@@ -5,7 +5,7 @@
 #include <string_view>
 #include <vector>
 
-namespace rhydb::config {
+namespace rhydb_app {
 
 /// Decides which request origins are allowed for Cross-Origin Resource Sharing (CORS).
 ///
@@ -13,6 +13,9 @@ namespace rhydb::config {
 /// comma-separated list of exact origins (e.g. `https://example.org,https://other.org:8443`).
 /// Origin matching is exact and case-sensitive; browsers send the origin without a trailing slash,
 /// so configured origins must not have one either.
+///
+/// CORS is an HTTP-API concern, so this lives in the API layer rather than the portable core. The
+/// core only carries the raw `api.corsAllowedOrigins` string; it is parsed into a policy here.
 class CorsPolicy {
    enum class Mode : uint8_t { ANY, LIST };
 
@@ -35,4 +38,4 @@ class CorsPolicy {
    [[nodiscard]] bool isAllowed(const std::string& origin) const;
 };
 
-}  // namespace rhydb::config
+}  // namespace rhydb_app

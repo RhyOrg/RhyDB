@@ -1,4 +1,4 @@
-#include "rhydb/config/cors_policy.h"
+#include "cors_policy.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -6,7 +6,7 @@
 #include "config/config_exception.h"
 
 using rhydb::config::ConfigException;
-using rhydb::config::CorsPolicy;
+using rhydb_app::CorsPolicy;
 using ::testing::HasSubstr;
 
 TEST(CorsPolicy, wildcardAllowsAnyOrigin) {
@@ -85,6 +85,33 @@ TEST(CorsPolicy, rejectsOriginWithPath) {
 TEST(CorsPolicy, rejectsOriginWithoutScheme) {
    EXPECT_THAT(
       []() { CorsPolicy::parse("a.example"); },
+      ::testing::ThrowsMessage<ConfigException>(HasSubstr("not a valid origin"))
+   );
+}
+
+TEST(CorsPolicy, rejectsPortOutOfRange) {
+   EXPECT_THAT(
+      []() { CorsPolicy::parse("https://example.org:65536"); },
+      ::testing::ThrowsMessage<ConfigException>(HasSubstr("not a valid origin"))
+   );
+   EXPECT_THAT(
+      []() { CorsPolicy::parse("https://example.org:99999999999999999999"); },
+      ::testing::ThrowsMessage<ConfigException>(HasSubstr("not a valid origin"))
+   );
+}
+
+TEST(CorsPolicy, allowsHighestValidPort) {
+   const auto policy = CorsPolicy::parse("https://example.org:65535");
+   ASSERT_TRUE(policy.isAllowed("https://example.org:65535"));
+}
+
+TEST(CorsPolicy, rejectsMalformedIpv6Literal) {
+   EXPECT_THAT(
+      []() { CorsPolicy::parse("http://[:]"); },
+      ::testing::ThrowsMessage<ConfigException>(HasSubstr("not a valid origin"))
+   );
+   EXPECT_THAT(
+      []() { CorsPolicy::parse("http://[12345::6789::1]"); },
       ::testing::ThrowsMessage<ConfigException>(HasSubstr("not a valid origin"))
    );
 }

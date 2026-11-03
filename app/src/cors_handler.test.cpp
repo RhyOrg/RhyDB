@@ -4,12 +4,11 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <rhydb/config/cors_policy.h>
-
+#include "cors_policy.h"
 #include "manual_poco_mocks.test.h"
 
-using rhydb::config::CorsPolicy;
 using rhydb_app::CorsHandler;
+using rhydb_app::CorsPolicy;
 
 namespace {
 
