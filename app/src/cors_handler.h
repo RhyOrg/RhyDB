@@ -36,13 +36,13 @@ class CorsHandler : public Poco::Net::HTTPRequestHandler {
 
   private:
    /// Sets Access-Control-Allow-Origin (and Vary: Origin in list mode) for an allowed origin.
-   void setAllowOriginHeaders(
+   static void setAllowOriginHeaders(
       const CorsPolicy& policy,
       const std::string& origin,
       Poco::Net::HTTPServerResponse& response
    );
 
-   void handlePreflight(
+   static void handlePreflight(
       const CorsPolicy& policy,
       const std::string& origin,
       Poco::Net::HTTPServerRequest& request,

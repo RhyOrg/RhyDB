@@ -21,7 +21,7 @@ namespace {
 bool isIpv6Host(const std::string& host) {
    // Poco::URI stores an IPv6 host without its brackets, so it is the only host form that can
    // contain a colon.
-   return host.find(':') != std::string::npos;
+   return host.contains(':');
 }
 
 bool isValidIpv6(const std::string& host) {
@@ -69,7 +69,7 @@ CorsPolicy CorsPolicy::parse(std::string_view config_value) {
    }
 
    const bool has_wildcard =
-      std::any_of(entries.begin(), entries.end(), [](const auto& entry) { return entry == "*"; });
+      std::ranges::any_of(entries, [](const auto& entry) { return entry == "*"; });
 
    if (has_wildcard) {
       if (entries.size() != 1) {
@@ -107,8 +107,7 @@ bool CorsPolicy::isAllowed(const std::string& origin) const {
    if (mode == Mode::ANY) {
       return true;
    }
-   return std::find(allowed_origins.begin(), allowed_origins.end(), origin) !=
-          allowed_origins.end();
+   return std::ranges::find(allowed_origins, origin) != allowed_origins.end();
 }
 
 }  // namespace rhydb_app
