@@ -1,11 +1,11 @@
 #include "cors_policy.h"
 
 #include <algorithm>
-#include <cstdint>
-#include <regex>
-#include <stdexcept>
 #include <string>
 
+#include <Poco/Exception.h>
+#include <Poco/Net/IPAddress.h>
+#include <Poco/URI.h>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/trim.hpp>
@@ -18,58 +18,41 @@ using rhydb::config::ConfigException;
 
 namespace {
 
-// Matches an exact origin: scheme://host[:port]. No trailing slash, no path, no query.
-// Capture groups: 1 = name/IPv4 host (empty for IPv6), 2 = bracketed IPv6 literal without brackets,
-// 3 = port digits (empty if none). The host is either a name/IPv4 (letters, digits, dots, hyphens,
-// covering domain names and `localhost`) or a bracketed IPv6 literal such as `[::1]`. The IPv6
-// contents and the port range are validated separately below.
-const std::regex ORIGIN_PATTERN{
-   R"(^[a-zA-Z][a-zA-Z0-9+.-]*://(?:([a-zA-Z0-9.-]+)|\[([0-9a-fA-F:]+)\])(?::([0-9]+))?$)"
-};
+bool isIpv6Host(const std::string& host) {
+   // Poco::URI stores an IPv6 host without its brackets, so it is the only host form that can
+   // contain a colon.
+   return host.find(':') != std::string::npos;
+}
 
-// Matches an IPv6 literal (RFC 4291): eight hextets or a single `::` compression. Strict enough to
-// reject obvious junk like `:`, `[:]`, or more than one `::`. A trailing dotted IPv4 suffix is not
-// accepted; browsers normalise such origins to pure hex form anyway.
-const std::regex IPV6_PATTERN{
-   R"(^(?:)"
-   R"((?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4})"               // 1:2:3:4:5:6:7:8
-   R"(|(?:[0-9a-fA-F]{1,4}:){1,7}:)"                           // 1::            1:2:3:4:5:6:7::
-   R"(|(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4})"           // 1::8           1:2:3:4:5:6::8
-   R"(|(?:[0-9a-fA-F]{1,4}:){1,5}(?::[0-9a-fA-F]{1,4}){1,2})"  // 1::7:8         ...
-   R"(|(?:[0-9a-fA-F]{1,4}:){1,4}(?::[0-9a-fA-F]{1,4}){1,3})"  //
-   R"(|(?:[0-9a-fA-F]{1,4}:){1,3}(?::[0-9a-fA-F]{1,4}){1,4})"  //
-   R"(|(?:[0-9a-fA-F]{1,4}:){1,2}(?::[0-9a-fA-F]{1,4}){1,5})"  //
-   R"(|[0-9a-fA-F]{1,4}:(?::[0-9a-fA-F]{1,4}){1,6})"           // 1::3:4:5:6:7:8
-   R"(|:(?:(?::[0-9a-fA-F]{1,4}){1,7}|:))"                     // ::8  ::  ::1:2:...
-   R"()$)"
-};
+bool isValidIpv6(const std::string& host) {
+   Poco::Net::IPAddress parsed;
+   return Poco::Net::IPAddress::tryParse(host, parsed) &&
+          parsed.family() == Poco::Net::IPAddress::IPv6;
+}
 
-constexpr uint32_t MAX_PORT = 65535;
-
+// An exact origin is `scheme://host[:port]` with nothing else: no path, query, fragment or
+// userinfo. Poco::URI parses the structure and rejects out-of-range ports; it does not validate the
+// contents of an IPv6 host, so that is checked separately.
 bool isValidOrigin(const std::string& origin) {
-   std::smatch match;
-   if (!std::regex_match(origin, match, ORIGIN_PATTERN)) {
+   Poco::URI uri;
+   try {
+      uri = Poco::URI(origin);
+   } catch (const Poco::Exception&) {
       return false;
    }
 
-   const std::string ipv6_host = match[2].str();
-   if (!ipv6_host.empty() && !std::regex_match(ipv6_host, IPV6_PATTERN)) {
+   if (uri.getScheme().empty() || uri.getHost().empty()) {
+      return false;
+   }
+   if (
+      !uri.getPath().empty() || !uri.getRawQuery().empty() || !uri.getFragment().empty() ||
+      !uri.getUserInfo().empty()
+   ) {
       return false;
    }
 
-   const std::string port = match[3].str();
-   if (!port.empty()) {
-      // The regex guarantees the port is digits only; reject values out of the TCP port range.
-      try {
-         if (std::stoul(port) > MAX_PORT) {
-            return false;
-         }
-      } catch (const std::out_of_range&) {
-         return false;
-      }
-   }
-
-   return true;
+   const std::string& host = uri.getHost();
+   return !isIpv6Host(host) || isValidIpv6(host);
 }
 
 }  // namespace
