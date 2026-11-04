@@ -8,6 +8,9 @@
 #include <variant>
 #include <vector>
 
+#include <arrow/builder.h>
+#include <arrow/compute/api.h>
+#include <arrow/table.h>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 #include <re2/re2.h>
@@ -25,6 +28,7 @@
 #include "rhydb/query_engine/operators/order_by_node.h"
 #include "rhydb/query_engine/operators/project_node.h"
 #include "rhydb/query_engine/operators/schema_node.h"
+#include "rhydb/query_engine/operators/table_literal_node.h"
 #include "rhydb/query_engine/operators/table_scan_node.h"
 #include "rhydb/query_engine/operators/tables_node.h"
 #include "rhydb/query_engine/operators/transitive_closure_node.h"
@@ -38,6 +42,7 @@
 #include "rhydb/query_engine/saneql/function_registry.h"
 #include "rhydb/query_engine/saneql/lineage_from_tables.h"
 #include "rhydb/query_engine/saneql/parser.h"
+#include "rhydb/query_engine/saneql/table_literal_builder.h"
 #include "rhydb/query_engine/scalar_expressions/and.h"
 #include "rhydb/query_engine/scalar_expressions/at.h"
 #include "rhydb/query_engine/scalar_expressions/comparison.h"
@@ -1233,6 +1238,10 @@ operators::QueryNodePtr handleTables(
    return std::make_unique<operators::TablesNode>();
 }
 
+operators::QueryNodePtr handleTable(const BoundArguments& args, const Tables& tables) {
+   return buildTableLiteralNode(args, tables);
+}
+
 // NOLINTNEXTLINE(misc-no-recursion)
 operators::QueryNodePtr handleGroupBy(const BoundArguments& args, const Tables& tables) {
    auto child = convertExpression(args.at("input"), tables);
@@ -1816,6 +1825,8 @@ FunctionRegistry::FunctionRegistry() {
    registerFunction("schema", {{pos("input")}}, handleSchema);
 
    registerFunction("tables", {{}}, handleTables);
+
+   registerFunction("table", {{pos("rows")}}, handleTable);
 
    registerFunction("group", {{pos("input"), pos("by"), pos("aggs")}}, handleGroupBy);
 

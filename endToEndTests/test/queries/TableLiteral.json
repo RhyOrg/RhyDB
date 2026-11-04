@@ -1,0 +1,14 @@
+{
+  "testCaseName": "table literal with a named header row and a positional row",
+  "query": "table({{a:=1,b:=2},{3,4}}).order(by:={asc(a)})",
+  "expectedQueryResult": [
+    {
+      "a": 1,
+      "b": 2
+    },
+    {
+      "a": 3,
+      "b": 4
+    }
+  ]
+}

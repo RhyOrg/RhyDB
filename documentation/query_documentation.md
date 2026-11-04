@@ -58,6 +58,7 @@ data
 | Date    | `'YYYY-MM-DD'::date`                        | `'2021-03-15'::date`           |
 | Set     | `{elem1, elem2, ...}`                       | `{'A', 'B', 'C'}`              |
 | Record  | `{field1 := value1, field2 := value2, ...}` | `{x := 'A', y := 'B', z := 3}` |
+| Table   | `table({{col1 := v, ...}, {v, ...}, ...})`  | `table({{a := 1, b := 2}, {3, 4}})` |
 
 ### Boolean Operators
 
@@ -540,6 +541,33 @@ tables()
 ```
 
 `tables()` produces an ordinary relation, so operators such as `filter` and `limit` can be chained after it.
+
+### `table(rows)`
+
+Produces a fixed, inline table written directly in the query. It takes no input and is called as a
+top-level function (not chained onto a table).
+
+```
+table({{a := 1, b := 2}, {3, 4}})
+```
+
+produces
+
+| a | b |
+|---|---|
+| 1 | 2 |
+| 3 | 4 |
+
+- `rows` is a set of rows wrapped in an outer set.
+- The **first row names the columns** with a record (`{a := 1, b := 2}`), fixing the column names,
+  count, and order.
+- **Every later row is positional** (`{3, 4}`) and must have the same number of values as the first
+  row.
+- A cell can be any constant expression: a literal, a `'…'::date` value, or a scalar function call
+  such as `concat('a', 'b')`. A cell may not reference a column.
+- Each column takes its type from its non-null cells, which must all have the same type. A `null`
+  cell takes the column's type. A column whose cells are all `null` is an error.
+- Integer literals produce an `INT64` column.
 
 ### `transitiveClosure(input, from, to [, includeVertices:=bool] [, startingFrom:={...}])`
 
