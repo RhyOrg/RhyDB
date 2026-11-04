@@ -4,12 +4,21 @@
 #include <charconv>
 #include <chrono>
 #include <expected>
-#include <ranges>
 #include <string>
 
 #include <fmt/format.h>
 
 namespace rhydb::common {
+
+namespace {
+
+bool isAllDigits(std::string_view text) {
+   return std::ranges::all_of(text, [](char character) {
+      return character >= '0' && character <= '9';
+   });
+}
+
+}  // namespace
 
 std::expected<Date32, std::string> stringToDate32(std::string_view value) {
    if (value.size() != 10 || value[4] != '-' || value[7] != '-') {
@@ -17,19 +26,15 @@ std::expected<Date32, std::string> stringToDate32(std::string_view value) {
          fmt::format("Invalid date format '{}': expected exactly YYYY-MM-DD", value),
       };
    }
+   const std::string_view year_sv = value.substr(0, 4);
+   const std::string_view month_sv = value.substr(5, 2);
+   const std::string_view day_sv = value.substr(8, 2);
    // `from_chars` accepts a leading '-' (e.g. year "-999"); only plain digits are valid.
-   const bool only_digits = std::ranges::all_of(
-      std::views::iota(size_t{0}, value.size()),
-      [&](size_t i) { return i == 4 || i == 7 || (value[i] >= '0' && value[i] <= '9'); }
-   );
-   if (!only_digits) {
+   if (!isAllDigits(year_sv) || !isAllDigits(month_sv) || !isAllDigits(day_sv)) {
       return std::unexpected{
          fmt::format("Invalid date format '{}': expected exactly YYYY-MM-DD", value),
       };
    }
-   const std::string_view year_sv = value.substr(0, 4);
-   const std::string_view month_sv = value.substr(5, 2);
-   const std::string_view day_sv = value.substr(8, 2);
 
    int year;
    auto [ptr_y, ec_y] = std::from_chars(year_sv.data(), year_sv.data() + year_sv.size(), year);
