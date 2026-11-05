@@ -79,12 +79,12 @@ const QueryTestScenario STRING_GREATER_EQUAL = {
    ),
 };
 
-// !(stringField < 'banana') keeps everything at/above the bound plus the null row.
+// !(stringField < 'banana') keeps everything at/above the bound, but not the null row.
 const QueryTestScenario STRING_NEGATED_LESS_THAN = {
    .name = "STRING_NEGATED_LESS_THAN",
    .query = "data.filter(!(stringField < 'banana')).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
-      R"([{"primaryKey":"id_banana"},{"primaryKey":"id_cherry"},{"primaryKey":"id_null"},{"primaryKey":"id_long"}])"
+      R"([{"primaryKey":"id_banana"},{"primaryKey":"id_cherry"},{"primaryKey":"id_long"}])"
    ),
 };
 
@@ -126,13 +126,13 @@ const QueryTestScenario DICT_GREATER_EQUAL = {
    ),
 };
 
-// Nulls are excluded from the dictionary index, so a negation still drops the null row's
-// dictionary bitmap but the negated selection re-adds it via null handling.
+// !(dictField < 'banana') == dictField >= 'banana': the null row is neither selected by the
+// dictionary index scan nor by its negation.
 const QueryTestScenario DICT_NEGATED_LESS_THAN = {
    .name = "DICT_NEGATED_LESS_THAN",
    .query = "data.filter(!(dictField < 'banana')).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
-      R"([{"primaryKey":"id_banana"},{"primaryKey":"id_cherry"},{"primaryKey":"id_null"},{"primaryKey":"id_long"}])"
+      R"([{"primaryKey":"id_banana"},{"primaryKey":"id_cherry"},{"primaryKey":"id_long"}])"
    ),
 };
 
