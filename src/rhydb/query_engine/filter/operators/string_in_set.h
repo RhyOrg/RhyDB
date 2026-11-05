@@ -21,12 +21,15 @@ class StringInSet : public Predicate {
    const ColumnType* column;
    std::unordered_set<std::string> values;
    Comparator comparator;
+   /// Whether the rows where the column is null match
+   bool with_nulls;
 
   public:
    explicit StringInSet(
       const ColumnType* column,
       Comparator comparator,
-      std::unordered_set<std::string> values
+      std::unordered_set<std::string> values,
+      bool with_nulls = false
    );
 
    ~StringInSet() noexcept override;
