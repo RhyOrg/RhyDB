@@ -34,6 +34,7 @@ const std::vector<nlohmann::json> DATA = {
    createDataEntry("id5", "AA"),
    createDataEntry("id6", "something else"),
    createDataEntry("id7", nullptr),
+   createDataEntry("id8", ""),
 };
 
 const auto DATABASE_CONFIG = fmt::format(
@@ -111,6 +112,30 @@ const QueryTestScenario FILTER_FOR_SOMETHING_THAT_DOES_NOT_OCCUR_ON_INDEXED_COLU
    .expected_query_result = createExpectedResult({}),
 };
 
+const QueryTestScenario FILTER_FOR_EMPTY_STRING_DOES_NOT_MATCH_NULL = {
+   .name = "FILTER_FOR_EMPTY_STRING_DOES_NOT_MATCH_NULL",
+   .query = "data.filter(test_column.like('^$')).project(primaryKey)",
+   .expected_query_result = createExpectedResult({"id8"}),
+};
+
+const QueryTestScenario FILTER_FOR_EMPTY_STRING_DOES_NOT_MATCH_NULL_ON_INDEXED_COLUMN = {
+   .name = "FILTER_FOR_EMPTY_STRING_DOES_NOT_MATCH_NULL_ON_INDEXED_COLUMN",
+   .query = "data.filter(indexed_test_column.like('^$')).project(primaryKey)",
+   .expected_query_result = createExpectedResult({"id8"}),
+};
+
+const QueryTestScenario FILTER_FOR_ANYTHING_DOES_NOT_MATCH_NULL = {
+   .name = "FILTER_FOR_ANYTHING_DOES_NOT_MATCH_NULL",
+   .query = "data.filter(test_column.like('')).project(primaryKey)",
+   .expected_query_result = createExpectedResult({"id1", "id2", "id3", "id4", "id5", "id6", "id8"}),
+};
+
+const QueryTestScenario FILTER_FOR_ANYTHING_DOES_NOT_MATCH_NULL_ON_INDEXED_COLUMN = {
+   .name = "FILTER_FOR_ANYTHING_DOES_NOT_MATCH_NULL_ON_INDEXED_COLUMN",
+   .query = "data.filter(indexed_test_column.like('')).project(primaryKey)",
+   .expected_query_result = createExpectedResult({"id1", "id2", "id3", "id4", "id5", "id6", "id8"}),
+};
+
 const QueryTestScenario INVALID_REGULAR_EXPRESSION = {
    .name = "INVALID_REGULAR_EXPRESSION",
    .query = "data.filter(test_column.like('^(')).project(primaryKey)",
@@ -144,6 +169,10 @@ QUERY_TEST(
       FILTER_FOR_AA_ON_INDEXED_COLUMN,
       FILTER_FOR_AA_AT_THE_BEGINNING_ON_INDEXED_COLUMN,
       FILTER_FOR_SOMETHING_THAT_DOES_NOT_OCCUR_ON_INDEXED_COLUMN,
+      FILTER_FOR_EMPTY_STRING_DOES_NOT_MATCH_NULL,
+      FILTER_FOR_EMPTY_STRING_DOES_NOT_MATCH_NULL_ON_INDEXED_COLUMN,
+      FILTER_FOR_ANYTHING_DOES_NOT_MATCH_NULL,
+      FILTER_FOR_ANYTHING_DOES_NOT_MATCH_NULL_ON_INDEXED_COLUMN,
       INVALID_REGULAR_EXPRESSION,
       FILTER_FOR_COLUMN_THAT_DOES_NOT_EXIST,
       TABLE_NOT_FOUND

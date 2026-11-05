@@ -45,16 +45,20 @@ class MatchesSearchExpression : public Predicate {
    const GenericStringColumn& string_column;
    std::shared_ptr<const RE2> search_expression;
    bool negated;
+   /// Whether the rows where the column is null match
+   bool with_nulls;
 
   public:
    MatchesSearchExpression(
       const GenericStringColumn& string_column,
       std::shared_ptr<const RE2> search_expression,
-      bool negated
+      bool negated,
+      bool with_nulls
    )
        : string_column(string_column),
          search_expression(std::move(search_expression)),
-         negated(negated) {}
+         negated(negated),
+         with_nulls(with_nulls) {}
 
    [[nodiscard]] std::string toString() const override {
       return fmt::format(
@@ -66,16 +70,23 @@ class MatchesSearchExpression : public Predicate {
    }
 
    [[nodiscard]] bool match(RowId row_id) const override {
+      if (string_column.isNull(row_id)) {
+         return with_nulls;
+      }
       const std::string full_string = string_column.getValueString(row_id);
       return re2::RE2::PartialMatch(full_string, *search_expression) != negated;
    }
 
    [[nodiscard]] std::unique_ptr<Predicate> copy() const override {
-      return std::make_unique<MatchesSearchExpression>(string_column, search_expression, negated);
+      return std::make_unique<MatchesSearchExpression>(
+         string_column, search_expression, negated, with_nulls
+      );
    }
 
    [[nodiscard]] std::unique_ptr<Predicate> negate() const override {
-      return std::make_unique<MatchesSearchExpression>(string_column, search_expression, !negated);
+      return std::make_unique<MatchesSearchExpression>(
+         string_column, search_expression, !negated, !with_nulls
+      );
    }
 };
 
@@ -87,7 +98,7 @@ std::unique_ptr<Operator> createMatchingSelection(
 ) {
    return std::make_unique<Selection>(
       std::make_unique<MatchesSearchExpression<GenericStringColumn>>(
-         string_column, search_expression, /*negated=*/false
+         string_column, search_expression, /*negated=*/false, /*with_nulls=*/false
       ),
       std::move(row_layout)
    );
