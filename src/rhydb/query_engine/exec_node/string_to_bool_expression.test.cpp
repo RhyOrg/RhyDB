@@ -15,21 +15,20 @@ namespace {
 
 using rhydb::query_engine::exec_node::StringToBoolExpression;
 
-arrow::Result<std::shared_ptr<arrow::Table>> runThroughProjection(
+arrow::Result<std::shared_ptr<arrow::Table>> makeStringTable(
    const std::vector<std::optional<std::string>>& values
 ) {
    arrow::LargeStringBuilder builder;
    for (const auto& value : values) {
-      if (value.has_value()) {
-         ARROW_RETURN_NOT_OK(builder.Append(*value));
-      } else {
-         ARROW_RETURN_NOT_OK(builder.AppendNull());
-      }
+      ARROW_RETURN_NOT_OK(value.has_value() ? builder.Append(*value) : builder.AppendNull());
    }
    ARROW_ASSIGN_OR_RAISE(auto array, builder.Finish());
-   auto input_table =
-      arrow::Table::Make(arrow::schema({arrow::field("s", arrow::large_utf8())}), {array});
+   return arrow::Table::Make(arrow::schema({arrow::field("s", arrow::large_utf8())}), {array});
+}
 
+arrow::Result<std::shared_ptr<arrow::Table>> runProjection(
+   const std::shared_ptr<arrow::Table>& input_table
+) {
    ARROW_ASSIGN_OR_RAISE(auto plan, arrow::acero::ExecPlan::Make());
    ARROW_ASSIGN_OR_RAISE(
       auto* node,
@@ -58,6 +57,13 @@ arrow::Result<std::shared_ptr<arrow::Table>> runThroughProjection(
    plan->StartProducing();
    ARROW_RETURN_NOT_OK(plan->finished().status());
    return result_table;
+}
+
+arrow::Result<std::shared_ptr<arrow::Table>> runThroughProjection(
+   const std::vector<std::optional<std::string>>& values
+) {
+   ARROW_ASSIGN_OR_RAISE(auto input_table, makeStringTable(values));
+   return runProjection(input_table);
 }
 
 }  // namespace
