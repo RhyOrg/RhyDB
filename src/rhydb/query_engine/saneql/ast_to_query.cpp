@@ -253,6 +253,24 @@ bool isLiteral(const ScalarExpression& expression) {
    }
 }
 
+/// The operand of a cast. A comparison or a logical expression, e.g. `(age > 3)::string`, produces
+/// a boolean value, so it goes through the predicate converter.
+// NOLINTNEXTLINE(misc-no-recursion)
+std::unique_ptr<ScalarExpression> convertCastOperand(
+   const ast::Expression& operand,
+   const std::vector<schema::ColumnIdentifier>& schema,
+   std::string_view error_context,
+   const ScalarConversionContext& context
+) {
+   const bool is_boolean_expression = std::holds_alternative<ast::BinaryExpr>(operand.value) ||
+                                      std::holds_alternative<ast::LogicalExpr>(operand.value) ||
+                                      std::holds_alternative<ast::UnaryNotExpr>(operand.value);
+   if (is_boolean_expression) {
+      return convertToFilter(operand, schema, context);
+   }
+   return convertToScalar(operand, schema, error_context, context);
+}
+
 /// Converts `operand::<type>`. Casts of literals are evaluated right away and yield a literal of
 /// the target type (so they can still be used wherever a literal is required, e.g. in
 /// comparisons); casts of anything else are evaluated by Arrow when the query runs.
@@ -277,7 +295,7 @@ std::unique_ptr<ScalarExpression> convertTypeCast(
       return std::make_unique<scalar_expressions::DateLiteral>(extractDateValue(ast));
    }
 
-   auto operand = convertToScalar(*cast.operand, schema, error_context, context);
+   auto operand = convertCastOperand(*cast.operand, schema, error_context, context);
    const DataType source_type = operand->type().getPlainType();
    CHECK_RHYDB_QUERY(
       isCastSupported(source_type, target_type),
@@ -858,8 +876,7 @@ ScalarExpressionPtr convertTypeCastToFilter(
 ) {
    auto expression = convertToScalar(ast, schema, "filter", context);
    CHECK_RHYDB_QUERY(
-      expression->type() == DataType::BOOL &&
-         expression->kind() != ScalarExpression::Kind::NULL_LITERAL,
+      expression->type() == DataType::BOOL,
       "a cast to {} cannot be used as a filter predicate at {}:{}; only casts to boolean can",
       std::get<TypeCast>(ast.value).target_type,
       ast.location.line,

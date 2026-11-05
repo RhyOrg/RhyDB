@@ -379,6 +379,52 @@ const QueryTestScenario FILTER_BY_BOOLEAN_LITERAL_CAST_SCENARIO = {
    .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}, {{"primaryKey", "id_1"}}}),
 };
 
+const QueryTestScenario FILTER_BY_NULL_BOOLEAN_CAST_AFTER_LIMIT_SCENARIO = {
+   .name = "FILTER_BY_NULL_BOOLEAN_CAST_AFTER_LIMIT",
+   .query = "data.limit(10).filter(null::boolean).project({primaryKey})",
+   .expected_query_result = nlohmann::json::array(),
+};
+
+const QueryTestScenario FILTER_BY_NULL_BOOLEAN_CAST_IN_TABLE_SCAN_SCENARIO = {
+   .name = "FILTER_BY_NULL_BOOLEAN_CAST_IN_TABLE_SCAN",
+   .query = "data.filter(null::boolean).project({primaryKey})",
+   .expected_query_result = nlohmann::json::array(),
+};
+
+const QueryTestScenario FILTER_BY_NEGATED_NULL_BOOLEAN_CAST_IN_TABLE_SCAN_SCENARIO = {
+   .name = "FILTER_BY_NEGATED_NULL_BOOLEAN_CAST_IN_TABLE_SCAN",
+   .query = "data.filter(!null::boolean).project({primaryKey})",
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}, {{"primaryKey", "id_1"}}}),
+};
+
+// ---- casts of boolean expressions ----
+
+const QueryTestScenario COMPARISON_TO_STRING_SCENARIO = {
+   .name = "COMPARISON_TO_STRING",
+   .query = "data.map({a := (int_col > 0)::string}).project({primaryKey, a})",
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"a", "true"}},
+      {{"primaryKey", "id_1"}, {"a", "false"}},
+   }),
+};
+
+const QueryTestScenario LOGICAL_EXPRESSION_TO_STRING_SCENARIO = {
+   .name = "LOGICAL_EXPRESSION_TO_STRING",
+   .query =
+      "data.map({a := (int_col > 0 && float_col < 2.0)::string, "
+      "b := (int_col < 0 || float_col < 2.0)::string}).project({primaryKey, a, b})",
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"a", "true"}, {"b", "true"}},
+      {{"primaryKey", "id_1"}, {"a", "false"}, {"b", "true"}},
+   }),
+};
+
+const QueryTestScenario COMPARISON_TO_INT_THROWS_SCENARIO = {
+   .name = "COMPARISON_TO_INT_THROWS",
+   .query = "data.map({a := (int_col > 0)::int32}).project({primaryKey, a})",
+   .expected_error_message = "map() field 'a': cannot cast from BOOL to INT32 at 1:29",
+};
+
 // ---- optimizer interplay ----
 
 const QueryTestScenario GROUP_BY_CAST_SCENARIO = {
@@ -446,6 +492,12 @@ QUERY_TEST(
       FILTER_BY_BOOLEAN_CAST_IN_TABLE_SCAN_THROWS_SCENARIO,
       FILTER_BY_NON_BOOLEAN_CAST_THROWS_SCENARIO,
       FILTER_BY_BOOLEAN_LITERAL_CAST_SCENARIO,
+      FILTER_BY_NULL_BOOLEAN_CAST_AFTER_LIMIT_SCENARIO,
+      FILTER_BY_NULL_BOOLEAN_CAST_IN_TABLE_SCAN_SCENARIO,
+      FILTER_BY_NEGATED_NULL_BOOLEAN_CAST_IN_TABLE_SCAN_SCENARIO,
+      COMPARISON_TO_STRING_SCENARIO,
+      LOGICAL_EXPRESSION_TO_STRING_SCENARIO,
+      COMPARISON_TO_INT_THROWS_SCENARIO,
       GROUP_BY_CAST_SCENARIO,
       CAST_OF_COLUMN_FROM_PREVIOUS_MAP_SCENARIO,
       CAST_IN_SECOND_MAP_USES_FIRST_MAP_SCENARIO

@@ -19,6 +19,9 @@
 
 namespace rhydb::query_engine::scalar_expressions {
 
+using filter::operators::Empty;
+using storage::Table;
+
 namespace {
 /// Literals are scalar values, not filter predicates. Only the boolean literal
 /// has a meaningful compilation into a filter operator.
@@ -39,14 +42,13 @@ arrow::Result<arrow::compute::Expression> Int32Literal::toArrowExpression() cons
 }
 
 std::unique_ptr<ScalarExpression> Int32Literal::rewrite(
-   const storage::Table& /*table*/,
+   const Table& /*table*/,
    AmbiguityMode /*mode*/
 ) const {
    return std::make_unique<Int32Literal>(value);
 }
 
-std::unique_ptr<filter::operators::Operator> Int32Literal::
-   compile(const storage::Table& /*table*/) const {
+std::unique_ptr<filter::operators::Operator> Int32Literal::compile(const Table& /*table*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -62,14 +64,13 @@ arrow::Result<arrow::compute::Expression> Int64Literal::toArrowExpression() cons
 }
 
 std::unique_ptr<ScalarExpression> Int64Literal::rewrite(
-   const storage::Table& /*table*/,
+   const Table& /*table*/,
    AmbiguityMode /*mode*/
 ) const {
    return std::make_unique<Int64Literal>(value);
 }
 
-std::unique_ptr<filter::operators::Operator> Int64Literal::
-   compile(const storage::Table& /*table*/) const {
+std::unique_ptr<filter::operators::Operator> Int64Literal::compile(const Table& /*table*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -85,14 +86,13 @@ arrow::Result<arrow::compute::Expression> FloatLiteral::toArrowExpression() cons
 }
 
 std::unique_ptr<ScalarExpression> FloatLiteral::rewrite(
-   const storage::Table& /*table*/,
+   const Table& /*table*/,
    AmbiguityMode /*mode*/
 ) const {
    return std::make_unique<FloatLiteral>(value);
 }
 
-std::unique_ptr<filter::operators::Operator> FloatLiteral::
-   compile(const storage::Table& /*table*/) const {
+std::unique_ptr<filter::operators::Operator> FloatLiteral::compile(const Table& /*table*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -108,14 +108,13 @@ arrow::Result<arrow::compute::Expression> StringLiteral::toArrowExpression() con
 }
 
 std::unique_ptr<ScalarExpression> StringLiteral::rewrite(
-   const storage::Table& /*table*/,
+   const Table& /*table*/,
    AmbiguityMode /*mode*/
 ) const {
    return std::make_unique<StringLiteral>(value);
 }
 
-std::unique_ptr<filter::operators::Operator> StringLiteral::
-   compile(const storage::Table& /*table*/) const {
+std::unique_ptr<filter::operators::Operator> StringLiteral::compile(const Table& /*table*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -131,19 +130,17 @@ arrow::Result<arrow::compute::Expression> BoolLiteral::toArrowExpression() const
 }
 
 std::unique_ptr<ScalarExpression> BoolLiteral::rewrite(
-   const storage::Table& /*table*/,
+   const Table& /*table*/,
    AmbiguityMode /*mode*/
 ) const {
    return std::make_unique<BoolLiteral>(value);
 }
 
-std::unique_ptr<filter::operators::Operator> BoolLiteral::compile(
-   const storage::Table& table
-) const {
+std::unique_ptr<filter::operators::Operator> BoolLiteral::compile(const Table& table) const {
    if (value) {
       return std::make_unique<filter::operators::Full>(table.row_layout);
    }
-   return std::make_unique<filter::operators::Empty>(table.row_layout);
+   return std::make_unique<Empty>(table.row_layout);
 }
 
 DateLiteral::DateLiteral(common::Date32 value)
@@ -158,14 +155,13 @@ arrow::Result<arrow::compute::Expression> DateLiteral::toArrowExpression() const
 }
 
 std::unique_ptr<ScalarExpression> DateLiteral::rewrite(
-   const storage::Table& /*table*/,
+   const Table& /*table*/,
    AmbiguityMode /*mode*/
 ) const {
    return std::make_unique<DateLiteral>(value);
 }
 
-std::unique_ptr<filter::operators::Operator> DateLiteral::
-   compile(const storage::Table& /*table*/) const {
+std::unique_ptr<filter::operators::Operator> DateLiteral::compile(const Table& /*table*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -183,14 +179,17 @@ arrow::Result<arrow::compute::Expression> NullLiteral::toArrowExpression() const
 }
 
 std::unique_ptr<ScalarExpression> NullLiteral::rewrite(
-   const storage::Table& /*table*/,
+   const Table& /*table*/,
    AmbiguityMode /*mode*/
 ) const {
    return std::make_unique<NullLiteral>(value_type);
 }
 
-std::unique_ptr<filter::operators::Operator> NullLiteral::
-   compile(const storage::Table& /*table*/) const {
+std::unique_ptr<filter::operators::Operator> NullLiteral::compile(const Table& table) const {
+   if (value_type == schema::DataType::BOOL) {
+      // A null predicate matches no row, like a comparison with a null cell.
+      return std::make_unique<Empty>(table.row_layout);
+   }
    compileNonBooleanLiteral();
 }
 
