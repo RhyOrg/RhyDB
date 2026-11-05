@@ -33,6 +33,7 @@ class ScalarExpression {
       AT,
       CONCAT,
       ISO_WEEK,
+      CAST,
       N_OF,
       NEGATION,
       MAYBE,

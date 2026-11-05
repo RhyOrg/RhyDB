@@ -12,6 +12,7 @@
 #include "rhydb/query_engine/operators/map_node.h"
 #include "rhydb/query_engine/operators/order_by_node.h"
 #include "rhydb/query_engine/scalar_expressions/at.h"
+#include "rhydb/query_engine/scalar_expressions/cast.h"
 #include "rhydb/query_engine/scalar_expressions/concat.h"
 #include "rhydb/query_engine/scalar_expressions/field_ref.h"
 #include "rhydb/query_engine/scalar_expressions/iso_week.h"
@@ -22,7 +23,13 @@ namespace rhydb::query_engine::optimizer {
 
 namespace {
 
+using scalar_expressions::At;
+using scalar_expressions::Cast;
+using scalar_expressions::Concat;
+using scalar_expressions::FieldRef;
+using scalar_expressions::IsoWeek;
 using scalar_expressions::ScalarExpression;
+using scalar_expressions::ZstdDecompressScalar;
 
 /// Rebuilds `expression` with every `FieldRef` to a column in `produced` replaced by a clone of
 /// that column's defining expression, inlining a lower map's assignments into an upper map's
@@ -42,40 +49,40 @@ std::unique_ptr<ScalarExpression> substituteColumns(
    using Kind = ScalarExpression::Kind;
    switch (expression.kind()) {
       case Kind::FIELD_REF: {
-         const auto& field_ref = static_cast<const scalar_expressions::FieldRef&>(expression);
+         const auto& field_ref = static_cast<const FieldRef&>(expression);
          const auto replacement = produced.find(field_ref.column.name);
          return replacement != produced.end() ? replacement->second->clone() : expression.clone();
       }
       case Kind::AT: {
-         const auto& at_expression = static_cast<const scalar_expressions::At&>(expression);
+         const auto& at_expression = static_cast<const At&>(expression);
          auto input = substituteColumns(*at_expression.input, produced);
          return input == nullptr ? nullptr
-                                 : std::make_unique<scalar_expressions::At>(
-                                      std::move(input), at_expression.position
-                                   );
+                                 : std::make_unique<At>(std::move(input), at_expression.position);
       }
       case Kind::ISO_WEEK: {
-         const auto& iso_week = static_cast<const scalar_expressions::IsoWeek&>(expression);
+         const auto& iso_week = static_cast<const IsoWeek&>(expression);
          auto input = substituteColumns(*iso_week.input, produced);
+         return input == nullptr ? nullptr : std::make_unique<IsoWeek>(std::move(input));
+      }
+      case Kind::CAST: {
+         const auto& cast = static_cast<const Cast&>(expression);
+         auto input = substituteColumns(*cast.input, produced);
          return input == nullptr ? nullptr
-                                 : std::make_unique<scalar_expressions::IsoWeek>(std::move(input));
+                                 : std::make_unique<Cast>(std::move(input), cast.target_type);
       }
       case Kind::CONCAT: {
-         const auto& concat = static_cast<const scalar_expressions::Concat&>(expression);
+         const auto& concat = static_cast<const Concat&>(expression);
          auto left = substituteColumns(*concat.left, produced);
          auto right = substituteColumns(*concat.right, produced);
          return (left == nullptr || right == nullptr)
                    ? nullptr
-                   : std::make_unique<scalar_expressions::Concat>(
-                        std::move(left), std::move(right)
-                     );
+                   : std::make_unique<Concat>(std::move(left), std::move(right));
       }
       case Kind::ZSTD_DECOMPRESS_SCALAR: {
-         const auto& zstd =
-            static_cast<const scalar_expressions::ZstdDecompressScalar&>(expression);
+         const auto& zstd = static_cast<const ZstdDecompressScalar&>(expression);
          auto input = substituteColumns(*zstd.input, produced);
          return input == nullptr ? nullptr
-                                 : std::make_unique<scalar_expressions::ZstdDecompressScalar>(
+                                 : std::make_unique<ZstdDecompressScalar>(
                                       std::move(input), zstd.dictionary_string
                                    );
       }
