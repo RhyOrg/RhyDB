@@ -111,10 +111,7 @@ arrow::Result<arrow::compute::Expression> Cast::toArrowExpression() const {
    );
 }
 
-std::unique_ptr<ScalarExpression> Cast::rewrite(
-   const Table& table,
-   AmbiguityMode mode
-) const {
+std::unique_ptr<ScalarExpression> Cast::rewrite(const Table& table, AmbiguityMode mode) const {
    return std::make_unique<Cast>(input->rewrite(table, mode), target_type);
 }
 

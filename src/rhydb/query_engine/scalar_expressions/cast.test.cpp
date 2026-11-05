@@ -227,15 +227,17 @@ const QueryTestScenario LITERAL_CASTS_SCENARIO = {
       "data.filter(primaryKey = 'id_0').map({a := '42'::int64, b := 3::float, c := 3.0::int32,"
       " d := 'true'::boolean, e := 5::string, f := '2020-01-31'::date, g := 2.5::string})"
       ".project({a, b, c, d, e, f, g})",
-   .expected_query_result = nlohmann::json({{
-      {"a", 42},
-      {"b", 3.0},
-      {"c", 3},
-      {"d", true},
-      {"e", "5"},
-      {"f", "2020-01-31"},
-      {"g", "2.5"},
-   }}),
+   .expected_query_result = nlohmann::json({
+      {
+         {"a", 42},
+         {"b", 3.0},
+         {"c", 3},
+         {"d", true},
+         {"e", "5"},
+         {"f", "2020-01-31"},
+         {"g", "2.5"},
+      },
+   }),
 };
 
 const QueryTestScenario TYPED_NULL_LITERAL_SCENARIO = {
