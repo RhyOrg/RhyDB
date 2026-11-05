@@ -47,7 +47,10 @@ std::unique_ptr<ScalarExpression> At::rewrite(
    return std::make_unique<At>(input->rewrite(table, mode), position);
 }
 
-std::unique_ptr<filter::operators::Operator> At::compile(const storage::Table& /*table*/) const {
+std::unique_ptr<filter::operators::Operator> At::compile(
+   const storage::Table& /*table*/,
+   bool /*with_null_rows*/
+) const {
    // `at` yields a string scalar value, not a filter predicate.
    RHYDB_UNIMPLEMENTED();
 }

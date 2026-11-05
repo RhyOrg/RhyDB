@@ -23,7 +23,8 @@ class IntBetween : public ScalarExpression {
    template <typename ColumnT>
    [[nodiscard]] std::unique_ptr<filter::operators::Operator> compileFor(
       const ColumnT& column_ref,
-      const storage::Table& table
+      const storage::Table& table,
+      bool with_null_rows
    ) const;
 
   public:
@@ -49,7 +50,8 @@ class IntBetween : public ScalarExpression {
    ) const override;
 
    [[nodiscard]] std::unique_ptr<filter::operators::Operator> compile(
-      const storage::Table& table
+      const storage::Table& table,
+      bool with_null_rows
    ) const override;
 };
 

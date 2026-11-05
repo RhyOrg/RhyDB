@@ -142,7 +142,9 @@ class CompareToValueSelection : public Predicate {
    }
 
    [[nodiscard]] std::unique_ptr<Predicate> copy() const override {
-      return std::make_unique<CompareToValueSelection<ColumnType>>(column, comparator, value);
+      return std::make_unique<CompareToValueSelection<ColumnType>>(
+         column, comparator, value, with_nulls
+      );
    }
 
    [[nodiscard]] std::unique_ptr<Predicate> negate() const override {

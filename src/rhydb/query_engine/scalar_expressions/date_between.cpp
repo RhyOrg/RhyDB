@@ -14,6 +14,7 @@
 #include "rhydb/query_engine/filter/operators/index_scan.h"
 #include "rhydb/query_engine/filter/operators/range_selection.h"
 #include "rhydb/query_engine/filter/operators/selection.h"
+#include "rhydb/query_engine/filter/operators/union.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/storage/column/column.h"
 #include "rhydb/storage/column/date32_column.h"
@@ -61,11 +62,16 @@ using filter::operators::CompareToValueSelection;
 using filter::operators::Empty;
 using filter::operators::IndexScan;
 using filter::operators::Operator;
+using filter::operators::OperatorVector;
 using filter::operators::PredicateVector;
 using filter::operators::RangeSelection;
 using filter::operators::Selection;
+using filter::operators::Union;
 
-std::unique_ptr<Operator> DateBetween::compile(const storage::Table& table) const {
+std::unique_ptr<Operator> DateBetween::compile(
+   const storage::Table& table,
+   bool with_null_rows
+) const {
    CHECK_RHYDB_QUERY(
       table.schema->getColumn(column.name).has_value(),
       "The database does not contain the column '{}'",
@@ -73,7 +79,9 @@ std::unique_ptr<Operator> DateBetween::compile(const storage::Table& table) cons
    );
    if (table.hasColumn<DictionaryEncodedColumn<Date32Column>>(column.name)) {
       return compileOnDictionary(
-         table.getColumn<DictionaryEncodedColumn<Date32Column>>(column.name), table.row_layout
+         table.getColumn<DictionaryEncodedColumn<Date32Column>>(column.name),
+         table.row_layout,
+         with_null_rows
       );
    }
    CHECK_RHYDB_QUERY(
@@ -83,23 +91,32 @@ std::unique_ptr<Operator> DateBetween::compile(const storage::Table& table) cons
    const auto& date_column = table.getColumn<Date32Column>(column.name);
 
    if (date_column.isSorted()) {
-      return std::make_unique<RangeSelection>(
-         computeRangesOfSortedColumn(date_column), table.row_layout
-      );
+      auto ranges =
+         std::make_unique<RangeSelection>(computeRangesOfSortedColumn(date_column), table.row_layout);
+      Bitmap null_rows = Bitmap::fromChunkContainers(date_column.null_bitmap);
+      if (!with_null_rows || null_rows.isEmpty()) {
+         return ranges;
+      }
+      OperatorVector true_or_null;
+      true_or_null.push_back(std::move(ranges));
+      true_or_null.push_back(std::make_unique<IndexScan>(std::move(null_rows), table.row_layout));
+      return std::make_unique<Union>(std::move(true_or_null), table.row_layout);
    }
    PredicateVector predicates;
    predicates.emplace_back(
       std::make_unique<CompareToValueSelection<Date32Column>>(
          date_column,
          Comparator::HIGHER_OR_EQUALS,
-         date_from.value_or(std::numeric_limits<Date32>::min())
+         date_from.value_or(std::numeric_limits<Date32>::min()),
+         with_null_rows
       )
    );
    predicates.emplace_back(
       std::make_unique<CompareToValueSelection<Date32Column>>(
          date_column,
          Comparator::LESS_OR_EQUALS,
-         date_to.value_or(std::numeric_limits<Date32>::max())
+         date_to.value_or(std::numeric_limits<Date32>::max()),
+         with_null_rows
       )
    );
    return std::make_unique<Selection>(std::move(predicates), table.row_layout);
@@ -107,16 +124,20 @@ std::unique_ptr<Operator> DateBetween::compile(const storage::Table& table) cons
 
 std::unique_ptr<Operator> DateBetween::compileOnDictionary(
    const DictionaryEncodedColumn<Date32Column>& date_column,
-   const storage::column::RowLayout& row_layout
+   const storage::column::RowLayout& row_layout,
+   bool with_null_rows
 ) const {
    const auto from = date_from.value_or(std::numeric_limits<Date32>::min());
    const auto to = date_to.value_or(std::numeric_limits<Date32>::max());
-   // Every distinct date in the range contributes its row bitmap. Null rows are excluded, as the
-   // indexed bitmaps are disjoint from the null bitmap.
+   // Every distinct date in the range contributes its row bitmap. Null rows are not included, as
+   // the indexed bitmaps are disjoint from the null bitmap.
    Bitmap unioned = date_column.filterByIds([&](Idx dict_id) {
       const Date32 date = date_column.lookupValue(dict_id);
       return from <= date && date <= to;
    });
+   if (with_null_rows) {
+      unioned |= date_column.nullRows();
+   }
    if (unioned.isEmpty()) {
       return std::make_unique<Empty>(row_layout);
    }
