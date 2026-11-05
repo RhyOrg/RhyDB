@@ -272,7 +272,7 @@ size_t applyColumnAssignments(
 ) {
    const roaring::Roaring row_ids =
       predicate.rewrite(*table, scalar_expressions::ScalarExpression::AmbiguityMode::NONE)
-         ->compile(*table)
+         ->compile(*table, /*with_null_rows=*/false)
          ->evaluate()
          .toRoaring();
 

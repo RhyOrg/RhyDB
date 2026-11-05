@@ -181,11 +181,11 @@ std::vector<schema::ColumnIdentifier> NOf::freeIUs() const {
 }
 
 std::tuple<filter::operators::OperatorVector, filter::operators::OperatorVector, int> NOf::
-   mapChildExpressions(const storage::Table& table) const {
+   mapChildExpressions(const storage::Table& table, bool with_null_rows) const {
    filter::operators::OperatorVector child_operators;
    child_operators.reserve(children.size());
    for (const auto& child_expression : children) {
-      child_operators.push_back(child_expression->compile(table));
+      child_operators.push_back(child_expression->compile(table, with_null_rows));
    }
 
    filter::operators::OperatorVector non_negated_child_operators;
@@ -258,9 +258,14 @@ std::unique_ptr<ScalarExpression> NOf::rewrite(
    return std::make_unique<NOf>(rewriteChildren(table, mode), number_of_matchers, match_exactly);
 }
 
-std::unique_ptr<filter::operators::Operator> NOf::compile(const storage::Table& table) const {
+std::unique_ptr<filter::operators::Operator> NOf::compile(
+   const storage::Table& table,
+   bool with_null_rows
+) const {
+   // True where at least n children are true, true or null where at least n children are true or
+   // null
    auto [non_negated_child_operators, negated_child_operators, updated_number_of_matchers] =
-      mapChildExpressions(table);
+      mapChildExpressions(table, with_null_rows);
 
    if (updated_number_of_matchers < 0) {
       if (match_exactly) {

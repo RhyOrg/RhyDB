@@ -33,7 +33,8 @@ std::unique_ptr<ScalarExpression> Maybe::rewrite(
 }
 
 std::unique_ptr<filter::operators::Operator> Maybe::compile(
-   const storage::Table& /*table*/
+   const storage::Table& /*table*/,
+   bool /*with_null_rows*/
 ) const {
    throw QueryCompilationException{"Maybe expression must be elimitated in query rewrite phase"};
 }

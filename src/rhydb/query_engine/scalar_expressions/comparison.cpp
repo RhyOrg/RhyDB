@@ -239,13 +239,33 @@ bool matchesComparator(const T& actual, Comparator comparator, const T& literal)
    RHYDB_UNREACHABLE();
 }
 
+/// The index scan of the rows in `matching`, and of the `null_rows` on which the comparison is null
+/// if `with_null_rows`
+std::unique_ptr<Operator> compileIndexScan(
+   const Table& table,
+   Bitmap matching,
+   const Bitmap& null_rows,
+   bool with_null_rows
+) {
+   if (with_null_rows) {
+      matching |= null_rows;
+   }
+   if (matching.isEmpty()) {
+      return std::make_unique<Empty>(table.row_layout);
+   }
+   return std::make_unique<IndexScan>(std::move(matching), table.row_layout);
+}
+
+/// The comparison is null on rows where the column is null. They are selected if `with_null_rows`,
+/// see `ScalarExpression::compile`.
 template <typename ColumnType>
 std::unique_ptr<Operator> compileTypedComparison(
    const Table& table,
    const std::string& column_name,
    Comparator comparator,
    std::string_view type_name,
-   typename ColumnType::value_type value
+   typename ColumnType::value_type value,
+   bool with_null_rows
 ) {
    CHECK_RHYDB_QUERY(
       table.hasColumn<ColumnType>(column_name),
@@ -255,24 +275,25 @@ std::unique_ptr<Operator> compileTypedComparison(
    );
    return std::make_unique<Selection>(
       std::make_unique<CompareToValueSelection<ColumnType>>(
-         table.getColumn<ColumnType>(column_name), comparator, value
+         table.getColumn<ColumnType>(column_name), comparator, value, with_null_rows
       ),
       table.row_layout
    );
 }
 
 /// `column <> literal` on a dictionary-encoded column. The excluded rows are those holding
-/// the literal plus the null rows (which never match a comparison), and both bitmaps are
+/// the literal plus the null rows (unless `with_null_rows`), and both bitmaps are
 /// already indexed - so this needs one lookup instead of unioning the bitmap of every other
 /// distinct value, which matters on high-cardinality columns.
 template <storage::column::DictionaryValueColumn ValueColumn>
 std::unique_ptr<Operator> compileDictionaryInequality(
    const Table& table,
    const DictionaryEncodedColumn<ValueColumn>& dictionary_column,
-   typename DictionaryEncodedColumn<ValueColumn>::Key literal
+   typename DictionaryEncodedColumn<ValueColumn>::Key literal,
+   bool with_null_rows
 ) {
    auto literal_bitmap = dictionary_column.filter(literal);
-   Bitmap null_rows = dictionary_column.nullRows();
+   Bitmap null_rows = with_null_rows ? Bitmap{} : dictionary_column.nullRows();
    // The indexed value bitmaps are disjoint from the null bitmap
    const uint64_t excluded_rows =
       null_rows.cardinality() +
@@ -297,38 +318,39 @@ std::unique_ptr<Operator> compileDictionaryComparison(
    const Table& table,
    const DictionaryEncodedColumn<ValueColumn>& dictionary_column,
    Comparator comparator,
-   typename DictionaryEncodedColumn<ValueColumn>::Key literal
+   typename DictionaryEncodedColumn<ValueColumn>::Key literal,
+   bool with_null_rows
 ) {
    using Key = DictionaryEncodedColumn<ValueColumn>::Key;
    if (comparator == Comparator::EQUALS) {
-      auto bitmap = dictionary_column.filter(literal);
-      if (bitmap == std::nullopt || bitmap->isEmpty()) {
-         return std::make_unique<Empty>(table.row_layout);
-      }
-      return std::make_unique<IndexScan>(std::move(*bitmap), table.row_layout);
+      return compileIndexScan(
+         table,
+         dictionary_column.filter(literal).value_or(Bitmap{}),
+         dictionary_column.nullRows(),
+         with_null_rows
+      );
    }
 
    if (comparator == Comparator::NOT_EQUALS) {
-      return compileDictionaryInequality(table, dictionary_column, literal);
+      return compileDictionaryInequality(table, dictionary_column, literal, with_null_rows);
    }
 
    // Bitmap-union fast path: every distinct dictionary value that matches the comparator
-   // contributes its row bitmap. Null rows are naturally excluded because the indexed bitmaps
-   // are disjoint from the null bitmap.
+   // contributes its row bitmap. The indexed bitmaps are disjoint from the null bitmap.
    Bitmap unioned = dictionary_column.filterByIds([&](Idx dict_id) {
       return matchesComparator<Key>(dictionary_column.lookupValue(dict_id), comparator, literal);
    });
-   if (unioned.isEmpty()) {
-      return std::make_unique<Empty>(table.row_layout);
-   }
-   return std::make_unique<IndexScan>(std::move(unioned), table.row_layout);
+   return compileIndexScan(
+      table, std::move(unioned), dictionary_column.nullRows(), with_null_rows
+   );
 }
 
 std::unique_ptr<Operator> compileStringComparison(
    const Table& table,
    const std::string& column_name,
    Comparator comparator,
-   const std::string& literal
+   const std::string& literal,
+   bool with_null_rows
 ) {
    if (table.hasColumn<StringColumn>(column_name)) {
       // Equality on non-indexed string columns is always converted to StringInSet
@@ -336,7 +358,7 @@ std::unique_ptr<Operator> compileStringComparison(
       const auto& string_column = table.getColumn<StringColumn>(column_name);
       return std::make_unique<Selection>(
          std::make_unique<CompareToValueSelection<StringColumn>>(
-            string_column, comparator, literal
+            string_column, comparator, literal, with_null_rows
          ),
          table.row_layout
       );
@@ -351,7 +373,8 @@ std::unique_ptr<Operator> compileStringComparison(
       table,
       table.getColumn<DictionaryEncodedColumn<StringColumn>>(column_name),
       comparator,
-      literal
+      literal,
+      with_null_rows
    );
 }
 
@@ -361,7 +384,8 @@ std::unique_ptr<Operator> compileBoolComparison(
    const Table& table,
    const std::string& column_name,
    Comparator comparator,
-   bool value
+   bool value,
+   bool with_null_rows
 ) {
    // The column type is checked first so that comparing a non-bool column against a
    // bool literal reports the type mismatch rather than claiming the column is boolean.
@@ -377,11 +401,14 @@ std::unique_ptr<Operator> compileBoolComparison(
    );
    const auto& bool_column = table.getColumn<storage::column::BoolColumn>(column_name);
    // `column <> true` selects the same rows as `column = false`. Null rows are neither
-   // true nor false, so they are excluded either way, consistent with the other
-   // comparison operators.
+   // true nor false, the comparison is null on them, consistent with the other comparison
+   // operators.
    const bool select_true_rows = (comparator == Comparator::EQUALS) == value;
-   return std::make_unique<IndexScan>(
-      select_true_rows ? bool_column.trueRows() : bool_column.falseRows(), table.row_layout
+   return compileIndexScan(
+      table,
+      select_true_rows ? bool_column.trueRows() : bool_column.falseRows(),
+      bool_column.nullRows(),
+      with_null_rows
    );
 }
 
@@ -392,10 +419,13 @@ std::unique_ptr<Operator> compileIntComparison(
    const Table& table,
    const std::string& column_name,
    Comparator comparator,
-   int64_t value
+   int64_t value,
+   bool with_null_rows
 ) {
    if (table.hasColumn<Int64Column>(column_name)) {
-      return compileTypedComparison<Int64Column>(table, column_name, comparator, "int64", value);
+      return compileTypedComparison<Int64Column>(
+         table, column_name, comparator, "int64", value, with_null_rows
+      );
    }
    CHECK_RHYDB_QUERY(
       table.hasColumn<Int32Column>(column_name), "The column '{}' is not of type int", column_name
@@ -406,7 +436,7 @@ std::unique_ptr<Operator> compileIntComparison(
       value
    );
    return compileTypedComparison<Int32Column>(
-      table, column_name, comparator, "int", static_cast<int32_t>(value)
+      table, column_name, comparator, "int", static_cast<int32_t>(value), with_null_rows
    );
 }
 
@@ -498,7 +528,8 @@ std::unique_ptr<ScalarExpression> Comparison::rewrite(
    return clone();
 }
 
-std::unique_ptr<Operator> Comparison::compile(const Table& table) const {
+std::unique_ptr<Operator> Comparison::compile(const Table& table, bool with_null_rows)
+   const {
    auto split = splitColumnAndValue(left.get(), right.get());
    CHECK_RHYDB_QUERY(
       split.has_value(),
@@ -517,16 +548,20 @@ std::unique_ptr<Operator> Comparison::compile(const Table& table) const {
    );
 
    if (const auto* int_value = dynCast<Int32Literal>(value)) {
-      return compileIntComparison(table, column_name, effective_comparator, int_value->value);
+      return compileIntComparison(
+         table, column_name, effective_comparator, int_value->value, with_null_rows
+      );
    }
 
    if (const auto* int_value = dynCast<Int64Literal>(value)) {
-      return compileIntComparison(table, column_name, effective_comparator, int_value->value);
+      return compileIntComparison(
+         table, column_name, effective_comparator, int_value->value, with_null_rows
+      );
    }
 
    if (const auto* float_value = dynCast<FloatLiteral>(value)) {
       return compileTypedComparison<FloatColumn>(
-         table, column_name, effective_comparator, "float", float_value->value
+         table, column_name, effective_comparator, "float", float_value->value, with_null_rows
       );
    }
 
@@ -536,20 +571,25 @@ std::unique_ptr<Operator> Comparison::compile(const Table& table) const {
             table,
             table.getColumn<DictionaryEncodedColumn<Date32Column>>(column_name),
             effective_comparator,
-            date_value->value
+            date_value->value,
+            with_null_rows
          );
       }
       return compileTypedComparison<Date32Column>(
-         table, column_name, effective_comparator, "date", date_value->value
+         table, column_name, effective_comparator, "date", date_value->value, with_null_rows
       );
    }
 
    if (const auto* string_value = dynCast<StringLiteral>(value)) {
-      return compileStringComparison(table, column_name, effective_comparator, string_value->value);
+      return compileStringComparison(
+         table, column_name, effective_comparator, string_value->value, with_null_rows
+      );
    }
 
    if (const auto* bool_value = dynCast<BoolLiteral>(value)) {
-      return compileBoolComparison(table, column_name, effective_comparator, bool_value->value);
+      return compileBoolComparison(
+         table, column_name, effective_comparator, bool_value->value, with_null_rows
+      );
    }
 
    throw IllegalQueryException(

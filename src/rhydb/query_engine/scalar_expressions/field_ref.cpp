@@ -37,7 +37,10 @@ std::unique_ptr<ScalarExpression> FieldRef::rewrite(
    return std::make_unique<FieldRef>(column);
 }
 
-std::unique_ptr<filter::operators::Operator> FieldRef::compile(const storage::Table& table) const {
+std::unique_ptr<filter::operators::Operator> FieldRef::compile(
+   const storage::Table& table,
+   bool /*with_null_rows*/
+) const {
    CHECK_RHYDB_QUERY(
       table.hasColumn<storage::column::BoolColumn>(column.name),
       "The column '{}' is not of type bool and cannot be used directly as a filter predicate",
