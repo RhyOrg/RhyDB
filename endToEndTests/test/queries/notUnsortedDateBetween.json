@@ -3,7 +3,7 @@
   "query": "data.filter(!(unsorted_date.between('2021-03-18'::date, '2021-03-20'::date))).group(by:={}, aggs:={count:=count()})",
   "expectedQueryResult": [
     {
-      "count": 98
+      "count": 97
     }
   ]
 }

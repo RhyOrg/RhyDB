@@ -497,11 +497,11 @@ const QueryTestScenario FILTER_NEGATION_ABOVE_MAP_NULL_REJECTED_SCENARIO = {
 };
 
 // The same negation pushed into the table scan runs on the native bitmap path, which is unaffected
-// by the rejection above: id_0 has a null date and is kept by the set-complement `!(date = ...)`.
-const QueryTestScenario FILTER_NEGATION_KEEPS_NULL_PUSHED_DOWN_SCENARIO = {
-   .name = "FILTER_NEGATION_KEEPS_NULL_PUSHED_DOWN",
+// by the rejection above: id_0 has a null date, on which `date = ...` and its negation are null.
+const QueryTestScenario FILTER_NEGATION_EXCLUDES_NULL_PUSHED_DOWN_SCENARIO = {
+   .name = "FILTER_NEGATION_EXCLUDES_NULL_PUSHED_DOWN",
    .query = "data.filter(!(date = '2020-12-31'::date)).project({primaryKey})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}}),
+   .expected_query_result = nlohmann::json::array(),
 };
 
 }  // namespace
@@ -513,6 +513,6 @@ QUERY_TEST(
       MAP_ISO_WEEK_NULL_SCENARIO,
       FILTER_ISNULL_ABOVE_MAP_SCENARIO,
       FILTER_NEGATION_ABOVE_MAP_NULL_REJECTED_SCENARIO,
-      FILTER_NEGATION_KEEPS_NULL_PUSHED_DOWN_SCENARIO
+      FILTER_NEGATION_EXCLUDES_NULL_PUSHED_DOWN_SCENARIO
    )
 );

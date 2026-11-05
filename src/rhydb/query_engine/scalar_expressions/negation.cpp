@@ -53,7 +53,8 @@ std::unique_ptr<filter::operators::Operator> Negation::compile(
    const storage::Table& table,
    bool with_null_rows
 ) const {
-   return filter::operators::Operator::negate(child->compile(table, with_null_rows));
+   // `!child` is true where `child` is false, i.e. neither true nor null, and null where `child` is
+   return filter::operators::Operator::negate(child->compile(table, !with_null_rows));
 }
 
 }  // namespace rhydb::query_engine::scalar_expressions

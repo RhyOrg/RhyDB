@@ -101,13 +101,6 @@ const QueryTestScenario NEGATED_INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO = {
          {"gene1", nullptr},
          {"unaligned_segment1", nullptr},
       },
-      {
-         {"primaryKey", "id_4"},
-         {"int_value", nullptr},
-         {"segment1", nullptr},
-         {"gene1", nullptr},
-         {"unaligned_segment1", nullptr},
-      },
    }),
 };
 
@@ -150,13 +143,6 @@ const QueryTestScenario NEGATED_INT_BETWEEN_WITH_FROM_SCENARIO = {
          {"gene1", nullptr},
          {"unaligned_segment1", nullptr},
       },
-      {
-         {"primaryKey", "id_4"},
-         {"int_value", nullptr},
-         {"segment1", nullptr},
-         {"gene1", nullptr},
-         {"unaligned_segment1", nullptr},
-      },
    }),
 };
 
@@ -195,13 +181,6 @@ const QueryTestScenario NEGATED_INT_BETWEEN_WITH_TO_SCENARIO = {
       {
          {"primaryKey", "id_3"},
          {"int_value", VALUE_ABOVE_FILTER},
-         {"segment1", nullptr},
-         {"gene1", nullptr},
-         {"unaligned_segment1", nullptr},
-      },
-      {
-         {"primaryKey", "id_4"},
-         {"int_value", nullptr},
          {"segment1", nullptr},
          {"gene1", nullptr},
          {"unaligned_segment1", nullptr},

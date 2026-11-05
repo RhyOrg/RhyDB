@@ -101,13 +101,6 @@ const QueryTestScenario NEGATED_INT_EQUALS_VALUE_SCENARIO = {
          {"gene1", nullptr},
          {"unaligned_segment1", nullptr},
       },
-      {
-         {"primaryKey", "id_4"},
-         {"int_value", nullptr},
-         {"segment1", nullptr},
-         {"gene1", nullptr},
-         {"unaligned_segment1", nullptr},
-      },
    }),
 };
 
