@@ -30,10 +30,31 @@ bool isValidIpv6(const std::string& host) {
           parsed.family() == Poco::Net::IPAddress::IPv6;
 }
 
+// Serializes a parsed origin to its canonical form, matching how a browser serializes the `Origin`
+// header: lowercase scheme and host, an IPv6 host wrapped in brackets, and the port omitted when it
+// is the scheme's default. Poco::URI already lowercases the scheme and host while parsing.
+std::string serializeOrigin(const Poco::URI& uri) {
+   const std::string& host = uri.getHost();
+   const std::string bracketed_host = isIpv6Host(host) ? "[" + host + "]" : host;
+
+   std::string serialized = uri.getScheme() + "://" + bracketed_host;
+
+   const unsigned short specified_port = uri.getSpecifiedPort();
+   if (specified_port != 0) {
+      const unsigned short default_port =
+         Poco::URI(uri.getScheme() + "://" + bracketed_host).getPort();
+      if (specified_port != default_port) {
+         serialized += ":" + std::to_string(specified_port);
+      }
+   }
+   return serialized;
+}
+
 // An exact origin is `scheme://host[:port]` with nothing else: no path, query, fragment or
 // userinfo. Poco::URI parses the structure and rejects out-of-range ports; it does not validate the
-// contents of an IPv6 host, so that is checked separately.
-bool isValidOrigin(const std::string& origin) {
+// contents of an IPv6 host, so that is checked separately. On success the canonical serialization
+// is written to `normalized` so configured origins match the `Origin` header browsers send.
+bool normalizeOrigin(const std::string& origin, std::string& normalized) {
    Poco::URI uri;
    try {
       uri = Poco::URI(origin);
@@ -52,7 +73,12 @@ bool isValidOrigin(const std::string& origin) {
    }
 
    const std::string& host = uri.getHost();
-   return !isIpv6Host(host) || isValidIpv6(host);
+   if (isIpv6Host(host) && !isValidIpv6(host)) {
+      return false;
+   }
+
+   normalized = serializeOrigin(uri);
+   return true;
 }
 
 }  // namespace
@@ -81,22 +107,26 @@ CorsPolicy CorsPolicy::parse(std::string_view config_value) {
       return CorsPolicy{Mode::ANY, {}};
    }
 
+   std::vector<std::string> normalized_origins;
+   normalized_origins.reserve(entries.size());
    for (const auto& entry : entries) {
       if (entry.empty()) {
          throw ConfigException{
             "Invalid value for 'api.corsAllowedOrigins': it must not contain empty origins."
          };
       }
-      if (!isValidOrigin(entry)) {
+      std::string normalized;
+      if (!normalizeOrigin(entry, normalized)) {
          throw ConfigException{
             "Invalid value for 'api.corsAllowedOrigins': '" + entry +
             "' is not a valid origin. Expected the exact form 'scheme://host[:port]' without a "
             "trailing slash or path."
          };
       }
+      normalized_origins.push_back(std::move(normalized));
    }
 
-   return CorsPolicy{Mode::LIST, std::move(entries)};
+   return CorsPolicy{Mode::LIST, std::move(normalized_origins)};
 }
 
 bool CorsPolicy::allowsAnyOrigin() const {

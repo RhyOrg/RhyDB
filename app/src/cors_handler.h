@@ -1,10 +1,11 @@
 //! Adds Cross-Origin Resource Sharing (CORS) support.
 //!
-//! This decorator wraps another handler. When CORS is enabled (a policy is set) and the request
-//! carries an allowed `Origin`, it adds the CORS response headers before delegating. Preflight
-//! (`OPTIONS`) requests from an allowed origin are answered directly with 204; preflights from a
-//! disallowed origin get 403. When CORS is disabled, or there is no `Origin`, the request is passed
-//! through unchanged.
+//! This decorator wraps another handler. In wildcard mode (`*`) it sets a constant
+//! `Access-Control-Allow-Origin: *` on every response, as the Fetch standard requires for such
+//! resources, without a `Vary` header. In list mode it adds `Vary: Origin` to every response and,
+//! for an allowed `Origin`, echoes it back in `Access-Control-Allow-Origin`. Preflight (`OPTIONS`)
+//! requests from an allowed origin are answered directly with 204; preflights from a disallowed
+//! origin get 403. When CORS is disabled the request is passed through unchanged.
 
 #pragma once
 
@@ -35,16 +36,11 @@ class CorsHandler : public Poco::Net::HTTPRequestHandler {
    ) override;
 
   private:
-   /// Sets Access-Control-Allow-Origin (and Vary: Origin in list mode) for an allowed origin.
-   static void setAllowOriginHeaders(
-      const CorsPolicy& policy,
-      const std::string& origin,
-      Poco::Net::HTTPServerResponse& response
-   );
-
+   /// Answers a preflight (OPTIONS) request: 204 with the CORS method/header allowances for an
+   /// allowed origin, 403 for a disallowed one. In wildcard mode the caller has already set
+   /// Access-Control-Allow-Origin, so every origin is allowed here.
    static void handlePreflight(
       const CorsPolicy& policy,
-      const std::string& origin,
       Poco::Net::HTTPServerRequest& request,
       Poco::Net::HTTPServerResponse& response
    );

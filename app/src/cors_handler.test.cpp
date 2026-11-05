@@ -43,7 +43,10 @@ TEST(CorsHandler, disabled_passesThroughWithoutHeaders) {
    ASSERT_FALSE(fixture.response.has("Access-Control-Allow-Origin"));
 }
 
-TEST(CorsHandler, noOriginHeaderWildcard_passesThroughWithoutHeaders) {
+// The Fetch standard requires a wildcard resource to send Access-Control-Allow-Origin: * on every
+// response, including non-CORS ones without an Origin, so that a URL-keyed cache stays correct
+// without a Vary header.
+TEST(CorsHandler, noOriginHeaderWildcard_setsStarWithoutVary) {
    Fixture fixture;
    EXPECT_CALL(*fixture.wrapped_ptr, handleRequest);
    auto under_test = CorsHandler(std::move(fixture.wrapped), CorsPolicy::parse("*"));
@@ -51,7 +54,11 @@ TEST(CorsHandler, noOriginHeaderWildcard_passesThroughWithoutHeaders) {
    fixture.request.setMethod("GET");
    under_test.handleRequest(fixture.request, fixture.response);
 
-   ASSERT_FALSE(fixture.response.has("Access-Control-Allow-Origin"));
+   ASSERT_EQ(fixture.response.get("Access-Control-Allow-Origin"), "*");
+   ASSERT_EQ(
+      fixture.response.get("Access-Control-Expose-Headers"),
+      "X-Request-Id, data-version, result-ordering, Retry-After"
+   );
    ASSERT_FALSE(fixture.response.has("Vary"));
 }
 
@@ -162,6 +169,73 @@ TEST(CorsHandler, preflightFromDisallowedOrigin_returns403AndDoesNotDelegate) {
 
    ASSERT_EQ(fixture.response.getStatus(), Poco::Net::HTTPResponse::HTTP_FORBIDDEN);
    ASSERT_FALSE(fixture.response.has("Access-Control-Allow-Origin"));
+}
+
+// In list mode an allowed preflight echoes the origin and carries Vary: Origin so caches key on it.
+TEST(CorsHandler, preflightFromAllowedOriginInList_echoesOriginAndSetsVary) {
+   Fixture fixture;
+   EXPECT_CALL(*fixture.wrapped_ptr, handleRequest).Times(0);
+   auto under_test =
+      CorsHandler(std::move(fixture.wrapped), CorsPolicy::parse("https://example.org"));
+
+   fixture.request.setMethod("OPTIONS");
+   fixture.request.set("Origin", "https://example.org");
+   fixture.request.set("Access-Control-Request-Method", "POST");
+   under_test.handleRequest(fixture.request, fixture.response);
+
+   ASSERT_EQ(fixture.response.getStatus(), Poco::Net::HTTPResponse::HTTP_NO_CONTENT);
+   ASSERT_EQ(fixture.response.get("Access-Control-Allow-Origin"), "https://example.org");
+   ASSERT_EQ(fixture.response.get("Access-Control-Allow-Methods"), "GET, POST, OPTIONS");
+   ASSERT_EQ(fixture.response.get("Vary"), "Origin");
+}
+
+// Even the 403 for a disallowed preflight must carry Vary: Origin so a cache does not reuse it.
+TEST(CorsHandler, preflightFromDisallowedOriginInList_setsVary) {
+   Fixture fixture;
+   EXPECT_CALL(*fixture.wrapped_ptr, handleRequest).Times(0);
+   auto under_test =
+      CorsHandler(std::move(fixture.wrapped), CorsPolicy::parse("https://example.org"));
+
+   fixture.request.setMethod("OPTIONS");
+   fixture.request.set("Origin", "https://evil.example");
+   fixture.request.set("Access-Control-Request-Method", "POST");
+   under_test.handleRequest(fixture.request, fixture.response);
+
+   ASSERT_EQ(fixture.response.getStatus(), Poco::Net::HTTPResponse::HTTP_FORBIDDEN);
+   ASSERT_EQ(fixture.response.get("Vary"), "Origin");
+}
+
+// The Origin is attacker-controlled and may contain bytes that are not valid UTF-8. The handler
+// must not echo it into the JSON error body, which would throw while serializing and escape the
+// handler unhandled (the CorsHandler runs outside the ErrorRequestHandler).
+TEST(CorsHandler, preflightFromDisallowedOriginWithInvalidUtf8_doesNotThrow) {
+   Fixture fixture;
+   EXPECT_CALL(*fixture.wrapped_ptr, handleRequest).Times(0);
+   auto under_test =
+      CorsHandler(std::move(fixture.wrapped), CorsPolicy::parse("https://example.org"));
+
+   fixture.request.setMethod("OPTIONS");
+   fixture.request.set("Origin", "https://evil.example/\xFF\xFE");
+   fixture.request.set("Access-Control-Request-Method", "POST");
+
+   ASSERT_NO_THROW(under_test.handleRequest(fixture.request, fixture.response));
+   ASSERT_EQ(fixture.response.getStatus(), Poco::Net::HTTPResponse::HTTP_FORBIDDEN);
+   ASSERT_FALSE(fixture.response.has("Access-Control-Allow-Origin"));
+}
+
+// `Origin: null` cannot be a configured list entry, so in list mode it is never allowed.
+TEST(CorsHandler, nullOriginInList_isNotAllowed) {
+   Fixture fixture;
+   EXPECT_CALL(*fixture.wrapped_ptr, handleRequest);
+   auto under_test =
+      CorsHandler(std::move(fixture.wrapped), CorsPolicy::parse("https://example.org"));
+
+   fixture.request.setMethod("GET");
+   fixture.request.set("Origin", "null");
+   under_test.handleRequest(fixture.request, fixture.response);
+
+   ASSERT_FALSE(fixture.response.has("Access-Control-Allow-Origin"));
+   ASSERT_EQ(fixture.response.get("Vary"), "Origin");
 }
 
 // An OPTIONS request without Access-Control-Request-Method is not a preflight; it is delegated

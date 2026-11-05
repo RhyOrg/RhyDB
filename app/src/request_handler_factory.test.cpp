@@ -45,7 +45,7 @@ void assertHoldsHandlerType(std::unique_ptr<Poco::Net::HTTPRequestHandler>& hand
    EXPECT_NE(dynamic_cast<HandlerType*>(handler.get()), nullptr);
 }
 
-std::unique_ptr<RhyDBRequestHandlerFactory> createRequestHandlerWithCors(
+std::unique_ptr<RhyDBRequestHandlerFactory> createFactoryWithCors(
    const std::string& cors_allowed_origins
 ) {
    auto handle = std::make_shared<rhydb_app::ActiveDatabase>();
@@ -177,7 +177,7 @@ TEST(RhyDBRequestHandlerFactory, preflightToUnknownPathReturns204WhenCorsEnabled
    request.set("Origin", "https://example.org");
    request.set("Access-Control-Request-Method", "POST");
 
-   auto under_test = createRequestHandlerWithCors("https://example.org");
+   auto under_test = createFactoryWithCors("https://example.org");
    std::unique_ptr<Poco::Net::HTTPRequestHandler> handler{
       under_test->createRequestHandler(request)
    };
@@ -198,7 +198,7 @@ TEST(RhyDBRequestHandlerFactory, notFoundResponseCarriesCorsHeadersWhenCorsEnabl
    request.setURI("/unknown");
    request.set("Origin", "https://example.org");
 
-   auto under_test = createRequestHandlerWithCors("https://example.org");
+   auto under_test = createFactoryWithCors("https://example.org");
    std::unique_ptr<Poco::Net::HTTPRequestHandler> handler{
       under_test->createRequestHandler(request)
    };

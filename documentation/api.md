@@ -42,15 +42,16 @@ The query endpoints (`POST /query` and `POST /admin/query`) additionally return 
 By default, RhyDB sends no CORS headers, so browsers block cross-origin requests from page JavaScript.
 Set [`api.corsAllowedOrigins`](#runtime-configuration) to enable CORS;
 the value is either `*` (allow any origin) or a comma-separated list of exact origins.
-Origins are matched exactly and case-sensitively, so they must have no trailing slash.
+Configured origins are normalized to the form browsers send in the `Origin` header
+(lowercase scheme and host, default port omitted) and then matched exactly, so a trailing slash or path is rejected.
 
-When CORS is enabled and a request carries an allowed `Origin`:
+When CORS is enabled:
 
-| Header | Value |
-|--------|-------|
-| `Access-Control-Allow-Origin` | `*`, or the request's origin echoed back |
-| `Access-Control-Expose-Headers` | `X-Request-Id, data-version, result-ordering, Retry-After` |
-| `Vary` | `Origin` (list mode only, so caches key on the origin) |
+| Header                          | Value                                                                                                        |
+|---------------------------------|--------------------------------------------------------------------------------------------------------------|
+| `Access-Control-Allow-Origin`   | In wildcard mode `*` on every response; in list mode the request's origin echoed back when it is allowed     |
+| `Access-Control-Expose-Headers` | `X-Request-Id, data-version, result-ordering, Retry-After`                                                   |
+| `Vary`                          | `Origin` (list mode only, so caches key on the origin; wildcard mode sends a constant response and omits it) |
 
 Preflight (`OPTIONS`) requests that carry an `Access-Control-Request-Method` header are answered directly:
 an allowed origin receives `204` with `Access-Control-Allow-Methods: GET, POST, OPTIONS`,

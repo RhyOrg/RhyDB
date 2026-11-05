@@ -47,6 +47,30 @@ TEST(CorsPolicy, matchingIsCaseSensitive) {
    ASSERT_FALSE(policy.isAllowed("https://EXAMPLE.org"));
 }
 
+// Browsers send the scheme and host lowercased, so a configured entry with uppercase letters is
+// normalized to match rather than being silently ineffective.
+TEST(CorsPolicy, normalizesSchemeAndHostToLowercase) {
+   const auto policy = CorsPolicy::parse("HTTPS://Example.ORG");
+   ASSERT_TRUE(policy.isAllowed("https://example.org"));
+}
+
+// Browsers omit a scheme's default port from the serialized origin, so a configured default port is
+// stripped to match (http -> 80, https -> 443).
+TEST(CorsPolicy, normalizesDefaultPortAway) {
+   const auto policy = CorsPolicy::parse("https://example.org:443,http://other.example:80");
+   ASSERT_TRUE(policy.isAllowed("https://example.org"));
+   ASSERT_TRUE(policy.isAllowed("http://other.example"));
+   // The default port is not part of the normalized origin, so the explicit form does not match.
+   ASSERT_FALSE(policy.isAllowed("https://example.org:443"));
+}
+
+// A non-default port is kept during normalization.
+TEST(CorsPolicy, keepsNonDefaultPort) {
+   const auto policy = CorsPolicy::parse("https://example.org:8443");
+   ASSERT_TRUE(policy.isAllowed("https://example.org:8443"));
+   ASSERT_FALSE(policy.isAllowed("https://example.org"));
+}
+
 TEST(CorsPolicy, rejectsEmptyEntry) {
    EXPECT_THAT(
       []() { CorsPolicy::parse("https://a.example,,https://b.example"); },

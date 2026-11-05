@@ -17,9 +17,7 @@ describe('CORS', () => {
       .expect(200)
       .expect('Access-Control-Allow-Origin', ALLOWED_ORIGIN)
       .expect('Vary', /Origin/)
-      .expect(response => {
-        expect(response.headers).to.have.property('access-control-expose-headers');
-      });
+      .expect('Access-Control-Expose-Headers', 'X-Request-Id, data-version, result-ordering, Retry-After');
   });
 
   it('answers a preflight from an allowed origin with 204', async () => {
@@ -31,7 +29,9 @@ describe('CORS', () => {
       .expect(204)
       .expect('Access-Control-Allow-Origin', ALLOWED_ORIGIN)
       .expect('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-      .expect('Access-Control-Allow-Headers', 'content-type');
+      .expect('Access-Control-Allow-Headers', 'content-type')
+      .expect('Access-Control-Max-Age', '7200')
+      .expect('Vary', /Origin/);
   });
 
   it('rejects a preflight from a foreign origin with 403', async () => {

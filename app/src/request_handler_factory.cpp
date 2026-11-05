@@ -25,8 +25,8 @@ std::optional<CorsPolicy> buildCorsPolicy(const rhydb::config::RuntimeConfig& ru
    if (!runtime_config.api_options.cors_allowed_origins.has_value()) {
       return std::nullopt;
    }
-   // The value is validated once at startup (see runApi in api.cpp), so parsing here cannot fail in
-   // practice.
+   // runApi validates the configured value before the server socket is bound (see api.cpp), so by
+   // the time the factory is constructed the value is known to parse successfully.
    return CorsPolicy::parse(runtime_config.api_options.cors_allowed_origins.value());
 }
 }  // namespace

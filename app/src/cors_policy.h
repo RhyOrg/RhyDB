@@ -11,8 +11,9 @@ namespace rhydb_app {
 ///
 /// Built from the `api.corsAllowedOrigins` option, which is either `*` (allow any origin) or a
 /// comma-separated list of exact origins (e.g. `https://example.org,https://other.org:8443`).
-/// Origin matching is exact and case-sensitive; browsers send the origin without a trailing slash,
-/// so configured origins must not have one either.
+/// Configured origins are normalized at parse time to the canonical form a browser sends in the
+/// `Origin` header (lowercase scheme and host, default port omitted), so matching against the
+/// incoming origin is then an exact, case-sensitive string comparison.
 ///
 /// CORS is an HTTP-API concern, so this lives in the API layer rather than the portable core. The
 /// core only carries the raw `api.corsAllowedOrigins` string; it is parsed into a policy here.

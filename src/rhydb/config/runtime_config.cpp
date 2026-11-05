@@ -136,8 +136,9 @@ ConfigSpecification RuntimeConfig::getConfigSpecification() {
             "Which origins are allowed for Cross-Origin Resource Sharing (CORS). \n"
             "Unset by default, which disables CORS so no CORS headers are sent. \n"
             "Set to '*' to allow any origin, or to a comma-separated list of exact origins \n"
-            "(e.g. 'https://example.org,https://other.org:8443'). Origins must not have a \n"
-            "trailing slash. When enabled, preflight (OPTIONS) requests are answered."
+            "(e.g. 'https://example.org,https://other.org:8443'). Each origin must be of the \n"
+            "form 'scheme://host[:port]' with no trailing slash or path. When enabled, \n"
+            "preflight (OPTIONS) requests are answered."
          ),
          ConfigAttributeSpecification::createWithDefault(
             queryMaterializationOptionKey(),
