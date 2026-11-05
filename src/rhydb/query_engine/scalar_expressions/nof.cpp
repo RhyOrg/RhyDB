@@ -264,6 +264,11 @@ std::unique_ptr<filter::operators::Operator> NOf::compile(
 ) const {
    // True where at least n children are true, true or null where at least n children are true or
    // null
+   if (match_exactly && std::cmp_less(number_of_matchers, children.size())) {
+      // `exactly n` is `at least n && !(at least n + 1)`. The negation counts the children that are
+      // true or null (or only true, if `with_null_rows`), which a single count cannot do as well.
+      return rewriteToNonExact(table, NONE)->compile(table, with_null_rows);
+   }
    auto [non_negated_child_operators, negated_child_operators, updated_number_of_matchers] =
       mapChildExpressions(table, with_null_rows);
 
