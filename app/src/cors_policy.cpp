@@ -1,6 +1,8 @@
 #include "cors_policy.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <regex>
 #include <string>
 
 #include <Poco/Exception.h>
@@ -30,6 +32,11 @@ bool isValidIpv6(const std::string& host) {
           parsed.family() == Poco::Net::IPAddress::IPv6;
 }
 
+bool hasExplicitZeroPort(const std::string& origin) {
+   static const std::regex zero_port{":0+$"};
+   return std::regex_search(origin, zero_port);
+}
+
 // Serializes a parsed origin to its canonical form, matching how a browser serializes the `Origin`
 // header: lowercase scheme and host, an IPv6 host wrapped in brackets, and the port omitted when it
 // is the scheme's default. Poco::URI already lowercases the scheme and host while parsing.
@@ -39,10 +46,9 @@ std::string serializeOrigin(const Poco::URI& uri) {
 
    std::string serialized = uri.getScheme() + "://" + bracketed_host;
 
-   const unsigned short specified_port = uri.getSpecifiedPort();
+   const uint16_t specified_port = uri.getSpecifiedPort();
    if (specified_port != 0) {
-      const unsigned short default_port =
-         Poco::URI(uri.getScheme() + "://" + bracketed_host).getPort();
+      const uint16_t default_port = Poco::URI(uri.getScheme() + "://" + bracketed_host).getPort();
       if (specified_port != default_port) {
          serialized += ":" + std::to_string(specified_port);
       }
@@ -70,6 +76,11 @@ bool normalizeOrigin(const std::string& origin, std::string& normalized) {
 
       const std::string& host = uri.getHost();
       if (isIpv6Host(host) && !isValidIpv6(host)) {
+         return false;
+      }
+
+      // Poco cannot distinguish an explicit `:0` from an absent port, so reject it explicitly.
+      if (hasExplicitZeroPort(origin)) {
          return false;
       }
 

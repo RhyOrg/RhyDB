@@ -139,3 +139,20 @@ TEST(CorsPolicy, rejectsMalformedIpv6Literal) {
       ::testing::ThrowsMessage<ConfigException>(HasSubstr("not a valid origin"))
    );
 }
+
+TEST(CorsPolicy, rejectsExplicitZeroPort) {
+   // Poco maps an explicit `:0` to the same specified port as an absent one, so it would normalize
+   // away to a different origin than configured. Port 0 is not a real origin, so it is rejected.
+   EXPECT_THAT(
+      []() { CorsPolicy::parse("https://example.org:0"); },
+      ::testing::ThrowsMessage<ConfigException>(HasSubstr("not a valid origin"))
+   );
+   EXPECT_THAT(
+      []() { CorsPolicy::parse("http://[::1]:0"); },
+      ::testing::ThrowsMessage<ConfigException>(HasSubstr("not a valid origin"))
+   );
+   EXPECT_THAT(
+      []() { CorsPolicy::parse("https://example.org:00"); },
+      ::testing::ThrowsMessage<ConfigException>(HasSubstr("not a valid origin"))
+   );
+}
