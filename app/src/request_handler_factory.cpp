@@ -8,6 +8,7 @@
 #include <Poco/URI.h>
 
 #include "admin_query_handler.h"
+#include "cors_handler.h"
 #include "error_request_handler.h"
 #include "health_handler.h"
 #include "info_handler.h"
@@ -19,19 +20,34 @@
 
 namespace rhydb_app {
 
+namespace {
+std::optional<CorsPolicy> buildCorsPolicy(const rhydb::config::RuntimeConfig& runtime_config) {
+   if (!runtime_config.api_options.cors_allowed_origins.has_value()) {
+      return std::nullopt;
+   }
+   // runApi validates the configured value before the server socket is bound (see api.cpp), so by
+   // the time the factory is constructed the value is known to parse successfully.
+   return CorsPolicy::parse(runtime_config.api_options.cors_allowed_origins.value());
+}
+}  // namespace
+
 RhyDBRequestHandlerFactory::RhyDBRequestHandlerFactory(
    rhydb::config::RuntimeConfig runtime_config,
    std::shared_ptr<ActiveDatabase> database_handle
 )
     : runtime_config(std::move(runtime_config)),
+      cors_policy(buildCorsPolicy(this->runtime_config)),
       database_handle(std::move(database_handle)) {}
 
 Poco::Net::HTTPRequestHandler* RhyDBRequestHandlerFactory::createRequestHandler(
    const Poco::Net::HTTPServerRequest& request
 ) {
    return new RequestIdHandler(
-      std::make_unique<LoggingRequestHandler>(std::make_unique<ErrorRequestHandler>(
-         routeRequest(Poco::URI(request.getURI())), runtime_config
+      std::make_unique<LoggingRequestHandler>(std::make_unique<CorsHandler>(
+         std::make_unique<ErrorRequestHandler>(
+            routeRequest(Poco::URI(request.getURI())), runtime_config
+         ),
+         cors_policy
       ))
    );
 }

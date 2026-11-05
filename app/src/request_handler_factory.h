@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <mutex>
+#include <optional>
 
 #include <Poco/Net/HTTPRequestHandler.h>
 #include <Poco/Net/HTTPRequestHandlerFactory.h>
@@ -11,12 +12,14 @@
 #include <rhydb/config/runtime_config.h>
 
 #include "active_database.h"
+#include "cors_policy.h"
 #include "error_request_handler.h"
 
 namespace rhydb_app {
 
 class RhyDBRequestHandlerFactory : public Poco::Net::HTTPRequestHandlerFactory {
    const rhydb::config::RuntimeConfig runtime_config;
+   const std::optional<CorsPolicy> cors_policy;
    std::shared_ptr<ActiveDatabase> database_handle;
    std::shared_ptr<std::mutex> admin_write_mutex = std::make_shared<std::mutex>();
 
