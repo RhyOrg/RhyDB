@@ -70,12 +70,13 @@ const QueryTestScenario GREATER_EQUAL = {
       nlohmann::json::parse(R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"}])"),
 };
 
-// !(date_value < bound) == date_value >= bound, and nulls are included by the negation.
+// !(date_value < bound) == date_value >= bound: the comparison is null on a null value, and so is
+// its negation.
 const QueryTestScenario NEGATED_LESS_THAN = {
    .name = "DATE_NEGATED_LESS_THAN",
    .query = "data.filter(!(date_value < '2021-06-15'::date)).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
-      R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"},{"primaryKey":"id_null"}])"
+      R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"}])"
    ),
 };
 

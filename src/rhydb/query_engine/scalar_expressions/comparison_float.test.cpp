@@ -70,12 +70,13 @@ const QueryTestScenario GREATER_EQUAL = {
       nlohmann::json::parse(R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"}])"),
 };
 
-// !(float_value < 3.0) == float_value >= 3.0, and nulls are included by the negation.
+// !(float_value < 3.0) == float_value >= 3.0: the comparison is null on a null value, and so is its
+// negation.
 const QueryTestScenario NEGATED_LESS_THAN = {
    .name = "FLOAT_NEGATED_LESS_THAN",
    .query = "data.filter(!(float_value < 3.0)).project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(
-      R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"},{"primaryKey":"id_null"}])"
+      R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"}])"
    ),
 };
 
