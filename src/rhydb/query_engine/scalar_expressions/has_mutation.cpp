@@ -67,7 +67,8 @@ std::unique_ptr<ScalarExpression> HasMutation<SymbolType>::rewrite(
 
 template <typename SymbolType>
 std::unique_ptr<filter::operators::Operator> HasMutation<SymbolType>::compile(
-   const storage::Table& /*table*/
+   const storage::Table& /*table*/,
+   bool /*with_null_rows*/
 ) const {
    throw QueryCompilationException{
       "Has{}Mutation expression must be eliminated in query rewrite phase",

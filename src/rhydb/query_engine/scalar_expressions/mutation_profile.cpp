@@ -273,7 +273,8 @@ std::unique_ptr<ScalarExpression> MutationProfile<SymbolType>::rewrite(
 
 template <typename SymbolType>
 std::unique_ptr<filter::operators::Operator> MutationProfile<SymbolType>::compile(
-   const storage::Table& /*table*/
+   const storage::Table& /*table*/,
+   bool /*with_null_rows*/
 ) const {
    throw QueryCompilationException{
       "{} MutationProfile expression must be eliminated in the query rewrite phase",

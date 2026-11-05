@@ -5,6 +5,7 @@
 #include <utility>
 
 #include "rhydb/query_engine/filter/operators/complement.h"
+#include "rhydb/query_engine/filter/operators/full.h"
 #include "rhydb/query_engine/filter/operators/index_scan.h"
 #include "rhydb/query_engine/filter/operators/selection.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
@@ -44,7 +45,8 @@ std::unique_ptr<ScalarExpression> FloatBetween::rewrite(
 }
 
 std::unique_ptr<filter::operators::Operator> FloatBetween::compile(
-   const storage::Table& table
+   const storage::Table& table,
+   bool with_null_rows
 ) const {
    CHECK_RHYDB_QUERY(
       table.hasColumn<FloatColumn>(column.name),
@@ -57,7 +59,10 @@ std::unique_ptr<filter::operators::Operator> FloatBetween::compile(
    if (from.has_value()) {
       predicates.emplace_back(
          std::make_unique<filter::operators::CompareToValueSelection<FloatColumn>>(
-            float_column, filter::operators::Comparator::HIGHER_OR_EQUALS, from.value()
+            float_column,
+            filter::operators::Comparator::HIGHER_OR_EQUALS,
+            from.value(),
+            with_null_rows
          )
       );
    }
@@ -65,12 +70,16 @@ std::unique_ptr<filter::operators::Operator> FloatBetween::compile(
    if (to.has_value()) {
       predicates.emplace_back(
          std::make_unique<filter::operators::CompareToValueSelection<FloatColumn>>(
-            float_column, filter::operators::Comparator::LESS, to.value()
+            float_column, filter::operators::Comparator::LESS, to.value(), with_null_rows
          )
       );
    }
 
    if (predicates.empty()) {
+      // Unbounded, so the filter is true on every row that is not null, and null on the others
+      if (with_null_rows) {
+         return std::make_unique<filter::operators::Full>(table.row_layout);
+      }
       return std::make_unique<filter::operators::Complement>(
          std::make_unique<filter::operators::IndexScan>(
             Bitmap::fromChunkContainers(float_column.null_bitmap), table.row_layout

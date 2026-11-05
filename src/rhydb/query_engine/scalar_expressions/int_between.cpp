@@ -9,6 +9,7 @@
 #include <spdlog/spdlog.h>
 
 #include "rhydb/query_engine/filter/operators/complement.h"
+#include "rhydb/query_engine/filter/operators/full.h"
 #include "rhydb/query_engine/filter/operators/index_scan.h"
 #include "rhydb/query_engine/filter/operators/operator.h"
 #include "rhydb/query_engine/filter/operators/selection.h"
@@ -70,7 +71,8 @@ std::unique_ptr<ScalarExpression> IntBetween::rewrite(
 template <typename ColumnT>
 std::unique_ptr<filter::operators::Operator> IntBetween::compileFor(
    const ColumnT& column_ref,
-   const storage::Table& table
+   const storage::Table& table,
+   bool with_null_rows
 ) const {
    using value_type = ColumnT::value_type;
    filter::operators::PredicateVector predicates;
@@ -79,7 +81,8 @@ std::unique_ptr<filter::operators::Operator> IntBetween::compileFor(
          std::make_unique<filter::operators::CompareToValueSelection<ColumnT>>(
             column_ref,
             filter::operators::Comparator::HIGHER_OR_EQUALS,
-            static_cast<value_type>(from.value())
+            static_cast<value_type>(from.value()),
+            with_null_rows
          )
       );
    }
@@ -88,12 +91,17 @@ std::unique_ptr<filter::operators::Operator> IntBetween::compileFor(
          std::make_unique<filter::operators::CompareToValueSelection<ColumnT>>(
             column_ref,
             filter::operators::Comparator::LESS_OR_EQUALS,
-            static_cast<value_type>(to.value())
+            static_cast<value_type>(to.value()),
+            with_null_rows
          )
       );
    }
 
    if (predicates.empty()) {
+      // Unbounded, so the filter is true on every row that is not null, and null on the others
+      if (with_null_rows) {
+         return std::make_unique<filter::operators::Full>(table.row_layout);
+      }
       return std::make_unique<filter::operators::Complement>(
          std::make_unique<filter::operators::IndexScan>(
             Bitmap::fromChunkContainers(column_ref.null_bitmap), table.row_layout
@@ -111,7 +119,8 @@ std::unique_ptr<filter::operators::Operator> IntBetween::compileFor(
 }
 
 std::unique_ptr<filter::operators::Operator> IntBetween::compile(
-   const storage::Table& table
+   const storage::Table& table,
+   bool with_null_rows
 ) const {
    CHECK_RHYDB_QUERY(
       table.schema->getColumn(column.name).has_value(),
@@ -125,11 +134,15 @@ std::unique_ptr<filter::operators::Operator> IntBetween::compile(
    );
 
    if (table.hasColumn<Int64Column>(column.name)) {
-      return compileFor<Int64Column>(table.getColumn<Int64Column>(column.name), table);
+      return compileFor<Int64Column>(
+         table.getColumn<Int64Column>(column.name), table, with_null_rows
+      );
    }
    checkBoundFitsInt32(from);
    checkBoundFitsInt32(to);
-   return compileFor<Int32Column>(table.getColumn<Int32Column>(column.name), table);
+   return compileFor<Int32Column>(
+      table.getColumn<Int32Column>(column.name), table, with_null_rows
+   );
 }
 
 }  // namespace rhydb::query_engine::scalar_expressions

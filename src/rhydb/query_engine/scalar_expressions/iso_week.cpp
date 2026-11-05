@@ -62,7 +62,7 @@ std::unique_ptr<ScalarExpression> IsoWeek::rewrite(
 }
 
 std::unique_ptr<filter::operators::Operator> IsoWeek::
-   compile(const storage::Table& /*table*/) const {
+   compile(const storage::Table& /*table*/, bool /*with_null_rows*/) const {
    RHYDB_UNIMPLEMENTED();
 }
 

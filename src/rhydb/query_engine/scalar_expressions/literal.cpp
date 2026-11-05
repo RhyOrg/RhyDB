@@ -46,7 +46,7 @@ std::unique_ptr<ScalarExpression> Int32Literal::rewrite(
 }
 
 std::unique_ptr<filter::operators::Operator> Int32Literal::
-   compile(const storage::Table& /*table*/) const {
+   compile(const storage::Table& /*table*/, bool /*with_null_rows*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -69,7 +69,7 @@ std::unique_ptr<ScalarExpression> Int64Literal::rewrite(
 }
 
 std::unique_ptr<filter::operators::Operator> Int64Literal::
-   compile(const storage::Table& /*table*/) const {
+   compile(const storage::Table& /*table*/, bool /*with_null_rows*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -92,7 +92,7 @@ std::unique_ptr<ScalarExpression> FloatLiteral::rewrite(
 }
 
 std::unique_ptr<filter::operators::Operator> FloatLiteral::
-   compile(const storage::Table& /*table*/) const {
+   compile(const storage::Table& /*table*/, bool /*with_null_rows*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -115,7 +115,7 @@ std::unique_ptr<ScalarExpression> StringLiteral::rewrite(
 }
 
 std::unique_ptr<filter::operators::Operator> StringLiteral::
-   compile(const storage::Table& /*table*/) const {
+   compile(const storage::Table& /*table*/, bool /*with_null_rows*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -138,7 +138,8 @@ std::unique_ptr<ScalarExpression> BoolLiteral::rewrite(
 }
 
 std::unique_ptr<filter::operators::Operator> BoolLiteral::compile(
-   const storage::Table& table
+   const storage::Table& table,
+   bool /*with_null_rows*/
 ) const {
    if (value) {
       return std::make_unique<filter::operators::Full>(table.row_layout);
@@ -165,7 +166,7 @@ std::unique_ptr<ScalarExpression> DateLiteral::rewrite(
 }
 
 std::unique_ptr<filter::operators::Operator> DateLiteral::
-   compile(const storage::Table& /*table*/) const {
+   compile(const storage::Table& /*table*/, bool /*with_null_rows*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -190,7 +191,7 @@ std::unique_ptr<ScalarExpression> NullLiteral::rewrite(
 }
 
 std::unique_ptr<filter::operators::Operator> NullLiteral::
-   compile(const storage::Table& /*table*/) const {
+   compile(const storage::Table& /*table*/, bool /*with_null_rows*/) const {
    compileNonBooleanLiteral();
 }
 

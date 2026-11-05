@@ -98,14 +98,15 @@ void logCompiledChildren(
 }  // namespace
 
 std::tuple<OperatorVector, OperatorVector, filter::operators::PredicateVector> And::compileChildren(
-   const storage::Table& table
+   const storage::Table& table,
+   bool with_null_rows
 ) const {
    OperatorVector unprocessed_child_operators;
    std::ranges::transform(
       children,
       std::back_inserter(unprocessed_child_operators),
       [&](const std::unique_ptr<ScalarExpression>& expression) {
-         return expression->compile(table);
+         return expression->compile(table, with_null_rows);
       }
    );
    OperatorVector non_negated_child_operators;
@@ -173,8 +174,10 @@ std::unique_ptr<ScalarExpression> And::rewrite(
    return std::make_unique<And>(std::move(rewritten_children));
 }
 
-std::unique_ptr<Operator> And::compile(const storage::Table& table) const {
-   auto [non_negated_child_operators, negated_child_operators, predicates] = compileChildren(table);
+std::unique_ptr<Operator> And::compile(const storage::Table& table, bool with_null_rows) const {
+   // True where all children are true, true or null where no child is false
+   auto [non_negated_child_operators, negated_child_operators, predicates] =
+      compileChildren(table, with_null_rows);
 
    if (non_negated_child_operators.empty() && negated_child_operators.empty()) {
       if (predicates.empty()) {
