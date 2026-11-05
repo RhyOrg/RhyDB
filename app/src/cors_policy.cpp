@@ -55,30 +55,29 @@ std::string serializeOrigin(const Poco::URI& uri) {
 // contents of an IPv6 host, so that is checked separately. On success the canonical serialization
 // is written to `normalized` so configured origins match the `Origin` header browsers send.
 bool normalizeOrigin(const std::string& origin, std::string& normalized) {
-   Poco::URI uri;
    try {
-      uri = Poco::URI(origin);
+      const Poco::URI uri{origin};
+
+      if (uri.getScheme().empty() || uri.getHost().empty()) {
+         return false;
+      }
+      if (
+         !uri.getPath().empty() || !uri.getRawQuery().empty() || !uri.getFragment().empty() ||
+         !uri.getUserInfo().empty()
+      ) {
+         return false;
+      }
+
+      const std::string& host = uri.getHost();
+      if (isIpv6Host(host) && !isValidIpv6(host)) {
+         return false;
+      }
+
+      normalized = serializeOrigin(uri);
+      return true;
    } catch (const Poco::Exception&) {
       return false;
    }
-
-   if (uri.getScheme().empty() || uri.getHost().empty()) {
-      return false;
-   }
-   if (
-      !uri.getPath().empty() || !uri.getRawQuery().empty() || !uri.getFragment().empty() ||
-      !uri.getUserInfo().empty()
-   ) {
-      return false;
-   }
-
-   const std::string& host = uri.getHost();
-   if (isIpv6Host(host) && !isValidIpv6(host)) {
-      return false;
-   }
-
-   normalized = serializeOrigin(uri);
-   return true;
 }
 
 }  // namespace
