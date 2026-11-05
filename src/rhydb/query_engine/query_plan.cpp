@@ -144,6 +144,12 @@ arrow::Status QueryPlan::executeAndWriteImpl(
 
       if (!optional_batch.has_value()) {
          guard.reached_end_of_stream = true;
+         // The generator yields nullopt both on a clean end of stream and when a node failed (the
+         // failure stops production, which ends the stream). Surface the plan's final status so a
+         // node error (e.g. an Arrow cast that overflows) is reported instead of silently
+         // truncating the result. StopProducing() has not run yet, so a Cancelled status (which is
+         // expected only after cancellation) cannot occur here.
+         ARROW_RETURN_NOT_OK(arrow_plan->finished().status());
          break;  // end of input
       }
       SPDLOG_DEBUG(

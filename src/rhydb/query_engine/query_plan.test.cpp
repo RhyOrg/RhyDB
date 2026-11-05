@@ -7,6 +7,7 @@
 #include <vector>
 
 #include <arrow/compute/api_aggregate.h>
+#include <arrow/compute/cast.h>
 #include <arrow/compute/expression.h>
 #include <arrow/compute/ordering.h>
 #include <arrow/table.h>
@@ -144,6 +145,39 @@ TEST(QueryPlan, timesOutWhenAnInvalidPlanDoesNotFinish) {
          "arrow plan and more user-input validation needs to be added: Request timed out, no batch"
          " within 0 seconds."
       ))
+   );
+}
+
+// A node that fails during execution (here an overflowing cast) stops production, which ends the
+// stream. The failure must be reported, not silently swallowed into a truncated/empty result.
+TEST(QueryPlan, reportsErrorWhenANodeFailsDuringExecution) {
+   EXPECT_THAT(
+      ([]() {
+         auto arrow_plan = arrow::acero::ExecPlan::Make().ValueOrDie();
+         auto table = setupTestTable().ValueOrDie();
+         auto* node =
+            arrow::acero::MakeExecNode(
+               "table_source", arrow_plan.get(), {}, arrow::acero::TableSourceNodeOptions{table}
+            )
+               .ValueOrDie();
+         // `id` runs up to 100000, which does not fit int8; the safe cast fails while executing.
+         node = arrow::acero::MakeExecNode(
+                   "project",
+                   arrow_plan.get(),
+                   {node},
+                   arrow::acero::ProjectNodeOptions{{arrow::compute::call(
+                      "cast",
+                      {arrow::compute::field_ref("id")},
+                      arrow::compute::CastOptions::Safe(arrow::int8())
+                   )}}
+         ).ValueOrDie();
+
+         auto under_test = QueryPlan::makeQueryPlan(arrow_plan, node, "some_id").ValueOrDie();
+         std::stringstream output{};
+         NdjsonSink output_sink{&output, under_test.results_schema};
+         under_test.executeAndWrite(output_sink, 10);
+      }),
+      ThrowsMessage<std::runtime_error>(::testing::HasSubstr("Internal server error"))
    );
 }
 
