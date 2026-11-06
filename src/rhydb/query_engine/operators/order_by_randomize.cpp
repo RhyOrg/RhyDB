@@ -89,8 +89,6 @@ arrow::Result<arrow::acero::ExecNode*> addRandomizeColumn(
             }
 
             const auto& input_batch = maybe_input_batch.value();
-            // Not the length of the first column: projection pushdown leaves no columns at all
-            // when nothing above the randomize needs one, e.g. for a count
             const int64_t rows_in_batch = input_batch.length;
 
             arrow::UInt64Builder randomize_column_builder;
