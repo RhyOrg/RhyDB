@@ -139,7 +139,8 @@ cdef class PyDatabase:
         table_name : str
             Name of the table
         file_name : str
-            Path to data file
+            Path to an NDJSON data file. Files ending in ``.zst`` (or ``.xz``, if the
+            library was built with lzma support) are decompressed.
         """
         if not table_name or not table_name.strip():
             raise ValueError("table_name cannot be empty")
