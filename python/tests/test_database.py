@@ -375,6 +375,26 @@ class TestAppendData:
         empty_database.append_data_from_file("sequences", INPUT_FILE)
         # If no exception, data was appended
 
+    def test_append_data_from_zst_file(self, empty_database, main_reference_sequence, tmp_path):
+        """Test appending data from a zstd-compressed file."""
+        zstd = pytest.importorskip("compression.zstd")
+        create_sequence_table(
+            empty_database,
+            table_name="sequences",
+            primary_key_name="primary_key",
+            sequence_name="main",
+            reference_sequence=main_reference_sequence
+        )
+        compressed_file = tmp_path / "input_file.ndjson.zst"
+        with open(INPUT_FILE, "rb") as input_file:
+            compressed_file.write_bytes(zstd.compress(input_file.read()))
+
+        empty_database.append_data_from_file("sequences", str(compressed_file))
+
+        with open(INPUT_FILE) as input_file:
+            expected_row_count = sum(1 for line in input_file if line.strip())
+        assert len(empty_database.get_filtered_bitmap("sequences", 'true')) == expected_row_count
+
 
 class TestGetFilteredBitmap:
     """Test getting filtered bitmaps."""
