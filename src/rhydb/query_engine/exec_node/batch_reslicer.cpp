@@ -1,5 +1,7 @@
 #include "rhydb/query_engine/exec_node/batch_reslicer.h"
 
+#include "rhydb/query_engine/exec_node/exception_to_status.h"
+
 namespace rhydb::query_engine::exec_node {
 
 // By arrow specification, this function will not be called re-entrantly
@@ -7,10 +9,9 @@ arrow::Future<std::optional<arrow::compute::ExecBatch>> BatchReslicer::operator(
    try {
       if (!current_batch.has_value()) {
          auto future = input_batches();
-         return future.Then(
-            [&](
-               std::optional<arrow::ExecBatch> maybe_input_batch
-            ) -> arrow::Result<std::optional<arrow::ExecBatch>> {
+         return future.Then(catchExceptionsAsStatus(
+            [&](std::optional<arrow::ExecBatch> maybe_input_batch)
+               -> arrow::Result<std::optional<arrow::ExecBatch>> {
                SPDLOG_DEBUG(
                   "Current backpressure before BatchReslicer: {} with operation currently {}",
                   backpressure_monitor->bytes_in_use(),
@@ -29,7 +30,7 @@ arrow::Future<std::optional<arrow::compute::ExecBatch>> BatchReslicer::operator(
                remaining = current_batch.value().length;
                return deliverSlicedBatch();
             }
-         );
+         ));
       }
       return deliverSlicedBatch();
    } catch (const std::exception& exception) {

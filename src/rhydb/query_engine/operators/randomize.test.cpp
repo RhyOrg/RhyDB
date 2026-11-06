@@ -221,6 +221,20 @@ const QueryTestScenario AGGREGATE_LIMIT_RANDOMIZE = {
    ),
 };
 
+// Nothing above the randomize needs a column, so its input batches have no columns
+const QueryTestScenario COUNT_AFTER_RANDOMIZE = {
+   .name = "COUNT_AFTER_RANDOMIZE",
+   .query = "data.randomize().group(by:={}, aggs:={count:=count()})",
+   .expected_query_result = json::parse(R"([{"count": 5}])"),
+};
+
+const QueryTestScenario COUNT_AFTER_RANDOMIZE_SMALL_BATCHES = {
+   .name = "COUNT_AFTER_RANDOMIZE_SMALL_BATCHES",
+   .query = "data.randomize().group(by:={}, aggs:={count:=count()})",
+   .expected_query_result = json::parse(R"([{"count": 5}])"),
+   .query_options = rhydb::config::QueryOptions{.materialization_cutoff = 2},
+};
+
 }  // namespace
 
 QUERY_TEST(
@@ -238,6 +252,8 @@ QUERY_TEST(
       LIMIT_2_RANDOMIZE,
       LIMIT_3_RANDOMIZE,
       RANDOMIZE_WITH_LIMIT,
-      AGGREGATE_LIMIT_RANDOMIZE
+      AGGREGATE_LIMIT_RANDOMIZE,
+      COUNT_AFTER_RANDOMIZE,
+      COUNT_AFTER_RANDOMIZE_SMALL_BATCHES
    )
 );
