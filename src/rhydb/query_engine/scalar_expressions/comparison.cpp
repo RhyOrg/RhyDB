@@ -239,16 +239,17 @@ bool matchesComparator(const T& actual, Comparator comparator, const T& literal)
    RHYDB_UNREACHABLE();
 }
 
-/// The index scan of the rows in `matching`, and of the `null_rows` on which the comparison is null
-/// if `with_null_rows`
+/// The index scan of the rows in `matching`, and of the null rows of `column` (on which the
+/// comparison is null) if `with_null_rows`. The null rows are only built when they are selected.
+template <typename Column>
 std::unique_ptr<Operator> compileIndexScan(
    const Table& table,
    Bitmap matching,
-   const Bitmap& null_rows,
+   const Column& column,
    bool with_null_rows
 ) {
    if (with_null_rows) {
-      matching |= null_rows;
+      matching |= column.nullRows();
    }
    if (matching.isEmpty()) {
       return std::make_unique<Empty>(table.row_layout);
@@ -326,7 +327,7 @@ std::unique_ptr<Operator> compileDictionaryComparison(
       return compileIndexScan(
          table,
          dictionary_column.filter(literal).value_or(Bitmap{}),
-         dictionary_column.nullRows(),
+         dictionary_column,
          with_null_rows
       );
    }
@@ -340,9 +341,7 @@ std::unique_ptr<Operator> compileDictionaryComparison(
    Bitmap unioned = dictionary_column.filterByIds([&](Idx dict_id) {
       return matchesComparator<Key>(dictionary_column.lookupValue(dict_id), comparator, literal);
    });
-   return compileIndexScan(
-      table, std::move(unioned), dictionary_column.nullRows(), with_null_rows
-   );
+   return compileIndexScan(table, std::move(unioned), dictionary_column, with_null_rows);
 }
 
 std::unique_ptr<Operator> compileStringComparison(
@@ -407,7 +406,7 @@ std::unique_ptr<Operator> compileBoolComparison(
    return compileIndexScan(
       table,
       select_true_rows ? bool_column.trueRows() : bool_column.falseRows(),
-      bool_column.nullRows(),
+      bool_column,
       with_null_rows
    );
 }
@@ -528,8 +527,7 @@ std::unique_ptr<ScalarExpression> Comparison::rewrite(
    return clone();
 }
 
-std::unique_ptr<Operator> Comparison::compile(const Table& table, bool with_null_rows)
-   const {
+std::unique_ptr<Operator> Comparison::compile(const Table& table, bool with_null_rows) const {
    auto split = splitColumnAndValue(left.get(), right.get());
    CHECK_RHYDB_QUERY(
       split.has_value(),
