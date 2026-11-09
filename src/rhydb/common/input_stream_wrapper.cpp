@@ -56,6 +56,9 @@ InputStreamWrapper::InputStreamWrapper(const ResolvedFile& resolved_file) {
       );
    }
    boost_input_stream->push(file_stream);
+   // Without this, std::getline swallows decompression errors (e.g. corrupt or truncated input)
+   // by only setting badbit, which readers cannot tell apart from the end of the input.
+   boost_input_stream->exceptions(std::ios::badbit);
    input_stream = std::move(boost_input_stream);
 }
 

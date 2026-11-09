@@ -9,6 +9,7 @@
 
 #include <gtest/gtest.h>
 
+#include "rhydb/append/ndjson_line_reader.h"
 #include "rhydb/preprocessing/preprocessing_exception.h"
 
 using rhydb::InputStreamWrapper;
@@ -20,6 +21,24 @@ const std::filesystem::path ZST_FILE{"testBaseData/ndjsonFiles/twolines.ndjson.z
 std::string readAll(const InputStreamWrapper& wrapper) {
    auto& stream = wrapper.getInputStream();
    return {std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+}
+
+std::string readFileBytes(const std::filesystem::path& file) {
+   std::ifstream stream{file, std::ios::binary};
+   return {std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+}
+
+void writeFileBytes(const std::filesystem::path& file, const std::string& bytes) {
+   std::ofstream{file, std::ios::binary} << bytes;
+}
+
+size_t countReadNdjsonLines(const InputStreamWrapper& wrapper) {
+   rhydb::append::NdjsonLineReader reader{wrapper.getInputStream()};
+   size_t count = 0;
+   for (auto it = reader.begin(); it != rhydb::append::NdjsonLineReader::end(); ++it) {
+      ++count;
+   }
+   return count;
 }
 
 size_t countLines(const std::string& content) {
@@ -73,4 +92,17 @@ TEST_F(InputStreamWrapperTest, openExactFileThrowsOnMissingFile) {
       std::ignore = InputStreamWrapper::openExactFile(directory / "data.ndjson"),
       rhydb::preprocessing::PreprocessingException
    );
+}
+
+TEST_F(InputStreamWrapperTest, readingCorruptedZstFileThrows) {
+   auto bytes = readFileBytes(ZST_FILE);
+   ASSERT_GT(bytes.size(), 100);
+   const size_t middle = bytes.size() / 2;
+   for (size_t i = middle; i < middle + 32; ++i) {
+      bytes[i] = static_cast<char>(~static_cast<unsigned char>(bytes[i]));
+   }
+   const auto file = directory / "corrupted.ndjson.zst";
+   writeFileBytes(file, bytes);
+
+   EXPECT_ANY_THROW(countReadNdjsonLines(InputStreamWrapper::openExactFile(file)));
 }
