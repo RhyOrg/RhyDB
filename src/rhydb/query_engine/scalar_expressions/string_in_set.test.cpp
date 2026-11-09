@@ -143,6 +143,36 @@ const QueryTestScenario STRING_IN_SET_NONEXISTENT_COLUMN = {
    .expected_error_message = "The database does not contain the column 'nonexistent'",
 };
 
+const QueryTestData TEST_DATA_WITH_NULL{
+   .ndjson_input_data =
+      {
+         nlohmann::json::parse(
+            R"({"primaryKey": "id_0", "country": "Switzerland", "region": "Europe", "segment1": null})"
+         ),
+         nlohmann::json::parse(
+            R"({"primaryKey": "id_1", "country": "", "region": "", "segment1": null})"
+         ),
+         nlohmann::json::parse(
+            R"({"primaryKey": "id_2", "country": null, "region": null, "segment1": null})"
+         ),
+      },
+   .database_config = DATABASE_CONFIG,
+   .reference_genomes = REFERENCE_GENOMES,
+   .without_unaligned_sequences = true,
+};
+
+const QueryTestScenario STRING_IN_SET_EMPTY_STRING_DOES_NOT_MATCH_NULL = {
+   .name = "STRING_IN_SET_EMPTY_STRING_DOES_NOT_MATCH_NULL",
+   .query = "data.filter(country.in({'', 'Germany'})).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
+};
+
+const QueryTestScenario STRING_IN_SET_EMPTY_STRING_DOES_NOT_MATCH_NULL_INDEXED_COLUMN = {
+   .name = "STRING_IN_SET_EMPTY_STRING_DOES_NOT_MATCH_NULL_INDEXED_COLUMN",
+   .query = "data.filter(region.in({'', 'Americas'})).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
+};
+
 }  // namespace
 
 QUERY_TEST(
@@ -160,5 +190,14 @@ QUERY_TEST(
       STRING_IN_SET_INVALID_COLUMN_TYPE_STRING,
       STRING_IN_SET_INVALID_VALUES_TYPE,
       STRING_IN_SET_NONEXISTENT_COLUMN
+   )
+);
+
+QUERY_TEST(
+   StringInSetWithNull,
+   TEST_DATA_WITH_NULL,
+   ::testing::Values(
+      STRING_IN_SET_EMPTY_STRING_DOES_NOT_MATCH_NULL,
+      STRING_IN_SET_EMPTY_STRING_DOES_NOT_MATCH_NULL_INDEXED_COLUMN
    )
 );
