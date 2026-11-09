@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -12,7 +13,7 @@ class InputStreamWrapper {
    std::ifstream file_stream;
    std::unique_ptr<std::istream> input_stream;
 
-   enum class Compression { NONE, ZSTD, XZ };
+   enum class Compression : std::uint8_t { NONE, ZSTD, XZ };
 
    struct ResolvedFile {
       std::filesystem::path path;
