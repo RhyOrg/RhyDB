@@ -18,6 +18,7 @@
 #include <evobench/evobench.hpp>
 
 #include "bad_request.h"
+#include "response_body_stream.h"
 
 namespace rhydb_app {
 
@@ -49,25 +50,22 @@ void rethrowInvalidQueryAsBadRequest(const std::function<void()>& handle_query) 
 
 namespace {
 
+/// Writes the result and sends the rest of the response.
+///
+/// Throws if writing failed, also when the client went away: a buffered result then gets an error
+/// status instead of being sent truncated, a streamed one is aborted (see ErrorRequestHandler).
 void writeResult(
    const QueryResult& query_result,
    rhydb::query_engine::exec_node::ArrowBatchSink& output_sink,
-   std::string_view request_id
+   ResponseBodyStream& output_stream
 ) {
    EVOBENCH_SCOPE("QueryResult", "writeToSink");
    const auto status = query_result.write_to_sink(output_sink);
-   if (status.ok()) {
-      return;
+   if (!status.ok()) {
+      throw std::runtime_error(status.ToString());
    }
-   if (status.IsIOError()) {
-      SPDLOG_WARN(
-         "The request {} encountered an IO Error when sending the response. We expect that the "
-         "user cancelled the request while the response was sent and ignore the error",
-         request_id
-      );
-      return;
-   }
-   throw std::runtime_error(status.ToString());
+   // Throws if a write failed without the sink noticing
+   output_stream.finish();
 }
 
 }  // namespace
@@ -75,10 +73,9 @@ void writeResult(
 void sendQueryResult(
    Poco::Net::HTTPServerRequest& request,
    Poco::Net::HTTPServerResponse& response,
-   const QueryResult& query_result
+   const QueryResult& query_result,
+   size_t response_buffer_limit
 ) {
-   const auto request_id = response.get("X-Request-Id");
-
    response.set("data-version", query_result.data_version.value);
    response.set(
       "result-ordering", rhydb::query_engine::serializeResultOrdering(query_result.result_ordering)
@@ -87,20 +84,19 @@ void sendQueryResult(
    const std::string accept_header = request.has("Accept") ? request.get("Accept") : "";
    const bool use_arrow_ipc = accept_header.contains("application/vnd.apache.arrow.stream");
 
+   ResponseBodyStream output_stream{request, response, response_buffer_limit};
    if (use_arrow_ipc) {
       response.setContentType("application/vnd.apache.arrow.stream");
-      std::ostream& output_stream = response.send();
       auto output_sink =
          rhydb::query_engine::exec_node::ArrowIpcSink::make(&output_stream, query_result.schema);
       if (!output_sink.ok()) {
          throw std::runtime_error(output_sink.status().ToString());
       }
-      writeResult(query_result, *output_sink, request_id);
+      writeResult(query_result, *output_sink, output_stream);
    } else {
       response.setContentType("application/x-ndjson");
-      std::ostream& output_stream = response.send();
       rhydb::query_engine::exec_node::NdjsonSink output_sink{&output_stream, query_result.schema};
-      writeResult(query_result, output_sink, request_id);
+      writeResult(query_result, output_sink, output_stream);
    }
 }
 
