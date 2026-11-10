@@ -87,9 +87,8 @@ const QueryTestScenario GREATER_EQUAL = {
 const QueryTestScenario NEGATED_LESS_THAN = {
    .name = "INT_NEGATED_LESS_THAN",
    .query = "data.filter(!(int_value < 3)).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(
-      R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"}])"
-   ),
+   .expected_query_result =
+      nlohmann::json::parse(R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"}])"),
 };
 
 // !(int_value > 3) == int_value <= 3
@@ -131,8 +130,9 @@ const QueryTestScenario NEGATED_N_OF = {
 
 const QueryTestScenario NEGATED_EXACT_N_OF = {
    .name = "INT_NEGATED_EXACT_N_OF",
-   .query = "data.filter(!(nOf(1, {int_value < 3, int_value <= 3}, matchExactly:=true)))"
-            ".project(primaryKey)",
+   .query =
+      "data.filter(!(nOf(1, {int_value < 3, int_value <= 3}, matchExactly:=true)))"
+      ".project(primaryKey)",
    .expected_query_result =
       nlohmann::json::parse(R"([{"primaryKey":"id_below"},{"primaryKey":"id_above"}])"),
 };
@@ -141,8 +141,9 @@ const QueryTestScenario NEGATED_EXACT_N_OF = {
 // it is certain
 const QueryTestScenario EXACT_N_OF_WITH_NULL_CHILD = {
    .name = "INT_EXACT_N_OF_WITH_NULL_CHILD",
-   .query = "data.filter(nOf(1, {int_value < 3, bool_value = true}, matchExactly:=true))"
-            ".project(primaryKey)",
+   .query =
+      "data.filter(nOf(1, {int_value < 3, bool_value = true}, matchExactly:=true))"
+      ".project(primaryKey)",
    .expected_query_result = nlohmann::json::array(),
 };
 
