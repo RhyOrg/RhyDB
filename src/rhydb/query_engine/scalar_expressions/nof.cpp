@@ -149,6 +149,33 @@ std::unique_ptr<Operator> toOperator(
    );
 }
 
+/// `selected && !excluded`
+std::unique_ptr<Operator> intersectWithComplement(
+   std::unique_ptr<Operator> selected,
+   std::unique_ptr<Operator> excluded,
+   const RowLayout& row_layout
+) {
+   if (
+      selected->type() == rhydb::query_engine::filter::operators::EMPTY ||
+      excluded->type() == rhydb::query_engine::filter::operators::FULL
+   ) {
+      return std::make_unique<Empty>(row_layout);
+   }
+   if (excluded->type() == rhydb::query_engine::filter::operators::EMPTY) {
+      return selected;
+   }
+   if (selected->type() == rhydb::query_engine::filter::operators::FULL) {
+      return Operator::negate(std::move(excluded));
+   }
+   OperatorVector children;
+   children.push_back(std::move(selected));
+   OperatorVector negated_children;
+   negated_children.push_back(std::move(excluded));
+   return std::make_unique<Intersection>(
+      std::move(children), std::move(negated_children), row_layout
+   );
+}
+
 }  // namespace
 
 namespace rhydb::query_engine::scalar_expressions {
@@ -181,11 +208,11 @@ std::vector<schema::ColumnIdentifier> NOf::freeIUs() const {
 }
 
 std::tuple<filter::operators::OperatorVector, filter::operators::OperatorVector, int> NOf::
-   mapChildExpressions(const storage::Table& table) const {
+   mapChildExpressions(const storage::Table& table, bool with_null_rows) const {
    filter::operators::OperatorVector child_operators;
    child_operators.reserve(children.size());
    for (const auto& child_expression : children) {
-      child_operators.push_back(child_expression->compile(table));
+      child_operators.push_back(child_expression->compile(table, with_null_rows));
    }
 
    filter::operators::OperatorVector non_negated_child_operators;
@@ -258,9 +285,46 @@ std::unique_ptr<ScalarExpression> NOf::rewrite(
    return std::make_unique<NOf>(rewriteChildren(table, mode), number_of_matchers, match_exactly);
 }
 
-std::unique_ptr<filter::operators::Operator> NOf::compile(const storage::Table& table) const {
+std::unique_ptr<filter::operators::Operator> NOf::compileExactlyWithNullRows(
+   const storage::Table& table
+) const {
+   // Exactly-n is true where exactly n children are true and none is null, false where more than n
+   // are true or fewer than n are true or null, and null otherwise. So it is true or null where
+   // at least n children are true or null, but not at least n + 1 children are true.
+   auto [true_or_null_operators, negated_true_or_null_operators, true_or_null_matchers] =
+      mapChildExpressions(table, /*with_null_rows=*/true);
+   auto at_least_n_true_or_null = toOperator(
+      true_or_null_matchers,
+      std::move(true_or_null_operators),
+      std::move(negated_true_or_null_operators),
+      /*match_exactly=*/false,
+      table.row_layout
+   );
+   auto [true_operators, negated_true_operators, true_matchers] =
+      mapChildExpressions(table, /*with_null_rows=*/false);
+   auto more_than_n_true = toOperator(
+      true_matchers + 1,
+      std::move(true_operators),
+      std::move(negated_true_operators),
+      /*match_exactly=*/false,
+      table.row_layout
+   );
+   return intersectWithComplement(
+      std::move(at_least_n_true_or_null), std::move(more_than_n_true), table.row_layout
+   );
+}
+
+std::unique_ptr<filter::operators::Operator> NOf::compile(
+   const storage::Table& table,
+   bool with_null_rows
+) const {
+   // At-least-n is true where at least n children are true, and true or null where at least n
+   // children are true or null
+   if (match_exactly && with_null_rows) {
+      return compileExactlyWithNullRows(table);
+   }
    auto [non_negated_child_operators, negated_child_operators, updated_number_of_matchers] =
-      mapChildExpressions(table);
+      mapChildExpressions(table, with_null_rows);
 
    if (updated_number_of_matchers < 0) {
       if (match_exactly) {
