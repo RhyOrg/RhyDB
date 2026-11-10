@@ -75,9 +75,8 @@ const QueryTestScenario GREATER_EQUAL = {
 const QueryTestScenario NEGATED_LESS_THAN = {
    .name = "DATE_NEGATED_LESS_THAN",
    .query = "data.filter(!(date_value < '2021-06-15'::date)).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(
-      R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"}])"
-   ),
+   .expected_query_result =
+      nlohmann::json::parse(R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"}])"),
 };
 
 // Operand flip: `bound > date_value` must equal `date_value < bound`.

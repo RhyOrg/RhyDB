@@ -75,9 +75,8 @@ const QueryTestScenario GREATER_EQUAL = {
 const QueryTestScenario NEGATED_LESS_THAN = {
    .name = "FLOAT_NEGATED_LESS_THAN",
    .query = "data.filter(!(float_value < 3.0)).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(
-      R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"}])"
-   ),
+   .expected_query_result =
+      nlohmann::json::parse(R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"}])"),
 };
 
 // Operand flip: `3.0 > float_value` must equal `float_value < 3.0`.
