@@ -12,16 +12,16 @@
 
 #include "rhydb/common/panic.h"
 #include "rhydb/query_engine/exec_node/arrow_util.h"
+#include "rhydb/query_engine/exec_node/cast_expression.h"
 #include "rhydb/query_engine/exec_node/string_to_bool_expression.h"
-#include "rhydb/query_engine/exec_node/tagged_cast_expression.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/query_engine/scalar_expressions/literal.h"
 
 namespace rhydb::query_engine::scalar_expressions {
 
+using exec_node::CastExpression;
 using exec_node::columnTypeToArrowType;
 using exec_node::StringToBoolExpression;
-using exec_node::TaggedCastExpression;
 using filter::operators::Operator;
 using schema::ColumnIdentifier;
 using schema::DataType;
@@ -106,11 +106,9 @@ arrow::Result<arrow::compute::Expression> Cast::toArrowExpression() const {
       // Arrow's own cast also accepts e.g. '1' and 'TRUE'
       return StringToBoolExpression::make(std::move(input_expression));
    }
-   // Use the tagged cast (rather than Arrow's raw `cast`) so that a failure on a column value is
+   // Use RhyDB's cast (rather than Arrow's raw `cast`) so that a failure on a column value is
    // marked as a user/query error and reported as a bad request instead of an internal error.
-   return TaggedCastExpression::make(
-      std::move(input_expression), columnTypeToArrowType(target_type)
-   );
+   return CastExpression::make(std::move(input_expression), columnTypeToArrowType(target_type));
 }
 
 std::unique_ptr<ScalarExpression> Cast::rewrite(const Table& table, AmbiguityMode mode) const {
