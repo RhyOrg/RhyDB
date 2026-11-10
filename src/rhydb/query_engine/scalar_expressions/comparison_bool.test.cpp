@@ -147,8 +147,7 @@ const QueryTestScenario BARE_BOOL_FILTER = {
 const QueryTestScenario NEGATED_BARE_BOOL_FILTER = {
    .name = "BOOL_NEGATED_BARE_FILTER",
    .query = "data.filter(!boolField).project(primaryKey)",
-   .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_false"},{"primaryKey":"id_null"}])"),
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_false"}])"),
 };
 
 const QueryTestScenario BARE_NON_BOOL_FILTER_REJECTED = {

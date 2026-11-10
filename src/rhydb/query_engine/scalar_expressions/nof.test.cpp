@@ -115,11 +115,12 @@ roaring::Roaring selectedRows(
 
 }  // namespace
 
-TEST(NOfCompile, exactlyNWithoutNullRowsCountsTheTrueChildren) {
+TEST(NOfCompile, exactlyNWithoutNullRowsSelectsTheTrueRows) {
    const auto table = tableOfAllBoolCombinations();
-   // Selects the rows where exactly n children are true, regardless of null children
-   EXPECT_EQ(selectedRows(table, 0, true, false), roaring::Roaring({4, 5, 7, 8}));
-   EXPECT_EQ(selectedRows(table, 1, true, false), roaring::Roaring({1, 2, 3, 6}));
+   // Exactly-n is true where exactly n children are true and the others are false. A null child
+   // could make more than n true, so it makes the result null.
+   EXPECT_EQ(selectedRows(table, 0, true, false), roaring::Roaring({4}));
+   EXPECT_EQ(selectedRows(table, 1, true, false), roaring::Roaring({1, 3}));
    EXPECT_EQ(selectedRows(table, 2, true, false), roaring::Roaring({0}));
 }
 

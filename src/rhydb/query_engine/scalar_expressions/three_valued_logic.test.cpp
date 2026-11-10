@@ -4,6 +4,7 @@
 // per row. Each input is available as several columns, so that the filters cover the different
 // ways comparisons are compiled (index scans, predicates, dictionary lookups, ...).
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <string>
@@ -154,50 +155,84 @@ struct Template {
 };
 
 const std::vector<Template> TEMPLATES{
-   {.name = "single",
-    .filter = [](const auto& a) { return a[0]; },
-    .expected = [](const auto& t) { return t[0]; }},
-   {.name = "doubleNegation",
-    .filter = [](const auto& a) { return fmt::format("!(!({}))", a[0]); },
-    .expected = [](const auto& t) { return t[0]; }},
-   {.name = "and",
-    .filter = [](const auto& a) { return fmt::format("{} && {} && {}", a[0], a[1], a[2]); },
-    .expected = [](const auto& t) { return conjunction(t); }},
-   {.name = "or",
-    .filter = [](const auto& a) { return fmt::format("{} || {} || {}", a[0], a[1], a[2]); },
-    .expected = [](const auto& t) { return disjunction(t); }},
-   {.name = "andWithNegation",
-    .filter = [](const auto& a) { return fmt::format("{} && !({})", a[0], a[1]); },
-    .expected = [](const auto& t) { return conjunction({t[0], kleeneNot(t[1])}); }},
-   {.name = "nested",
-    .filter =
-       [](const auto& a) { return fmt::format("{} && !({} || !({}))", a[0], a[1], a[2]); },
-    .expected =
-       [](const auto& t) {
-          return conjunction({t[0], kleeneNot(disjunction({t[1], kleeneNot(t[2])}))});
-       }},
-   {.name = "orOfNegations",
-    .filter = [](const auto& a) { return fmt::format("!({}) || !({})", a[0], a[1]); },
-    .expected = [](const auto& t) { return disjunction({kleeneNot(t[0]), kleeneNot(t[1])}); }},
-   {.name = "atLeastTwoOf",
-    .filter = [](const auto& a) { return fmt::format("nOf(2, {{{}, {}, {}}})", a[0], a[1], a[2]); },
-    .expected = [](const auto& t) { return nOf(t, 2, false); }},
-   {.name = "atLeastOneOfWithNegation",
-    .filter =
-       [](const auto& a) { return fmt::format("nOf(1, {{{}, !({}), {}}})", a[0], a[1], a[2]); },
-    .expected = [](const auto& t) { return nOf({t[0], kleeneNot(t[1]), t[2]}, 1, false); }},
-   {.name = "exactlyOneOf",
-    .filter =
-       [](const auto& a) {
-          return fmt::format("nOf(1, {{{}, {}, {}}}, matchExactly:=true)", a[0], a[1], a[2]);
-       },
-    .expected = [](const auto& t) { return nOf(t, 1, true); }},
-   {.name = "exactlyTwoOfWithNegation",
-    .filter =
-       [](const auto& a) {
-          return fmt::format("nOf(2, {{{}, !({}), {}}}, matchExactly:=true)", a[0], a[1], a[2]);
-       },
-    .expected = [](const auto& t) { return nOf({t[0], kleeneNot(t[1]), t[2]}, 2, true); }},
+   {
+      .name = "single",
+      .filter = [](const auto& arg) { return arg[0]; },
+      .expected = [](const auto& val) { return val[0]; },
+   },
+   {
+      .name = "doubleNegation",
+      .filter = [](const auto& arg) { return fmt::format("!(!({}))", arg[0]); },
+      .expected = [](const auto& val) { return val[0]; },
+   },
+   {
+      .name = "and",
+      .filter =
+         [](const auto& arg) { return fmt::format("{} && {} && {}", arg[0], arg[1], arg[2]); },
+      .expected = [](const auto& val) { return conjunction(val); },
+   },
+   {
+      .name = "or",
+      .filter =
+         [](const auto& arg) { return fmt::format("{} || {} || {}", arg[0], arg[1], arg[2]); },
+      .expected = [](const auto& val) { return disjunction(val); },
+   },
+   {
+      .name = "andWithNegation",
+      .filter = [](const auto& arg) { return fmt::format("{} && !({})", arg[0], arg[1]); },
+      .expected = [](const auto& val) { return conjunction({val[0], kleeneNot(val[1])}); },
+   },
+   {
+      .name = "nested",
+      .filter = [](
+                   const auto& arg
+                ) { return fmt::format("{} && !({} || !({}))", arg[0], arg[1], arg[2]); },
+      .expected =
+         [](const auto& val) {
+            return conjunction({val[0], kleeneNot(disjunction({val[1], kleeneNot(val[2])}))});
+         },
+   },
+   {
+      .name = "orOfNegations",
+      .filter = [](const auto& arg) { return fmt::format("!({}) || !({})", arg[0], arg[1]); },
+      .expected =
+         [](const auto& val) { return disjunction({kleeneNot(val[0]), kleeneNot(val[1])}); },
+   },
+   {
+      .name = "atLeastTwoOf",
+      .filter = [](
+                   const auto& arg
+                ) { return fmt::format("nOf(2, {{{}, {}, {}}})", arg[0], arg[1], arg[2]); },
+      .expected = [](const auto& val) { return nOf(val, 2, false); },
+   },
+   {
+      .name = "atLeastOneOfWithNegation",
+      .filter = [](
+                   const auto& arg
+                ) { return fmt::format("nOf(1, {{{}, !({}), {}}})", arg[0], arg[1], arg[2]); },
+      .expected =
+         [](const auto& val) { return nOf({val[0], kleeneNot(val[1]), val[2]}, 1, false); },
+   },
+   {
+      .name = "exactlyOneOf",
+      .filter =
+         [](const auto& arg) {
+            return fmt::format(
+               "nOf(1, {{{}, {}, {}}}, matchExactly:=true)", arg[0], arg[1], arg[2]
+            );
+         },
+      .expected = [](const auto& val) { return nOf(val, 1, true); },
+   },
+   {
+      .name = "exactlyTwoOfWithNegation",
+      .filter =
+         [](const auto& arg) {
+            return fmt::format(
+               "nOf(2, {{{}, !({}), {}}}, matchExactly:=true)", arg[0], arg[1], arg[2]
+            );
+         },
+      .expected = [](const auto& val) { return nOf({val[0], kleeneNot(val[1]), val[2]}, 2, true); },
+   },
 };
 
 nlohmann::json rowsWhere(const std::function<bool(const std::vector<Truth>&)>& predicate) {
@@ -218,19 +253,22 @@ std::vector<QueryTestScenario> scenarios() {
    for (const auto& filter_template : TEMPLATES) {
       for (size_t atom = 0; atom < ATOMS.size(); ++atom) {
          std::vector<std::string> atoms;
+         atoms.reserve(NUM_INPUTS);
          for (uint32_t input = 0; input < NUM_INPUTS; ++input) {
-            atoms.push_back(fmt::format(
-               fmt::runtime(ATOMS.at((atom + input * 3) % ATOMS.size())), input
-            ));
+            atoms.push_back(
+               fmt::format(
+                  fmt::runtime(ATOMS.at((atom + (static_cast<size_t>(input) * 3)) % ATOMS.size())),
+                  input
+               )
+            );
          }
          const std::string filter = filter_template.filter(atoms);
          const auto& expected = filter_template.expected;
          result.push_back({
             .name = fmt::format("{}_{}", filter_template.name, atom),
             .query = fmt::format("data.filter({}).project({{primaryKey}})", filter),
-            .expected_query_result = rowsWhere([&](const auto& inputs) {
-               return expected(inputs) == Truth::TRUE_VALUE;
-            }),
+            .expected_query_result =
+               rowsWhere([&](const auto& inputs) { return expected(inputs) == Truth::TRUE_VALUE; }),
          });
          result.push_back({
             .name = fmt::format("{}_{}_negated", filter_template.name, atom),
