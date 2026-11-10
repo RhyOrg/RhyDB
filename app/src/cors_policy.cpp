@@ -8,11 +8,10 @@
 #include <Poco/Exception.h>
 #include <Poco/Net/IPAddress.h>
 #include <Poco/URI.h>
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/trim.hpp>
 
 #include "config/config_exception.h"
+#include "rhydb/common/string_utils.h"
 
 namespace rhydb_app {
 
@@ -98,8 +97,7 @@ CorsPolicy::CorsPolicy(Mode mode, std::vector<std::string> allowed_origins)
       allowed_origins(std::move(allowed_origins)) {}
 
 CorsPolicy CorsPolicy::parse(std::string_view config_value) {
-   std::vector<std::string> entries;
-   boost::split(entries, config_value, boost::is_any_of(","));
+   std::vector<std::string> entries = rhydb::splitBy(std::string{config_value}, ",");
    for (auto& entry : entries) {
       boost::trim(entry);
    }
