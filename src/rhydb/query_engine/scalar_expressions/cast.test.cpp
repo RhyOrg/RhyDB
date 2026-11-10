@@ -425,6 +425,43 @@ const QueryTestScenario COMPARISON_TO_INT_THROWS_SCENARIO = {
    .expected_error_message = "map() field 'a': cannot cast from BOOL to INT32 at 1:29",
 };
 
+// ---- column values that cannot be converted ----
+//
+// These casts fail while the query runs (Arrow evaluates them per batch), not at planning time.
+// KNOWN BUG: `QueryPlan::executeAndWriteImpl` drops the final status of the Arrow plan, so such a
+// query currently returns an empty result instead of failing. The scenarios below pin that
+// behavior and only check that no bad value leaks into the result.
+
+const QueryTestScenario COLUMN_CAST_OVERFLOW_RETURNS_NOTHING_SCENARIO = {
+   .name = "COLUMN_CAST_OVERFLOW_RETURNS_NOTHING",
+   .query = "data.map({a := long_col::int32}).project({primaryKey, a})",
+   .expected_query_result = nlohmann::json::array(),
+};
+
+const QueryTestScenario COLUMN_CAST_FRACTION_RETURNS_NOTHING_SCENARIO = {
+   .name = "COLUMN_CAST_FRACTION_RETURNS_NOTHING",
+   .query = "data.map({a := float_col::int32}).project({primaryKey, a})",
+   .expected_query_result = nlohmann::json::array(),
+};
+
+const QueryTestScenario COLUMN_CAST_NOT_A_NUMBER_RETURNS_NOTHING_SCENARIO = {
+   .name = "COLUMN_CAST_NOT_A_NUMBER_RETURNS_NOTHING",
+   .query = "data.map({a := text::int32}).project({primaryKey, a})",
+   .expected_query_result = nlohmann::json::array(),
+};
+
+const QueryTestScenario COLUMN_CAST_INVALID_DATE_RETURNS_NOTHING_SCENARIO = {
+   .name = "COLUMN_CAST_INVALID_DATE_RETURNS_NOTHING",
+   .query = "data.map({a := text::date}).project({primaryKey, a})",
+   .expected_query_result = nlohmann::json::array(),
+};
+
+const QueryTestScenario COLUMN_CAST_INVALID_BOOLEAN_RETURNS_NOTHING_SCENARIO = {
+   .name = "COLUMN_CAST_INVALID_BOOLEAN_RETURNS_NOTHING",
+   .query = "data.map({a := text::boolean}).project({primaryKey, a})",
+   .expected_query_result = nlohmann::json::array(),
+};
+
 // ---- optimizer interplay ----
 
 const QueryTestScenario GROUP_BY_CAST_SCENARIO = {
@@ -498,6 +535,11 @@ QUERY_TEST(
       COMPARISON_TO_STRING_SCENARIO,
       LOGICAL_EXPRESSION_TO_STRING_SCENARIO,
       COMPARISON_TO_INT_THROWS_SCENARIO,
+      COLUMN_CAST_OVERFLOW_RETURNS_NOTHING_SCENARIO,
+      COLUMN_CAST_FRACTION_RETURNS_NOTHING_SCENARIO,
+      COLUMN_CAST_NOT_A_NUMBER_RETURNS_NOTHING_SCENARIO,
+      COLUMN_CAST_INVALID_DATE_RETURNS_NOTHING_SCENARIO,
+      COLUMN_CAST_INVALID_BOOLEAN_RETURNS_NOTHING_SCENARIO,
       GROUP_BY_CAST_SCENARIO,
       CAST_OF_COLUMN_FROM_PREVIOUS_MAP_SCENARIO,
       CAST_IN_SECOND_MAP_USES_FIRST_MAP_SCENARIO
