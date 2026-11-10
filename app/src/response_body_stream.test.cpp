@@ -1,5 +1,7 @@
 #include "response_body_stream.h"
 
+#include <ios>
+#include <stdexcept>
 #include <string>
 
 #include <Poco/Net/HTTPMessage.h>
@@ -77,4 +79,31 @@ TEST(ResponseBodyStream, streamsABodyOverTheLimitUntilConnectionCloseToHttp10Cli
    EXPECT_FALSE(response.getChunkedTransferEncoding());
    EXPECT_FALSE(response.getKeepAlive());
    EXPECT_EQ(response.out_stream.str(), std::string(BUFFER_LIMIT + 1, 'x'));
+}
+
+TEST(ResponseBodyStream, refusesToFinishABufferedBodyAfterAFailedWrite) {
+   rhydb_app::test::MockResponse response;
+   rhydb_app::test::MockRequest request(response);
+
+   rhydb_app::ResponseBodyStream body{request, response, BUFFER_LIMIT};
+   body << "partial";
+   // As when appending to the buffer runs out of memory
+   body.setstate(std::ios::badbit);
+
+   EXPECT_THROW(body.finish(), std::runtime_error);
+   EXPECT_FALSE(response.sent());
+}
+
+TEST(ResponseBodyStream, refusesToFinishAStreamedBodyAfterTheClientWentAway) {
+   rhydb_app::test::MockResponse response;
+   rhydb_app::test::MockRequest request(response);
+   request.setVersion(Poco::Net::HTTPMessage::HTTP_1_1);
+
+   rhydb_app::ResponseBodyStream body{request, response, BUFFER_LIMIT};
+   body << std::string(BUFFER_LIMIT + 1, 'x');
+   response.out_stream.setstate(std::ios::badbit);
+   body << "more";
+
+   EXPECT_FALSE(body);
+   EXPECT_THROW(body.finish(), std::runtime_error);
 }

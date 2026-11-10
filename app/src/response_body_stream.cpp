@@ -1,5 +1,7 @@
 #include "response_body_stream.h"
 
+#include <stdexcept>
+
 #include <Poco/Net/HTTPMessage.h>
 
 namespace rhydb_app {
@@ -64,6 +66,9 @@ ResponseBodyStream::ResponseBodyStream(
 }
 
 void ResponseBodyStream::finish() {
+   if (!*this) {
+      throw std::runtime_error("Failed to write the complete response body");
+   }
    if (buffer.network_stream == nullptr) {
       buffer.response.sendBuffer(buffer.buffered_body.data(), buffer.buffered_body.size());
    } else {

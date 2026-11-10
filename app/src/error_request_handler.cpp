@@ -51,7 +51,8 @@ void abortStartedResponse(
    } catch (...) {
       reason = abi::__cxa_current_exception_type()->name();
    }
-   SPDLOG_ERROR(
+   // Usually the client went away while the response was sent, so this is no server error
+   SPDLOG_WARN(
       "Request Id [{}] - failed after the response was started, aborting the connection: {}",
       response.get("X-Request-Id", ""),
       reason

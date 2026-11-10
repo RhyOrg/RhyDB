@@ -57,7 +57,8 @@ class ResponseBodyStream : public std::ostream {
    );
 
    /// Sends the buffered body, or the rest of the streamed body. Call only after the whole body
-   /// was written successfully.
+   /// was written successfully. Throws if a write to this stream failed, so that a body cut short
+   /// is not sent as a complete one.
    void finish();
 
    [[nodiscard]] bool isStreaming() const;
