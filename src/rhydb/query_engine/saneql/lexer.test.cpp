@@ -285,6 +285,15 @@ TEST(SaneQLLexer, skipsWhitespaceAndNewlines) {
    EXPECT_EQ(tokens[1].type, TokenType::DOT);
 }
 
+TEST(SaneQLLexer, skipsVerticalTabAndFormFeed) {
+   Lexer lexer("a\vb\fc");
+   auto tokens = lexer.tokenizeAll();
+   ASSERT_EQ(tokens.size(), 4);
+   EXPECT_EQ(tokens[0].getStringValue(), "a");
+   EXPECT_EQ(tokens[1].getStringValue(), "b");
+   EXPECT_EQ(tokens[2].getStringValue(), "c");
+}
+
 TEST(SaneQLLexer, tracksLineAndColumn) {
    Lexer lexer("a\nb");
    auto tokens = lexer.tokenizeAll();
@@ -597,4 +606,196 @@ TEST(SaneQLLexer, multipleConsecutiveComments) {
    EXPECT_EQ(tokens[0].type, TokenType::IDENTIFIER);
    EXPECT_EQ(tokens[0].getStringValue(), "a");
    EXPECT_EQ(tokens[1].type, TokenType::END_OF_FILE);
+}
+
+namespace {
+
+void expectLexerError(std::string_view input, const std::string& expected_message) {
+   EXPECT_THAT(
+      [&]() {
+         Lexer lexer(input);
+         (void)lexer.tokenizeAll();
+      },
+      ::testing::ThrowsMessage<ParseException>(::testing::Eq(expected_message))
+   );
+}
+
+}  // namespace
+
+TEST(SaneQLLexer, treatsNonBreakingSpaceAsWhitespace) {
+   Lexer lexer(
+      "a\xC2\xA0"
+      "b"
+   );
+   auto tokens = lexer.tokenizeAll();
+   ASSERT_EQ(tokens.size(), 3);
+   EXPECT_EQ(tokens[0].getStringValue(), "a");
+   EXPECT_EQ(tokens[1].getStringValue(), "b");
+   EXPECT_EQ(tokens[1].location.line, 1);
+   EXPECT_EQ(tokens[1].location.column, 3);
+}
+
+TEST(SaneQLLexer, treatsOtherUnicodeWhiteSpaceAsWhitespace) {
+   for (const std::string whitespace : {
+           "\xC2\x85",      // U+0085 next line
+           "\xE1\x9A\x80",  // U+1680 ogham space mark
+           "\xE2\x80\x83",  // U+2003 em space
+           "\xE2\x80\xAF",  // U+202F narrow no-break space
+           "\xE2\x81\x9F",  // U+205F medium mathematical space
+           "\xE3\x80\x80",  // U+3000 ideographic space
+        }) {
+      const std::string input = "a" + whitespace + "b";
+      Lexer lexer(input);
+      auto tokens = lexer.tokenizeAll();
+      ASSERT_EQ(tokens.size(), 3) << input;
+      EXPECT_EQ(tokens[0].getStringValue(), "a");
+      EXPECT_EQ(tokens[1].getStringValue(), "b");
+      EXPECT_EQ(tokens[1].location.column, 3);
+   }
+}
+
+TEST(SaneQLLexer, unicodeLineSeparatorsDoNotStartANewLine) {
+   Lexer lexer(
+      "a\xE2\x80\xA8"
+      "b\xC2\x85"
+      "c"
+   );
+   auto tokens = lexer.tokenizeAll();
+   ASSERT_EQ(tokens.size(), 4);
+   EXPECT_EQ(tokens[1].location.line, 1);
+   EXPECT_EQ(tokens[1].location.column, 3);
+   EXPECT_EQ(tokens[2].location.line, 1);
+   EXPECT_EQ(tokens[2].location.column, 5);
+}
+
+TEST(SaneQLLexer, skipsLeadingByteOrderMark) {
+   Lexer lexer(
+      "\xEF\xBB\xBF"
+      "a"
+   );
+   auto tokens = lexer.tokenizeAll();
+   ASSERT_EQ(tokens.size(), 2);
+   EXPECT_EQ(tokens[0].getStringValue(), "a");
+   EXPECT_EQ(tokens[0].location.line, 1);
+   EXPECT_EQ(tokens[0].location.column, 1);
+}
+
+TEST(SaneQLLexer, byteOrderMarkOnlyProducesEof) {
+   Lexer lexer("\xEF\xBB\xBF");
+   auto tokens = lexer.tokenizeAll();
+   ASSERT_EQ(tokens.size(), 1);
+   EXPECT_EQ(tokens[0].type, TokenType::END_OF_FILE);
+}
+
+TEST(SaneQLLexer, byteOrderMarkInTheMiddleIsRejected) {
+   expectLexerError("a\xEF\xBB\xBF", "Parse error at 1:2: Unexpected character U+FEFF");
+}
+
+TEST(SaneQLLexer, rejectsNonAsciiCharacterOutsideLiterals) {
+   expectLexerError("a \xC3\xA9", "Parse error at 1:3: Unexpected character U+00E9");
+}
+
+TEST(SaneQLLexer, rejectsNonAsciiCharacterInsideIdentifier) {
+   expectLexerError("caf\xC3\xA9", "Parse error at 1:4: Unexpected character U+00E9");
+}
+
+TEST(SaneQLLexer, reportsCodepointsAboveTheBasicMultilingualPlane) {
+   expectLexerError("\xF0\x9F\x98\x80", "Parse error at 1:1: Unexpected character U+1F600");
+}
+
+TEST(SaneQLLexer, keepsAsciiUnexpectedCharacterMessage) {
+   expectLexerError("a @", "Parse error at 1:3: Unexpected character '@'");
+}
+
+TEST(SaneQLLexer, rejectsLoneLeadByte) {
+   expectLexerError("\xC3", "Parse error at 1:1: Invalid UTF-8 byte 0xC3");
+}
+
+TEST(SaneQLLexer, rejectsLeadByteFollowedByAscii) {
+   expectLexerError(
+      "a \xC3"
+      "b",
+      "Parse error at 1:3: Invalid UTF-8 byte 0xC3"
+   );
+}
+
+TEST(SaneQLLexer, rejectsSequenceTruncatedByEndOfInput) {
+   expectLexerError("a \xE2\x80", "Parse error at 1:3: Invalid UTF-8 byte 0xE2");
+}
+
+TEST(SaneQLLexer, rejectsStrayContinuationByte) {
+   expectLexerError("a \x80", "Parse error at 1:3: Invalid UTF-8 byte 0x80");
+}
+
+TEST(SaneQLLexer, rejectsOverlongEncoding) {
+   expectLexerError("\xC0\x80", "Parse error at 1:1: Invalid UTF-8 byte 0xC0");
+   expectLexerError("\xE0\x80\x80", "Parse error at 1:1: Invalid UTF-8 byte 0xE0");
+}
+
+TEST(SaneQLLexer, rejectsEncodedSurrogate) {
+   expectLexerError("\xED\xA0\x80", "Parse error at 1:1: Invalid UTF-8 byte 0xED");
+}
+
+TEST(SaneQLLexer, rejectsCodepointsAboveUnicodeRange) {
+   expectLexerError("\xF4\x90\x80\x80", "Parse error at 1:1: Invalid UTF-8 byte 0xF4");
+   expectLexerError("\xFF", "Parse error at 1:1: Invalid UTF-8 byte 0xFF");
+}
+
+TEST(SaneQLLexer, rejectsInvalidUtf8InsideStringLiteral) {
+   expectLexerError("'ab\xC3'", "Parse error at 1:4: Invalid UTF-8 byte 0xC3");
+}
+
+TEST(SaneQLLexer, rejectsInvalidUtf8InsideQuotedIdentifier) {
+   expectLexerError("\"ab\xFF\"", "Parse error at 1:4: Invalid UTF-8 byte 0xFF");
+}
+
+TEST(SaneQLLexer, rejectsInvalidUtf8InsideComment) {
+   expectLexerError("-- ab\xFF\na", "Parse error at 1:6: Invalid UTF-8 byte 0xFF");
+}
+
+TEST(SaneQLLexer, preservesNonAsciiInsideStringLiteral) {
+   Lexer lexer("'caf\xC3\xA9 \xE2\x82\xAC \xF0\x9F\x98\x80'");
+   auto tokens = lexer.tokenizeAll();
+   ASSERT_EQ(tokens.size(), 2);
+   EXPECT_EQ(tokens[0].type, TokenType::STRING_LITERAL);
+   EXPECT_EQ(tokens[0].getStringValue(), "caf\xC3\xA9 \xE2\x82\xAC \xF0\x9F\x98\x80");
+}
+
+TEST(SaneQLLexer, preservesNonAsciiInsideQuotedIdentifier) {
+   Lexer lexer("\"caf\xC3\xA9\"");
+   auto tokens = lexer.tokenizeAll();
+   ASSERT_EQ(tokens.size(), 2);
+   EXPECT_EQ(tokens[0].type, TokenType::IDENTIFIER);
+   EXPECT_EQ(tokens[0].getStringValue(), "caf\xC3\xA9");
+}
+
+TEST(SaneQLLexer, preservesNonBreakingSpaceInsideStringLiteral) {
+   Lexer lexer(
+      "'a\xC2\xA0"
+      "b'"
+   );
+   auto tokens = lexer.tokenizeAll();
+   ASSERT_EQ(tokens.size(), 2);
+   EXPECT_EQ(
+      tokens[0].getStringValue(),
+      "a\xC2\xA0"
+      "b"
+   );
+}
+
+TEST(SaneQLLexer, countsColumnsInCodepointsNotBytes) {
+   Lexer lexer("'\xC3\xA9' x");
+   auto tokens = lexer.tokenizeAll();
+   ASSERT_EQ(tokens.size(), 3);
+   EXPECT_EQ(tokens[1].getStringValue(), "x");
+   EXPECT_EQ(tokens[1].location.column, 5);
+}
+
+TEST(SaneQLLexer, skipsNonAsciiInsideComment) {
+   Lexer lexer("-- caf\xC3\xA9 \xE2\x82\xAC\na");
+   auto tokens = lexer.tokenizeAll();
+   ASSERT_EQ(tokens.size(), 2);
+   EXPECT_EQ(tokens[0].getStringValue(), "a");
+   EXPECT_EQ(tokens[0].location.line, 2);
+   EXPECT_EQ(tokens[0].location.column, 1);
 }

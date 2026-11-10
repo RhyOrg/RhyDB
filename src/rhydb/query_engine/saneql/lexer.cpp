@@ -4,14 +4,44 @@
 
 #include <fast_float/fast_float.h>
 #include <fmt/format.h>
+#include <simdutf.h>
 
 #include "rhydb/common/panic.h"
 #include "rhydb/query_engine/saneql/parse_exception.h"
 
 namespace rhydb::query_engine::saneql {
 
+namespace {
+
+constexpr unsigned char FIRST_NON_ASCII_BYTE = 0x80;
+constexpr std::string_view UTF8_BYTE_ORDER_MARK = "\xEF\xBB\xBF";
+
+bool isAsciiByte(char byte) {
+   return static_cast<unsigned char>(byte) < FIRST_NON_ASCII_BYTE;
+}
+
+size_t utf8SequenceLength(unsigned char lead_byte) {
+   if (lead_byte >= 0xC2 && lead_byte <= 0xDF) {
+      return 2;
+   }
+   if (lead_byte >= 0xE0 && lead_byte <= 0xEF) {
+      return 3;
+   }
+   if (lead_byte >= 0xF0 && lead_byte <= 0xF4) {
+      return 4;
+   }
+   return 0;
+}
+
+}  // namespace
+
 Lexer::Lexer(std::string_view input)
-    : input(input) {}
+    : input(input) {
+   // A leading byte order mark is not part of the query. It does not count as a column.
+   if (input.starts_with(UTF8_BYTE_ORDER_MARK)) {
+      position = UTF8_BYTE_ORDER_MARK.size();
+   }
+}
 
 bool Lexer::isAtEnd() const {
    return position >= input.size();
@@ -34,6 +64,7 @@ char Lexer::peekNext() const {
 char Lexer::advance() {
    RHYDB_ASSERT(!isAtEnd());
    const char current = input[position];
+   RHYDB_ASSERT(isAsciiByte(current));
    position++;
    if (current == '\n') {
       current_location.line++;
@@ -44,15 +75,64 @@ char Lexer::advance() {
    return current;
 }
 
+Lexer::Codepoint Lexer::peekCodepoint() const {
+   RHYDB_ASSERT(!isAtEnd());
+   const auto lead_byte = static_cast<unsigned char>(input[position]);
+   if (lead_byte < FIRST_NON_ASCII_BYTE) {
+      return {.value = lead_byte, .byte_length = 1};
+   }
+
+   const size_t byte_length = utf8SequenceLength(lead_byte);
+   if (byte_length == 0 || position + byte_length > input.size()) {
+      throw ParseException(current_location, "Invalid UTF-8 byte 0x{:02X}", lead_byte);
+   }
+
+   char32_t value = 0;
+   const auto result =
+      simdutf::convert_utf8_to_utf32_with_errors(input.data() + position, byte_length, &value);
+   if (result.error != simdutf::error_code::SUCCESS || result.count != 1) {
+      throw ParseException(current_location, "Invalid UTF-8 byte 0x{:02X}", lead_byte);
+   }
+   return {.value = value, .byte_length = byte_length};
+}
+
+void Lexer::advanceCodepoint(const Codepoint& codepoint) {
+   RHYDB_ASSERT(codepoint.value >= FIRST_NON_ASCII_BYTE);
+   RHYDB_ASSERT(position + codepoint.byte_length <= input.size());
+   position += codepoint.byte_length;
+   current_location.column++;
+}
+
+bool Lexer::isUnicodeWhitespace(char32_t codepoint) {
+   // Unicode White_Space property
+   return (codepoint >= 0x0009 && codepoint <= 0x000D) || codepoint == 0x0020 ||
+          codepoint == 0x0085 || codepoint == 0x00A0 || codepoint == 0x1680 ||
+          (codepoint >= 0x2000 && codepoint <= 0x200A) || codepoint == 0x2028 ||
+          codepoint == 0x2029 || codepoint == 0x202F || codepoint == 0x205F || codepoint == 0x3000;
+}
+
 void Lexer::skipWhitespace() {
    while (!isAtEnd()) {
       const char current = peek();
-      if (current == ' ' || current == '\t' || current == '\n' || current == '\r') {
+      if (
+         current == ' ' || current == '\t' || current == '\n' || current == '\v' ||
+         current == '\f' || current == '\r'
+      ) {
          advance();
       } else if (current == '-' && peekNext() == '-') {
          while (!isAtEnd() && peek() != '\n') {
-            advance();
+            if (isAsciiByte(peek())) {
+               advance();
+            } else {
+               advanceCodepoint(peekCodepoint());
+            }
          }
+      } else if (!isAsciiByte(current)) {
+         const Codepoint codepoint = peekCodepoint();
+         if (!isUnicodeWhitespace(codepoint.value)) {
+            break;
+         }
+         advanceCodepoint(codepoint);
       } else {
          break;
       }
@@ -83,8 +163,12 @@ Token Lexer::readString() {
          } else {
             return makeToken(TokenType::STRING_LITERAL, std::move(result), start);
          }
-      } else {
+      } else if (isAsciiByte(peek())) {
          result += advance();
+      } else {
+         const Codepoint codepoint = peekCodepoint();
+         result += input.substr(position, codepoint.byte_length);
+         advanceCodepoint(codepoint);
       }
    }
    throw ParseException(start, "Unterminated string literal");
@@ -107,8 +191,12 @@ Token Lexer::readQuotedIdentifier() {
          } else {
             return makeToken(TokenType::IDENTIFIER, std::move(result), start);
          }
-      } else {
+      } else if (isAsciiByte(peek())) {
          result += advance();
+      } else {
+         const Codepoint codepoint = peekCodepoint();
+         result += input.substr(position, codepoint.byte_length);
+         advanceCodepoint(codepoint);
       }
    }
    throw ParseException(start, "Unterminated quoted identifier");
@@ -279,6 +367,13 @@ Token Lexer::nextToken() {
          advance();
          return makeToken(TokenType::MINUS, start);
       default:
+         if (!isAsciiByte(current)) {
+            // Throws for invalid UTF-8; otherwise the character is valid but not allowed here.
+            const Codepoint codepoint = peekCodepoint();
+            throw ParseException(
+               start, "Unexpected character U+{:04X}", static_cast<uint32_t>(codepoint.value)
+            );
+         }
          advance();
          throw ParseException(start, "Unexpected character '{}'", current);
    }
