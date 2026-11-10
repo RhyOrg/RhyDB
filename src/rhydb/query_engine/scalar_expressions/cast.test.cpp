@@ -432,46 +432,31 @@ const QueryTestScenario COMPARISON_TO_INT_THROWS_SCENARIO = {
 const QueryTestScenario COLUMN_CAST_OVERFLOW_THROWS_SCENARIO = {
    .name = "COLUMN_CAST_OVERFLOW_THROWS",
    .query = "data.map({a := long_col::int32}).project({primaryKey, a})",
-   .expected_error_message =
-      "Request Id [some_id] - Internal server error. Please notify developers. RhyDB likely "
-      "constructed an invalid arrow plan and more user-input validation needs to be added: Integer "
-      "value 5000000000 not in range: -2147483648 to 2147483647",
+   .expected_error_message = "Integer value 5000000000 not in range: -2147483648 to 2147483647",
 };
 
 const QueryTestScenario COLUMN_CAST_FRACTION_THROWS_SCENARIO = {
    .name = "COLUMN_CAST_FRACTION_THROWS",
    .query = "data.map({a := float_col::int32}).project({primaryKey, a})",
-   .expected_error_message =
-      "Request Id [some_id] - Internal server error. Please notify developers. RhyDB likely "
-      "constructed an invalid arrow plan and more user-input validation needs to be added: Float "
-      "value 1.500000 was truncated converting to int32",
+   .expected_error_message = "Float value 1.500000 was truncated converting to int32",
 };
 
 const QueryTestScenario COLUMN_CAST_NOT_A_NUMBER_THROWS_SCENARIO = {
    .name = "COLUMN_CAST_NOT_A_NUMBER_THROWS",
    .query = "data.map({a := text::int32}).project({primaryKey, a})",
-   .expected_error_message =
-      "Request Id [some_id] - Internal server error. Please notify developers. RhyDB likely "
-      "constructed an invalid arrow plan and more user-input validation needs to be added: Failed "
-      "to parse string: 'ABC' as a scalar of type int32",
+   .expected_error_message = "Failed to parse string: 'ABC' as a scalar of type int32",
 };
 
 const QueryTestScenario COLUMN_CAST_INVALID_DATE_THROWS_SCENARIO = {
    .name = "COLUMN_CAST_INVALID_DATE_THROWS",
    .query = "data.map({a := text::date}).project({primaryKey, a})",
-   .expected_error_message =
-      "Request Id [some_id] - Internal server error. Please notify developers. RhyDB likely "
-      "constructed an invalid arrow plan and more user-input validation needs to be added: Failed "
-      "to parse string: 'ABC' as a scalar of type date32[day]",
+   .expected_error_message = "Failed to parse string: 'ABC' as a scalar of type date32[day]",
 };
 
 const QueryTestScenario COLUMN_CAST_INVALID_BOOLEAN_THROWS_SCENARIO = {
    .name = "COLUMN_CAST_INVALID_BOOLEAN_THROWS",
    .query = "data.map({a := text::boolean}).project({primaryKey, a})",
-   .expected_error_message =
-      "Request Id [some_id] - Internal server error. Please notify developers. RhyDB likely "
-      "constructed an invalid arrow plan and more user-input validation needs to be added: Failed "
-      "to parse 'abc' as boolean: expected 'true' or 'false'",
+   .expected_error_message = "Failed to parse 'abc' as boolean: expected 'true' or 'false'",
 };
 
 // ---- optimizer interplay ----

@@ -1,6 +1,19 @@
 #include "rhydb/query_engine/exec_node/arrow_util.h"
 
+#include <arrow/array/util.h>
+
 namespace rhydb::query_engine::exec_node {
+
+arrow::Result<std::shared_ptr<arrow::Array>> execValueAsArray(
+   const arrow::compute::ExecValue& value,
+   int64_t length,
+   arrow::MemoryPool* pool
+) {
+   if (value.is_array()) {
+      return value.array.ToArray();
+   }
+   return arrow::MakeArrayFromScalar(*value.scalar, length, pool);
+}
 
 std::shared_ptr<arrow::DataType> columnTypeToArrowType(const schema::DataType& column_type) {
    using Kind = schema::DataType::Kind;

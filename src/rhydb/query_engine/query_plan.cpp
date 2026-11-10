@@ -10,6 +10,7 @@
 
 #include "evobench/evobench.hpp"
 #include "rhydb/common/size_constants.h"
+#include "rhydb/query_engine/query_execution_error.h"
 
 namespace rhydb::query_engine {
 
@@ -170,26 +171,35 @@ void QueryPlan::executeAndWrite(
    uint64_t timeout_in_seconds
 ) {
    auto status = executeAndWriteImpl(output_sink, timeout_in_seconds);
-   if (!status.ok()) {
-      if (status.IsIOError()) {
-         SPDLOG_WARN(
-            "The request {} encountered an IO Error when sending the response. We expect that the "
-            "user cancelled the request while the response was send and ignore the error",
-            request_id
-         );
-      } else {
-         throw std::runtime_error(
-            fmt::format(
-               "Request Id [{}] - Internal server error. Please notify developers. RhyDB likely "
-               "constructed an invalid arrow plan and more user-input validation needs to be "
-               "added: "
-               "{}",
-               request_id,
-               status.message()
-            )
-         );
-      }
+   if (status.ok()) {
+      return;
    }
+   if (status.IsIOError()) {
+      SPDLOG_WARN(
+         "The request {} encountered an IO Error when sending the response. We expect that the "
+         "user cancelled the request while the response was send and ignore the error",
+         request_id
+      );
+      return;
+   }
+   if (isQueryExecutionError(status)) {
+      // A failure caused by the user's query or data (e.g. a cast that cannot convert a column
+      // value). Report it as such instead of blaming an internal RhyDB bug.
+      SPDLOG_INFO(
+         "Request Id [{}] - Query failed during execution: {}", request_id, status.message()
+      );
+      throw QueryExecutionException(status.message());
+   }
+   throw std::runtime_error(
+      fmt::format(
+         "Request Id [{}] - Internal server error. Please notify developers. RhyDB likely "
+         "constructed an invalid arrow plan and more user-input validation needs to be "
+         "added: "
+         "{}",
+         request_id,
+         status.message()
+      )
+   );
 }
 
 arrow::Result<arrow::acero::BackpressureMonitor*> QueryPlan::createGenerator(
