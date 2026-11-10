@@ -14,6 +14,7 @@
 /// construct.
 inline void preprocessDatabase(
    rhydb::Database& database,
+   const std::string& table_name,
    const std::string& database_config_file,
    const std::string& reference_genome_file,
    const std::string& input_file,
@@ -30,6 +31,9 @@ inline void preprocessDatabase(
    }
    initialization_files.without_unaligned_sequences = without_unaligned_sequences;
    rhydb::preprocessing::preprocessing(
-      database, initialization_files, std::filesystem::path{input_file}
+      database,
+      rhydb::schema::TableName{table_name},
+      initialization_files,
+      std::filesystem::path{input_file}
    );
 }

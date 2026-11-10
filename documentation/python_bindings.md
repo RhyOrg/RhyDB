@@ -63,14 +63,14 @@ with Database("path/to/rhydb-dir") as db:
 
 ### Preprocessing
 
-**`preprocess(database_config, reference_genomes, input_file, lineage_definitions=(), phylogenetic_tree=None, without_unaligned_sequences=False)`**
+**`preprocess(database_config, reference_genomes, input_file, lineage_definitions=(), phylogenetic_tree=None, without_unaligned_sequences=False, table_name="data")`**
 Does what the `preprocessing` command does, but into this in-memory database instead of a saved
 state. It takes the same initialization files as the command, given as paths (`str` or
-`os.PathLike`). It creates the default table `data` from the database config and the reference
-genomes, and fills the built-in `reference_genomes` and `lineage_definitions` tables. It then builds
-the lineage relation tables, appends the NDJSON input and checks that the primary key is unique. A
-column's `generateLineageIndex` names its lineage definition file, with or without the `.yaml`
-extension.
+`os.PathLike`). It creates the table `table_name` (default `data`) from the database config and the
+reference genomes, and adds the reference genomes and lineage definitions to the built-in
+`reference_genomes` and `lineage_definitions` tables. It then builds the lineage relation tables,
+appends the NDJSON input and checks that the primary key is unique. A column's
+`generateLineageIndex` names its lineage definition file, with or without the `.yaml` extension.
 
 ```python
 db = Database()
@@ -83,9 +83,34 @@ db.preprocess(
 db.save_checkpoint("path/to/rhydb-dir")
 ```
 
-The built-in tables must still be empty, so `preprocess` only runs once on a fresh database. Raises
-`FileNotFoundError` for a missing file and `RuntimeError` for invalid input. Invalid input may leave
-the database partially filled.
+Call `preprocess` once per table to preprocess several inputs into the same database:
+
+```python
+db = Database()
+db.preprocess(database_config="dengue_config.yaml", reference_genomes="dengue_references.json",
+              input_file="dengue.ndjson", table_name="dengue")
+db.preprocess(database_config="zika_config.yaml", reference_genomes="zika_references.json",
+              input_file="zika.ndjson", table_name="zika")
+db.query("reference_genomes.filter(name = 'dengue_main')")
+```
+
+For a table other than `data`, preprocessing prefixes the names of its reference sequences in
+`reference_genomes`, of its lineage tables and of their rows in `lineage_definitions` with the
+table name, e.g. `dengue_main` for the sequence `main` and `dengue_lineage` and
+`dengue_lineage_aliases` for the lineage column `lineage`. So the tables may use different
+references and lineage definitions of the same name. Queries must use these names: `lineage(...)`
+only finds the lineage tables of `data`, so the lineage columns of other tables are filtered with
+`lineageFromTables`, and `createTable` columns reference e.g. `reference := dengue_main`:
+
+```python
+db.query("dengue.filter(lineage.lineageFromTables('1', dengue_lineage, dengue_lineage_aliases))")
+```
+
+Preprocessing into a table name that already exists raises, as does a table whose lineage tables
+already exist.
+
+Raises `FileNotFoundError` for a missing file and `RuntimeError` for invalid input. Invalid input may
+leave the database partially filled.
 
 ### Building a database in memory
 
