@@ -14,7 +14,7 @@
 #include <arrow/util/async_generator_fwd.h>
 #include <spdlog/spdlog.h>
 
-#include "rhydb/common/panic.h"
+#include "rhydb/query_engine/exec_node/exception_to_status.h"
 
 namespace rhydb::query_engine::operators {
 
@@ -81,34 +81,35 @@ arrow::Result<arrow::acero::ExecNode*> addRandomizeColumn(
       auto future = sequenced_batches();
 
       return future.Then(
-         [&](
-            std::optional<arrow::ExecBatch> maybe_input_batch
-         ) mutable -> arrow::Result<std::optional<arrow::ExecBatch>> {
-            SPDLOG_TRACE("randomize column projection received next batch");
+         exec_node::catchExceptionsAsStatus(
+            [&](std::optional<arrow::ExecBatch> maybe_input_batch) mutable
+               -> arrow::Result<std::optional<arrow::ExecBatch>> {
+               SPDLOG_TRACE("randomize column projection received next batch");
 
-            if (!maybe_input_batch.has_value()) {
-               return std::nullopt;
+               if (!maybe_input_batch.has_value()) {
+                  return std::nullopt;
+               }
+
+               const auto& input_batch = maybe_input_batch.value();
+               // Not the length of the first column: projection pushdown leaves no columns at all
+               // when nothing above the randomize needs one, e.g. for a count
+               const int64_t rows_in_batch = input_batch.length;
+
+               arrow::UInt64Builder randomize_column_builder;
+               for (int64_t i = 0; i < rows_in_batch; ++i) {
+                  const uint64_t hash_val = hash64(start_of_batch + i, randomize_seed);
+                  ARROW_RETURN_NOT_OK(randomize_column_builder.Append(hash_val));
+               }
+
+               ARROW_ASSIGN_OR_RAISE(auto randomize_column, randomize_column_builder.Finish());
+               start_of_batch += rows_in_batch;
+
+               auto output_columns = input_batch.values;
+               output_columns.emplace_back(randomize_column);
+               auto output_batch = arrow::ExecBatch::Make(output_columns);
+               return output_batch;
             }
-
-            const auto& input_batch = maybe_input_batch.value();
-            RHYDB_ASSERT(!input_batch.values.empty());
-            auto rows_in_batch = input_batch.values.at(0).length();
-            RHYDB_ASSERT_NE(rows_in_batch, arrow::Datum::kUnknownLength);
-
-            arrow::UInt64Builder randomize_column_builder;
-            for (int64_t i = 0; i < rows_in_batch; ++i) {
-               const uint64_t hash_val = hash64(start_of_batch + i, randomize_seed);
-               ARROW_RETURN_NOT_OK(randomize_column_builder.Append(hash_val));
-            }
-
-            ARROW_ASSIGN_OR_RAISE(auto randomize_column, randomize_column_builder.Finish());
-            start_of_batch += rows_in_batch;
-
-            auto output_columns = input_batch.values;
-            output_columns.emplace_back(randomize_column);
-            auto output_batch = arrow::ExecBatch::Make(output_columns);
-            return output_batch;
-         }
+         )
       );
    };
    ARROW_ASSIGN_OR_RAISE(

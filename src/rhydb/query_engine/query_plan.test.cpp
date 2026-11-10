@@ -147,6 +147,35 @@ TEST(QueryPlan, timesOutWhenAnInvalidPlanDoesNotFinish) {
    );
 }
 
+// A failing source ends the results stream as if the plan had succeeded
+TEST(QueryPlan, reportsErrorOfFailingPlan) {
+   EXPECT_THAT(
+      ([]() {
+         auto arrow_plan = arrow::acero::ExecPlan::Make().ValueOrDie();
+         auto* node = arrow::acero::MakeExecNode(
+                         "source",
+                         arrow_plan.get(),
+                         {},
+                         arrow::acero::SourceNodeOptions{
+                            arrow::schema({arrow::field("id", arrow::int32())}),
+                            []() {
+                               return arrow::Future<std::optional<arrow::ExecBatch>>::MakeFinished(
+                                  arrow::Status::ExecutionError("some error")
+                               );
+                            },
+                         }
+         )
+                         .ValueOrDie();
+
+         auto under_test = QueryPlan::makeQueryPlan(arrow_plan, node, "some_id").ValueOrDie();
+         std::stringstream output{};
+         NdjsonSink output_sink{&output, under_test.results_schema};
+         under_test.executeAndWrite(output_sink, 10);
+      }),
+      ThrowsMessage<std::runtime_error>(::testing::HasSubstr("some error"))
+   );
+}
+
 // An empty grouped aggregate ends the stream before its plan finishes; don't abort it (#1035)
 TEST(QueryPlan, doesNotAbortPlanAfterEmptyGroupedAggregateCompletes) {
    auto table = setupTestTable().ValueOrDie();

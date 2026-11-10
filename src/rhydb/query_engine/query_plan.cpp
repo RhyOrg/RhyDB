@@ -144,6 +144,17 @@ arrow::Status QueryPlan::executeAndWriteImpl(
 
       if (!optional_batch.has_value()) {
          guard.reached_end_of_stream = true;
+         // A failing plan ends the results stream like a successful one; only `finished()`
+         // carries the error
+         const auto finished = arrow_plan->finished();
+         if (!finished.Wait(static_cast<double>(timeout_in_seconds))) {
+            return arrow::Status::ExecutionError(
+               fmt::format(
+                  "Request timed out, plan did not finish within {} seconds.", timeout_in_seconds
+               )
+            );
+         }
+         ARROW_RETURN_NOT_OK(finished.status());
          break;  // end of input
       }
       SPDLOG_DEBUG(

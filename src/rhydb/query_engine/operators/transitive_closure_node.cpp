@@ -22,6 +22,7 @@
 #include <nlohmann/json.hpp>
 
 #include "rhydb/query_engine/exec_node/arrow_util.h"
+#include "rhydb/query_engine/exec_node/exception_to_status.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/schema/database_schema.h"
 
@@ -328,32 +329,40 @@ arrow::Result<arrow::acero::ExecNode*> TransitiveClosureNode::addToExecPlan(
    const auto closure = std::make_shared<std::optional<ClosureProducer>>();
 
    std::function<arrow::Future<std::optional<arrow::ExecBatch>>()> producer =
-      [child_generator = std::move(child_generator),
-       closure,
-       from_index,
-       to_index,
-       include_vertices_copy,
-       starting_from_copy,
-       batch_size] mutable -> arrow::Future<std::optional<arrow::ExecBatch>> {
-      if (closure->has_value()) {
-         return arrow::Future<std::optional<arrow::ExecBatch>>::MakeFinished(
-            closure->value().nextBatch()
-         );
-      }
-      return arrow::CollectAsyncGenerator(child_generator)
-         .Then(
-            [closure, from_index, to_index, include_vertices_copy, starting_from_copy, batch_size](
-               const std::vector<std::optional<arrow::ExecBatch>>& batches
-            ) -> arrow::Result<std::optional<arrow::ExecBatch>> {
-               ARROW_ASSIGN_OR_RAISE(
-                  Relation relation,
-                  buildRelation(batches, from_index, to_index, starting_from_copy)
+      exec_node::catchExceptionsAsStatus(
+         [child_generator = std::move(child_generator),
+          closure,
+          from_index,
+          to_index,
+          include_vertices_copy,
+          starting_from_copy,
+          batch_size] mutable -> arrow::Future<std::optional<arrow::ExecBatch>> {
+            if (closure->has_value()) {
+               return arrow::Future<std::optional<arrow::ExecBatch>>::MakeFinished(
+                  closure->value().nextBatch()
                );
-               closure->emplace(std::move(relation), include_vertices_copy, batch_size);
-               return closure->value().nextBatch();
             }
-         );
-   };
+            return arrow::CollectAsyncGenerator(child_generator)
+               .Then(
+                  exec_node::catchExceptionsAsStatus(
+                     [closure,
+                      from_index,
+                      to_index,
+                      include_vertices_copy,
+                      starting_from_copy,
+                      batch_size](const std::vector<std::optional<arrow::ExecBatch>>& batches)
+                        -> arrow::Result<std::optional<arrow::ExecBatch>> {
+                        ARROW_ASSIGN_OR_RAISE(
+                           Relation relation,
+                           buildRelation(batches, from_index, to_index, starting_from_copy)
+                        );
+                        closure->emplace(std::move(relation), include_vertices_copy, batch_size);
+                        return closure->value().nextBatch();
+                     }
+                  )
+               );
+         }
+      );
 
    const arrow::acero::SourceNodeOptions options{
       exec_node::columnsToArrowSchema(getOutputSchema()),
