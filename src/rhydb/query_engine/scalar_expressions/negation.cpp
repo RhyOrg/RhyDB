@@ -26,20 +26,9 @@ std::vector<schema::ColumnIdentifier> Negation::freeIUs() const {
 }
 
 arrow::Result<arrow::compute::Expression> Negation::toArrowExpression() const {
-   // Negation is intentionally NOT translated for filters on subexpressions (the Arrow path).
-   //
-   // In the native bitmap path `!(...)` is a set complement over all rows that includes nulls,
-   // which is inconsistent with the equivalent flipped comparison (e.g. `!(age > 50)` != `age <=
-   // 50`, they differ by the null rows). Picking a null semantics here would either match the
-   // native path (and inherit that inconsistency) or match SQL three-valued logic (and diverge from
-   // the native path). Rather than lock in a behaviour that must change once the native
-   // inconsistency is resolved, we bail out so subexpression filters containing a negation are
-   // rejected. Once #1525 is fixed this should be implemented to match the corrected native
-   // semantics.
-   return arrow::Status::NotImplemented(
-      "negation ('!') is not yet supported in filters on subexpressions (see GitHub issue #1525); "
-      "apply the negation in a filter that is pushed into the table scan instead"
-   );
+   // Like the native path, this follows three-valued logic: `!null` is null, so a filter drops it
+   ARROW_ASSIGN_OR_RAISE(auto child_expression, child->toArrowExpression());
+   return arrow::compute::not_(std::move(child_expression));
 }
 
 std::unique_ptr<ScalarExpression> Negation::rewrite(
@@ -53,7 +42,8 @@ std::unique_ptr<filter::operators::Operator> Negation::compile(
    const storage::Table& table,
    bool with_null_rows
 ) const {
-   return filter::operators::Operator::negate(child->compile(table, with_null_rows));
+   // `!child` is true where `child` is false, i.e. neither true nor null, and null where `child` is
+   return filter::operators::Operator::negate(child->compile(table, !with_null_rows));
 }
 
 }  // namespace rhydb::query_engine::scalar_expressions

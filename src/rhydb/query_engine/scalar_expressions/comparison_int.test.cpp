@@ -82,13 +82,75 @@ const QueryTestScenario GREATER_EQUAL = {
       nlohmann::json::parse(R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"}])"),
 };
 
-// !(int_value < 3) == int_value >= 3, and nulls are included by the negation.
+// !(int_value < 3) == int_value >= 3: the comparison is null on a null value, and so is its
+// negation.
 const QueryTestScenario NEGATED_LESS_THAN = {
    .name = "INT_NEGATED_LESS_THAN",
    .query = "data.filter(!(int_value < 3)).project(primaryKey)",
-   .expected_query_result = nlohmann::json::parse(
-      R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"},{"primaryKey":"id_null"}])"
-   ),
+   .expected_query_result =
+      nlohmann::json::parse(R"([{"primaryKey":"id_bound"},{"primaryKey":"id_above"}])"),
+};
+
+// !(int_value > 3) == int_value <= 3
+const QueryTestScenario NEGATED_GREATER_THAN = {
+   .name = "INT_NEGATED_GREATER_THAN",
+   .query = "data.filter(!(int_value > 3)).project(primaryKey)",
+   .expected_query_result =
+      nlohmann::json::parse(R"([{"primaryKey":"id_below"},{"primaryKey":"id_bound"}])"),
+};
+
+// !(int_value >= 3) == int_value < 3
+const QueryTestScenario NEGATED_GREATER_EQUAL = {
+   .name = "INT_NEGATED_GREATER_EQUAL",
+   .query = "data.filter(!(int_value >= 3)).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_below"}])"),
+};
+
+// A conjunction is null on the null row, so is its negation
+const QueryTestScenario NEGATED_CONJUNCTION = {
+   .name = "INT_NEGATED_CONJUNCTION",
+   .query = "data.filter(!(int_value > 1 && int_value < 5)).project(primaryKey)",
+   .expected_query_result =
+      nlohmann::json::parse(R"([{"primaryKey":"id_below"},{"primaryKey":"id_above"}])"),
+};
+
+// A disjunction is null on the null row, so is its negation
+const QueryTestScenario NEGATED_DISJUNCTION = {
+   .name = "INT_NEGATED_DISJUNCTION",
+   .query = "data.filter(!(int_value < 2 || int_value > 4)).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_bound"}])"),
+};
+
+// An n-of is null on a row if its result depends on its null children
+const QueryTestScenario NEGATED_N_OF = {
+   .name = "INT_NEGATED_N_OF",
+   .query = "data.filter(!(nOf(1, {int_value < 3, int_value > 3}))).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_bound"}])"),
+};
+
+const QueryTestScenario NEGATED_EXACT_N_OF = {
+   .name = "INT_NEGATED_EXACT_N_OF",
+   .query =
+      "data.filter(!(nOf(1, {int_value < 3, int_value <= 3}, matchExactly:=true)))"
+      ".project(primaryKey)",
+   .expected_query_result =
+      nlohmann::json::parse(R"([{"primaryKey":"id_below"},{"primaryKey":"id_above"}])"),
+};
+
+// bool_value is null on every row, so exactly one child might be true on every row, but on none
+// it is certain
+const QueryTestScenario EXACT_N_OF_WITH_NULL_CHILD = {
+   .name = "INT_EXACT_N_OF_WITH_NULL_CHILD",
+   .query =
+      "data.filter(nOf(1, {int_value < 3, bool_value = true}, matchExactly:=true))"
+      ".project(primaryKey)",
+   .expected_query_result = nlohmann::json::array(),
+};
+
+const QueryTestScenario DOUBLE_NEGATION = {
+   .name = "INT_DOUBLE_NEGATION",
+   .query = "data.filter(!(!(int_value < 3))).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_below"}])"),
 };
 
 // Operand flip: `3 > int_value` must equal `int_value < 3`.
@@ -185,6 +247,14 @@ QUERY_TEST(
       GREATER_THAN,
       GREATER_EQUAL,
       NEGATED_LESS_THAN,
+      NEGATED_GREATER_THAN,
+      NEGATED_GREATER_EQUAL,
+      NEGATED_CONJUNCTION,
+      NEGATED_DISJUNCTION,
+      DOUBLE_NEGATION,
+      NEGATED_N_OF,
+      NEGATED_EXACT_N_OF,
+      EXACT_N_OF_WITH_NULL_CHILD,
       FLIPPED_OPERANDS,
       FLIPPED_OPERANDS_INCLUSIVE,
       TYPE_MISMATCH,

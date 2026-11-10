@@ -323,6 +323,12 @@ std::unique_ptr<filter::operators::Operator> NOf::compile(
    if (match_exactly && with_null_rows) {
       return compileExactlyWithNullRows(table);
    }
+   if (match_exactly && std::cmp_less(number_of_matchers, children.size())) {
+      // Exactly-n is only true where no null child could make more than n true, which a single
+      // count cannot express. `at least n && !(at least n + 1)` is true where at least n children
+      // are true, but not at least n + 1 are true or null.
+      return rewriteToNonExact(table, NONE)->compile(table, with_null_rows);
+   }
    auto [non_negated_child_operators, negated_child_operators, updated_number_of_matchers] =
       mapChildExpressions(table, with_null_rows);
 
