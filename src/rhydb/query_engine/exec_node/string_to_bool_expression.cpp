@@ -12,21 +12,12 @@
 #include <arrow/compute/registry.h>
 #include <fmt/format.h>
 
+#include "rhydb/query_engine/exec_node/arrow_util.h"
+#include "rhydb/query_engine/query_execution_error.h"
+
 namespace rhydb::query_engine::exec_node {
 
 namespace {
-
-/// The input as an array, also when Arrow passes a scalar (e.g. for a constant argument).
-arrow::Result<std::shared_ptr<arrow::Array>> inputAsArray(
-   const arrow::compute::ExecValue& value,
-   int64_t length,
-   arrow::MemoryPool* pool
-) {
-   if (value.is_array()) {
-      return value.array.ToArray();
-   }
-   return arrow::MakeArrayFromScalar(*value.scalar, length, pool);
-}
 
 arrow::Status appendBoolean(arrow::BooleanBuilder& builder, std::string_view text) {
    if (text == "true") {
@@ -35,8 +26,10 @@ arrow::Status appendBoolean(arrow::BooleanBuilder& builder, std::string_view tex
    if (text == "false") {
       return builder.Append(false);
    }
-   return arrow::Status::Invalid(
-      fmt::format("Failed to parse '{}' as boolean: expected 'true' or 'false'", text)
+   return markAsQueryExecutionError(
+      arrow::Status::Invalid(
+         fmt::format("Failed to parse '{}' as boolean: expected 'true' or 'false'", text)
+      )
    );
 }
 
@@ -64,7 +57,7 @@ arrow::Status stringToBoolKernel(
       return arrow::Status::Invalid("Expected 1 input, got ", input.num_values());
    }
    ARROW_ASSIGN_OR_RAISE(
-      auto input_array, inputAsArray(input.values[0], input.length, context->memory_pool())
+      auto input_array, execValueAsArray(input.values[0], input.length, context->memory_pool())
    );
    ARROW_ASSIGN_OR_RAISE(
       auto output_array,

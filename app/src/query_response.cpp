@@ -13,6 +13,7 @@
 #include <rhydb/query_engine/exec_node/arrow_ipc_sink.h>
 #include <rhydb/query_engine/exec_node/ndjson_sink.h>
 #include <rhydb/query_engine/illegal_query_exception.h>
+#include <rhydb/query_engine/query_execution_error.h>
 #include <rhydb/query_engine/query_plan.h>
 #include <rhydb/query_engine/saneql/parse_exception.h>
 #include <evobench/evobench.hpp>
@@ -42,6 +43,8 @@ void rethrowInvalidQueryAsBadRequest(const std::function<void()>& handle_query) 
    } catch (const rhydb::query_engine::saneql::ParseException& ex) {
       throw BadRequest(ex.what());
    } catch (const rhydb::query_engine::IllegalQueryException& ex) {
+      throw BadRequest(ex.what());
+   } catch (const rhydb::query_engine::QueryExecutionException& ex) {
       throw BadRequest(ex.what());
    } catch (const rhydb::append::AppendException& ex) {
       throw BadRequest(ex.what());
