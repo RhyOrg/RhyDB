@@ -837,9 +837,7 @@ data.map({greeting := 'Hi '.concat(first_name)})
 
 ### `between(column, from, to)`
 
-True if `column` is between `from` and `to` (inclusive). Use `null` for an open bound. Works for dates, integers, and floats.
-
-WARNING: Currently float is non-inclusive for `to`.
+True if `column` is between `from` and `to` (both bounds inclusive). Use `null` for an open bound. Works for dates, integers, and floats.
 
 ```
 date.between('2021-01-01'::date, '2021-12-31'::date)
