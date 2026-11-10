@@ -21,6 +21,7 @@
 #include "rhydb/append/table_inserter.h"
 #include "rhydb/common/aa_symbols.h"
 #include "rhydb/common/data_version.h"
+#include "rhydb/common/input_stream_wrapper.h"
 #include "rhydb/common/nucleotide_symbols.h"
 #include "rhydb/common/panic.h"
 #include "rhydb/common/rhydb_directory.h"
@@ -137,8 +138,8 @@ void Database::appendData(
 }
 
 void Database::appendDataFromFile(const std::string& table_name, const std::string& file_path) {
-   std::ifstream input_stream(file_path);
-   rhydb::append::NdjsonLineReader input_data{input_stream};
+   const auto input = InputStreamWrapper::openExactFile(file_path);
+   rhydb::append::NdjsonLineReader input_data{input.getInputStream()};
    rhydb::append::appendDataToTable(tables.at(schema::TableName{table_name}), input_data);
    SPDLOG_INFO("Database info: {}", getDatabaseInfo());
 }
