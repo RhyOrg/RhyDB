@@ -1,9 +1,19 @@
 #include "rhydb/query_engine/scalar_expressions/nof.h"
 
+#include <map>
+#include <memory>
+#include <optional>
+
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
+#include <roaring/roaring.hh>
 
+#include "rhydb/query_engine/scalar_expressions/field_ref.h"
 #include "rhydb/query_engine/scalar_expressions/literal.h"
+#include "rhydb/storage/column/bool_column.h"
+#include "rhydb/storage/column/row_layout.h"
+#include "rhydb/storage/column/string_column.h"
+#include "rhydb/storage/table.h"
 #include "rhydb/test/query_fixture.test.h"
 
 namespace rhydb::query_engine::scalar_expressions {
@@ -46,6 +56,86 @@ TEST(NOfToString, shouldHandleEmptyChildren) {
    const NOf nof(std::move(children), 0, false);
 
    EXPECT_EQ(nof.toString(), "[0-of:]");
+}
+
+// --- compile with null rows ---
+
+namespace {
+
+using schema::ColumnIdentifier;
+using schema::DataType;
+using storage::column::BoolColumn;
+using storage::column::ColumnMetadata;
+using storage::column::RowLayout;
+using storage::column::StringColumnMetadata;
+
+/// A table whose bool columns `a` and `b` hold every combination of true, false and null:
+/// a = [T, T, T, F, F, F, N, N, N], b = [T, F, N, T, F, N, T, F, N]
+storage::Table tableOfAllBoolCombinations() {
+   const ColumnIdentifier primary_key{.name = "key", .type = DataType::STRING};
+   const ColumnIdentifier column_a{.name = "a", .type = DataType::BOOL};
+   const ColumnIdentifier column_b{.name = "b", .type = DataType::BOOL};
+   const std::map<ColumnIdentifier, std::shared_ptr<ColumnMetadata>> column_metadata{
+      {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)},
+      {column_a, std::make_shared<ColumnMetadata>(column_a.name)},
+      {column_b, std::make_shared<ColumnMetadata>(column_b.name)},
+   };
+   storage::Table table(
+      schema::TableName::getDefault(),
+      std::make_shared<schema::TableSchema>(column_metadata, primary_key)
+   );
+   constexpr std::optional<bool> NUL = std::nullopt;
+   RHYDB_ASSERT(table.getColumn<BoolColumn>("a")
+                   .appendChunk({true, true, true, false, false, false, NUL, NUL, NUL})
+                   .has_value());
+   RHYDB_ASSERT(table.getColumn<BoolColumn>("b")
+                   .appendChunk({true, false, NUL, true, false, NUL, true, false, NUL})
+                   .has_value());
+   table.row_layout = RowLayout::of(9);
+   table.row_count = 9;
+   return table;
+}
+
+roaring::Roaring selectedRows(
+   const storage::Table& table,
+   int number_of_matchers,
+   bool match_exactly,
+   bool with_null_rows
+) {
+   ScalarExpressionVector children;
+   children.emplace_back(
+      std::make_unique<FieldRef>(ColumnIdentifier{.name = "a", .type = DataType::BOOL})
+   );
+   children.emplace_back(
+      std::make_unique<FieldRef>(ColumnIdentifier{.name = "b", .type = DataType::BOOL})
+   );
+   const NOf nof(std::move(children), number_of_matchers, match_exactly);
+   return nof.compile(table, with_null_rows)->evaluate().toRoaring();
+}
+
+}  // namespace
+
+TEST(NOfCompile, exactlyNWithoutNullRowsCountsTheTrueChildren) {
+   const auto table = tableOfAllBoolCombinations();
+   // Selects the rows where exactly n children are true, regardless of null children
+   EXPECT_EQ(selectedRows(table, 0, true, false), roaring::Roaring({4, 5, 7, 8}));
+   EXPECT_EQ(selectedRows(table, 1, true, false), roaring::Roaring({1, 2, 3, 6}));
+   EXPECT_EQ(selectedRows(table, 2, true, false), roaring::Roaring({0}));
+}
+
+TEST(NOfCompile, exactlyNWithNullRowsSelectsTheTrueOrNullRows) {
+   const auto table = tableOfAllBoolCombinations();
+   // Exactly-n is true or null where at most n children are true and at least n are true or null
+   EXPECT_EQ(selectedRows(table, 0, true, true), roaring::Roaring({4, 5, 7, 8}));
+   EXPECT_EQ(selectedRows(table, 1, true, true), roaring::Roaring({1, 2, 3, 5, 6, 7, 8}));
+   EXPECT_EQ(selectedRows(table, 2, true, true), roaring::Roaring({0, 2, 6, 8}));
+}
+
+TEST(NOfCompile, atLeastNWithNullRowsSelectsTheTrueOrNullRows) {
+   const auto table = tableOfAllBoolCombinations();
+   EXPECT_EQ(selectedRows(table, 1, false, false), roaring::Roaring({0, 1, 2, 3, 6}));
+   EXPECT_EQ(selectedRows(table, 1, false, true), roaring::Roaring({0, 1, 2, 3, 5, 6, 7, 8}));
+   EXPECT_EQ(selectedRows(table, 2, false, true), roaring::Roaring({0, 2, 6, 8}));
 }
 
 }  // namespace rhydb::query_engine::scalar_expressions

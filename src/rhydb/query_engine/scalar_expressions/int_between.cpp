@@ -140,9 +140,7 @@ std::unique_ptr<filter::operators::Operator> IntBetween::compile(
    }
    checkBoundFitsInt32(from);
    checkBoundFitsInt32(to);
-   return compileFor<Int32Column>(
-      table.getColumn<Int32Column>(column.name), table, with_null_rows
-   );
+   return compileFor<Int32Column>(table.getColumn<Int32Column>(column.name), table, with_null_rows);
 }
 
 }  // namespace rhydb::query_engine::scalar_expressions

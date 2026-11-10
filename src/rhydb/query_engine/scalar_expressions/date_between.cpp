@@ -91,8 +91,9 @@ std::unique_ptr<Operator> DateBetween::compile(
    const auto& date_column = table.getColumn<Date32Column>(column.name);
 
    if (date_column.isSorted()) {
-      auto ranges =
-         std::make_unique<RangeSelection>(computeRangesOfSortedColumn(date_column), table.row_layout);
+      auto ranges = std::make_unique<RangeSelection>(
+         computeRangesOfSortedColumn(date_column), table.row_layout
+      );
       Bitmap null_rows = Bitmap::fromChunkContainers(date_column.null_bitmap);
       if (!with_null_rows || null_rows.isEmpty()) {
          return ranges;
