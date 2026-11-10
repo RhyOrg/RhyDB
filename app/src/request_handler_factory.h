@@ -26,6 +26,7 @@ class RhyDBRequestHandlerFactory : public Poco::Net::HTTPRequestHandlerFactory {
   public:
    RhyDBRequestHandlerFactory(
       rhydb::config::RuntimeConfig runtime_config,
+      std::optional<CorsPolicy> cors_policy,
       std::shared_ptr<ActiveDatabase> database_handle
    );
 

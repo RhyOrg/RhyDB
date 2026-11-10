@@ -37,7 +37,7 @@ bool isPreflight(const Poco::Net::HTTPServerRequest& request) {
 
 CorsHandler::CorsHandler(
    std::unique_ptr<Poco::Net::HTTPRequestHandler> wrapped_handler,
-   std::optional<CorsPolicy> cors_policy
+   CorsPolicy cors_policy
 )
     : wrapped_handler(std::move(wrapped_handler)),
       cors_policy(std::move(cors_policy)) {}
@@ -46,13 +46,7 @@ void CorsHandler::handleRequest(
    Poco::Net::HTTPServerRequest& request,
    Poco::Net::HTTPServerResponse& response
 ) {
-   // CORS disabled: pass through unchanged, without any CORS semantics.
-   if (!cors_policy.has_value()) {
-      wrapped_handler->handleRequest(request, response);
-      return;
-   }
-
-   const auto& policy = cors_policy.value();
+   const auto& policy = cors_policy;
 
    // Wildcard mode sends a constant `Access-Control-Allow-Origin: *` that does not depend on the
    // request's Origin. The Fetch standard requires such a resource to send that header on *every*
@@ -84,13 +78,12 @@ void CorsHandler::handleRequest(
       return;
    }
 
-   const std::string origin = request.get(ORIGIN_HEADER);
-
    if (isPreflight(request)) {
       handlePreflight(policy, request, response);
       return;
    }
 
+   const std::string origin = request.get(ORIGIN_HEADER);
    if (policy.isAllowed(origin)) {
       response.set(ALLOW_ORIGIN_HEADER, origin);
       response.set(EXPOSE_HEADERS_HEADER, EXPOSED_HEADERS);

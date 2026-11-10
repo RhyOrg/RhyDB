@@ -1,8 +1,11 @@
+#include <optional>
+
 #include <Poco/Net/HTTPResponse.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "admin_query_handler.h"
+#include "cors_policy.h"
 #include "health_handler.h"
 #include "info_handler.h"
 #include "lineage_definition_handler.h"
@@ -11,6 +14,7 @@
 #include "query_handler.h"
 #include "request_handler_factory.h"
 
+using rhydb_app::CorsPolicy;
 using rhydb_app::RhyDBRequestHandlerFactory;
 
 namespace {
@@ -35,7 +39,7 @@ std::unique_ptr<RhyDBRequestHandlerFactory> createRequestHandlerWithInitializedD
    auto runtime_config = rhydb::config::RuntimeConfig::withDefaults();
    runtime_config.api_options.allow_admin_endpoint = allow_admin_endpoint;
    auto request_handler =
-      std::make_unique<RhyDBRequestHandlerFactory>(std::move(runtime_config), handle);
+      std::make_unique<RhyDBRequestHandlerFactory>(std::move(runtime_config), std::nullopt, handle);
    return request_handler;
 }
 
@@ -51,7 +55,9 @@ std::unique_ptr<RhyDBRequestHandlerFactory> createFactoryWithCors(
    auto handle = std::make_shared<rhydb_app::ActiveDatabase>();
    auto runtime_config = rhydb::config::RuntimeConfig::withDefaults();
    runtime_config.api_options.cors_allowed_origins = cors_allowed_origins;
-   return std::make_unique<RhyDBRequestHandlerFactory>(std::move(runtime_config), handle);
+   return std::make_unique<RhyDBRequestHandlerFactory>(
+      std::move(runtime_config), CorsPolicy::parse(cors_allowed_origins), handle
+   );
 }
 }  // namespace
 
@@ -61,7 +67,9 @@ TEST(RhyDBRequestHandlerFactory, returns503ResponseWhenDatabaseIsNotInitializedO
    request.setURI("/info");
 
    auto handle = std::make_shared<rhydb_app::ActiveDatabase>();
-   RhyDBRequestHandlerFactory under_test{rhydb::config::RuntimeConfig::withDefaults(), handle};
+   RhyDBRequestHandlerFactory under_test{
+      rhydb::config::RuntimeConfig::withDefaults(), std::nullopt, handle
+   };
 
    std::unique_ptr<Poco::Net::HTTPRequestHandler> handler{under_test.createRequestHandler(request)};
 
@@ -78,7 +86,9 @@ TEST(RhyDBRequestHandlerFactory, returns503ResponseWhenDatabaseIsNotInitializedO
    request.setURI("/query");
 
    auto handle = std::make_shared<rhydb_app::ActiveDatabase>();
-   RhyDBRequestHandlerFactory under_test{rhydb::config::RuntimeConfig::withDefaults(), handle};
+   RhyDBRequestHandlerFactory under_test{
+      rhydb::config::RuntimeConfig::withDefaults(), std::nullopt, handle
+   };
 
    std::unique_ptr<Poco::Net::HTTPRequestHandler> handler{under_test.createRequestHandler(request)};
 
@@ -97,7 +107,9 @@ TEST(
    request.setURI("/lineageDefinition/someColumn");
 
    auto handle = std::make_shared<rhydb_app::ActiveDatabase>();
-   RhyDBRequestHandlerFactory under_test{rhydb::config::RuntimeConfig::withDefaults(), handle};
+   RhyDBRequestHandlerFactory under_test{
+      rhydb::config::RuntimeConfig::withDefaults(), std::nullopt, handle
+   };
 
    std::unique_ptr<Poco::Net::HTTPRequestHandler> handler{under_test.createRequestHandler(request)};
 

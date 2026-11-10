@@ -5,12 +5,11 @@
 //! resources, without a `Vary` header. In list mode it adds `Vary: Origin` to every response and,
 //! for an allowed `Origin`, echoes it back in `Access-Control-Allow-Origin`. Preflight (`OPTIONS`)
 //! requests from an allowed origin are answered directly with 204; preflights from a disallowed
-//! origin get 403. When CORS is disabled the request is passed through unchanged.
+//! origin get 403.
 
 #pragma once
 
 #include <memory>
-#include <optional>
 
 #include <Poco/Net/HTTPRequestHandler.h>
 #include <Poco/Net/HTTPServerRequest.h>
@@ -22,12 +21,12 @@ namespace rhydb_app {
 
 class CorsHandler : public Poco::Net::HTTPRequestHandler {
    std::unique_ptr<Poco::Net::HTTPRequestHandler> wrapped_handler;
-   std::optional<CorsPolicy> cors_policy;
+   CorsPolicy cors_policy;
 
   public:
    CorsHandler(
       std::unique_ptr<Poco::Net::HTTPRequestHandler> wrapped_handler,
-      std::optional<CorsPolicy> cors_policy
+      CorsPolicy cors_policy
    );
 
    void handleRequest(

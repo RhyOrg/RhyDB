@@ -1,5 +1,8 @@
 #include "api.h"
 
+#include <optional>
+#include <utility>
+
 #include <Poco/Net/HTTPServer.h>
 #include <Poco/Net/HTTPServerParams.h>
 #include <Poco/Net/NetException.h>
@@ -20,12 +23,11 @@ namespace rhydb_app {
 int Api::runApi(const rhydb::config::RuntimeConfig& runtime_config) {
    SPDLOG_INFO("Starting RhyDB API");
 
-   // Validate the CORS configuration up front so a malformed value fails fast with a clear message,
-   // rather than when the first request builds the handler. The parsed policy is rebuilt inside the
-   // request handler factory.
+   // Parse the CORS configuration up front so a malformed value fails fast
+   std::optional<CorsPolicy> cors_policy;
    if (runtime_config.api_options.cors_allowed_origins.has_value()) {
       try {
-         CorsPolicy::parse(runtime_config.api_options.cors_allowed_origins.value());
+         cors_policy = CorsPolicy::parse(runtime_config.api_options.cors_allowed_origins.value());
       } catch (const rhydb::config::ConfigException& e) {
          SPDLOG_ERROR("{}", e.what());
          return EXIT_FAILURE;
@@ -71,8 +73,9 @@ int Api::runApi(const rhydb::config::RuntimeConfig& runtime_config) {
 
    auto database = std::make_shared<ActiveDatabase>();
 
-   auto rhydb_request_handler_factory =
-      std::make_unique<RhyDBRequestHandlerFactory>(runtime_config, database);
+   auto rhydb_request_handler_factory = std::make_unique<RhyDBRequestHandlerFactory>(
+      runtime_config, std::move(cors_policy), database
+   );
 
    const RhyDBDirectoryWatcher directory_watcher(
       rhydb::RhyDBDirectory{runtime_config.data_directory}, database

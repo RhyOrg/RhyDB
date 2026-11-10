@@ -31,18 +31,6 @@ struct Fixture {
 
 }  // namespace
 
-TEST(CorsHandler, disabled_passesThroughWithoutHeaders) {
-   Fixture fixture;
-   EXPECT_CALL(*fixture.wrapped_ptr, handleRequest);
-   auto under_test = CorsHandler(std::move(fixture.wrapped), std::nullopt);
-
-   fixture.request.setMethod("GET");
-   fixture.request.set("Origin", "https://example.org");
-   under_test.handleRequest(fixture.request, fixture.response);
-
-   ASSERT_FALSE(fixture.response.has("Access-Control-Allow-Origin"));
-}
-
 // The Fetch standard requires a wildcard resource to send Access-Control-Allow-Origin: * on every
 // response, including non-CORS ones without an Origin, so that a URL-keyed cache stays correct
 // without a Vary header.
