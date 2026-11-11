@@ -87,7 +87,8 @@ std::unique_ptr<filter::operators::Operator> StringInSet::compile(
          &string_column,
          filter::operators::StringInSet<StringColumn>::Comparator::IN,
          values,
-         with_null_rows
+         // An empty set is matched by no row, not even a null one: it is the empty disjunction
+         with_null_rows && !values.empty()
       ),
       table.row_layout
    );
