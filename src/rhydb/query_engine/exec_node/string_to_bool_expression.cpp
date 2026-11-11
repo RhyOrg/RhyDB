@@ -90,7 +90,9 @@ std::string registerStringToBoolFunction() {
       status = arrow::compute::GetFunctionRegistry()->AddFunction(std::move(function));
    }
    if (!status.ok()) {
-      throw std::runtime_error(fmt::format("Err: {}", status.ToString()));
+      throw std::runtime_error(
+         fmt::format("Failed to register '{}' cast function: {}", function_name, status.ToString())
+      );
    }
    return function_name;
 }
