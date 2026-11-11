@@ -98,6 +98,40 @@ date <= '2021-12-31'::date
 !qc_value.isNull()
 ```
 
+### Type Casts
+
+`expr::type` converts a value to another type, e.g. `age::float` or `'2021-03-15'::date`. It
+applies to any expression and can be chained (`age::string::int64`).
+
+Type names are those of the database config: `string`, `date`, `boolean`, `int32`, `int64`,
+`float` (`int` is an alias of `int32`). Dictionary-encoded columns cast like plain ones.
+
+| From                      | To                                           |
+|---------------------------|----------------------------------------------|
+| `int32`, `int64`, `float` | each other, and `string`                     |
+| `date`, `boolean`         | `string`                                     |
+| `string`                  | `int32`, `int64`, `float`, `date`, `boolean` |
+
+Every other combination is an error, e.g. `date::int32` or `boolean::int32`. Casting to the
+type an expression already has does nothing.
+
+Rules:
+- A `null` value stays `null`. `null::type` is a null of that type, e.g. `null::int32`.
+- There is no rounding or truncation: a value that does not fit the target type is an error,
+  e.g. `3.7::int32` or `3000000000::int32`.
+- Strings are parsed strictly: no surrounding whitespace, `'5'::int32` works but `'5.0'::int32`
+  does not. A date must be exactly `YYYY-MM-DD`, and a boolean exactly `true` or `false`.
+- Casting a number to a string gives its plain decimal form, e.g. `5::string` is `'5'`.
+- A cast of a literal is evaluated when the query is read, so it can be used wherever a
+  literal is required, e.g. `date > '2021-12-31'::date` or `age = '42'::int32`. An invalid
+  literal is a query error with its position.
+
+Limitations:
+- A cast on a column cannot be used in a `filter()` that is applied directly to a table, e.g.
+  `data.filter(age::float < 3.5)` or `data.filter(flag::boolean)`. Compute the value first:
+  `data.map({age_float := age::float}).filter(age_float < 3.5)`.
+- An invalid value in a column (e.g. `'abc'::int32` for a string column) is only detected while the query runs.
+
 ### Method Call Syntax
 
 Any function `f(table, arg1, arg2)` can be written as `table.f(arg1, arg2)`. Named arguments use `:=`:

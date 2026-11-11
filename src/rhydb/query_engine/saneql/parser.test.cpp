@@ -715,6 +715,35 @@ TEST(SaneQLParser, parsesTypeCastChaining) {
    EXPECT_EQ(expr->toString(), "a::t1::t2");
 }
 
+TEST(SaneQLParser, typeCastAppliesToMethodCallResult) {
+   Parser parser("a.concat(b)::int32");
+   auto expr = parser.parse();
+   ASSERT_TRUE(std::holds_alternative<ast::TypeCast>(expr->value));
+   const auto& cast = std::get<ast::TypeCast>(expr->value);
+   EXPECT_EQ(cast.target_type, "int32");
+   ASSERT_TRUE(std::holds_alternative<ast::FunctionCall>(cast.operand->value));
+   EXPECT_EQ(std::get<ast::FunctionCall>(cast.operand->value).function_name, "concat");
+}
+
+TEST(SaneQLParser, typeCastBindsTighterThanComparison) {
+   Parser parser("a::int32 = 3");
+   auto expr = parser.parse();
+   ASSERT_TRUE(std::holds_alternative<ast::BinaryExpr>(expr->value));
+   const auto& comparison = std::get<ast::BinaryExpr>(expr->value);
+   EXPECT_TRUE(std::holds_alternative<ast::TypeCast>(comparison.left->value));
+   EXPECT_TRUE(std::holds_alternative<ast::IntLiteral>(comparison.right->value));
+}
+
+TEST(SaneQLParser, typeCastOfNegativeLiteralCastsTheNegatedValue) {
+   Parser parser("-1::float");
+   auto expr = parser.parse();
+   ASSERT_TRUE(std::holds_alternative<ast::TypeCast>(expr->value));
+   const auto& cast = std::get<ast::TypeCast>(expr->value);
+   EXPECT_EQ(cast.target_type, "float");
+   ASSERT_TRUE(std::holds_alternative<ast::IntLiteral>(cast.operand->value));
+   EXPECT_EQ(std::get<ast::IntLiteral>(cast.operand->value).value, -1);
+}
+
 TEST(SaneQLParser, parsesBracketIndexAsAtCall) {
    // a[3] is sugar for a.at(3): desugared to at(a, 3)
    Parser parser("a[3]");
