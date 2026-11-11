@@ -904,6 +904,31 @@ print(db.query("t.filter(name.like('.*:main')).project({name})").to_pydict())
         with pytest.raises(RuntimeError):
             empty_database.query("not valid saneql !")
 
+    def test_query_cast_of_bad_column_value_raises_value_error(
+        self, empty_database, main_reference_sequence
+    ):
+        """A cast that fails on a column value (detected while the query runs) is a user error.
+
+        It must surface as a ValueError, consistent with a failing literal cast, rather than a
+        RuntimeError.
+        """
+        create_sequence_table(
+            empty_database,
+            table_name="sequences",
+            primary_key_name="primary_key",
+            sequence_name="main",
+            reference_sequence=main_reference_sequence,
+            extra_columns=["text"],
+        )
+        empty_database.append_data_from_string(
+            "sequences",
+            '{"primary_key": "id_0", "text": "abc", '
+            '"main": {"sequence": "", "insertions": []}}',
+        )
+
+        with pytest.raises(ValueError, match="Failed to parse string: 'abc'"):
+            empty_database.query("sequences.map({a := text::int32}).project({primary_key, a})")
+
     def test_query_simple_database(self):
         """Test query with a simple in-memory database."""
         from rhydb import Database

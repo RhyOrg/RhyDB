@@ -148,9 +148,22 @@ arrow::Status QueryPlan::executeAndWriteImpl(
          // The generator yields nullopt both on a clean end of stream and when a node failed (the
          // failure stops production, which ends the stream). Surface the plan's final status so a
          // node error (e.g. an Arrow cast that overflows) is reported instead of silently
-         // truncating the result. StopProducing() has not run yet, so a Cancelled status (which is
-         // expected only after cancellation) cannot occur here.
-         ARROW_RETURN_NOT_OK(arrow_plan->finished().status());
+         // truncating the result.
+         const arrow::Future<> finished = arrow_plan->finished();
+         if (!finished.Wait(static_cast<double>(timeout_in_seconds))) {
+            SPDLOG_WARN(
+               "Request Id [{}] - QueryPlan - Plan did not finish within {} s after the result "
+               "stream ended — stopping plan.",
+               request_id,
+               timeout_in_seconds
+            );
+            return arrow::Status::ExecutionError(
+               fmt::format(
+                  "Request timed out, plan did not finish within {} seconds.", timeout_in_seconds
+               )
+            );
+         }
+         ARROW_RETURN_NOT_OK(finished.status());
          break;  // end of input
       }
       SPDLOG_DEBUG(
