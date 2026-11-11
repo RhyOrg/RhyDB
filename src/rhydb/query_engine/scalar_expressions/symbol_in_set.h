@@ -26,13 +26,15 @@ class Or;
 /// without requiring a surrounding table or schema. Reference, missing (no coverage) and the
 /// remaining symbol handling are resolved exactly as in the regular query engine. Exposed so that
 /// callers holding only a column (e.g. the bitmap aggregation node's per-position grouping) can
-/// reuse this machinery.
+/// reuse this machinery. The filter is null on the rows without a sequence, which are selected
+/// exactly if `with_null_rows`, see `ScalarExpression::compile`.
 template <typename SymbolType>
 std::unique_ptr<filter::operators::Operator> compileSymbolInSet(
    const storage::column::SequenceColumn<SymbolType>& sequence_column,
    uint32_t position_idx,
    const std::vector<typename SymbolType::Symbol>& symbols,
-   const storage::column::RowLayout& row_layout
+   const storage::column::RowLayout& row_layout,
+   bool with_null_rows
 );
 
 template <typename SymbolType>
