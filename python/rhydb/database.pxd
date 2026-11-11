@@ -32,6 +32,7 @@ cdef extern from "rhydb/database.h" namespace "rhydb":
 cdef extern from "preprocessing_bindings.h":
     void preprocessDatabase(
         Database& database,
+        string table_name,
         string database_config_file,
         string reference_genome_file,
         string input_file,

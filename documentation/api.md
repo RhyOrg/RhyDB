@@ -23,6 +23,7 @@ Configuration is resolved in order of precedence: CLI arguments > environment va
 | `api.threadsForHttpConnections` | `0` | Worker threads (0 = number of CPUs) |
 | `api.estimatedStartupTimeInMinutes` | — | Used in `Retry-After` header during startup |
 | `api.allowAdminEndpoint` | `false` | Whether to serve the write-enabled [`POST /admin/query`](#post-adminquery) endpoint. Opt-in: while it is disabled, the instance is read-only and the path returns 404 |
+| `api.corsAllowedOrigins` | — | Allowed origins for [CORS](#cross-origin-resource-sharing-cors). Unset disables CORS. `*` allows any origin; otherwise a comma-separated list of exact origins (e.g. `https://example.org,https://other.org:8443`) |
 | `query.materializationCutoff` | `32767` | Batch size threshold for streaming. (Note: batch size of results is not guaranteed to stay below this number) |
 
 ## Common Response Headers
@@ -35,6 +36,29 @@ Every response includes:
 | `data-version` | A 10-digit Unix timestamp identifying the database snapshot used to serve the request. Allows clients to detect when the underlying data has changed between requests. |
 
 The query endpoints (`POST /query` and `POST /admin/query`) additionally return a [`result-ordering`](#response-headers) header describing the sort order of the result rows.
+
+## Cross-Origin Resource Sharing (CORS)
+
+By default, RhyDB sends no CORS headers, so browsers block cross-origin requests from page JavaScript.
+Set [`api.corsAllowedOrigins`](#runtime-configuration) to enable CORS;
+the value is either `*` (allow any origin) or a comma-separated list of exact origins.
+Configured origins are normalized to the form browsers send in the `Origin` header
+(lowercase scheme and host, default port omitted) and then matched exactly, so a trailing slash or path is rejected.
+
+When CORS is enabled:
+
+| Header                          | Value                                                                                                        |
+|---------------------------------|--------------------------------------------------------------------------------------------------------------|
+| `Access-Control-Allow-Origin`   | In wildcard mode `*` on every response; in list mode the request's origin echoed back when it is allowed     |
+| `Access-Control-Expose-Headers` | `X-Request-Id, data-version, result-ordering, Retry-After`                                                   |
+| `Vary`                          | `Origin` (list mode only, so caches key on the origin; wildcard mode sends a constant response and omits it) |
+
+Preflight (`OPTIONS`) requests that carry an `Access-Control-Request-Method` header are answered directly:
+an allowed origin receives `204` with `Access-Control-Allow-Methods: GET, POST, OPTIONS`,
+the reflected `Access-Control-Request-Headers`, and `Access-Control-Max-Age: 7200`;
+a disallowed origin receives `403`.
+
+CORS applies uniformly to all endpoints. Credentials (`Access-Control-Allow-Credentials`) are not supported.
 
 ## Endpoints
 
