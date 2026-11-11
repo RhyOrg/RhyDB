@@ -707,6 +707,24 @@ TEST(SaneQLLexer, keepsAsciiUnexpectedCharacterMessage) {
    expectLexerError("a @", "Parse error at 1:3: Unexpected character '@'");
 }
 
+TEST(SaneQLLexer, rejectsNulByteAsCodepointInsteadOfTreatingItAsEof) {
+   expectLexerError(
+      std::string_view("a \x00", 3), "Parse error at 1:3: Unexpected character U+0000"
+   );
+}
+
+TEST(SaneQLLexer, rejectsControlCharacterAsCodepoint) {
+   expectLexerError("a \x01", "Parse error at 1:3: Unexpected character U+0001");
+}
+
+TEST(SaneQLLexer, rejectsBellCharacterAsCodepoint) {
+   expectLexerError("a \x07", "Parse error at 1:3: Unexpected character U+0007");
+}
+
+TEST(SaneQLLexer, rejectsDeleteCharacterAsCodepoint) {
+   expectLexerError("a \x7F", "Parse error at 1:3: Unexpected character U+007F");
+}
+
 TEST(SaneQLLexer, rejectsLoneLeadByte) {
    expectLexerError("\xC3", "Parse error at 1:1: Invalid UTF-8 byte 0xC3");
 }

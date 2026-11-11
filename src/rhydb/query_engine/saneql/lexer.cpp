@@ -20,6 +20,12 @@ bool isAsciiByte(char byte) {
    return static_cast<unsigned char>(byte) < FIRST_NON_ASCII_BYTE;
 }
 
+bool isPrintableAsciiByte(char byte) {
+   const auto value = static_cast<unsigned char>(byte);
+   // Printable ASCII range, excluding control characters (< 0x20) and DEL (0x7F).
+   return value >= 0x20 && value < 0x7F;
+}
+
 size_t utf8SequenceLength(unsigned char lead_byte) {
    if (lead_byte >= 0xC2 && lead_byte <= 0xDF) {
       return 2;
@@ -372,6 +378,16 @@ Token Lexer::nextToken() {
             const Codepoint codepoint = peekCodepoint();
             throw ParseException(
                start, "Unexpected character U+{:04X}", static_cast<uint32_t>(codepoint.value)
+            );
+         }
+         if (!isPrintableAsciiByte(current)) {
+            // Control characters (incl. NUL) and DEL: report the code point so the raw
+            // byte never ends up in the error message or the response body.
+            advance();
+            throw ParseException(
+               start,
+               "Unexpected character U+{:04X}",
+               static_cast<uint32_t>(static_cast<unsigned char>(current))
             );
          }
          advance();
