@@ -3,3 +3,4 @@ api:
     address: "127.0.0.1"
     port: 1234
     allowAdminEndpoint: true
+    corsAllowedOrigins: "https://example.org,https://other.org:8443"
