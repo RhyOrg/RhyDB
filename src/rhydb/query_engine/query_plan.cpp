@@ -10,6 +10,7 @@
 
 #include "evobench/evobench.hpp"
 #include "rhydb/common/size_constants.h"
+#include "rhydb/query_engine/query_execution_error.h"
 
 namespace rhydb::query_engine {
 
@@ -144,6 +145,25 @@ arrow::Status QueryPlan::executeAndWriteImpl(
 
       if (!optional_batch.has_value()) {
          guard.reached_end_of_stream = true;
+         // The generator yields nullopt both on a clean end of stream and when a node failed (the
+         // failure stops production, which ends the stream). Surface the plan's final status so a
+         // node error (e.g. an Arrow cast that overflows) is reported instead of silently
+         // truncating the result.
+         const arrow::Future<> finished = arrow_plan->finished();
+         if (!finished.Wait(static_cast<double>(timeout_in_seconds))) {
+            SPDLOG_WARN(
+               "Request Id [{}] - QueryPlan - Plan did not finish within {} s after the result "
+               "stream ended — stopping plan.",
+               request_id,
+               timeout_in_seconds
+            );
+            return arrow::Status::ExecutionError(
+               fmt::format(
+                  "Request timed out, plan did not finish within {} seconds.", timeout_in_seconds
+               )
+            );
+         }
+         ARROW_RETURN_NOT_OK(finished.status());
          break;  // end of input
       }
       SPDLOG_DEBUG(
@@ -164,26 +184,35 @@ void QueryPlan::executeAndWrite(
    uint64_t timeout_in_seconds
 ) {
    auto status = executeAndWriteImpl(output_sink, timeout_in_seconds);
-   if (!status.ok()) {
-      if (status.IsIOError()) {
-         SPDLOG_WARN(
-            "The request {} encountered an IO Error when sending the response. We expect that the "
-            "user cancelled the request while the response was send and ignore the error",
-            request_id
-         );
-      } else {
-         throw std::runtime_error(
-            fmt::format(
-               "Request Id [{}] - Internal server error. Please notify developers. RhyDB likely "
-               "constructed an invalid arrow plan and more user-input validation needs to be "
-               "added: "
-               "{}",
-               request_id,
-               status.message()
-            )
-         );
-      }
+   if (status.ok()) {
+      return;
    }
+   if (status.IsIOError()) {
+      SPDLOG_WARN(
+         "The request {} encountered an IO Error when sending the response. We expect that the "
+         "user cancelled the request while the response was send and ignore the error",
+         request_id
+      );
+      return;
+   }
+   if (isQueryExecutionError(status)) {
+      // A failure caused by the user's query or data (e.g. a cast that cannot convert a column
+      // value). Report it as such instead of blaming an internal RhyDB bug.
+      SPDLOG_INFO(
+         "Request Id [{}] - Query failed during execution: {}", request_id, status.message()
+      );
+      throw QueryExecutionException(status.message());
+   }
+   throw std::runtime_error(
+      fmt::format(
+         "Request Id [{}] - Internal server error. Please notify developers. RhyDB likely "
+         "constructed an invalid arrow plan and more user-input validation needs to be "
+         "added: "
+         "{}",
+         request_id,
+         status.message()
+      )
+   );
 }
 
 arrow::Result<arrow::acero::BackpressureMonitor*> QueryPlan::createGenerator(

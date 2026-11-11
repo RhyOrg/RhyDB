@@ -1,8 +1,12 @@
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <vector>
 
+#include <arrow/array/array_base.h>
+#include <arrow/compute/exec.h>
+#include <arrow/result.h>
 #include <arrow/type.h>
 
 #include "rhydb/common/nucleotide_symbols.h"
@@ -22,6 +26,14 @@ std::shared_ptr<arrow::DataType> columnTypeToArrowType(const schema::DataType& c
 
 std::shared_ptr<arrow::Schema> columnsToArrowSchema(
    const std::vector<rhydb::schema::ColumnIdentifier>& columns
+);
+
+/// The kernel input as an array, also when Arrow passes a scalar (e.g. for a constant argument).
+/// Shared by the custom cast kernels, whose logic operates on arrays.
+arrow::Result<std::shared_ptr<arrow::Array>> execValueAsArray(
+   const arrow::compute::ExecValue& value,
+   int64_t length,
+   arrow::MemoryPool* pool
 );
 
 template <storage::column::Column Column>
