@@ -29,10 +29,13 @@ class NOf : public ScalarExpression {
 
    [[nodiscard]] std::
       tuple<filter::operators::OperatorVector, filter::operators::OperatorVector, int>
-      mapChildExpressions(const storage::Table& table, bool with_null_rows) const;
+      mapChildExpressions(const storage::Table& table, int at_least, bool with_null_rows) const;
 
-   [[nodiscard]] std::unique_ptr<filter::operators::Operator> compileExactlyWithNullRows(
-      const storage::Table& table
+   /// Compiles `at_least` children being true (or, if `with_null_rows`, true or null)
+   [[nodiscard]] std::unique_ptr<filter::operators::Operator> compileAtLeast(
+      const storage::Table& table,
+      int at_least,
+      bool with_null_rows
    ) const;
 
   public:

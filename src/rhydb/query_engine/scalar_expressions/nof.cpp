@@ -34,7 +34,6 @@ std::unique_ptr<Operator> handleTrivialCases(
    const int updated_number_of_matchers,
    OperatorVector& non_negated_child_operators,
    OperatorVector& negated_child_operators,
-   bool match_exactly,
    const RowLayout& row_layout
 ) {
    const int child_operator_count =
@@ -43,36 +42,8 @@ std::unique_ptr<Operator> handleTrivialCases(
    if (updated_number_of_matchers > child_operator_count) {
       return std::make_unique<Empty>(row_layout);
    }
-   if (updated_number_of_matchers < 0) {
-      if (match_exactly) {
-         return std::make_unique<Empty>(row_layout);
-      }
+   if (updated_number_of_matchers <= 0) {
       return std::make_unique<Full>(row_layout);
-   }
-   if (updated_number_of_matchers == 0) {
-      if (!match_exactly) {
-         return std::make_unique<Full>(row_layout);
-      }
-      /// Now we want to match exactly none
-      if (child_operator_count == 0) {
-         return std::make_unique<Full>(row_layout);
-      }
-      if (child_operator_count == 1) {
-         if (non_negated_child_operators.empty()) {
-            return std::move(negated_child_operators[0]);
-         }
-         return std::make_unique<Complement>(std::move(non_negated_child_operators[0]), row_layout);
-      }
-      /// To negate entire result Not(Union) => Intersection(Not(Non-negated),Not(Negated))
-      /// equiv: Intersection(Negated, Non-Negated) or Not(Union(Non-negated)), if negated empty
-      if (negated_child_operators.empty()) {
-         auto union_ret =
-            std::make_unique<Union>(std::move(non_negated_child_operators), row_layout);
-         return std::make_unique<Complement>(std::move(union_ret), row_layout);
-      }
-      return std::make_unique<Intersection>(
-         std::move(negated_child_operators), std::move(non_negated_child_operators), row_layout
-      );
    }
    if (updated_number_of_matchers == 1 && child_operator_count == 1) {
       if (negated_child_operators.empty()) {
@@ -117,15 +88,10 @@ std::unique_ptr<Operator> toOperator(
    const int updated_number_of_matchers,
    OperatorVector&& non_negated_child_operators,
    OperatorVector&& negated_child_operators,
-   bool match_exactly,
    const RowLayout& row_layout
 ) {
    auto tmp = handleTrivialCases(
-      updated_number_of_matchers,
-      non_negated_child_operators,
-      negated_child_operators,
-      match_exactly,
-      row_layout
+      updated_number_of_matchers, non_negated_child_operators, negated_child_operators, row_layout
    );
    if (tmp) {
       return tmp;
@@ -137,14 +103,14 @@ std::unique_ptr<Operator> toOperator(
    if (updated_number_of_matchers == child_operator_count) {
       return handleAndCase(non_negated_child_operators, negated_child_operators, row_layout);
    }
-   if (updated_number_of_matchers == 1 && !match_exactly) {
+   if (updated_number_of_matchers == 1) {
       return handleOrCase(non_negated_child_operators, negated_child_operators, row_layout);
    }
    return std::make_unique<Threshold>(
       std::move(non_negated_child_operators),
       std::move(negated_child_operators),
       updated_number_of_matchers,
-      match_exactly,
+      /*match_exactly=*/false,
       row_layout
    );
 }
@@ -208,7 +174,7 @@ std::vector<schema::ColumnIdentifier> NOf::freeIUs() const {
 }
 
 std::tuple<filter::operators::OperatorVector, filter::operators::OperatorVector, int> NOf::
-   mapChildExpressions(const storage::Table& table, bool with_null_rows) const {
+   mapChildExpressions(const storage::Table& table, int at_least, bool with_null_rows) const {
    filter::operators::OperatorVector child_operators;
    child_operators.reserve(children.size());
    for (const auto& child_expression : children) {
@@ -217,7 +183,7 @@ std::tuple<filter::operators::OperatorVector, filter::operators::OperatorVector,
 
    filter::operators::OperatorVector non_negated_child_operators;
    filter::operators::OperatorVector negated_child_operators;
-   int updated_number_of_matchers = number_of_matchers;
+   int updated_number_of_matchers = at_least;
 
    for (auto& child_operator : child_operators) {
       if (child_operator->type() == filter::operators::EMPTY) {
@@ -285,32 +251,18 @@ std::unique_ptr<ScalarExpression> NOf::rewrite(
    return std::make_unique<NOf>(rewriteChildren(table, mode), number_of_matchers, match_exactly);
 }
 
-std::unique_ptr<filter::operators::Operator> NOf::compileExactlyWithNullRows(
-   const storage::Table& table
+std::unique_ptr<filter::operators::Operator> NOf::compileAtLeast(
+   const storage::Table& table,
+   int at_least,
+   bool with_null_rows
 ) const {
-   // Exactly-n is true where exactly n children are true and none is null, false where more than n
-   // are true or fewer than n are true or null, and null otherwise. So it is true or null where
-   // at least n children are true or null, but not at least n + 1 children are true.
-   auto [true_or_null_operators, negated_true_or_null_operators, true_or_null_matchers] =
-      mapChildExpressions(table, /*with_null_rows=*/true);
-   auto at_least_n_true_or_null = toOperator(
-      true_or_null_matchers,
-      std::move(true_or_null_operators),
-      std::move(negated_true_or_null_operators),
-      /*match_exactly=*/false,
+   auto [non_negated_child_operators, negated_child_operators, updated_number_of_matchers] =
+      mapChildExpressions(table, at_least, with_null_rows);
+   return toOperator(
+      updated_number_of_matchers,
+      std::move(non_negated_child_operators),
+      std::move(negated_child_operators),
       table.row_layout
-   );
-   auto [true_operators, negated_true_operators, true_matchers] =
-      mapChildExpressions(table, /*with_null_rows=*/false);
-   auto more_than_n_true = toOperator(
-      true_matchers + 1,
-      std::move(true_operators),
-      std::move(negated_true_operators),
-      /*match_exactly=*/false,
-      table.row_layout
-   );
-   return intersectWithComplement(
-      std::move(at_least_n_true_or_null), std::move(more_than_n_true), table.row_layout
    );
 }
 
@@ -320,24 +272,17 @@ std::unique_ptr<filter::operators::Operator> NOf::compile(
 ) const {
    // At-least-n is true where at least n children are true, and true or null where at least n
    // children are true or null
-   if (match_exactly && with_null_rows) {
-      return compileExactlyWithNullRows(table);
+   if (!match_exactly) {
+      return compileAtLeast(table, number_of_matchers, with_null_rows);
    }
-   auto [non_negated_child_operators, negated_child_operators, updated_number_of_matchers] =
-      mapChildExpressions(table, with_null_rows);
-
-   if (updated_number_of_matchers < 0) {
-      if (match_exactly) {
-         return std::make_unique<filter::operators::Empty>(table.row_layout);
-      }
-      return std::make_unique<filter::operators::Full>(table.row_layout);
-   }
-
-   return toOperator(
-      updated_number_of_matchers,
-      std::move(non_negated_child_operators),
-      std::move(negated_child_operators),
-      match_exactly,
+   // Exactly-n is `atLeast(n) && !atLeast(n + 1)`: true where exactly n children are true and none
+   // is null, false where more than n are true or fewer than n are true or null, and null
+   // otherwise. The negated `atLeast(n + 1)` is true or null where `atLeast(n + 1)` is not true
+   // and it is true where `atLeast(n + 1)` is neither true nor null, so it is compiled with the
+   // opposite option.
+   return intersectWithComplement(
+      compileAtLeast(table, number_of_matchers, with_null_rows),
+      compileAtLeast(table, number_of_matchers + 1, !with_null_rows),
       table.row_layout
    );
 }

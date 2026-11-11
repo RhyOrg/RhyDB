@@ -115,11 +115,11 @@ roaring::Roaring selectedRows(
 
 }  // namespace
 
-TEST(NOfCompile, exactlyNWithoutNullRowsCountsTheTrueChildren) {
+TEST(NOfCompile, exactlyNWithoutNullRowsSelectsTheTrueRows) {
    const auto table = tableOfAllBoolCombinations();
-   // Selects the rows where exactly n children are true, regardless of null children
-   EXPECT_EQ(selectedRows(table, 0, true, false), roaring::Roaring({4, 5, 7, 8}));
-   EXPECT_EQ(selectedRows(table, 1, true, false), roaring::Roaring({1, 2, 3, 6}));
+   // Exactly-n is true where exactly n children are true and none is null
+   EXPECT_EQ(selectedRows(table, 0, true, false), roaring::Roaring({4}));
+   EXPECT_EQ(selectedRows(table, 1, true, false), roaring::Roaring({1, 3}));
    EXPECT_EQ(selectedRows(table, 2, true, false), roaring::Roaring({0}));
 }
 
@@ -129,6 +129,24 @@ TEST(NOfCompile, exactlyNWithNullRowsSelectsTheTrueOrNullRows) {
    EXPECT_EQ(selectedRows(table, 0, true, true), roaring::Roaring({4, 5, 7, 8}));
    EXPECT_EQ(selectedRows(table, 1, true, true), roaring::Roaring({1, 2, 3, 5, 6, 7, 8}));
    EXPECT_EQ(selectedRows(table, 2, true, true), roaring::Roaring({0, 2, 6, 8}));
+}
+
+TEST(NOfCompile, nestedExactlyNPropagatesNull) {
+   const auto table = tableOfAllBoolCombinations();
+   // `exactly 0 of {a}` is true where a is false and null where a is null, so
+   // `exactly 0 of {exactly 0 of {a}}` is true where a is true and null where a is null
+   const auto nested = [&](bool with_null_rows) {
+      ScalarExpressionVector inner_children;
+      inner_children.emplace_back(
+         std::make_unique<FieldRef>(ColumnIdentifier{.name = "a", .type = DataType::BOOL})
+      );
+      ScalarExpressionVector outer_children;
+      outer_children.emplace_back(std::make_unique<NOf>(std::move(inner_children), 0, true));
+      const NOf outer(std::move(outer_children), 0, true);
+      return outer.compile(table, with_null_rows)->evaluate().toRoaring();
+   };
+   EXPECT_EQ(nested(false), roaring::Roaring({0, 1, 2}));
+   EXPECT_EQ(nested(true), roaring::Roaring({0, 1, 2, 6, 7, 8}));
 }
 
 TEST(NOfCompile, atLeastNWithNullRowsSelectsTheTrueOrNullRows) {
