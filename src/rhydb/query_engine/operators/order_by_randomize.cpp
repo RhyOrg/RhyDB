@@ -14,8 +14,6 @@
 #include <arrow/util/async_generator_fwd.h>
 #include <spdlog/spdlog.h>
 
-#include "rhydb/common/panic.h"
-
 namespace rhydb::query_engine::operators {
 
 const std::string RANDOMIZE_HASH_FIELD_NAME{"__RHYDB_RANDOMIZE_HASH"};
@@ -91,9 +89,7 @@ arrow::Result<arrow::acero::ExecNode*> addRandomizeColumn(
             }
 
             const auto& input_batch = maybe_input_batch.value();
-            RHYDB_ASSERT(!input_batch.values.empty());
-            auto rows_in_batch = input_batch.values.at(0).length();
-            RHYDB_ASSERT_NE(rows_in_batch, arrow::Datum::kUnknownLength);
+            const int64_t rows_in_batch = input_batch.length;
 
             arrow::UInt64Builder randomize_column_builder;
             for (int64_t i = 0; i < rows_in_batch; ++i) {
