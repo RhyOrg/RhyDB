@@ -9,6 +9,7 @@
 #include <roaring/roaring.hh>
 
 #include "rhydb/common/nucleotide_symbols.h"
+#include "rhydb/common/phylo_tree.h"
 #include "rhydb/config/database_config.h"
 #include "rhydb/database.h"
 #include "rhydb/initialize/initializer.h"
@@ -46,7 +47,7 @@ schema:
 )"),
       ReferenceGenomes{{{"segment1", "ATGC"}}, {}},
       {},
-      {},
+      common::PhyloTree(),
       /*without_unaligned_sequences=*/false,
       *database
    );

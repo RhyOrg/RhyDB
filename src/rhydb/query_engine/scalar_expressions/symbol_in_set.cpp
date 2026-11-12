@@ -262,24 +262,24 @@ std::unique_ptr<filter::operators::Operator> compileSymbolInSet(
       std::find(symbols.begin(), symbols.end(), SymbolType::SYMBOL_MISSING) != symbols.end();
 
    if (includes_missing_symbol) {
-      auto operator_ =
+      auto filter_operator =
          includes_reference
             ? compileWithMissingSymbolAndReference(
                  sequence_column, position_idx, symbols, row_layout
               )
             : compileWithMissingSymbol(sequence_column, position_idx, symbols, row_layout);
       if (with_null_rows) {
-         return operator_;
+         return filter_operator;
       }
-      return excludeNullSequences(std::move(operator_), sequence_column, row_layout);
+      return excludeNullSequences(std::move(filter_operator), sequence_column, row_layout);
    }
-   auto operator_ = includes_reference
-                       ? compileWithReference(sequence_column, position_idx, symbols, row_layout)
-                       : compileOnlyMutations(sequence_column, position_idx, symbols, row_layout);
+   auto filter_operator =
+      includes_reference ? compileWithReference(sequence_column, position_idx, symbols, row_layout)
+                         : compileOnlyMutations(sequence_column, position_idx, symbols, row_layout);
    if (!with_null_rows) {
-      return operator_;
+      return filter_operator;
    }
-   return includeNullSequences(std::move(operator_), sequence_column, row_layout);
+   return includeNullSequences(std::move(filter_operator), sequence_column, row_layout);
 }
 
 template std::unique_ptr<filter::operators::Operator> compileSymbolInSet<AminoAcid>(
