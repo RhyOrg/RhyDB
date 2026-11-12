@@ -102,11 +102,13 @@ std::unique_ptr<filter::operators::Operator> makeDifference(
    );
 }
 
-// A row without a sequence has no value at any position, so it must not match a symbol filter. It
-// is stored with an empty covered region, which makes it indistinguishable from a row that is
-// merely not covered at this position, i.e. it would otherwise be matched by the missing symbol.
-// Only the compilations that start from the not-covered rows need this; the ones that start from
-// the covered rows or from the mutation index never see a null row in the first place.
+// A row without a sequence has no value at any position, so a symbol filter evaluates to null on
+// it: it is selected exactly if `with_null_rows`. Such a row is stored with an empty covered
+// region, which makes it indistinguishable from a row that is merely not covered at this position.
+// The compilations that start from the not-covered rows (`compileWithMissingSymbol*`) therefore
+// already contain the null rows and need them removed without `with_null_rows`, whereas the ones
+// that start from the covered rows or from the mutation index never contain them and need them
+// added with `with_null_rows`.
 template <typename SymbolType>
 std::unique_ptr<filter::operators::Operator> excludeNullSequences(
    std::unique_ptr<filter::operators::Operator> operator_,
@@ -125,6 +127,24 @@ std::unique_ptr<filter::operators::Operator> excludeNullSequences(
 }
 
 template <typename SymbolType>
+std::unique_ptr<filter::operators::Operator> includeNullSequences(
+   std::unique_ptr<filter::operators::Operator> operator_,
+   const SequenceColumn<SymbolType>& sequence_column,
+   const storage::column::RowLayout& row_layout
+) {
+   Bitmap null_rows = Bitmap::fromChunkContainers(sequence_column.null_bitmap);
+   if (null_rows.isEmpty()) {
+      return operator_;
+   }
+   filter::operators::OperatorVector operators_for_union;
+   operators_for_union.push_back(std::move(operator_));
+   operators_for_union.push_back(
+      std::make_unique<filter::operators::IndexScan>(std::move(null_rows), row_layout)
+   );
+   return std::make_unique<filter::operators::Union>(std::move(operators_for_union), row_layout);
+}
+
+template <typename SymbolType>
 std::unique_ptr<filter::operators::Operator> compileWithMissingSymbolAndReference(
    const SequenceColumn<SymbolType>& sequence_column,
    uint32_t position_idx,
@@ -138,12 +158,8 @@ std::unique_ptr<filter::operators::Operator> compileWithMissingSymbolAndReferenc
       Bitmap::fromContainerViews(sequence_column.vertical_sequence_index.getMatchingContainerViews(
          position_idx, negated_symbols
       ));
-   return excludeNullSequences(
-      std::make_unique<filter::operators::Complement>(
-         std::make_unique<filter::operators::IndexScan>(std::move(bitmap), row_layout), row_layout
-      ),
-      sequence_column,
-      row_layout
+   return std::make_unique<filter::operators::Complement>(
+      std::make_unique<filter::operators::IndexScan>(std::move(bitmap), row_layout), row_layout
    );
 }
 
@@ -174,11 +190,7 @@ std::unique_ptr<filter::operators::Operator> compileWithMissingSymbol(
    operators_for_union.push_back(
       std::make_unique<filter::operators::IndexScan>(std::move(bitmap), row_layout)
    );
-   return excludeNullSequences(
-      std::make_unique<filter::operators::Union>(std::move(operators_for_union), row_layout),
-      sequence_column,
-      row_layout
-   );
+   return std::make_unique<filter::operators::Union>(std::move(operators_for_union), row_layout);
 }
 
 template <typename SymbolType>
@@ -231,7 +243,8 @@ std::unique_ptr<filter::operators::Operator> compileSymbolInSet(
    const SequenceColumn<SymbolType>& sequence_column,
    uint32_t position_idx,
    const std::vector<typename SymbolType::Symbol>& symbols,
-   const storage::column::RowLayout& row_layout
+   const storage::column::RowLayout& row_layout,
+   bool with_null_rows
 ) {
    CHECK_RHYDB_QUERY(
       position_idx < sequence_column.metadata->reference_sequence.size(),
@@ -248,31 +261,40 @@ std::unique_ptr<filter::operators::Operator> compileSymbolInSet(
    const bool includes_missing_symbol =
       std::find(symbols.begin(), symbols.end(), SymbolType::SYMBOL_MISSING) != symbols.end();
 
-   if (includes_reference && includes_missing_symbol) {
-      return compileWithMissingSymbolAndReference(
-         sequence_column, position_idx, symbols, row_layout
-      );
-   }
    if (includes_missing_symbol) {
-      return compileWithMissingSymbol(sequence_column, position_idx, symbols, row_layout);
+      auto filter_operator =
+         includes_reference
+            ? compileWithMissingSymbolAndReference(
+                 sequence_column, position_idx, symbols, row_layout
+              )
+            : compileWithMissingSymbol(sequence_column, position_idx, symbols, row_layout);
+      if (with_null_rows) {
+         return filter_operator;
+      }
+      return excludeNullSequences(std::move(filter_operator), sequence_column, row_layout);
    }
-   if (includes_reference) {
-      return compileWithReference(sequence_column, position_idx, symbols, row_layout);
+   auto filter_operator =
+      includes_reference ? compileWithReference(sequence_column, position_idx, symbols, row_layout)
+                         : compileOnlyMutations(sequence_column, position_idx, symbols, row_layout);
+   if (!with_null_rows) {
+      return filter_operator;
    }
-   return compileOnlyMutations(sequence_column, position_idx, symbols, row_layout);
+   return includeNullSequences(std::move(filter_operator), sequence_column, row_layout);
 }
 
 template std::unique_ptr<filter::operators::Operator> compileSymbolInSet<AminoAcid>(
    const SequenceColumn<AminoAcid>& sequence_column,
    uint32_t position_idx,
    const std::vector<AminoAcid::Symbol>& symbols,
-   const storage::column::RowLayout& row_layout
+   const storage::column::RowLayout& row_layout,
+   bool with_null_rows
 );
 template std::unique_ptr<filter::operators::Operator> compileSymbolInSet<Nucleotide>(
    const SequenceColumn<Nucleotide>& sequence_column,
    uint32_t position_idx,
    const std::vector<Nucleotide::Symbol>& symbols,
-   const storage::column::RowLayout& row_layout
+   const storage::column::RowLayout& row_layout,
+   bool with_null_rows
 );
 
 template <typename SymbolType>
@@ -288,13 +310,16 @@ std::unique_ptr<ScalarExpression> SymbolInSet<SymbolType>::rewrite(
 
 template <typename SymbolType>
 std::unique_ptr<filter::operators::Operator> SymbolInSet<SymbolType>::compile(
-   const storage::Table& table
+   const storage::Table& table,
+   bool with_null_rows
 ) const {
    const auto valid_sequence_name = validateSequenceName<SymbolType>(column.name, *table.schema);
 
    const auto& sequence_column = table.getColumn<typename SymbolType::Column>(valid_sequence_name);
 
-   return compileSymbolInSet(sequence_column, position_idx, symbols, table.row_layout);
+   return compileSymbolInSet(
+      sequence_column, position_idx, symbols, table.row_layout, with_null_rows
+   );
 }
 
 template class SymbolInSet<AminoAcid>;

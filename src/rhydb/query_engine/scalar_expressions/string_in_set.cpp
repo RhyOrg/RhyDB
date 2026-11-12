@@ -77,13 +77,18 @@ std::unique_ptr<ScalarExpression> StringInSet::rewrite(
 }
 
 std::unique_ptr<filter::operators::Operator> StringInSet::compile(
-   const storage::Table& table
+   const storage::Table& table,
+   bool with_null_rows
 ) const {
    RHYDB_ASSERT(table.hasColumn<StringColumn>(column.name));
    const auto& string_column = table.getColumn<StringColumn>(column.name);
    return std::make_unique<filter::operators::Selection>(
       std::make_unique<filter::operators::StringInSet<StringColumn>>(
-         &string_column, filter::operators::StringInSet<StringColumn>::Comparator::IN, values
+         &string_column,
+         filter::operators::StringInSet<StringColumn>::Comparator::IN,
+         values,
+         // An empty set is matched by no row, not even a null one: it is the empty disjunction
+         with_null_rows && !values.empty()
       ),
       table.row_layout
    );

@@ -94,11 +94,12 @@ template <typename GenericStringColumn>
 std::unique_ptr<Operator> createMatchingSelection(
    const GenericStringColumn& string_column,
    const std::shared_ptr<const RE2>& search_expression,
-   RowLayout row_layout
+   RowLayout row_layout,
+   bool with_null_rows
 ) {
    return std::make_unique<Selection>(
       std::make_unique<MatchesSearchExpression<GenericStringColumn>>(
-         string_column, search_expression, /*negated=*/false, /*with_nulls=*/false
+         string_column, search_expression, /*negated=*/false, with_null_rows
       ),
       std::move(row_layout)
    );
@@ -115,7 +116,10 @@ std::unique_ptr<ScalarExpression> StringSearch::rewrite(
    );
 }
 
-std::unique_ptr<Operator> StringSearch::compile(const storage::Table& table) const {
+std::unique_ptr<Operator> StringSearch::compile(
+   const storage::Table& table,
+   bool with_null_rows
+) const {
    CHECK_RHYDB_QUERY(
       table.schema->getColumn(column.name).has_value(),
       "The database does not contain the column '{}'",
@@ -131,11 +135,15 @@ std::unique_ptr<Operator> StringSearch::compile(const storage::Table& table) con
    if (table.hasColumn<DictionaryEncodedColumn<StringColumn>>(column.name)) {
       const auto& string_column =
          table.getColumn<DictionaryEncodedColumn<StringColumn>>(column.name);
-      return createMatchingSelection(string_column, search_expression, table.row_layout);
+      return createMatchingSelection(
+         string_column, search_expression, table.row_layout, with_null_rows
+      );
    }
    RHYDB_ASSERT(table.hasColumn<StringColumn>(column.name));
    const auto& string_column = table.getColumn<StringColumn>(column.name);
-   return createMatchingSelection(string_column, search_expression, table.row_layout);
+   return createMatchingSelection(
+      string_column, search_expression, table.row_layout, with_null_rows
+   );
 }
 
 }  // namespace rhydb::query_engine::scalar_expressions

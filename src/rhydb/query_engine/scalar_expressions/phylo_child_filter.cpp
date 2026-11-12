@@ -63,7 +63,8 @@ std::unique_ptr<ScalarExpression> PhyloChildFilter::rewrite(
 }
 
 std::unique_ptr<filter::operators::Operator> PhyloChildFilter::compile(
-   const storage::Table& table
+   const storage::Table& table,
+   bool /*with_null_rows*/
 ) const {
    CHECK_RHYDB_QUERY(
       table.schema->getColumn(column.name).has_value(),
