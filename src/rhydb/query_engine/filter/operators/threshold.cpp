@@ -154,7 +154,7 @@ class MatchCounts {
          }
          if (child.empty()) {
             // The negated child matches every row of `entries[j - 1]`
-            const CopyOnWriteContainer previous = entries[j - 1];
+            const CopyOnWriteContainer& previous = entries[j - 1];
             if (entries[j].empty()) {
                entries[j] = previous;
             } else {
