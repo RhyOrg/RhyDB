@@ -36,6 +36,7 @@ class IsInCoveredRegion : public Predicate {
       uint16_t chunk_id,
       uint32_t chunk_size
    ) const override;
+   [[nodiscard]] bool evaluatesChunksInBulk() const override { return true; }
    [[nodiscard]] double estimateSelectivity(uint32_t row_count) const override;
 
    [[nodiscard]] std::unique_ptr<Predicate> copy() const override;

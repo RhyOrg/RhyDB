@@ -45,6 +45,9 @@ class Predicate {
       }
       return result;
    };
+   /// Whether `makeChunk` is faster than calling `match` on every row of the chunk. Otherwise,
+   /// matching only some rows of a chunk is always cheaper than making the whole chunk.
+   [[nodiscard]] virtual bool evaluatesChunksInBulk() const { return false; }
    [[nodiscard]] virtual double estimateSelectivity(uint32_t /*row_count*/) const { return 0.5; }
    [[nodiscard]] virtual std::unique_ptr<Predicate> copy() const = 0;
    [[nodiscard]] virtual std::unique_ptr<Predicate> negate() const = 0;

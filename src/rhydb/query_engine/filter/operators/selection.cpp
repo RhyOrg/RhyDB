@@ -129,9 +129,13 @@ roaring_util::CopyOnWriteContainer Selection::evaluateChunk(uint16_t chunk_id) c
       if (child_rows.empty()) {
          return child_rows;
       }
-      // For a small child, matching each of its rows against every predicate is cheaper than
-      // materializing the first predicate over the whole chunk.
-      if (child_rows.getCardinality() <= chunk_size / 10) {
+      // Matching each row of the child against every predicate is cheaper than materializing the
+      // first predicate over the whole chunk, unless the predicate does that in bulk and the
+      // child holds a large part of the chunk.
+      if (
+         !predicates.front()->evaluatesChunksInBulk() ||
+         child_rows.getCardinality() <= chunk_size / 10
+      ) {
          return roaring_util::CopyOnWriteContainer{
             filterRows(child_rows.view(), predicates, chunk_id)
          };

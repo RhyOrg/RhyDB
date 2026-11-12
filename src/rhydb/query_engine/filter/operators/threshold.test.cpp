@@ -1,5 +1,9 @@
 #include "rhydb/query_engine/filter/operators/threshold.h"
 
+#include <cstdint>
+#include <random>
+#include <vector>
+
 #include <gtest/gtest.h>
 #include <roaring/roaring.hh>
 
@@ -325,4 +329,96 @@ TEST(OperatorThreshold, correctTypeInfo) {
    );
 
    ASSERT_EQ(under_test.type(), rhydb::query_engine::filter::operators::THRESHOLD);
+}
+
+namespace {
+/// Rows of `row_layout`, each contained with probability `density`
+roaring::Roaring randomRows(const RowLayout& row_layout, double density, std::mt19937& random) {
+   std::bernoulli_distribution contains(density);
+   roaring::Roaring result;
+   for (const auto row_id : row_layout) {
+      if (contains(random)) {
+         result.add(row_id.toGlobal());
+      }
+   }
+   return result;
+}
+
+/// The rows of `row_layout` contained in at least (or, if `match_exactly`, exactly)
+/// `number_of_matchers` of the `non_negated` sets and complements of the `negated` sets
+roaring::Roaring countMatches(
+   const RowLayout& row_layout,
+   const std::vector<roaring::Roaring>& non_negated,
+   const std::vector<roaring::Roaring>& negated,
+   uint32_t number_of_matchers,
+   bool match_exactly
+) {
+   roaring::Roaring result;
+   for (const auto row_id : row_layout) {
+      const uint32_t row = row_id.toGlobal();
+      uint32_t count = 0;
+      for (const auto& rows : non_negated) {
+         count += rows.contains(row) ? 1 : 0;
+      }
+      for (const auto& rows : negated) {
+         count += rows.contains(row) ? 0 : 1;
+      }
+      if (match_exactly ? count == number_of_matchers : count >= number_of_matchers) {
+         result.add(row);
+      }
+   }
+   return result;
+}
+}  // namespace
+
+// Sparse and empty children leave most entries of the dynamic program empty, which the evaluation
+// skips. Compare against counting every row, over several chunks.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST(OperatorThreshold, matchesCountingEveryRowForSparseAndEmptyChildren) {
+   const auto row_layout = RowLayout::of(300, 70, 150);
+   // NOLINTNEXTLINE(bugprone-random-generator-seed)
+   std::mt19937 random{42};
+   for (const double density : {0.0, 0.01, 0.1, 0.5, 0.95, 1.0}) {
+      for (size_t non_negated_count = 0; non_negated_count <= 4; ++non_negated_count) {
+         for (size_t negated_count = 0; negated_count <= 3; ++negated_count) {
+            const size_t child_count = non_negated_count + negated_count;
+            std::vector<roaring::Roaring> non_negated;
+            non_negated.reserve(non_negated_count);
+            std::vector<roaring::Roaring> negated;
+            negated.reserve(negated_count);
+            for (size_t idx = 0; idx < non_negated_count; ++idx) {
+               // Some children are empty, whatever the density
+               non_negated.push_back(
+                  idx == 1 ? roaring::Roaring{} : randomRows(row_layout, density, random)
+               );
+            }
+            for (size_t idx = 0; idx < negated_count; ++idx) {
+               negated.push_back(
+                  idx == 1 ? roaring::Roaring{} : randomRows(row_layout, density, random)
+               );
+            }
+            for (uint32_t number_of_matchers = 1; number_of_matchers < child_count;
+                 ++number_of_matchers) {
+               for (const bool match_exactly : {false, true}) {
+                  const Threshold under_test(
+                     generateTestInput(non_negated, row_layout),
+                     generateTestInput(negated, row_layout),
+                     number_of_matchers,
+                     match_exactly,
+                     row_layout
+                  );
+                  EXPECT_EQ(
+                     under_test.evaluate().toRoaring(),
+                     countMatches(
+                        row_layout, non_negated, negated, number_of_matchers, match_exactly
+                     )
+                  ) << "density "
+                    << density << ", " << non_negated_count << " non-negated, " << negated_count
+                    << " negated, " << number_of_matchers
+                    << (match_exactly ? " exactly" : " or more");
+               }
+            }
+         }
+      }
+   }
 }
