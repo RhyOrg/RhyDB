@@ -134,6 +134,9 @@ using ExpressionVariant = std::variant<
 struct Expression {
    ExpressionVariant value;
    SourceLocation location;
+   /// The height of the expression tree, i.e. 1 for a leaf and otherwise 1 + the maximum depth of
+   /// the children, computed by makeExpr
+   uint32_t depth = 1;
 
    [[nodiscard]] std::string toString() const;
 };

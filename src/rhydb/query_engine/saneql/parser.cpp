@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <iterator>
 #include <limits>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -15,6 +16,29 @@ namespace rhydb::query_engine::saneql {
 Parser::Parser(std::string_view input)
     : lexer(input),
       current_token(lexer.nextToken()) {}
+
+void Parser::checkNesting(uint32_t depth) const {
+   if (nesting_depth + depth > MAX_NESTING_DEPTH) {
+      throw ParseException(
+         current().location,
+         "Expression is nested too deeply, the maximum nesting depth is {}",
+         MAX_NESTING_DEPTH
+      );
+   }
+}
+
+ast::ExpressionPtr Parser::makeNode(ast::ExpressionVariant value, SourceLocation location) const {
+   auto expr = ast::makeExpr(std::move(value), location);
+   checkNesting(expr->depth);
+   return expr;
+}
+
+Parser::RecursionGuard::RecursionGuard(Parser& parser)
+    : parser(parser) {
+   ++parser.nesting_depth;
+   // The nested expression is at least a leaf
+   parser.checkNesting(1);
+}
 
 void Parser::advance() {
    current_token = lexer.nextToken();
@@ -51,13 +75,16 @@ bool Parser::match(TokenType type) {
 }
 
 ast::ExpressionPtr Parser::parse() {
-   auto expr = parseExpression();
+   nesting_depth = 0;
+   // The top-level expression is not nested in anything
+   auto expr = parseOrExpr();
    expect(TokenType::END_OF_FILE);
    return expr;
 }
 
 // NOLINTNEXTLINE(misc-no-recursion)
 ast::ExpressionPtr Parser::parseExpression() {
+   const RecursionGuard guard{*this};
    return parseOrExpr();
 }
 
@@ -100,16 +127,17 @@ ast::ExpressionPtr Parser::parseLogicalChain(
       append_operand((this->*parse_operand)());
    }
 
-   return ast::makeExpr(ast::LogicalExpr{.op = op, .operands = std::move(operands)}, loc);
+   return makeNode(ast::LogicalExpr{.op = op, .operands = std::move(operands)}, loc);
 }
 
 // NOLINTNEXTLINE(misc-no-recursion)
 ast::ExpressionPtr Parser::parseNotExpr() {
    if (check(TokenType::NOT)) {
+      const RecursionGuard guard{*this};
       const SourceLocation loc = current().location;
       advance();
       auto operand = parseNotExpr();
-      return ast::makeExpr(ast::UnaryNotExpr{std::move(operand)}, loc);
+      return makeNode(ast::UnaryNotExpr{std::move(operand)}, loc);
    }
    return parseComparisonExpr();
 }
@@ -149,7 +177,7 @@ ast::ExpressionPtr Parser::parseComparisonExpr() {
    const SourceLocation loc = current().location;
    if (auto comparator = tryParseBinaryOp()) {
       auto right = parsePostfixExpr();
-      left = ast::makeExpr(
+      left = makeNode(
          ast::BinaryExpr{
             .op = comparator.value(),
             .left = std::move(left),
@@ -162,10 +190,11 @@ ast::ExpressionPtr Parser::parseComparisonExpr() {
    return left;
 }
 
+/// Parses a primary expression and the postfix operations following it, e.g. `.f(x)[i]::int`.
+/// Each operation wraps `expr` in a new node, whose depth makeNode checks.
 // NOLINTNEXTLINE(misc-no-recursion)
 ast::ExpressionPtr Parser::parsePostfixExpr() {
    auto expr = parsePrimaryExpr();
-
    while (true) {
       if (check(TokenType::DOT)) {
          advance();
@@ -187,7 +216,7 @@ ast::ExpressionPtr Parser::parsePostfixExpr() {
                parsed.named = std::move(rest.named);
             }
             expect(TokenType::RIGHT_PAREN);
-            expr = ast::makeExpr(
+            expr = makeNode(
                ast::FunctionCall{
                   .function_name = method_name.getStringValue(),
                   .positional_arguments = std::move(parsed.positional),
@@ -201,7 +230,7 @@ ast::ExpressionPtr Parser::parsePostfixExpr() {
             pos_args.push_back(
                ast::PositionalArgument{.value = std::move(expr), .location = method_name.location}
             );
-            expr = ast::makeExpr(
+            expr = makeNode(
                ast::FunctionCall{
                   .function_name = method_name.getStringValue(),
                   .positional_arguments = std::move(pos_args),
@@ -219,7 +248,7 @@ ast::ExpressionPtr Parser::parsePostfixExpr() {
          std::vector<ast::PositionalArgument> pos_args;
          pos_args.push_back(ast::PositionalArgument{.value = std::move(expr), .location = loc});
          pos_args.push_back(ast::PositionalArgument{.value = std::move(index), .location = loc});
-         expr = ast::makeExpr(
+         expr = makeNode(
             ast::FunctionCall{
                .function_name = "at",
                .positional_arguments = std::move(pos_args),
@@ -231,16 +260,14 @@ ast::ExpressionPtr Parser::parsePostfixExpr() {
          const SourceLocation loc = current().location;
          advance();
          const Token type_name = expect(TokenType::IDENTIFIER);
-         expr = ast::makeExpr(
+         expr = makeNode(
             ast::TypeCast{.operand = std::move(expr), .target_type = type_name.getStringValue()},
             loc
          );
       } else {
-         break;
+         return expr;
       }
    }
-
-   return expr;
 }
 
 ast::ExpressionPtr Parser::parseUnaryMinus() {
@@ -252,10 +279,10 @@ ast::ExpressionPtr Parser::parseUnaryMinus() {
       advance();
       constexpr auto INT64_MAX_AS_UINT = static_cast<uint64_t>(std::numeric_limits<int64_t>::max());
       if (val <= INT64_MAX_AS_UINT) {
-         return ast::makeExpr(ast::IntLiteral{-static_cast<int64_t>(val)}, loc);
+         return makeNode(ast::IntLiteral{-static_cast<int64_t>(val)}, loc);
       }
       if (val == INT64_MAX_AS_UINT + 1) {
-         return ast::makeExpr(ast::IntLiteral{std::numeric_limits<int64_t>::min()}, loc);
+         return makeNode(ast::IntLiteral{std::numeric_limits<int64_t>::min()}, loc);
       }
       throw ParseException(loc, "Integer literal out of range");
    }
@@ -263,7 +290,7 @@ ast::ExpressionPtr Parser::parseUnaryMinus() {
    if (check(TokenType::FLOAT_LITERAL)) {
       const double val = current().getFloatValue();
       advance();
-      return ast::makeExpr(ast::FloatLiteral{-val}, loc);
+      return makeNode(ast::FloatLiteral{-val}, loc);
    }
 
    throw ParseException(loc, "Expected number after '-'");
@@ -300,7 +327,7 @@ ast::ExpressionPtr Parser::parseSetOrRecordExpression() {
    // Empty braces: empty set
    if (check(TokenType::RIGHT_BRACE)) {
       advance();
-      return ast::makeExpr(ast::SetLiteral{{}}, loc);
+      return makeNode(ast::SetLiteral{{}}, loc);
    }
 
    auto first_expression = parseExpression();
@@ -323,7 +350,7 @@ ast::ExpressionPtr Parser::parseSetOrRecordExpression() {
          fields.push_back({.name = field_name.getStringValue(), .value = std::move(value)});
       }
       expect(TokenType::RIGHT_BRACE);
-      return ast::makeExpr(ast::RecordLiteral{std::move(fields)}, loc);
+      return makeNode(ast::RecordLiteral{std::move(fields)}, loc);
    }
    std::vector<ast::ExpressionPtr> elements;
    elements.push_back(std::move(first_expression));
@@ -331,7 +358,7 @@ ast::ExpressionPtr Parser::parseSetOrRecordExpression() {
       elements.push_back(parseExpression());
    }
    expect(TokenType::RIGHT_BRACE);
-   return ast::makeExpr(ast::SetLiteral{std::move(elements)}, loc);
+   return makeNode(ast::SetLiteral{std::move(elements)}, loc);
 }
 
 // NOLINTNEXTLINE(misc-no-recursion)
@@ -347,7 +374,7 @@ ast::ExpressionPtr Parser::parseIdentifierOrFunctionCall() {
          parsed = parseArgList();
       }
       expect(TokenType::RIGHT_PAREN);
-      return ast::makeExpr(
+      return makeNode(
          ast::FunctionCall{
             .function_name = std::move(name),
             .positional_arguments = std::move(parsed.positional),
@@ -357,7 +384,7 @@ ast::ExpressionPtr Parser::parseIdentifierOrFunctionCall() {
       );
    }
 
-   return ast::makeExpr(ast::Identifier{std::move(name)}, loc);
+   return makeNode(ast::Identifier{std::move(name)}, loc);
 }
 
 ast::ExpressionPtr Parser::parseLiteral() {
@@ -366,7 +393,7 @@ ast::ExpressionPtr Parser::parseLiteral() {
    if (check(TokenType::STRING_LITERAL)) {
       std::string val = current().getStringValue();
       advance();
-      return ast::makeExpr(ast::StringLiteral{std::move(val)}, loc);
+      return makeNode(ast::StringLiteral{std::move(val)}, loc);
    }
 
    if (check(TokenType::INT_LITERAL)) {
@@ -375,24 +402,24 @@ ast::ExpressionPtr Parser::parseLiteral() {
          throw ParseException(loc, "Integer literal out of range");
       }
       advance();
-      return ast::makeExpr(ast::IntLiteral{static_cast<int64_t>(val)}, loc);
+      return makeNode(ast::IntLiteral{static_cast<int64_t>(val)}, loc);
    }
 
    if (check(TokenType::FLOAT_LITERAL)) {
       const double val = current().getFloatValue();
       advance();
-      return ast::makeExpr(ast::FloatLiteral{val}, loc);
+      return makeNode(ast::FloatLiteral{val}, loc);
    }
 
    if (check(TokenType::BOOL_LITERAL)) {
       const bool val = current().getBoolValue();
       advance();
-      return ast::makeExpr(ast::BoolLiteral{val}, loc);
+      return makeNode(ast::BoolLiteral{val}, loc);
    }
 
    if (check(TokenType::NULL_LITERAL)) {
       advance();
-      return ast::makeExpr(ast::NullLiteral{}, loc);
+      return makeNode(ast::NullLiteral{}, loc);
    }
 
    throw ParseException(loc, "Unexpected token {}", tokenTypeToString(current().type));
