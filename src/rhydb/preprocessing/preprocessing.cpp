@@ -13,30 +13,32 @@ namespace rhydb::preprocessing {
 Database preprocessing(const config::PreprocessingConfig& preprocessing_config) {
    Database database;
    preprocessing(
-      database, preprocessing_config.initialization_files, preprocessing_config.getInputFilePath()
+      database,
+      schema::TableName::getDefault(),
+      preprocessing_config.initialization_files,
+      preprocessing_config.getInputFilePath()
    );
    return database;
 }
 
 void preprocessing(
    Database& database,
+   const schema::TableName& table_name,
    const config::InitializationFiles& initialization_files,
    const std::optional<std::filesystem::path>& input_file
 ) {
    try {
-      SPDLOG_INFO("preprocessing - initializing Database");
-      initialize::Initializer::createTableInDatabase(
-         schema::TableName::getDefault(), initialization_files, database
-      );
+      SPDLOG_INFO("preprocessing - creating table '{}'", table_name.getName());
+      initialize::Initializer::createTableInDatabase(table_name, initialization_files, database);
 
       SPDLOG_INFO("preprocessing - successfully initialized Database, now opening input");
       auto input = InputStreamWrapper::openFileOrStdIn(input_file);
 
       SPDLOG_INFO("preprocessing - appending data to Database");
-      database.appendData(schema::TableName::getDefault(), input.getInputStream());
+      database.appendData(table_name, input.getInputStream());
 
       SPDLOG_INFO("preprocessing - validating primary key uniqueness");
-      database.tables.at(schema::TableName::getDefault())->validatePrimaryKeyUnique();
+      database.tables.at(table_name)->validatePrimaryKeyUnique();
 
       SPDLOG_INFO("preprocessing - finished preprocessing");
    } catch (const initialize::InitializeException& exception) {

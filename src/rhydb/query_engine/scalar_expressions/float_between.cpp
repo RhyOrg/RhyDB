@@ -65,7 +65,7 @@ std::unique_ptr<filter::operators::Operator> FloatBetween::compile(
    if (to.has_value()) {
       predicates.emplace_back(
          std::make_unique<filter::operators::CompareToValueSelection<FloatColumn>>(
-            float_column, filter::operators::Comparator::LESS, to.value()
+            float_column, filter::operators::Comparator::LESS_OR_EQUALS, to.value()
          )
       );
    }

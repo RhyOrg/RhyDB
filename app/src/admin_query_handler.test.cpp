@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <map>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <thread>
 #include <vector>
@@ -140,6 +141,7 @@ void postAdminQuery(
 
    rhydb_app::RhyDBRequestHandlerFactory factory{
       configWithAdminEndpoint(data_directory, allow_admin_endpoint),
+      std::nullopt,
       handle,
    };
    std::unique_ptr<Poco::Net::HTTPRequestHandler> handler{factory.createRequestHandler(request)};
@@ -415,6 +417,7 @@ TEST(AdminQueryHandler, serializesConcurrentWrites) {
 
    rhydb_app::RhyDBRequestHandlerFactory factory{
       configWithAdminEndpoint(data_directory.path(), true),
+      std::nullopt,
       handle,
    };
 
@@ -474,6 +477,7 @@ TEST(QueryHandler, rejectsInsertQueryOnReadOnlyEndpointWithBadRequest) {
 
    rhydb_app::RhyDBRequestHandlerFactory factory{
       configWithAdminEndpoint(data_directory.path(), true),
+      std::nullopt,
       handle,
    };
    std::unique_ptr<Poco::Net::HTTPRequestHandler> handler{factory.createRequestHandler(request)};
