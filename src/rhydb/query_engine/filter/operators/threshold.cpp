@@ -187,15 +187,15 @@ roaring_util::CopyOnWriteContainer Threshold::evaluateChunk(uint16_t chunk_id) c
 
    CopyOnWriteContainer first_child_rows;
    if (non_negated_children.empty()) {
-      first_child_rows = CopyOnWriteContainer{
+      first_child_rows = CopyOnWriteContainer(
          roaring_util::complement(negated_children[0]->evaluateChunk(chunk_id).view(), chunk_size)
-      };
+      );
    } else {
       first_child_rows = non_negated_children[0]->evaluateChunk(chunk_id);
    }
-   MatchCounts counts{
+   MatchCounts counts(
       std::move(first_child_rows), table_size, number_of_matchers, child_count, chunk_size
-   };
+   );
 
    const int non_negated_child_count = static_cast<int>(non_negated_children.size());
    for (int idx = 1; idx < non_negated_child_count; ++idx) {
