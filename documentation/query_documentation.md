@@ -59,6 +59,9 @@ data
 | Set     | `{elem1, elem2, ...}`                       | `{'A', 'B', 'C'}`              |
 | Record  | `{field1 := value1, field2 := value2, ...}` | `{x := 'A', y := 'B', z := 3}` |
 
+Queries must be valid UTF-8; a leading byte order mark is ignored.
+Any Unicode white space (e.g. the non-breaking space) separates tokens.
+
 ### Boolean Operators
 
 | Operator | Meaning |
