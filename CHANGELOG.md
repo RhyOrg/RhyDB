@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.17.5](https://github.com/RhyOrg/RhyDB/compare/v0.17.4...v0.17.5) (2026-11-12)
+
+
+### Features
+
+* **app:** add config options for CORS ([#1782](https://github.com/RhyOrg/RhyDB/issues/1782)) ([3e37cdc](https://github.com/RhyOrg/RhyDB/commit/3e37cdc63e67c4ec6425a5421058d9898251edef))
+* **preprocessing:** preprocess into a configurable table ([#1810](https://github.com/RhyOrg/RhyDB/issues/1810)) ([e0a1023](https://github.com/RhyOrg/RhyDB/commit/e0a1023b0ddf928c1a4af15159fa05bf70e910d1))
+
+
+### Bug Fixes
+
+* **app:** send query results with a Content-Length, or chunked if they are large ([#1774](https://github.com/RhyOrg/RhyDB/issues/1774)) ([3a10e28](https://github.com/RhyOrg/RhyDB/commit/3a10e280ce73121ab4852f417a3d12bb797f638d))
+* **config:** treat null metadata options as not set ([#1795](https://github.com/RhyOrg/RhyDB/issues/1795)) ([36d6e3b](https://github.com/RhyOrg/RhyDB/commit/36d6e3b033c2084100b94e20ed4475ee6dd34947))
+* **query_engine:** make float-between bound inclusive ([#1809](https://github.com/RhyOrg/RhyDB/issues/1809)) ([1523a12](https://github.com/RhyOrg/RhyDB/commit/1523a12915fb6f6bf7edc68db307d0adf865f075))
+* **query_engine:** string searches and string sets cannot match null rows ([#1801](https://github.com/RhyOrg/RhyDB/issues/1801)) ([a975382](https://github.com/RhyOrg/RhyDB/commit/a975382b4cf8c036eca21d81814f3e9b524de4c2))
+
+
+### Performance Improvements
+
+* **query_engine:** fix chunk-filter performance regressions ([#1808](https://github.com/RhyOrg/RhyDB/issues/1808)) ([51e69f7](https://github.com/RhyOrg/RhyDB/commit/51e69f76c88f28526aea6cdd9798e85f85923c2b))
+
 ## [0.17.4](https://github.com/RhyOrg/RhyDB/compare/v0.17.3...v0.17.4) (2026-11-02)
 
 
