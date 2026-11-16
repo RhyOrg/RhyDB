@@ -208,13 +208,17 @@ std::unique_ptr<ScalarExpression> Or::rewrite(
    return std::make_unique<Or>(std::move(rewritten_children));
 }
 
-std::unique_ptr<filter::operators::Operator> Or::compile(const storage::Table& table) const {
+std::unique_ptr<filter::operators::Operator> Or::compile(
+   const storage::Table& table,
+   bool with_null_rows
+) const {
+   // True where some child is true, true or null where some child is true or null
    OperatorVector all_child_operators;
    std::ranges::transform(
       children,
       std::back_inserter(all_child_operators),
       [&](const std::unique_ptr<ScalarExpression>& expression) {
-         return expression->compile(table);
+         return expression->compile(table, with_null_rows);
       }
    );
    OperatorVector filtered_child_operators;

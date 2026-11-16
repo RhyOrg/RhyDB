@@ -246,7 +246,7 @@ roaring::Roaring Database::getFilteredBitmap(
 
    auto rewritten_filter_expression =
       filter_expression->rewrite(*table, ScalarExpression::AmbiguityMode::NONE);
-   auto filter_operator = rewritten_filter_expression->compile(*table);
+   auto filter_operator = rewritten_filter_expression->compile(*table, /*with_null_rows=*/false);
    roaring::Roaring bitmap = filter_operator->evaluate().toRoaring();
    return bitmap;
 }

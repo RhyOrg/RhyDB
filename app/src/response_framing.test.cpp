@@ -4,37 +4,53 @@
 #include <string>
 
 #include <Poco/Exception.h>
+#include <Poco/Net/HTTPClientSession.h>
+#include <Poco/Net/HTTPRequest.h>
 #include <Poco/Net/HTTPRequestHandler.h>
 #include <Poco/Net/HTTPRequestHandlerFactory.h>
+#include <Poco/Net/HTTPResponse.h>
 #include <Poco/Net/HTTPServer.h>
 #include <Poco/Net/HTTPServerParams.h>
 #include <Poco/Net/ServerSocket.h>
 #include <Poco/Net/StreamSocket.h>
+#include <Poco/StreamCopier.h>
 #include <Poco/Timespan.h>
 #include <gtest/gtest.h>
 
 #include <rhydb/config/runtime_config.h>
 
 #include "error_request_handler.h"
+#include "response_body_stream.h"
 
 // These tests run a real Poco server, because what they check is how a response looks on the wire.
 
 namespace {
 
-const std::string PART = std::string(64, 'x');
+const size_t BUFFER_LIMIT = 64;
+const std::string PART = std::string(BUFFER_LIMIT, 'x');
 
-/// Starts a chunked response, then fails.
-class FailingAfterStartHandler : public Poco::Net::HTTPRequestHandler {
+/// Writes `parts_before_failure` parts of the body, then fails if `fail` is set.
+class BodyWritingHandler : public Poco::Net::HTTPRequestHandler {
+   size_t parts;
+   bool fail;
+
   public:
+   BodyWritingHandler(size_t parts, bool fail)
+       : parts(parts),
+         fail(fail) {}
+
    void handleRequest(
-      Poco::Net::HTTPServerRequest& /*request*/,
+      Poco::Net::HTTPServerRequest& request,
       Poco::Net::HTTPServerResponse& response
    ) override {
-      response.setChunkedTransferEncoding(true);
-      std::ostream& body = response.send();
-      body << PART;
-      body.flush();
-      throw std::runtime_error("failed while writing the body");
+      rhydb_app::ResponseBodyStream body{request, response, BUFFER_LIMIT};
+      for (size_t i = 0; i < parts; ++i) {
+         body << PART;
+      }
+      if (fail) {
+         throw std::runtime_error("failed while writing the body");
+      }
+      body.finish();
    }
 };
 
@@ -46,10 +62,14 @@ class HandlerFactory : public Poco::Net::HTTPRequestHandlerFactory {
        : runtime_config(runtime_config) {}
 
    Poco::Net::HTTPRequestHandler* createRequestHandler(
-      const Poco::Net::HTTPServerRequest& /*request*/
+      const Poco::Net::HTTPServerRequest& request
    ) override {
+      // URI: /<parts>/<ok|fail>
+      const auto separator = request.getURI().find('/', 1);
+      const auto parts = std::stoul(request.getURI().substr(1, separator - 1));
+      const bool fail = request.getURI().substr(separator + 1) == "fail";
       return new rhydb_app::ErrorRequestHandler(
-         std::make_unique<FailingAfterStartHandler>(), runtime_config
+         std::make_unique<BodyWritingHandler>(parts, fail), runtime_config
       );
    }
 };
@@ -58,8 +78,8 @@ class ResponseFraming : public ::testing::Test {
   protected:
    rhydb::config::RuntimeConfig runtime_config = rhydb::config::RuntimeConfig::withDefaults();
    Poco::Net::ServerSocket socket{0};
-   // Unlike the rhydb server (see api.cpp), this one keeps connections alive (Poco's default), so
-   // that a connection that is not aborted stays open.
+   // Unlike the rhydb server (see api.cpp), this one keeps connections alive (Poco's default): a
+   // connection can only be reused if the body before was delimited correctly.
    Poco::Net::HTTPServer server{
       new HandlerFactory(runtime_config),
       socket,
@@ -69,9 +89,59 @@ class ResponseFraming : public ::testing::Test {
    void SetUp() override { server.start(); }
 
    void TearDown() override { server.stopAll(true); }
+
+   struct Response {
+      Poco::Net::HTTPResponse header;
+      std::string body;
+   };
+
+   static Response get(const std::string& uri, Poco::Net::HTTPClientSession& session) {
+      session.setKeepAlive(true);
+      Poco::Net::HTTPRequest request{
+         Poco::Net::HTTPRequest::HTTP_GET, uri, Poco::Net::HTTPMessage::HTTP_1_1
+      };
+      session.sendRequest(request);
+      Response response;
+      std::istream& body = session.receiveResponse(response.header);
+      Poco::StreamCopier::copyToString(body, response.body);
+      return response;
+   }
 };
 
 }  // namespace
+
+TEST_F(ResponseFraming, sendsABodyWithinTheLimitWithContentLengthSoTheConnectionCanBeReused) {
+   Poco::Net::HTTPClientSession session{"127.0.0.1", socket.address().port()};
+
+   const auto first = get("/1/ok", session);
+   const auto second = get("/1/ok", session);
+
+   EXPECT_EQ(first.header.getStatus(), Poco::Net::HTTPResponse::HTTP_OK);
+   EXPECT_EQ(first.header.getContentLength64(), BUFFER_LIMIT);
+   EXPECT_TRUE(first.header.getKeepAlive());
+   EXPECT_EQ(first.body, PART);
+   EXPECT_EQ(second.body, PART);
+}
+
+TEST_F(ResponseFraming, sendsAnErrorStatusForAFailureWithinTheLimit) {
+   Poco::Net::HTTPClientSession session{"127.0.0.1", socket.address().port()};
+
+   const auto response = get("/1/fail", session);
+
+   EXPECT_EQ(response.header.getStatus(), Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
+   EXPECT_TRUE(response.header.hasContentLength());
+   EXPECT_TRUE(response.header.getKeepAlive());
+}
+
+TEST_F(ResponseFraming, streamsABodyOverTheLimitInChunks) {
+   Poco::Net::HTTPClientSession session{"127.0.0.1", socket.address().port()};
+
+   const auto response = get("/100/ok", session);
+
+   EXPECT_EQ(response.header.getStatus(), Poco::Net::HTTPResponse::HTTP_OK);
+   EXPECT_TRUE(response.header.getChunkedTransferEncoding());
+   EXPECT_EQ(response.body.size(), 100 * BUFFER_LIMIT);
+}
 
 // Covers ErrorRequestHandler aborting the connection, which the unit tests with mocked requests
 // cannot reach. Without the abort, Poco would write the terminating chunk and keep the connection
@@ -82,7 +152,7 @@ TEST_F(ResponseFraming, abortsTheConnectionWithoutTerminatingChunkWhenAStreamedB
    Poco::Net::StreamSocket client{Poco::Net::SocketAddress{"127.0.0.1", socket.address().port()}};
    // Well below the server's keep-alive timeout, so a connection kept open fails the test
    client.setReceiveTimeout(Poco::Timespan{5, 0});
-   const std::string request = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
+   const std::string request = "GET /100/fail HTTP/1.1\r\nHost: localhost\r\n\r\n";
    client.sendBytes(request.data(), static_cast<int>(request.size()));
 
    std::string raw_response;

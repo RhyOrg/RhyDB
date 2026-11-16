@@ -22,6 +22,10 @@ class ApiOptions {
    /// Whether the write-enabled `POST /admin/query` endpoint is served. Opt-in, so an instance
    /// that does not enable it stays strictly read-only.
    bool allow_admin_endpoint;
+   /// Raw value of the `api.corsAllowedOrigins` option. Unset means CORS is disabled, so no
+   /// CORS headers are sent. When set it is either `*` or a comma-separated list of origins. The
+   /// core only stores the raw string; the API layer parses it (see rhydb_app::CorsPolicy).
+   std::optional<std::string> cors_allowed_origins;
 };
 
 class QueryOptions {

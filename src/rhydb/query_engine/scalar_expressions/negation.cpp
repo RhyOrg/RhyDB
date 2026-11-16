@@ -49,8 +49,11 @@ std::unique_ptr<ScalarExpression> Negation::rewrite(
    return std::make_unique<Negation>(child->rewrite(table, invertMode(mode)));
 }
 
-std::unique_ptr<filter::operators::Operator> Negation::compile(const storage::Table& table) const {
-   return filter::operators::Operator::negate(child->compile(table));
+std::unique_ptr<filter::operators::Operator> Negation::compile(
+   const storage::Table& table,
+   bool with_null_rows
+) const {
+   return filter::operators::Operator::negate(child->compile(table, with_null_rows));
 }
 
 }  // namespace rhydb::query_engine::scalar_expressions

@@ -55,7 +55,8 @@ std::unique_ptr<ScalarExpression> Concat::rewrite(
 }
 
 std::unique_ptr<filter::operators::Operator> Concat::compile(
-   const storage::Table& /*table*/
+   const storage::Table& /*table*/,
+   bool /*with_null_rows*/
 ) const {
    RHYDB_UNIMPLEMENTED();
 }

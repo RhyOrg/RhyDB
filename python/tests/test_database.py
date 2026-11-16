@@ -123,14 +123,15 @@ class TestDatabaseCreation:
             assert db is not None
 
 
-def preprocess_example_dataset(database):
-    """Preprocess the example dataset into the default table `data` of `database`."""
+def preprocess_example_dataset(database, **kwargs):
+    """Preprocess the example dataset into `database`, by default into the table `data`."""
     database.preprocess(
         database_config=DATABASE_CONFIG_FILE,
         reference_genomes=REFERENCE_GENOMES_FILE,
         input_file=INPUT_FILE,
         lineage_definitions=[LINEAGE_DEFINITION_FILE],
         phylogenetic_tree=PHYLOGENETIC_TREE_FILE,
+        **kwargs,
     )
 
 
@@ -172,10 +173,63 @@ class TestPreprocess:
         loaded = Database(save_path)
         assert len(loaded.get_filtered_bitmap("data")) == 100
 
-    def test_preprocess_twice_raises(self, empty_database):
+    def test_preprocess_twice_into_same_table_raises(self, empty_database):
         preprocess_example_dataset(empty_database)
         with pytest.raises(RuntimeError, match="already exists"):
             preprocess_example_dataset(empty_database)
+
+    def test_preprocess_into_named_table(self, empty_database):
+        preprocess_example_dataset(empty_database, table_name="sequences")
+        assert len(empty_database.get_filtered_bitmap("sequences")) == 100
+        with pytest.raises(ValueError, match="not found"):
+            empty_database.query("data")
+
+    def test_preprocess_multiple_tables(self, empty_database):
+        preprocess_example_dataset(empty_database)
+        preprocess_example_dataset(empty_database, table_name="second")
+        assert len(empty_database.get_filtered_bitmap("data")) == 100
+        assert len(empty_database.get_filtered_bitmap("second")) == 100
+        assert empty_database.get_filtered_bitmap(
+            "second",
+            "pango_lineage.lineageFromTables('B.1.1.7', second_pango_lineage, "
+            "second_pango_lineage_aliases)",
+        )
+        reference_genomes = empty_database.query("reference_genomes.project({name})")
+        names = reference_genomes.to_pydict()["name"]
+        assert "main" in names
+        assert "second_main" in names
+        lineage_definitions = empty_database.query("lineage_definitions.project({column_name})")
+        assert sorted(lineage_definitions.to_pydict()["column_name"]) == [
+            "pango_lineage",
+            "second_pango_lineage",
+        ]
+
+    def test_preprocess_tables_with_different_references(
+        self, empty_database, temp_dir, main_reference_sequence
+    ):
+        preprocess_example_dataset(empty_database, table_name="first")
+        with open(REFERENCE_GENOMES_FILE) as source:
+            reference_genomes = json.load(source)
+        for sequence in reference_genomes["nucleotideSequences"]:
+            if sequence["name"] == "main":
+                sequence["sequence"] = "C" + sequence["sequence"][1:]
+        changed_reference_genomes = os.path.join(temp_dir, "reference_genomes.json")
+        with open(changed_reference_genomes, "w") as target:
+            json.dump(reference_genomes, target)
+        empty_database.preprocess(
+            database_config=DATABASE_CONFIG_FILE,
+            reference_genomes=changed_reference_genomes,
+            input_file=INPUT_FILE,
+            lineage_definitions=[LINEAGE_DEFINITION_FILE],
+            phylogenetic_tree=PHYLOGENETIC_TREE_FILE,
+            table_name="second",
+        )
+        assert empty_database.get_nucleotide_reference_sequence("first", "main") == main_reference_sequence
+        assert empty_database.get_nucleotide_reference_sequence("second", "main").startswith("C")
+
+    def test_preprocess_invalid_table_name_raises(self, empty_database):
+        with pytest.raises(RuntimeError, match="table name"):
+            preprocess_example_dataset(empty_database, table_name="has space")
 
     def test_preprocess_missing_lineage_definition_raises(self, empty_database):
         with pytest.raises(RuntimeError, match="lineage"):

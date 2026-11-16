@@ -48,7 +48,8 @@ std::unique_ptr<ScalarExpression> Int32Literal::rewrite(
    return std::make_unique<Int32Literal>(value);
 }
 
-std::unique_ptr<filter::operators::Operator> Int32Literal::compile(const Table& /*table*/) const {
+std::unique_ptr<filter::operators::Operator> Int32Literal::
+   compile(const Table& /*table*/, bool /*with_null_rows*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -70,7 +71,8 @@ std::unique_ptr<ScalarExpression> Int64Literal::rewrite(
    return std::make_unique<Int64Literal>(value);
 }
 
-std::unique_ptr<filter::operators::Operator> Int64Literal::compile(const Table& /*table*/) const {
+std::unique_ptr<filter::operators::Operator> Int64Literal::
+   compile(const Table& /*table*/, bool /*with_null_rows*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -92,7 +94,8 @@ std::unique_ptr<ScalarExpression> FloatLiteral::rewrite(
    return std::make_unique<FloatLiteral>(value);
 }
 
-std::unique_ptr<filter::operators::Operator> FloatLiteral::compile(const Table& /*table*/) const {
+std::unique_ptr<filter::operators::Operator> FloatLiteral::
+   compile(const Table& /*table*/, bool /*with_null_rows*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -114,7 +117,8 @@ std::unique_ptr<ScalarExpression> StringLiteral::rewrite(
    return std::make_unique<StringLiteral>(value);
 }
 
-std::unique_ptr<filter::operators::Operator> StringLiteral::compile(const Table& /*table*/) const {
+std::unique_ptr<filter::operators::Operator> StringLiteral::
+   compile(const Table& /*table*/, bool /*with_null_rows*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -136,7 +140,10 @@ std::unique_ptr<ScalarExpression> BoolLiteral::rewrite(
    return std::make_unique<BoolLiteral>(value);
 }
 
-std::unique_ptr<filter::operators::Operator> BoolLiteral::compile(const Table& table) const {
+std::unique_ptr<filter::operators::Operator> BoolLiteral::compile(
+   const Table& table,
+   bool /*with_null_rows*/
+) const {
    if (value) {
       return std::make_unique<filter::operators::Full>(table.row_layout);
    }
@@ -161,7 +168,8 @@ std::unique_ptr<ScalarExpression> DateLiteral::rewrite(
    return std::make_unique<DateLiteral>(value);
 }
 
-std::unique_ptr<filter::operators::Operator> DateLiteral::compile(const Table& /*table*/) const {
+std::unique_ptr<filter::operators::Operator> DateLiteral::
+   compile(const Table& /*table*/, bool /*with_null_rows*/) const {
    compileNonBooleanLiteral();
 }
 
@@ -185,7 +193,10 @@ std::unique_ptr<ScalarExpression> NullLiteral::rewrite(
    return std::make_unique<NullLiteral>(value_type);
 }
 
-std::unique_ptr<filter::operators::Operator> NullLiteral::compile(const Table& table) const {
+std::unique_ptr<filter::operators::Operator> NullLiteral::compile(
+   const Table& table,
+   bool /*with_null_rows*/
+) const {
    if (value_type == schema::DataType::BOOL) {
       // A null predicate matches no row, like a comparison with a null cell.
       return std::make_unique<Empty>(table.row_layout);

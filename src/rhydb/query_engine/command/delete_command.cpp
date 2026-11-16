@@ -40,7 +40,7 @@ arrow::Result<std::shared_ptr<arrow::Table>> DeleteCommand::execute(
    const auto& table = database.tables.at(table_name_);
    const Bitmap row_ids =
       predicate_->rewrite(*table, scalar_expressions::ScalarExpression::AmbiguityMode::NONE)
-         ->compile(*table)
+         ->compile(*table, /*with_null_rows=*/false)
          ->evaluate();
 
    // `row_ids` may view into the columns that the deletion changes, so it is not used afterwards

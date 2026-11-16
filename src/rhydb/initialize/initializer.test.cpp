@@ -1,5 +1,9 @@
 #include "rhydb/initialize/initializer.h"
 
+#include <algorithm>
+#include <string>
+#include <vector>
+
 #include <fmt/format.h>
 #include <gtest/gtest.h>
 
@@ -183,6 +187,104 @@ TEST(Initializer, rejectsCreatingTableWithNameOfExistingTable) {
       ),
       rhydb::initialize::InitializeException
    );
+}
+
+TEST(Initializer, prefixesPreprocessedNamesOfTablesOtherThanTheDefaultTable) {
+   EXPECT_EQ(
+      Initializer::preprocessedName(rhydb::schema::TableName::getDefault(), "lineage"), "lineage"
+   );
+   EXPECT_EQ(
+      Initializer::preprocessedName(rhydb::schema::TableName{"dengue"}, "lineage"), "dengue_lineage"
+   );
+}
+
+namespace {
+
+/// Creates `table_name` in `database` from the initialization files of the unit test dummy dataset.
+void createDummyTable(const std::string& table_name, rhydb::Database& database) {
+   std::map<std::filesystem::path, LineageTreeAndIdMap> lineage_trees;
+   lineage_trees.emplace(
+      "test_lineage_definition.yaml",
+      LineageTreeAndIdMap::fromLineageDefinitionFile(
+         rhydb::preprocessing::LineageDefinitionFile::fromYAMLString(
+            "A: ~\nB:\n  parents:\n    - A\n"
+         )
+      )
+   );
+   Initializer::createTableInDatabase(
+      rhydb::schema::TableName{table_name},
+      DatabaseConfig::getValidatedConfigFromFile(
+         "testBaseData/unitTestDummyDataset/database_config.yaml"
+      ),
+      ReferenceGenomes::readFromFile("testBaseData/unitTestDummyDataset/reference_genomes.json"),
+      lineage_trees,
+      PhyloTree(),
+      /*without_unaligned_sequences=*/false,
+      database
+   );
+}
+
+/// The values of the string column `column_name` of the table `table_name`, in row order.
+std::vector<std::string> stringValues(
+   const rhydb::Database& database,
+   std::string_view table_name,
+   const std::string& column_name
+) {
+   const auto& table = *database.tables.at(rhydb::schema::TableName{std::string{table_name}});
+   const auto& column = table.getColumn<StringColumn>(column_name);
+   std::vector<std::string> values;
+   for (const auto row_id : table.row_layout) {
+      values.emplace_back(column.getValueString(row_id));
+   }
+   return values;
+}
+
+}  // namespace
+
+TEST(Initializer, createsSeveralTablesWithPrefixedReferencesAndLineageTables) {
+   rhydb::Database database;
+   createDummyTable(rhydb::schema::TableName::getDefault().getName(), database);
+   createDummyTable("second", database);
+
+   const std::vector<std::string> lineage_tables{
+      "pango_lineage",
+      "pango_lineage_aliases",
+      "second_pango_lineage",
+      "second_pango_lineage_aliases",
+   };
+   for (const auto& lineage_table : lineage_tables) {
+      EXPECT_TRUE(database.tables.contains(rhydb::schema::TableName{lineage_table}))
+         << lineage_table;
+   }
+   EXPECT_EQ(
+      stringValues(
+         database,
+         rhydb::schema::LINEAGE_DEFINITIONS_TABLE_NAME,
+         std::string{rhydb::schema::LINEAGE_DEFINITIONS_COLUMN_NAME_COLUMN}
+      ),
+      (std::vector<std::string>{"pango_lineage", "second_pango_lineage"})
+   );
+
+   const auto reference_genomes =
+      ReferenceGenomes::readFromFile("testBaseData/unitTestDummyDataset/reference_genomes.json");
+   const auto names = stringValues(database, rhydb::schema::REFERENCE_GENOMES_TABLE_NAME, "name");
+   const auto& sequence_name = reference_genomes.nucleotide_sequence_names.at(0);
+   EXPECT_EQ(std::ranges::count(names, sequence_name), 1);
+   EXPECT_EQ(std::ranges::count(names, "second_" + sequence_name), 1);
+   EXPECT_EQ(
+      names.size(),
+      2 * (reference_genomes.nucleotide_sequence_names.size() +
+           reference_genomes.aa_sequence_names.size())
+   );
+}
+
+TEST(Initializer, rejectsTableWhoseLineageTablesExist) {
+   rhydb::Database database;
+   database.createTable(
+      rhydb::schema::TableName{"second_pango_lineage"},
+      std::make_shared<rhydb::schema::TableSchema>()
+   );
+   EXPECT_THROW(createDummyTable("second", database), rhydb::initialize::InitializeException);
 }
 
 namespace {

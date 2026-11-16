@@ -93,7 +93,8 @@ std::unique_ptr<ScalarExpression> SymbolEquals<SymbolType>::rewrite(
 
 template <typename SymbolType>
 std::unique_ptr<filter::operators::Operator> SymbolEquals<SymbolType>::compile(
-   const storage::Table& /*table*/
+   const storage::Table& /*table*/,
+   bool /*with_null_rows*/
 ) const {
    throw QueryCompilationException("SymbolEquals should have been rewritten before compilation");
 }

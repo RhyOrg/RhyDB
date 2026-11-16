@@ -6,4 +6,6 @@ services:
       - ./logs:/app/logs
     ports:
       - '8080:8081'
+    environment:
+      - RHYDB_API_CORS_ALLOWED_ORIGINS=https://allowed.example
     command: 'api'

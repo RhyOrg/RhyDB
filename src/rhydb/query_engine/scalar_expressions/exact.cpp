@@ -33,7 +33,8 @@ std::unique_ptr<ScalarExpression> Exact::rewrite(
 }
 
 std::unique_ptr<filter::operators::Operator> Exact::compile(
-   const storage::Table& /*table*/
+   const storage::Table& /*table*/,
+   bool /*with_null_rows*/
 ) const {
    throw QueryCompilationException{"Exact expression must be elimitated in query rewrite phase"};
 }

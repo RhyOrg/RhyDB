@@ -30,7 +30,7 @@
 namespace rhydb::initialize {
 
 void Initializer::createTableInDatabase(
-   schema::TableName table_name,
+   const schema::TableName& table_name,
    const config::InitializationFiles& initialization_files,
    Database& database
 ) {
@@ -48,7 +48,7 @@ void Initializer::createTableInDatabase(
    }
 
    createTableInDatabase(
-      std::move(table_name),
+      table_name,
       config::DatabaseConfig::getValidatedConfigFromFile(
          initialization_files.getDatabaseConfigFilepath()
       ),
@@ -61,7 +61,7 @@ void Initializer::createTableInDatabase(
 }
 
 void Initializer::createTableInDatabase(
-   schema::TableName table_name,
+   const schema::TableName& table_name,
    const config::DatabaseConfig& database_config,
    const ReferenceGenomes& reference_genomes,
    const std::map<std::filesystem::path, common::LineageTreeAndIdMap>& lineage_trees,
@@ -77,13 +77,13 @@ void Initializer::createTableInDatabase(
    auto table_schema = createSchemaFromConfigFiles(
       database_config, reference_genomes, phylo_tree, without_unaligned_sequences
    );
-   database.createTable(std::move(table_name), std::move(table_schema));
+   database.createTable(table_name, std::move(table_schema));
 
-   fillReferenceGenomesTable(reference_genomes, database);
+   fillReferenceGenomesTable(table_name, reference_genomes, database);
 
    // Materialize the companion lineage relation and alias tables for every column with a lineage
-   // definition. This is where `lineage(...)` reads the hierarchy from; the column itself stays a
-   // plain dictionary.
+   // definition, named as given by `preprocessedName`. This is where `lineage(...)` reads the
+   // hierarchy from; the column itself stays a plain dictionary.
    std::vector<std::pair<std::string, std::string>> lineage_definitions;
    for (const auto& config_metadata : database_config.schema.metadata) {
       if (!config_metadata.generate_lineage_index.has_value()) {
@@ -103,35 +103,42 @@ void Initializer::createTableInDatabase(
             fmt::join(keys, ",")
          );
       }
-      createLineageRelationTable(config_metadata.name, lineage_tree.value(), database);
-      createLineageAliasTable(config_metadata.name, lineage_tree.value(), database);
-      lineage_definitions.emplace_back(config_metadata.name, lineage_tree.value().file);
+      const auto relation_table_name = preprocessedName(table_name, config_metadata.name);
+      createLineageRelationTable(relation_table_name, lineage_tree.value(), database);
+      createLineageAliasTable(relation_table_name, lineage_tree.value(), database);
+      lineage_definitions.emplace_back(relation_table_name, lineage_tree.value().file);
    }
    fillLineageDefinitionsTable(lineage_definitions, database);
 }
 
+std::string Initializer::preprocessedName(
+   const schema::TableName& table_name,
+   std::string_view name
+) {
+   if (table_name == schema::TableName::getDefault()) {
+      return std::string{name};
+   }
+   return fmt::format("{}_{}", table_name.getName(), name);
+}
+
 void Initializer::fillReferenceGenomesTable(
+   const schema::TableName& preprocessed_table_name,
    const ReferenceGenomes& reference_genomes,
    Database& database
 ) {
    const std::string table_name_string{schema::REFERENCE_GENOMES_TABLE_NAME};
    const schema::TableName table_name{table_name_string};
    RHYDB_ASSERT(database.tables.contains(table_name));
-   if (database.tables.at(table_name)->row_count > 0) {
-      throw InitializeException(
-         "Cannot fill reference genomes table '{}': it already contains rows.", table_name_string
-      );
-   }
 
    std::string ndjson;
-   const auto append_rows = [&ndjson](
+   const auto append_rows = [&ndjson, &preprocessed_table_name](
                                const std::vector<std::string>& names,
                                const std::vector<std::string>& sequences,
                                std::string_view type
                             ) {
       for (size_t index = 0; index < names.size(); ++index) {
          const nlohmann::json line{
-            {"name", names.at(index)},
+            {"name", preprocessedName(preprocessed_table_name, names.at(index))},
             {"type", type},
             {"sequence", sequences.at(index)},
          };
@@ -153,10 +160,10 @@ void Initializer::fillReferenceGenomesTable(
    rhydb::append::NdjsonLineReader ndjson_reader{ndjson_stream};
    rhydb::append::appendDataToTable(database.tables.at(table_name), ndjson_reader);
    SPDLOG_INFO(
-      "Filled reference genomes table '{}' with {} rows",
-      table_name_string,
+      "Added {} rows to the reference genomes table '{}'",
       reference_genomes.nucleotide_sequence_names.size() +
-         reference_genomes.aa_sequence_names.size()
+         reference_genomes.aa_sequence_names.size(),
+      table_name_string
    );
 }
 
@@ -167,11 +174,6 @@ void Initializer::fillLineageDefinitionsTable(
    const std::string table_name_string{schema::LINEAGE_DEFINITIONS_TABLE_NAME};
    const schema::TableName table_name{table_name_string};
    RHYDB_ASSERT(database.tables.contains(table_name));
-   if (database.tables.at(table_name)->row_count > 0) {
-      throw InitializeException(
-         "Cannot fill lineage definitions table '{}': it already contains rows.", table_name_string
-      );
-   }
 
    std::string ndjson;
    for (const auto& [column_name, definition] : lineage_definitions) {
@@ -186,18 +188,18 @@ void Initializer::fillLineageDefinitionsTable(
    rhydb::append::NdjsonLineReader ndjson_reader{ndjson_stream};
    rhydb::append::appendDataToTable(database.tables.at(table_name), ndjson_reader);
    SPDLOG_INFO(
-      "Filled lineage definitions table '{}' with {} rows",
-      table_name_string,
-      lineage_definitions.size()
+      "Added {} rows to the lineage definitions table '{}'",
+      lineage_definitions.size(),
+      table_name_string
    );
 }
 
 void Initializer::createLineageRelationTable(
-   std::string_view column_name,
+   std::string_view relation_table_name,
    const common::LineageTreeAndIdMap& lineage_tree,
    Database& database
 ) {
-   const std::string table_name_string{column_name};
+   const std::string table_name_string{relation_table_name};
    const schema::TableName table_name{table_name_string};
    if (database.tables.contains(table_name)) {
       throw InitializeException(
@@ -277,11 +279,11 @@ void Initializer::createLineageRelationTable(
 }
 
 void Initializer::createLineageAliasTable(
-   std::string_view column_name,
+   std::string_view relation_table_name,
    const common::LineageTreeAndIdMap& lineage_tree,
    Database& database
 ) {
-   const std::string table_name_string = lineageAliasTableName(column_name);
+   const std::string table_name_string = lineageAliasTableName(relation_table_name);
    const schema::TableName table_name{table_name_string};
    if (database.tables.contains(table_name)) {
       throw InitializeException(

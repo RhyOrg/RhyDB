@@ -148,7 +148,7 @@ ${RUNNING_RHYDB_FLAG}: ${RHYDB_DEBUG_EXECUTABLE} output
 			echo "Error: Port 8093 is already in use. Another rhydb instance might already be running."; \
 			exit 1; \
 		fi; \
-		${RHYDB_DEBUG_EXECUTABLE} api --api-port 8093 & \
+		${RHYDB_DEBUG_EXECUTABLE} api --api-port 8093 --api-cors-allowed-origins https://allowed.example & \
 		pid=$$!; \
 		echo "Waiting for rhydb (PID $$pid) to be ready..."; \
 		until curl -s -o /dev/null -w "%{http_code}" http://localhost:8093/info | grep -q "200"; do \
