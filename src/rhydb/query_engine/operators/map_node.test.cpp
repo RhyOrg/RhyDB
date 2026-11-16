@@ -457,6 +457,7 @@ namespace {
 const std::vector<nlohmann::json> ISO_WEEK_NULL_DATA = {
    createData("id_0", 1, "short"),
    createData("id_1", 2, "short", nullptr, nullptr, "2020-12-31"),
+   createData("id_2", 3, "short", nullptr, nullptr, "2021-06-15"),
 };
 
 const QueryTestData ISO_WEEK_NULL_TEST_DATA{
@@ -468,9 +469,11 @@ const QueryTestData ISO_WEEK_NULL_TEST_DATA{
 const QueryTestScenario MAP_ISO_WEEK_NULL_SCENARIO = {
    .name = "MAP_ISO_WEEK_NULL",
    .query = "data.map({week := date.isoWeek()}).project({primaryKey, week})",
-   .expected_query_result = nlohmann::json(
-      {{{"primaryKey", "id_0"}, {"week", nullptr}}, {{"primaryKey", "id_1"}, {"week", "2020-W53"}}}
-   ),
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"week", nullptr}},
+      {{"primaryKey", "id_1"}, {"week", "2020-W53"}},
+      {{"primaryKey", "id_2"}, {"week", "2021-W24"}},
+   }),
 };
 
 // An isNull() predicate on a map-produced column, executed as an Arrow filter above the map. Only
@@ -481,20 +484,22 @@ const QueryTestScenario FILTER_ISNULL_ABOVE_MAP_SCENARIO = {
    .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}}),
 };
 
-// Negation above a map runs on the Arrow (subexpression) path. id_0 has no date, so its derived
-// `week` is null, and so is the negation of `week = ...`.
+// Negation above a map runs on the Arrow (subexpression) path. It selects id_2, whose `week`
+// differs, but not id_0: id_0 has no date, so its derived `week` is null, and so is the negation
+// of `week = ...`.
 const QueryTestScenario FILTER_NEGATION_ABOVE_MAP_EXCLUDES_NULL_SCENARIO = {
    .name = "FILTER_NEGATION_ABOVE_MAP_EXCLUDES_NULL",
    .query = "data.map({week := date.isoWeek()}).filter(!(week = '2020-W53')).project({primaryKey})",
-   .expected_query_result = nlohmann::json::array(),
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_2"}}}),
 };
 
-// The same negation pushed into the table scan runs on the native bitmap path and agrees: id_0 has
-// a null date, on which `date = ...` and its negation are null.
+// The same negation pushed into the table scan runs on the native bitmap path and agrees: it
+// selects id_2, but not id_0, which has a null date, on which `date = ...` and its negation are
+// null.
 const QueryTestScenario FILTER_NEGATION_EXCLUDES_NULL_PUSHED_DOWN_SCENARIO = {
    .name = "FILTER_NEGATION_EXCLUDES_NULL_PUSHED_DOWN",
    .query = "data.filter(!(date = '2020-12-31'::date)).project({primaryKey})",
-   .expected_query_result = nlohmann::json::array(),
+   .expected_query_result = nlohmann::json({{{"primaryKey", "id_2"}}}),
 };
 
 }  // namespace
