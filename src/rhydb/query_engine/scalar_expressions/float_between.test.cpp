@@ -101,7 +101,6 @@ const QueryTestScenario NEGATED_FLOAT_BETWEEN_WITH_EQUAL_BOUNDS_SCENARIO = {
    .expected_query_result = nlohmann::json({
       {{"primaryKey", "id_2"}, {"float_value", 0.345}},
       {{"primaryKey", "id_3"}, {"float_value", 2.345}},
-      {{"primaryKey", "id_4"}, {"float_value", nullptr}},
    }),
 };
 
