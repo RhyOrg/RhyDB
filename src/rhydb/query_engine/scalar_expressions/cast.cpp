@@ -115,7 +115,7 @@ std::unique_ptr<ScalarExpression> Cast::rewrite(const Table& table, AmbiguityMod
    return std::make_unique<Cast>(input->rewrite(table, mode), target_type);
 }
 
-std::unique_ptr<Operator> Cast::compile(const Table& /*table*/) const {
+std::unique_ptr<Operator> Cast::compile(const Table& /*table*/, bool /*with_null_rows*/) const {
    throw IllegalQueryException(
       "A type cast cannot be evaluated in a filter on a table scan. Compute the value with map() "
       "first, e.g. data.map({x := a::float}).filter(x < 3.5)"

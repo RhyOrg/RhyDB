@@ -46,7 +46,8 @@ class Cast : public ScalarExpression {
 
    /// A cast cannot be evaluated while scanning a table, only by Arrow (e.g. after a `map`).
    [[nodiscard]] std::unique_ptr<filter::operators::Operator> compile(
-      const storage::Table& table
+      const storage::Table& table,
+      bool with_null_rows
    ) const override;
 };
 
