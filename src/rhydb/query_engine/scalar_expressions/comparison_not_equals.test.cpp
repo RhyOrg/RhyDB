@@ -384,3 +384,67 @@ QUERY_TEST(
    NO_NULLS_TEST_DATA,
    ::testing::Values(NOT_EQUALS_DICT_NO_NULLS, NOT_EQUALS_DICT_NO_NULLS_LITERAL_ABSENT)
 );
+
+// --- Nulls in different columns: `dictField = 'x'` compiles to an index scan and `intField > 1` to
+// a row-by-row predicate. Each row is named after the truth values of the two comparisons, and the
+// rows cover all combinations of true (T), false (F) and null (N). ---
+
+namespace {
+nlohmann::json createMixedData(
+   const std::string& primary_key,
+   const std::optional<std::string>& dict_field,
+   const std::optional<int32_t>& int_field
+) {
+   return createData(
+      primary_key,
+      std::nullopt,
+      dict_field,
+      int_field,
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      std::nullopt
+   );
+}
+
+const QueryTestData MIXED_NULLS_TEST_DATA{
+   .ndjson_input_data =
+      {
+         createMixedData("TT", "x", 2),
+         createMixedData("TF", "x", 0),
+         createMixedData("TN", "x", std::nullopt),
+         createMixedData("FT", "y", 2),
+         createMixedData("FF", "y", 0),
+         createMixedData("FN", "y", std::nullopt),
+         createMixedData("NT", std::nullopt, 2),
+         createMixedData("NF", std::nullopt, 0),
+         createMixedData("NN", std::nullopt, std::nullopt),
+      },
+   .database_config = DATABASE_CONFIG,
+   .reference_genomes = REFERENCE_GENOMES,
+};
+
+// The conjunction is false where either comparison is false, and null where neither is false
+// but one is null
+const QueryTestScenario NEGATED_MIXED_CONJUNCTION = {
+   .name = "NEGATED_MIXED_CONJUNCTION",
+   .query = "data.filter(!(dictField = 'x' && intField > 1)).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(
+      R"([{"primaryKey":"TF"},{"primaryKey":"FT"},{"primaryKey":"FF"},{"primaryKey":"FN"},)"
+      R"({"primaryKey":"NF"}])"
+   ),
+};
+
+// The negated predicate is true only where the predicate is false, not where it is null
+const QueryTestScenario MIXED_CONJUNCTION_WITH_NEGATED_CHILD = {
+   .name = "MIXED_CONJUNCTION_WITH_NEGATED_CHILD",
+   .query = "data.filter(dictField = 'x' && !(intField > 1)).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"TF"}])"),
+};
+}  // namespace
+
+QUERY_TEST(
+   ComparisonNotEqualsMixedNulls,
+   MIXED_NULLS_TEST_DATA,
+   ::testing::Values(NEGATED_MIXED_CONJUNCTION, MIXED_CONJUNCTION_WITH_NEGATED_CHILD)
+);
