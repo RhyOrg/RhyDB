@@ -586,10 +586,13 @@ TEST(DatabaseDeleteQueryTest, keepsEveryColumnAndIndexConsistentAcrossChunks) {
       }
       EXPECT_EQ(rowsByKey(*database, ALL_COLUMNS), expected_rows);
 
+      // Not `probe && !deletion`: rows on which the deletion evaluates to null are kept, but
+      // its negation is null on them as well
       for (const auto& probe : probes) {
          EXPECT_EQ(
             countWhere(*database, probe),
-            countWhere(*reference, fmt::format("({}) && !({})", probe, deletion))
+            countWhere(*reference, probe) -
+               countWhere(*reference, fmt::format("({}) && ({})", probe, deletion))
          ) << probe;
       }
    }
