@@ -63,6 +63,13 @@ TEST(Date32, rejectsNonNumericFields) {
    EXPECT_FALSE(rhydb::common::stringToDate32("2023-01-ab").has_value());
 }
 
+TEST(Date32, rejectsSignedFields) {
+   EXPECT_FALSE(rhydb::common::stringToDate32("-999-01-01").has_value());
+   EXPECT_FALSE(rhydb::common::stringToDate32("+999-01-01").has_value());
+   EXPECT_FALSE(rhydb::common::stringToDate32("2023--1-01").has_value());
+   EXPECT_FALSE(rhydb::common::stringToDate32("2023-01--1").has_value());
+}
+
 TEST(Date32, rejectsTrailingAndLeadingContent) {
    EXPECT_FALSE(rhydb::common::stringToDate32("2023-01-15 ").has_value());
    EXPECT_FALSE(rhydb::common::stringToDate32(" 2023-01-15").has_value());
