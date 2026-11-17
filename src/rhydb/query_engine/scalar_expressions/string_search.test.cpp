@@ -136,6 +136,33 @@ const QueryTestScenario FILTER_FOR_ANYTHING_DOES_NOT_MATCH_NULL_ON_INDEXED_COLUM
    .expected_query_result = createExpectedResult({"id1", "id2", "id3", "id4", "id5", "id6", "id8"}),
 };
 
+// A search on a null value is null, so its negation is null as well and does not select the row
+const QueryTestScenario NEGATED_FILTER_FOR_EMPTY_STRING_DOES_NOT_MATCH_NULL = {
+   .name = "NEGATED_FILTER_FOR_EMPTY_STRING_DOES_NOT_MATCH_NULL",
+   .query = "data.filter(!(test_column.like('^$'))).project(primaryKey)",
+   .expected_query_result = createExpectedResult({"id1", "id2", "id3", "id4", "id5", "id6"}),
+};
+
+const QueryTestScenario NEGATED_FILTER_FOR_EMPTY_STRING_DOES_NOT_MATCH_NULL_ON_INDEXED_COLUMN = {
+   .name = "NEGATED_FILTER_FOR_EMPTY_STRING_DOES_NOT_MATCH_NULL_ON_INDEXED_COLUMN",
+   .query = "data.filter(!(indexed_test_column.like('^$'))).project(primaryKey)",
+   .expected_query_result = createExpectedResult({"id1", "id2", "id3", "id4", "id5", "id6"}),
+};
+
+// null && true is null, so the negation does not select the null row
+const QueryTestScenario NEGATED_CONJUNCTION_WITH_IS_NULL = {
+   .name = "NEGATED_CONJUNCTION_WITH_IS_NULL",
+   .query = "data.filter(!(test_column.like('AA') && test_column.isNull())).project(primaryKey)",
+   .expected_query_result = createExpectedResult({"id1", "id2", "id3", "id4", "id5", "id6", "id8"}),
+};
+
+// null || true is true, so the negation does not select the null row
+const QueryTestScenario NEGATED_DISJUNCTION_WITH_IS_NULL = {
+   .name = "NEGATED_DISJUNCTION_WITH_IS_NULL",
+   .query = "data.filter(!(test_column.like('AA') || test_column.isNull())).project(primaryKey)",
+   .expected_query_result = createExpectedResult({"id4", "id6", "id8"}),
+};
+
 const QueryTestScenario INVALID_REGULAR_EXPRESSION = {
    .name = "INVALID_REGULAR_EXPRESSION",
    .query = "data.filter(test_column.like('^(')).project(primaryKey)",
@@ -173,6 +200,10 @@ QUERY_TEST(
       FILTER_FOR_EMPTY_STRING_DOES_NOT_MATCH_NULL_ON_INDEXED_COLUMN,
       FILTER_FOR_ANYTHING_DOES_NOT_MATCH_NULL,
       FILTER_FOR_ANYTHING_DOES_NOT_MATCH_NULL_ON_INDEXED_COLUMN,
+      NEGATED_FILTER_FOR_EMPTY_STRING_DOES_NOT_MATCH_NULL,
+      NEGATED_FILTER_FOR_EMPTY_STRING_DOES_NOT_MATCH_NULL_ON_INDEXED_COLUMN,
+      NEGATED_CONJUNCTION_WITH_IS_NULL,
+      NEGATED_DISJUNCTION_WITH_IS_NULL,
       INVALID_REGULAR_EXPRESSION,
       FILTER_FOR_COLUMN_THAT_DOES_NOT_EXIST,
       TABLE_NOT_FOUND
