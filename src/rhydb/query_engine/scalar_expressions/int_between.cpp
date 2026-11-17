@@ -4,7 +4,12 @@
 #include <memory>
 #include <optional>
 #include <utility>
+#include <vector>
 
+#include <arrow/compute/api.h>
+#include <arrow/datum.h>
+#include <arrow/scalar.h>
+#include <arrow/type.h>
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
@@ -66,6 +71,37 @@ std::unique_ptr<ScalarExpression> IntBetween::rewrite(
    AmbiguityMode /*mode*/
 ) const {
    return std::make_unique<IntBetween>(column, from, to);
+}
+
+arrow::Result<arrow::compute::Expression> IntBetween::toArrowExpression() const {
+   const auto value = arrow::compute::field_ref(column.name);
+   // The bounds are int64. Arrow casts int32 columns to int64 for the comparison, so a bound
+   // beyond the int32 range compares correctly, while `compile` rejects it.
+   std::vector<arrow::compute::Expression> predicates;
+   if (from.has_value()) {
+      predicates.push_back(
+         arrow::compute::greater_equal(value, arrow::compute::literal(arrow::Datum(from.value())))
+      );
+   }
+   if (to.has_value()) {
+      predicates.push_back(
+         arrow::compute::less_equal(value, arrow::compute::literal(arrow::Datum(to.value())))
+      );
+   }
+
+   if (predicates.empty()) {
+      // Unbounded, so the filter is true on every row that is not null, and null on the others
+      return arrow::compute::call(
+         "if_else",
+         {arrow::compute::is_valid(value),
+          arrow::compute::literal(true),
+          arrow::compute::literal(arrow::MakeNullScalar(arrow::boolean()))}
+      );
+   }
+   if (predicates.size() == 1) {
+      return predicates.front();
+   }
+   return arrow::compute::and_(predicates.front(), predicates.back());
 }
 
 template <typename ColumnT>
