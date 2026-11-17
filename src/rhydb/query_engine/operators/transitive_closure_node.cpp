@@ -22,6 +22,7 @@
 #include <nlohmann/json.hpp>
 
 #include "rhydb/query_engine/exec_node/arrow_util.h"
+#include "rhydb/query_engine/exec_node/stop_forwarding_node.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/schema/database_schema.h"
 
@@ -309,11 +310,11 @@ arrow::Result<arrow::acero::ExecNode*> TransitiveClosureNode::addToExecPlan(
    // the source node below collects them, computes the closure, and emits the result
    // downstream. This is the same sink -> generator -> source shape that order() uses.
    arrow::AsyncGenerator<std::optional<arrow::ExecBatch>> child_generator;
-   ARROW_RETURN_NOT_OK(
+   ARROW_ASSIGN_OR_RAISE(
+      auto* sink_node,
       arrow::acero::MakeExecNode(
          "sink", &plan, {child_node}, arrow::acero::SinkNodeOptions{&child_generator}
       )
-         .status()
    );
 
    // `materialization_cutoff` is the batch-size-minus-one
@@ -360,7 +361,10 @@ arrow::Result<arrow::acero::ExecNode*> TransitiveClosureNode::addToExecPlan(
       std::move(producer),
       arrow::Ordering::Implicit(),
    };
-   return arrow::acero::MakeExecNode("source", &plan, {}, options);
+   ARROW_ASSIGN_OR_RAISE(
+      auto* source_node, arrow::acero::MakeExecNode("source", &plan, {}, options)
+   );
+   return exec_node::forwardStopToSink(plan, source_node, sink_node);
 }
 
 nlohmann::json TransitiveClosureNode::toJson() const {
