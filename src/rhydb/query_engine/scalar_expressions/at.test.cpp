@@ -240,6 +240,13 @@ std::vector<QueryTestScenario> filterScenarios() {
    add("NOT_EQUALS_REFERENCE", "segment1[4] <> 'T'", {"id_3"});
    add("NOT_EQUALS_INVALID_SYMBOL", "segment1[1] <> 'X'", {"id_0", "id_2", "id_3"});
    add("NOT_EQUALS_OUT_OF_BOUNDS", "segment1[5] <> 'A'", {"id_0", "id_2", "id_3"});
+   add("EQUALS_EMPTY_OUT_OF_BOUNDS", "segment1[5] = ''", {"id_0", "id_2", "id_3"});
+   add("NOT_EQUALS_EMPTY_OUT_OF_BOUNDS", "segment1[5] <> ''", {});
+   // A comparison that can never match is still null on a null sequence, so its negation must not
+   // select id_1.
+   add("NEGATED_EQUALS_OUT_OF_BOUNDS", "!(segment1[5] = 'A')", {"id_0", "id_2", "id_3"});
+   add("NEGATED_EQUALS_INVALID_SYMBOL", "!(segment1[1] = 'X')", {"id_0", "id_2", "id_3"});
+   add("NEGATED_NOT_EQUALS_EMPTY_OUT_OF_BOUNDS", "!(segment1[5] <> '')", {"id_0", "id_2", "id_3"});
    add("AMINO_ACID_EQUALS", "gene1[1] = '*'", {"id_0"});
    add("AMINO_ACID_EQUALS_ANY", "gene1[1] = 'X'", {"id_2"});
    add("AMINO_ACID_NOT_EQUALS", "gene1[1] <> '*'", {"id_2"});
