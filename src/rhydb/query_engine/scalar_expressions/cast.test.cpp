@@ -394,7 +394,8 @@ const QueryTestScenario FILTER_BY_NULL_BOOLEAN_CAST_IN_TABLE_SCAN_SCENARIO = {
 const QueryTestScenario FILTER_BY_NEGATED_NULL_BOOLEAN_CAST_IN_TABLE_SCAN_SCENARIO = {
    .name = "FILTER_BY_NEGATED_NULL_BOOLEAN_CAST_IN_TABLE_SCAN",
    .query = "data.filter(!null::boolean).project({primaryKey})",
-   .expected_query_result = nlohmann::json({{{"primaryKey", "id_0"}}, {{"primaryKey", "id_1"}}}),
+   // `!null` is null, which a filter drops
+   .expected_query_result = nlohmann::json::array(),
 };
 
 // ---- casts of boolean expressions ----

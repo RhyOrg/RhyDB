@@ -195,10 +195,13 @@ std::unique_ptr<ScalarExpression> NullLiteral::rewrite(
 
 std::unique_ptr<filter::operators::Operator> NullLiteral::compile(
    const Table& table,
-   bool /*with_null_rows*/
+   bool with_null_rows
 ) const {
    if (value_type == schema::DataType::BOOL) {
-      // A null predicate matches no row, like a comparison with a null cell.
+      // A null predicate evaluates to null on every row, like a comparison with a null cell.
+      if (with_null_rows) {
+         return std::make_unique<filter::operators::Full>(table.row_layout);
+      }
       return std::make_unique<Empty>(table.row_layout);
    }
    compileNonBooleanLiteral();
