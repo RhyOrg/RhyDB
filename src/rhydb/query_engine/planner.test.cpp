@@ -13,6 +13,8 @@
 
 #include "rhydb/common/aa_symbols.h"
 #include "rhydb/config/runtime_config.h"
+#include "rhydb/query_engine/operators/map_node.h"
+#include "rhydb/query_engine/operators/project_node.h"
 #include "rhydb/query_engine/operators/query_node.h"
 #include "rhydb/query_engine/saneql/ast_to_query.h"
 #include "rhydb/schema/database_schema.h"
@@ -95,6 +97,40 @@ TEST(PlannerOptimize, bareCountOverSequenceFirstTableBecomesCountFilter) {
    auto optimized = Planner::optimize(std::move(node), "test");
 
    ASSERT_EQ(optimized->kind(), operators::NodeKind::COUNT_FILTER);
+}
+
+// Sorted, limited sequence requests as LAPIS sends them put the projection first. The decompression
+// map must still end up above the sort and the limit, so that only the selected rows are
+// decompressed instead of every row of the table.
+TEST(PlannerOptimize, projectOrderByLimitDecompressesAfterTheLimit) {
+   auto tables = tablesWithSequenceColumnFirst();
+   auto node = rhydb::query_engine::saneql::parseAndConvertToQueryTree(
+      "data.filter(true).project({id, E}).order(by:={id}).limit(5)", tables
+   );
+
+   auto optimized = Planner::optimize(std::move(node), "test");
+
+   ASSERT_EQ(optimized->kind(), operators::NodeKind::PROJECT);
+   const auto& project = dynamic_cast<const operators::ProjectNode&>(*optimized);
+   ASSERT_EQ(project.child->kind(), operators::NodeKind::MAP);
+   const auto& map = dynamic_cast<const operators::MapNode&>(*project.child);
+   EXPECT_EQ(map.child->kind(), operators::NodeKind::ORDER_BY_WITH_LIMIT);
+}
+
+// An unsorted limit after the projection must likewise sit below the decompression map.
+TEST(PlannerOptimize, projectLimitDecompressesAfterTheLimit) {
+   auto tables = tablesWithSequenceColumnFirst();
+   auto node = rhydb::query_engine::saneql::parseAndConvertToQueryTree(
+      "data.filter(true).project({id, E}).limit(5)", tables
+   );
+
+   auto optimized = Planner::optimize(std::move(node), "test");
+
+   ASSERT_EQ(optimized->kind(), operators::NodeKind::PROJECT);
+   const auto& project = dynamic_cast<const operators::ProjectNode&>(*optimized);
+   ASSERT_EQ(project.child->kind(), operators::NodeKind::MAP);
+   const auto& map = dynamic_cast<const operators::MapNode&>(*project.child);
+   EXPECT_EQ(map.child->kind(), operators::NodeKind::FETCH);
 }
 
 }  // namespace
