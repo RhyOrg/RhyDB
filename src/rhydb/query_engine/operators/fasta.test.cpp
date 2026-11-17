@@ -198,6 +198,22 @@ const QueryTestScenario ORDER_BY_ADDITIONAL_FIELD = {
    ),
 };
 
+// The shape LAPIS sends for sorted sequence downloads: the projection comes before the sort and the
+// limit. The optimizer moves sort and limit below the decompression, so only the selected rows are
+// decompressed; the result must be the same as without that rewrite.
+const QueryTestScenario PROJECT_ORDER_BY_LIMIT = {
+   .name = "PROJECT_ORDER_BY_LIMIT",
+   .query =
+      "data.project({primaryKey, unaligned_segment2, unaligned_segment1})"
+      ".order(by:={primaryKey.desc()}).offset(1).limit(3)",
+   .expected_query_result = nlohmann::json::parse(
+      R"(
+[{"primaryKey":"onlySegment1","unaligned_segment2":null,"unaligned_segment1":"T"},
+{"primaryKey":"noSegment","unaligned_segment2":null,"unaligned_segment1":null},
+{"primaryKey":"bothSegments","unaligned_segment2":"G","unaligned_segment1":"A"}])"
+   ),
+};
+
 }  // namespace
 
 QUERY_TEST(
@@ -212,6 +228,7 @@ QUERY_TEST(
       DOWNLOAD_ALL_DATA,
       ORDER_BY_NOT_IN_OUTPUT,
       ORDER_BY_ADDITIONAL_FIELD,
-      DUPLICATE_FIELDS
+      DUPLICATE_FIELDS,
+      PROJECT_ORDER_BY_LIMIT
    )
 );

@@ -25,6 +25,13 @@ namespace rhydb::query_engine::optimizer {
 /// One goal is pulling a MapNode above a FetchNode (limit/offset)
 /// so a `limit` no longer forces every row to be decompressed and then discarded.
 ///
+/// A ProjectNode between the parent and the MapNode does not block the pullup: the parent is
+/// moved below the projection first, which keeps the projection (and so the output schema) on top:
+///
+/// ```
+/// P(Project(M(child)))  →  Project(M(P(child)))
+/// ```
+///
 /// The pass also contracts two directly stacked MapNodes into one:
 ///
 /// ```
