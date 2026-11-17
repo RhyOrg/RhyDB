@@ -87,9 +87,10 @@ Notes:
 - Comparisons **exclude** null values: a null cell never matches any comparison,
   including `<>`. So `country <> 'Germany'` does not return rows where `country`
   is null.
-- `!` is a set complement, not SQL's `NOT`, so it does **not** mean the same as
-  `<>`: `!(country = 'Germany')` *does* return rows where `country` is null,
-  whereas `country <> 'Germany'` does not.
+- Negating a comparison does not return null values either: `!(country = 'Germany')`
+  returns the same rows as `country <> 'Germany'`. To also keep the rows where
+  `country` is null, add them explicitly:
+  `!(country = 'Germany') || country.isNull()`.
 - String ordering is lexicographic and applies to both plain and
   dictionary-encoded string columns.
 
@@ -122,8 +123,6 @@ Keeps only rows where the boolean `condition` is true. Passes all input columns 
 ```
 data.filter(country = 'USA' && age > 30)
 ```
-
-A boolean column can be used directly as a predicate: `data.filter(isHuman)` is equivalent to `data.filter(isHuman = true)`, and `data.filter(!isHuman)` negates it (a set complement that also keeps rows where `isHuman` is null, matching `!(isHuman = true)`). Only boolean columns may be used this way; a bare reference to a non-boolean column is rejected.
 
 ### `group(by, aggs)`
 

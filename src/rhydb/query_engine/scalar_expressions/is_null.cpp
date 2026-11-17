@@ -36,7 +36,10 @@ std::unique_ptr<ScalarExpression> IsNull::rewrite(
    return std::make_unique<IsNull>(column);
 }
 
-std::unique_ptr<filter::operators::Operator> IsNull::compile(const storage::Table& table) const {
+std::unique_ptr<filter::operators::Operator> IsNull::compile(
+   const storage::Table& table,
+   bool /*with_null_rows*/
+) const {
    const auto& maybe_target_column = table.schema->getColumn(column.name);
    CHECK_RHYDB_QUERY(
       maybe_target_column.has_value(),

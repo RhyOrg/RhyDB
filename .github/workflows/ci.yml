@@ -463,6 +463,12 @@ jobs:
             echo "HEAD_SHA=${{ github.sha }}" >> $GITHUB_ENV
           fi
 
+      # The runner kernel uses more mmap ASLR entropy (vm.mmap_rnd_bits=32) than the ASan runtime of
+      # the image's GCC supports, so the tests die with an endless "AddressSanitizer:DEADLYSIGNAL".
+      # The setting is not namespaced, so it has to be lowered on the host, not in the container.
+      - name: Reduce mmap ASLR entropy for ASan
+        run: sudo sysctl vm.mmap_rnd_bits=28
+
       - name: Run tests in Docker
         run: |
           docker run --rm \

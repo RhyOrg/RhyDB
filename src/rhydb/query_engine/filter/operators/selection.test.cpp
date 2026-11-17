@@ -3,19 +3,25 @@
 #include <gtest/gtest.h>
 #include <roaring/roaring.hh>
 
+#include "rhydb/common/aligned_sequence.h"
 #include "rhydb/common/bitmap.h"
 #include "rhydb/query_engine/filter/operators/bitmap_producer.h"
+#include "rhydb/query_engine/filter/operators/is_in_covered_region.h"
+#include "rhydb/storage/column/horizontal_coverage_index.h"
 #include "rhydb/storage/column/int_column.h"
 
 using rhydb::Bitmap;
 using rhydb::query_engine::filter::operators::BitmapProducer;
 using rhydb::query_engine::filter::operators::Comparator;
 using rhydb::query_engine::filter::operators::CompareToValueSelection;
+using rhydb::query_engine::filter::operators::IsInCoveredRegion;
 using rhydb::query_engine::filter::operators::Operator;
 using rhydb::query_engine::filter::operators::Predicate;
 using rhydb::query_engine::filter::operators::Selection;
 using rhydb::storage::column::ColumnMetadata;
+using rhydb::storage::column::HorizontalCoverageIndex;
 using rhydb::storage::column::Int32Column;
+using rhydb::storage::column::RowId;
 using rhydb::storage::column::RowLayout;
 
 namespace {
@@ -204,8 +210,8 @@ TEST(OperatorSelection, multiplePredicatesWithLargeChildReturnCorrectValues) {
    auto [metadata, test_column] = makeRangeTestColumn();
    const auto row_layout = RowLayout::of(100);
 
-   // Child cardinality (75) exceeds numRows / 10 == 10, so the large-child branch primes candidates
-   // from the most-selective predicate.
+   // Child cardinality (75) exceeds numRows / 10 == 10, but CompareToValueSelection does not
+   // evaluate chunks in bulk, so every child row is still matched against all predicates.
    const roaring::Roaring child_bitmap = rangeBitmap(5, 80);
    std::unique_ptr<Operator> child =
       std::make_unique<BitmapProducer>([&] { return Bitmap(&child_bitmap); }, row_layout);
@@ -229,4 +235,47 @@ TEST(OperatorSelection, multiplePredicatesWithSmallChildReturnCorrectValues) {
    const Selection under_test(std::move(child), makeRangePredicates(test_column), row_layout);
 
    ASSERT_EQ(under_test.evaluate().toRoaring(), roaring::Roaring({15, 45}));
+}
+
+TEST(OperatorSelection, bulkPredicateWithLargeChildReturnsCorrectValues) {
+   auto [metadata, test_column] = makeRangeTestColumn();
+   const auto row_layout = RowLayout::of(100);
+
+   // Position 2 is covered exactly in the even rows.
+   HorizontalCoverageIndex coverage_index;
+   for (uint32_t row = 0; row < 100; ++row) {
+      std::vector<uint32_t> missing_positions;
+      if (row % 2 == 1) {
+         missing_positions.push_back(2);
+      }
+      coverage_index.insertCoverage(
+         RowId::fromGlobal(row),
+         rhydb::Coverage{.start = 0, .end = 5, .missing_positions = missing_positions}
+      );
+   }
+
+   std::vector<std::unique_ptr<Predicate>> predicates;
+   predicates.push_back(
+      std::make_unique<CompareToValueSelection<Int32Column>>(test_column, Comparator::LESS, 50)
+   );
+   predicates.push_back(
+      std::make_unique<IsInCoveredRegion>(
+         &coverage_index, 2, IsInCoveredRegion::Comparator::IS_COVERED
+      )
+   );
+
+   // IsInCoveredRegion evaluates chunks in bulk, so with a child this large Selection may
+   // intersect the child with the predicate's whole chunk.
+   const roaring::Roaring child_bitmap = rangeBitmap(5, 80);
+   std::unique_ptr<Operator> child =
+      std::make_unique<BitmapProducer>([&] { return Bitmap(&child_bitmap); }, row_layout);
+
+   const Selection under_test(std::move(child), std::move(predicates), row_layout);
+
+   // Even rows of child [5, 80) intersected with [0, 50).
+   roaring::Roaring expected;
+   for (uint32_t row = 6; row < 50; row += 2) {
+      expected.add(row);
+   }
+   ASSERT_EQ(under_test.evaluate().toRoaring(), expected);
 }

@@ -93,8 +93,15 @@ class ScalarExpression {
 
    [[nodiscard]] virtual std::unique_ptr<ScalarExpression> clone() const = 0;
 
+   /// Compiles the operator selecting the rows on which this filter evaluates to true and, if
+   /// `with_null_rows`, also those on which it evaluates to null. Filters follow three-valued
+   /// (Kleene) logic like SQL and Arrow: on a row, a filter evaluates to true, false or null (e.g.
+   /// a comparison with a null value). The rows on which the negated filter is true are the
+   /// complement of those on which the filter is true or null, so that `!(age > 50)` selects the
+   /// same rows as `age <= 50`: none whose age is null.
    [[nodiscard]] virtual std::unique_ptr<filter::operators::Operator> compile(
-      const storage::Table& table
+      const storage::Table& table,
+      bool with_null_rows
    ) const = 0;
 };
 

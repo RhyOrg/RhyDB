@@ -52,7 +52,8 @@ class Comparison : public ScalarExpression {
    ) const override;
 
    [[nodiscard]] std::unique_ptr<filter::operators::Operator> compile(
-      const storage::Table& table
+      const storage::Table& table,
+      bool with_null_rows
    ) const override;
 };
 

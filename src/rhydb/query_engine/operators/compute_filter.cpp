@@ -16,9 +16,8 @@ CompiledFilter::CompiledFilter(
    const ScalarExpression& filter
 )
     : table(std::move(table)),
-      compiled(
-         filter.rewrite(*this->table, ScalarExpression::AmbiguityMode::NONE)->compile(*this->table)
-      ) {}
+      compiled(filter.rewrite(*this->table, ScalarExpression::AmbiguityMode::NONE)
+                  ->compile(*this->table, /*with_null_rows=*/false)) {}
 
 Bitmap CompiledFilter::evaluate() const {
    return compiled->evaluate();
