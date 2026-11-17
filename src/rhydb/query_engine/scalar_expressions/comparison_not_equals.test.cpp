@@ -68,8 +68,7 @@ const auto REFERENCE_GENOMES = ReferenceGenomes{{}, {}};
 const int64_t INT64_VALUE = 5'000'000'001LL;
 const int64_t OTHER_INT64_VALUE = 5'000'000'002LL;
 
-// id_2 is null in every column, so it is the row that distinguishes "<> excludes
-// nulls" from the old negated-equality behaviour.
+// id_2 is null in every column, so it checks that comparisons and their negations exclude nulls
 const QueryTestData TEST_DATA{
    .ndjson_input_data =
       {
@@ -199,14 +198,63 @@ const QueryTestScenario NOT_EQUALS_NULL_DICT = {
       "a column reference, or a scalar function call at 1:26",
 };
 
-// --- `!` is a set complement, not SQL's NOT, so it keeps the null rows that `<>`
-// drops. The two are deliberately different. ---
+// --- `!` follows SQL's three-valued logic: the negation of a comparison with a null value is null,
+// so `!(x = v)` drops the null rows just like `x <> v`. ---
 
-const QueryTestScenario NEGATED_EQUALS_STILL_INCLUDES_NULLS = {
-   .name = "NEGATED_EQUALS_STILL_INCLUDES_NULLS",
+const QueryTestScenario NEGATED_EQUALS_EXCLUDES_NULLS = {
+   .name = "NEGATED_EQUALS_EXCLUDES_NULLS",
    .query = "data.filter(!(stringField = 'value1')).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
+};
+
+const QueryTestScenario NEGATED_EQUALS_DICT = {
+   .name = "NEGATED_EQUALS_DICT",
+   .query = "data.filter(!(dictField = 'indexed1')).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
+};
+
+const QueryTestScenario NEGATED_EQUALS_INT = {
+   .name = "NEGATED_EQUALS_INT",
+   .query = "data.filter(!(intField = 1)).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
+};
+
+const QueryTestScenario NEGATED_EQUALS_INT64 = {
+   .name = "NEGATED_EQUALS_INT64",
+   .query = "data.filter(!(int64Field = 5000000001)).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
+};
+
+const QueryTestScenario NEGATED_EQUALS_FLOAT = {
+   .name = "NEGATED_EQUALS_FLOAT",
+   .query = "data.filter(!(floatField = 1.5)).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
+};
+
+const QueryTestScenario NEGATED_EQUALS_DATE = {
+   .name = "NEGATED_EQUALS_DATE",
+   .query = "data.filter(!(dateField = '2021-01-01'::date)).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
+};
+
+const QueryTestScenario NEGATED_EQUALS_BOOL = {
+   .name = "NEGATED_EQUALS_BOOL",
+   .query = "data.filter(!(boolField = true)).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
+};
+
+const QueryTestScenario NEGATED_NOT_EQUALS_DICT = {
+   .name = "NEGATED_NOT_EQUALS_DICT",
+   .query = "data.filter(!(dictField <> 'indexed1')).project(primaryKey)",
    .expected_query_result =
-      nlohmann::json::parse(R"([{"primaryKey":"id_1"},{"primaryKey":"id_2"}])"),
+      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"}])"),
+};
+
+const QueryTestScenario NEGATED_NOT_EQUALS_STRING_PLAIN = {
+   .name = "NEGATED_NOT_EQUALS_STRING_PLAIN",
+   .query = "data.filter(!(stringField <> 'value1')).project(primaryKey)",
+   .expected_query_result =
+      nlohmann::json::parse(R"([{"primaryKey":"id_0"},{"primaryKey":"id_3"}])"),
 };
 
 }  // namespace
@@ -231,13 +279,21 @@ QUERY_TEST(
       NOT_EQUALS_DICT_IN_CONJUNCTION,
       NOT_EQUALS_NULL_PLAIN,
       NOT_EQUALS_NULL_DICT,
-      NEGATED_EQUALS_STILL_INCLUDES_NULLS
+      NEGATED_EQUALS_EXCLUDES_NULLS,
+      NEGATED_EQUALS_DICT,
+      NEGATED_EQUALS_INT,
+      NEGATED_EQUALS_INT64,
+      NEGATED_EQUALS_FLOAT,
+      NEGATED_EQUALS_DATE,
+      NEGATED_EQUALS_BOOL,
+      NEGATED_NOT_EQUALS_DICT,
+      NEGATED_NOT_EQUALS_STRING_PLAIN
    )
 );
 
 // --- Empty-result edge for the dictionary complement path: when every non-null row
-// holds the excluded value, the complement covers no rows and must collapse to Empty
-// rather than a Complement that evaluates to nothing. ---
+// holds the excluded value, the complement covers no rows. It must not collapse to Empty,
+// as it is null (not false) on the null rows, which its negation must not select. ---
 
 namespace {
 const auto SINGLE_VALUE_DATABASE_CONFIG =
@@ -281,16 +337,22 @@ const QueryTestScenario NOT_EQUALS_DICT_MATCHES_NO_ROWS = {
    .query = "data.filter(dictField <> 'only').project(primaryKey)",
    .expected_query_result = nlohmann::json::parse(R"([])"),
 };
+
+const QueryTestScenario NEGATED_NOT_EQUALS_DICT_MATCHES_NON_NULL_ROWS = {
+   .name = "NEGATED_NOT_EQUALS_DICT_MATCHES_NON_NULL_ROWS",
+   .query = "data.filter(!(dictField <> 'only')).project(primaryKey)",
+   .expected_query_result =
+      nlohmann::json::parse(R"([{"primaryKey":"id_a"},{"primaryKey":"id_b"}])"),
+};
 }  // namespace
 
 QUERY_TEST(
    ComparisonNotEqualsEmpty,
    SINGLE_VALUE_TEST_DATA,
-   ::testing::Values(NOT_EQUALS_DICT_MATCHES_NO_ROWS)
+   ::testing::Values(NOT_EQUALS_DICT_MATCHES_NO_ROWS, NEGATED_NOT_EQUALS_DICT_MATCHES_NON_NULL_ROWS)
 );
 
-// --- A dictionary column without any null row: only the literal has to be excluded, so
-// there is no second bitmap to intersect with. ---
+// --- A dictionary column without any null row: only the literal has to be excluded. ---
 
 namespace {
 const QueryTestData NO_NULLS_TEST_DATA{
@@ -321,4 +383,68 @@ QUERY_TEST(
    ComparisonNotEqualsNoNulls,
    NO_NULLS_TEST_DATA,
    ::testing::Values(NOT_EQUALS_DICT_NO_NULLS, NOT_EQUALS_DICT_NO_NULLS_LITERAL_ABSENT)
+);
+
+// --- Nulls in different columns: `dictField = 'x'` compiles to an index scan and `intField > 1` to
+// a row-by-row predicate. Each row is named after the truth values of the two comparisons, and the
+// rows cover all combinations of true (T), false (F) and null (N). ---
+
+namespace {
+nlohmann::json createMixedData(
+   const std::string& primary_key,
+   const std::optional<std::string>& dict_field,
+   const std::optional<int32_t>& int_field
+) {
+   return createData(
+      primary_key,
+      std::nullopt,
+      dict_field,
+      int_field,
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      std::nullopt
+   );
+}
+
+const QueryTestData MIXED_NULLS_TEST_DATA{
+   .ndjson_input_data =
+      {
+         createMixedData("TT", "x", 2),
+         createMixedData("TF", "x", 0),
+         createMixedData("TN", "x", std::nullopt),
+         createMixedData("FT", "y", 2),
+         createMixedData("FF", "y", 0),
+         createMixedData("FN", "y", std::nullopt),
+         createMixedData("NT", std::nullopt, 2),
+         createMixedData("NF", std::nullopt, 0),
+         createMixedData("NN", std::nullopt, std::nullopt),
+      },
+   .database_config = DATABASE_CONFIG,
+   .reference_genomes = REFERENCE_GENOMES,
+};
+
+// The conjunction is false where either comparison is false, and null where neither is false
+// but one is null
+const QueryTestScenario NEGATED_MIXED_CONJUNCTION = {
+   .name = "NEGATED_MIXED_CONJUNCTION",
+   .query = "data.filter(!(dictField = 'x' && intField > 1)).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(
+      R"([{"primaryKey":"TF"},{"primaryKey":"FT"},{"primaryKey":"FF"},{"primaryKey":"FN"},)"
+      R"({"primaryKey":"NF"}])"
+   ),
+};
+
+// The negated predicate is true only where the predicate is false, not where it is null
+const QueryTestScenario MIXED_CONJUNCTION_WITH_NEGATED_CHILD = {
+   .name = "MIXED_CONJUNCTION_WITH_NEGATED_CHILD",
+   .query = "data.filter(dictField = 'x' && !(intField > 1)).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"TF"}])"),
+};
+}  // namespace
+
+QUERY_TEST(
+   ComparisonNotEqualsMixedNulls,
+   MIXED_NULLS_TEST_DATA,
+   ::testing::Values(NEGATED_MIXED_CONJUNCTION, MIXED_CONJUNCTION_WITH_NEGATED_CHILD)
 );
