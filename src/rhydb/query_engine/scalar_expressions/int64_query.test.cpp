@@ -108,9 +108,8 @@ const QueryTestScenario INT64_EQUALS_NULL_REJECTED_SCENARIO = {
 const QueryTestScenario INT64_NEGATED_EQUALS_SCENARIO = {
    .name = "INT64_NEGATED_EQUALS_SCENARIO",
    .query = "data.filter(!(int64_value = 5000000000))",
-   .expected_query_result = nlohmann::json(
-      {row("id_2", VALUE_BELOW_FILTER), row("id_3", VALUE_ABOVE_FILTER), row("id_4", nullptr)}
-   ),
+   .expected_query_result =
+      nlohmann::json({row("id_2", VALUE_BELOW_FILTER), row("id_3", VALUE_ABOVE_FILTER)}),
 };
 
 const QueryTestScenario INT64_EQUALS_INT32_RANGE_VALUE_SCENARIO = {

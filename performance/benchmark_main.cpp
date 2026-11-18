@@ -6,12 +6,11 @@
 #include <cstdlib>
 #include <exception>
 
-#include <arrow/compute/api.h>
 #include <spdlog/spdlog.h>
 
 #include "sequence_generator.h"
 
-#include "rhydb/common/panic.h"
+#include "rhydb/query_engine/arrow_compute.h"
 
 int main(int argc, char** argv) {
    try {
@@ -20,7 +19,7 @@ int main(int argc, char** argv) {
       SPDLOG_ERROR("{}", exception.what());
       return EXIT_FAILURE;
    }
-   RHYDB_ASSERT(arrow::compute::Initialize().ok());
+   rhydb::query_engine::initializeArrowCompute();
    ::testing::InitGoogleMock(&argc, argv);
    return RUN_ALL_TESTS();
 }

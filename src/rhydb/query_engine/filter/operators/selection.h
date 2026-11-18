@@ -29,19 +29,25 @@ class Predicate {
 
    [[nodiscard]] virtual std::string toString() const = 0;
    [[nodiscard]] virtual bool match(storage::column::RowId row_id) const = 0;
-   // Often there are faster ways to generate the results, than calling match on each row.
-   // Optimise that case by overriding this method
-   [[nodiscard]] virtual roaring::Roaring makeBitmap(
-      const storage::column::RowLayout& row_layout
+   /// The rows of chunk `chunk_id`, which holds `chunk_size` rows, that match, as the low 16 bits
+   /// of their row ids. Often there are faster ways to generate the result than calling match on
+   /// each row. Optimise that case by overriding this method
+   [[nodiscard]] virtual roaring_util::RoaringContainer makeChunk(
+      uint16_t chunk_id,
+      uint32_t chunk_size
    ) const {
-      roaring::Roaring result;
-      for (const storage::column::RowId row_id : row_layout) {
-         if (match(row_id)) {
-            result.add(row_id.toGlobal());
+      auto result = roaring_util::RoaringContainer::withCapacity(static_cast<int32_t>(chunk_size));
+      for (uint32_t row_in_chunk = 0; row_in_chunk < chunk_size; ++row_in_chunk) {
+         const auto low_bits = static_cast<uint16_t>(row_in_chunk);
+         if (match(storage::column::RowId{.chunk_id = chunk_id, .row_in_chunk = low_bits})) {
+            result.add(low_bits);
          }
       }
       return result;
    };
+   /// Whether `makeChunk` is faster than calling `match` on every row of the chunk. Otherwise,
+   /// matching only some rows of a chunk is always cheaper than making the whole chunk.
+   [[nodiscard]] virtual bool evaluatesChunksInBulk() const { return false; }
    [[nodiscard]] virtual double estimateSelectivity(uint32_t /*row_count*/) const { return 0.5; }
    [[nodiscard]] virtual std::unique_ptr<Predicate> copy() const = 0;
    [[nodiscard]] virtual std::unique_ptr<Predicate> negate() const = 0;
@@ -139,7 +145,9 @@ class CompareToValueSelection : public Predicate {
    }
 
    [[nodiscard]] std::unique_ptr<Predicate> copy() const override {
-      return std::make_unique<CompareToValueSelection<ColumnType>>(column, comparator, value);
+      return std::make_unique<CompareToValueSelection<ColumnType>>(
+         column, comparator, value, with_nulls
+      );
    }
 
    [[nodiscard]] std::unique_ptr<Predicate> negate() const override {
@@ -184,7 +192,6 @@ class Selection : public Operator {
   private:
    std::optional<std::unique_ptr<Operator>> child_operator;
    std::vector<std::unique_ptr<Predicate>> predicates;
-   storage::column::RowLayout row_layout;
 
    Selection(
       std::optional<std::unique_ptr<Operator>> child_operator,
@@ -216,22 +223,11 @@ class Selection : public Operator {
 
    [[nodiscard]] Type type() const override;
 
-   [[nodiscard]] Bitmap evaluate() const override;
+   [[nodiscard]] roaring_util::CopyOnWriteContainer evaluateChunk(uint16_t chunk_id) const override;
 
    [[nodiscard]] std::string toString() const override;
 
    static std::unique_ptr<Operator> negate(std::unique_ptr<Selection>&& selection);
-
-  private:
-   template <std::ranges::range PredicateRange>
-   [[nodiscard]] static bool matchesPredicates(
-      const PredicateRange& predicates,
-      storage::column::RowId row_id
-   ) {
-      return std::ranges::all_of(predicates, [row_id](const auto& predicate) {
-         return predicate->match(row_id);
-      });
-   }
 };
 
 }  // namespace rhydb::query_engine::filter::operators

@@ -9,20 +9,25 @@ namespace rhydb_app::test {
 void MockResponse::sendContinue() {}
 
 std::ostream& MockResponse::send() {
+   was_sent = true;
    return out_stream;
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 void MockResponse::sendFile(const std::string& path, const std::string& mediaType) {}
 
-void MockResponse::sendBuffer(const void* pBuffer, std::size_t length) {}
+void MockResponse::sendBuffer(const void* pBuffer, std::size_t length) {
+   setContentLength64(static_cast<Poco::Int64>(length));
+   was_sent = true;
+   out_stream.write(static_cast<const char*>(pBuffer), static_cast<std::streamsize>(length));
+}
 
 void MockResponse::redirect(const std::string& uri, HTTPStatus status) {}
 
 void MockResponse::requireAuthentication(const std::string& realm) {}
 
 bool MockResponse::sent() const {
-   return true;
+   return was_sent;
 }
 
 MockRequest::MockRequest(MockResponse& mockResponse)

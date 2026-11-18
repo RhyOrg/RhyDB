@@ -45,6 +45,7 @@
 #include "rhydb/query_engine/saneql/table_literal_builder.h"
 #include "rhydb/query_engine/scalar_expressions/and.h"
 #include "rhydb/query_engine/scalar_expressions/at.h"
+#include "rhydb/query_engine/scalar_expressions/cast.h"
 #include "rhydb/query_engine/scalar_expressions/comparison.h"
 #include "rhydb/query_engine/scalar_expressions/concat.h"
 #include "rhydb/query_engine/scalar_expressions/date_between.h"
@@ -76,7 +77,13 @@ using rhydb::AminoAcid;
 using rhydb::Nucleotide;
 using rhydb::query_engine::filter::operators::Comparator;
 using rhydb::query_engine::saneql::ast::BinaryOp;
+using rhydb::query_engine::saneql::ast::TypeCast;
+using rhydb::query_engine::scalar_expressions::castConstant;
+using rhydb::query_engine::scalar_expressions::isCastSupported;
+using rhydb::query_engine::scalar_expressions::ScalarExpression;
 using rhydb::schema::DataType;
+using rhydb::schema::dataTypeToString;
+using rhydb::schema::fromSchemaTypeName;
 using rhydb::storage::column::Column;
 using rhydb::storage::column::SequenceColumn;
 using rhydb::storage::column::ZstdCompressedStringColumn;
@@ -103,7 +110,7 @@ schema::ColumnIdentifier resolveColumn(
 /// a scalar position. The handler resolves referenced columns against `schema`;
 /// this additionally validates that every referenced column exists so a missing
 /// column produces a diagnostic with the call's context and location.
-std::unique_ptr<scalar_expressions::ScalarExpression> convertScalarFunctionCall(
+std::unique_ptr<ScalarExpression> convertScalarFunctionCall(
    const ast::FunctionCall& call,
    const SourceLocation& location,
    const std::vector<schema::ColumnIdentifier>& schema,
@@ -140,20 +147,29 @@ std::unique_ptr<scalar_expressions::ScalarExpression> convertScalarFunctionCall(
    return expression;
 }
 
+std::unique_ptr<ScalarExpression> convertTypeCast(
+   const ast::Expression& ast,
+   const std::vector<schema::ColumnIdentifier>& schema,
+   std::string_view error_context,
+   const ScalarConversionContext& context
+);
+
 /// Converts a saneql expression into a RhyDB scalar Expression: a value-producing
 /// expression (as opposed to convertToFilter, which yields a boolean predicate).
 /// Supported forms are literals (int, float, string, bool), references to an
-/// existing column of `schema` (resolved to that column's type), and scalar
-/// function calls (see convertScalarFunctionCall). `error_context` prefixes
-/// diagnostics so callers can describe where the expression appears
+/// existing column of `schema` (resolved to that column's type), scalar
+/// function calls (see convertScalarFunctionCall) and type casts (see convertTypeCast).
+/// `error_context` prefixes diagnostics so callers can describe where the expression appears
 /// (e.g. "map() field 'x'").
-std::unique_ptr<scalar_expressions::ScalarExpression> convertToScalar(
+// NOLINTNEXTLINE(misc-no-recursion)
+std::unique_ptr<ScalarExpression> convertToScalar(
    const ast::Expression& ast,
    const std::vector<schema::ColumnIdentifier>& schema,
    std::string_view error_context,
    const ScalarConversionContext& context
 ) {
-   const auto& [value, location] = ast;
+   const auto& value = ast.value;
+   const auto& location = ast.location;
 
    if (std::holds_alternative<ast::Identifier>(value)) {
       const auto& name = std::get<ast::Identifier>(value).name;
@@ -196,8 +212,8 @@ std::unique_ptr<scalar_expressions::ScalarExpression> convertToScalar(
          std::get<ast::FunctionCall>(value), location, schema, error_context, context
       );
    }
-   if (isDateExpression(ast)) {
-      return std::make_unique<scalar_expressions::DateLiteral>(extractDateValue(ast));
+   if (std::holds_alternative<TypeCast>(value)) {
+      return convertTypeCast(ast, schema, error_context, context);
    }
 
    throw IllegalQueryException(
@@ -207,6 +223,115 @@ std::unique_ptr<scalar_expressions::ScalarExpression> convertToScalar(
       location.line,
       location.column
    );
+}
+
+/// The type a cast `expr::<name>` converts to: any type of a schema definition that holds plain
+/// values.
+DataType resolveCastTargetType(const TypeCast& cast, const SourceLocation& location) {
+   const auto type = fromSchemaTypeName(cast.target_type);
+   const bool is_value_type = type.has_value() && *type != DataType::NUCLEOTIDE_SEQUENCE &&
+                              *type != DataType::AMINO_ACID_SEQUENCE &&
+                              *type != DataType::ZSTD_COMPRESSED_STRING;
+   CHECK_RHYDB_QUERY(
+      is_value_type,
+      "cannot cast to unknown type '{}' at {}:{}; supported types are string, date, boolean, "
+      "int32, int64, float",
+      cast.target_type,
+      location.line,
+      location.column
+   );
+   return *type;
+}
+
+bool isLiteral(const ScalarExpression& expression) {
+   using Kind = ScalarExpression::Kind;
+   switch (expression.kind()) {
+      case Kind::INT32_LITERAL:
+      case Kind::INT64_LITERAL:
+      case Kind::FLOAT_LITERAL:
+      case Kind::STRING_LITERAL:
+      case Kind::BOOL_LITERAL:
+      case Kind::DATE_LITERAL:
+      case Kind::NULL_LITERAL:
+         return true;
+      default:
+         return false;
+   }
+}
+
+/// The operand of a cast. A comparison or a logical expression, e.g. `(age > 3)::string`, produces
+/// a boolean value, so it goes through the predicate converter.
+// NOLINTNEXTLINE(misc-no-recursion)
+std::unique_ptr<ScalarExpression> convertCastOperand(
+   const ast::Expression& operand,
+   const std::vector<schema::ColumnIdentifier>& schema,
+   std::string_view error_context,
+   const ScalarConversionContext& context
+) {
+   const bool is_boolean_expression = std::holds_alternative<ast::BinaryExpr>(operand.value) ||
+                                      std::holds_alternative<ast::LogicalExpr>(operand.value) ||
+                                      std::holds_alternative<ast::UnaryNotExpr>(operand.value);
+   if (is_boolean_expression) {
+      return convertToFilter(operand, schema, context);
+   }
+   return convertToScalar(operand, schema, error_context, context);
+}
+
+/// Converts `operand::<type>`. Casts of literals are evaluated right away and yield a literal of
+/// the target type (so they can still be used wherever a literal is required, e.g. in
+/// comparisons); casts of anything else are evaluated by Arrow when the query runs.
+// NOLINTNEXTLINE(misc-no-recursion)
+std::unique_ptr<ScalarExpression> convertTypeCast(
+   const ast::Expression& ast,
+   const std::vector<schema::ColumnIdentifier>& schema,
+   std::string_view error_context,
+   const ScalarConversionContext& context
+) {
+   const auto& cast = std::get<TypeCast>(ast.value);
+   const auto& location = ast.location;
+   const DataType target_type = resolveCastTargetType(cast, location);
+
+   if (ast::isNullLiteral(*cast.operand)) {
+      return std::make_unique<scalar_expressions::NullLiteral>(target_type);
+   }
+   if (
+      target_type == DataType::DATE32 &&
+      std::holds_alternative<ast::StringLiteral>(cast.operand->value)
+   ) {
+      return std::make_unique<scalar_expressions::DateLiteral>(extractDateValue(ast));
+   }
+
+   auto operand = convertCastOperand(*cast.operand, schema, error_context, context);
+   const DataType source_type = operand->type().getPlainType();
+   CHECK_RHYDB_QUERY(
+      isCastSupported(source_type, target_type),
+      "{}: cannot cast from {} to {} at {}:{}",
+      error_context,
+      dataTypeToString(source_type),
+      dataTypeToString(target_type),
+      location.line,
+      location.column
+   );
+   if (source_type == target_type) {
+      return operand;
+   }
+   if (!isLiteral(*operand)) {
+      return std::make_unique<scalar_expressions::Cast>(std::move(operand), target_type);
+   }
+
+   auto folded = castConstant(*operand, target_type);
+   CHECK_RHYDB_QUERY(
+      folded.ok(),
+      "{}: cannot cast {} from {} to {} at {}:{}: {}",
+      error_context,
+      operand->toString(),
+      dataTypeToString(source_type),
+      dataTypeToString(target_type),
+      location.line,
+      location.column,
+      folded.status().message()
+   );
+   return std::move(folded).ValueOrDie();
 }
 
 /// Maps a comparison ast::BinaryOp to the filter operator comparator.
@@ -516,7 +641,7 @@ ScalarExpressionPtr handleAt(
       input->type().getPlainType() == DataType::STRING,
       "at(): the input {} must be a string, but is of type {}",
       input_ast.toString(),
-      schema::dataTypeToString(input->type())
+      dataTypeToString(input->type())
    );
    const uint32_t position = extractUint32Literal(args.at("position"));
    CHECK_RHYDB_QUERY(
@@ -537,7 +662,7 @@ ScalarExpressionPtr handleIsoWeek(
       input->type().getPlainType() == DataType::DATE32,
       "isoWeek(): the input {} must be a date, but is of type {}",
       input_ast.toString(),
-      schema::dataTypeToString(input->type())
+      dataTypeToString(input->type())
    );
    return std::make_unique<scalar_expressions::IsoWeek>(std::move(input));
 }
@@ -554,7 +679,7 @@ ScalarExpressionPtr handleConcat(
       left->type().getPlainType() == DataType::STRING,
       "concat(): the left argument {} must be a string, but is of type {}",
       left_ast.toString(),
-      schema::dataTypeToString(left->type())
+      dataTypeToString(left->type())
    );
    const auto& right_ast = args.at("right");
    auto right = convertToScalar(right_ast, schema, "concat() right argument", context);
@@ -562,7 +687,7 @@ ScalarExpressionPtr handleConcat(
       right->type().getPlainType() == DataType::STRING,
       "concat(): the right argument {} must be a string, but is of type {}",
       right_ast.toString(),
-      schema::dataTypeToString(right->type())
+      dataTypeToString(right->type())
    );
    return std::make_unique<scalar_expressions::Concat>(std::move(left), std::move(right));
 }
@@ -748,6 +873,24 @@ ScalarExpressionPtr convertIdentifierToFilter(
    return std::make_unique<scalar_expressions::FieldRef>(*found);
 }
 
+/// A cast used directly as a predicate, e.g. `filter(flag::boolean)`; only casts to boolean are
+/// predicates.
+ScalarExpressionPtr convertTypeCastToFilter(
+   const ast::Expression& ast,
+   const std::vector<schema::ColumnIdentifier>& schema,
+   const ScalarConversionContext& context
+) {
+   auto expression = convertToScalar(ast, schema, "filter", context);
+   CHECK_RHYDB_QUERY(
+      expression->type() == DataType::BOOL,
+      "a cast to {} cannot be used as a filter predicate at {}:{}; only casts to boolean can",
+      std::get<TypeCast>(ast.value).target_type,
+      ast.location.line,
+      ast.location.column
+   );
+   return expression;
+}
+
 ScalarExpressionPtr convertFunctionCallToFilter(
    const ast::FunctionCall& node,
    const ast::Expression& ast,
@@ -766,7 +909,7 @@ ScalarExpressionPtr convertFunctionCallToFilter(
       expression->type() == DataType::BOOL,
       "scalar function '{}' produces a {} value and cannot be used as a filter predicate at {}:{}",
       node.function_name,
-      schema::dataTypeToString(expression->type()),
+      dataTypeToString(expression->type()),
       ast.location.line,
       ast.location.column
    );
@@ -775,7 +918,7 @@ ScalarExpressionPtr convertFunctionCallToFilter(
 
 }  // namespace
 
-std::unique_ptr<scalar_expressions::ScalarExpression> convertToFilter(
+std::unique_ptr<ScalarExpression> convertToFilter(
    const ast::Expression& ast,
    const std::vector<schema::ColumnIdentifier>& schema,
    const Tables& tables
@@ -783,7 +926,7 @@ std::unique_ptr<scalar_expressions::ScalarExpression> convertToFilter(
    return convertToFilter(ast, schema, ScalarConversionContext{.tables = tables});
 }
 
-std::unique_ptr<scalar_expressions::ScalarExpression> convertToScalar(
+std::unique_ptr<ScalarExpression> convertToScalar(
    const ast::Expression& ast,
    const std::vector<schema::ColumnIdentifier>& schema,
    std::string_view error_context,
@@ -793,7 +936,7 @@ std::unique_ptr<scalar_expressions::ScalarExpression> convertToScalar(
 }
 
 // NOLINTNEXTLINE(misc-no-recursion)
-std::unique_ptr<scalar_expressions::ScalarExpression> convertToFilter(
+std::unique_ptr<ScalarExpression> convertToFilter(
    const ast::Expression& ast,
    const std::vector<schema::ColumnIdentifier>& schema,
    const ScalarConversionContext& context
@@ -816,6 +959,8 @@ std::unique_ptr<scalar_expressions::ScalarExpression> convertToFilter(
             return convertIdentifierToFilter(node, ast, schema);
          } else if constexpr (std::is_same_v<T, ast::FunctionCall>) {
             return convertFunctionCallToFilter(node, ast, schema, context);
+         } else if constexpr (std::is_same_v<T, TypeCast>) {
+            return convertTypeCastToFilter(ast, schema, context);
          } else {
             throw IllegalQueryException(
                "unsupported expression type in filter context at {}:{}",
@@ -884,7 +1029,7 @@ void validateSumArguments(
       "aggregate '{}': sum requires a numeric (int, int64 or float) column, but '{}' has type {}",
       field.name,
       source_column->name,
-      schema::dataTypeToString(source_column->type)
+      dataTypeToString(source_column->type)
    );
 }
 
@@ -914,7 +1059,7 @@ void validateMinMaxArguments(
       field.name,
       func.function_name,
       source_column->name,
-      schema::dataTypeToString(source_column->type)
+      dataTypeToString(source_column->type)
    );
 }
 
@@ -1059,7 +1204,7 @@ std::vector<std::string> namesWithTypes(const std::vector<schema::ColumnIdentifi
    std::vector<std::string> result;
    result.reserve(schema.size());
    for (const auto& col : schema) {
-      result.push_back(fmt::format("{}:{}", col.name, schema::dataTypeToString(col.type)));
+      result.push_back(fmt::format("{}:{}", col.name, dataTypeToString(col.type)));
    }
    return result;
 }
@@ -1604,8 +1749,8 @@ void collectJoinKeys(
       "'{}' and '{}' have mismatching types {} and {} at {}",
       binary.left->toString(),
       binary.right->toString(),
-      schema::dataTypeToString(first.column.type),
-      schema::dataTypeToString(second.column.type),
+      dataTypeToString(first.column.type),
+      dataTypeToString(second.column.type),
       on_expression.location.toString()
    );
    if (first.side == JoinSide::LEFT) {
@@ -1735,7 +1880,7 @@ operators::QueryNodePtr handleTransitiveClosure(const BoundArguments& args, cons
             vertex->type() == DataType::STRING,
             "a startingFrom vertex must be a string, but {} is of type {} at {}",
             element->toString(),
-            schema::dataTypeToString(vertex->type()),
+            dataTypeToString(vertex->type()),
             element->location.toString()
          );
          starting_from->push_back(std::move(vertex));
@@ -2000,7 +2145,7 @@ ScalarFunctionRegistry& ScalarFunctionRegistry::instance() {
 
 operators::QueryNodePtr makeTableScan(
    const std::shared_ptr<storage::Table>& table,
-   std::unique_ptr<scalar_expressions::ScalarExpression> filter
+   std::unique_ptr<ScalarExpression> filter
 ) {
    auto table_scan = std::make_unique<operators::TableScanNode>(
       table, std::move(filter), table->schema->getColumnIdentifiers()

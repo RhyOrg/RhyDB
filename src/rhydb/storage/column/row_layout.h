@@ -10,10 +10,6 @@
 #include "rhydb/common/panic.h"
 #include "rhydb/storage/column/row_id.h"
 
-namespace roaring {
-class Roaring;
-}
-
 namespace rhydb::storage::column {
 
 /// The shared per-chunk row layout of a table partition. Chunk `k` holds `chunkSize(k)` rows and
@@ -52,15 +48,6 @@ class RowLayout {
 
    /// The total number of rows across all chunks. Equals the partition's sequence count.
    [[nodiscard]] uint32_t numRows() const { return num_rows; }
-
-   /// A bitmap of every valid global row id
-   [[nodiscard]] roaring::Roaring fullBitmap() const;
-
-   /// Replace `bitmap` with its complement within the universe of valid row ids: afterwards it
-   /// contains exactly the valid row ids it did not contain before. `bitmap` is expected to be a
-   /// subset of the universe. Flips each chunk's populated range in place, so the 2^16-aligned gaps
-   /// between chunks are never spuriously filled.
-   void complementInPlace(roaring::Roaring& bitmap) const;
 
    /// Forward iterator yielding the `RowId` of every row in the partition
    class Iterator {

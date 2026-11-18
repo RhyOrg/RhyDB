@@ -138,6 +138,12 @@ class NumericColumn {
       }
    }
 
+   /// Removes the rows `compaction` deletes and renumbers the remaining ones, see `RowCompaction`.
+   void deleteRows(const RowCompaction& compaction) {
+      values.deleteRows(compaction);
+      compaction.compact(null_bitmap);
+   }
+
   private:
    friend class boost::serialization::access;
    template <class Archive>

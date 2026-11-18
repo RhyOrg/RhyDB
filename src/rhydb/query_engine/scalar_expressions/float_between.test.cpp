@@ -73,7 +73,34 @@ const QueryTestScenario NEGATED_FLOAT_BETWEEN_WITH_FROM_AND_TO_SCENARIO = {
    .expected_query_result = nlohmann::json({
       {{"primaryKey", "id_2"}, {"float_value", 0.345}},
       {{"primaryKey", "id_3"}, {"float_value", 2.345}},
-      {{"primaryKey", "id_4"}, {"float_value", nullptr}},
+   }),
+};
+
+const QueryTestScenario FLOAT_BETWEEN_INCLUDES_BOTH_BOUNDS_SCENARIO = {
+   .name = "FLOAT_BETWEEN_INCLUDES_BOTH_BOUNDS_SCENARIO",
+   .query = "data.filter(float_value.between(1.23, 2.345)).project({primaryKey, float_value})",
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"float_value", 1.23}},
+      {{"primaryKey", "id_1"}, {"float_value", 1.23}},
+      {{"primaryKey", "id_3"}, {"float_value", 2.345}},
+   }),
+};
+
+const QueryTestScenario FLOAT_BETWEEN_WITH_EQUAL_BOUNDS_SCENARIO = {
+   .name = "FLOAT_BETWEEN_WITH_EQUAL_BOUNDS_SCENARIO",
+   .query = "data.filter(float_value.between(1.23, 1.23)).project({primaryKey, float_value})",
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_0"}, {"float_value", 1.23}},
+      {{"primaryKey", "id_1"}, {"float_value", 1.23}},
+   }),
+};
+
+const QueryTestScenario NEGATED_FLOAT_BETWEEN_WITH_EQUAL_BOUNDS_SCENARIO = {
+   .name = "NEGATED_FLOAT_BETWEEN_WITH_EQUAL_BOUNDS_SCENARIO",
+   .query = "data.filter(!(float_value.between(1.23, 1.23))).project({primaryKey, float_value})",
+   .expected_query_result = nlohmann::json({
+      {{"primaryKey", "id_2"}, {"float_value", 0.345}},
+      {{"primaryKey", "id_3"}, {"float_value", 2.345}},
    }),
 };
 
@@ -92,7 +119,6 @@ const QueryTestScenario NEGATED_FLOAT_BETWEEN_WITH_FROM_SCENARIO = {
    .query = "data.filter(!(float_value >= 0.5)).project({primaryKey, float_value})",
    .expected_query_result = nlohmann::json({
       {{"primaryKey", "id_2"}, {"float_value", 0.345}},
-      {{"primaryKey", "id_4"}, {"float_value", nullptr}},
    }),
 };
 
@@ -111,7 +137,6 @@ const QueryTestScenario NEGATED_FLOAT_BETWEEN_WITH_TO_SCENARIO = {
    .query = "data.filter(!(float_value < 1.5)).project({primaryKey, float_value})",
    .expected_query_result = nlohmann::json({
       {{"primaryKey", "id_3"}, {"float_value", 2.345}},
-      {{"primaryKey", "id_4"}, {"float_value", nullptr}},
    }),
 };
 
@@ -152,6 +177,9 @@ QUERY_TEST(
    ::testing::Values(
       FLOAT_BETWEEN_WITH_FROM_AND_TO_SCENARIO,
       NEGATED_FLOAT_BETWEEN_WITH_FROM_AND_TO_SCENARIO,
+      FLOAT_BETWEEN_INCLUDES_BOTH_BOUNDS_SCENARIO,
+      FLOAT_BETWEEN_WITH_EQUAL_BOUNDS_SCENARIO,
+      NEGATED_FLOAT_BETWEEN_WITH_EQUAL_BOUNDS_SCENARIO,
       FLOAT_BETWEEN_WITH_FROM_SCENARIO,
       NEGATED_FLOAT_BETWEEN_WITH_FROM_SCENARIO,
       FLOAT_BETWEEN_WITH_TO_SCENARIO,

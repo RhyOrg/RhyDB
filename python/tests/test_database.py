@@ -12,6 +12,9 @@ import pyarrow as pa
 TEST_DATA_DIR = os.path.join(os.path.dirname(__file__), '..', '..', 'testBaseData', 'exampleDataset')
 REFERENCE_GENOMES_FILE = os.path.join(TEST_DATA_DIR, 'reference_genomes.json')
 INPUT_FILE = os.path.join(TEST_DATA_DIR, 'input_file.ndjson')
+DATABASE_CONFIG_FILE = os.path.join(TEST_DATA_DIR, 'database_config.yaml')
+LINEAGE_DEFINITION_FILE = os.path.join(TEST_DATA_DIR, 'lineage_definition.yaml')
+PHYLOGENETIC_TREE_FILE = os.path.join(TEST_DATA_DIR, 'phylogenetic_tree.nwk')
 
 # A serialized database (checked into the repo) whose schema has scalar value columns
 # (age:int, qc_value:float, date:date, test_boolean_column:bool), filled with real data.
@@ -96,6 +99,7 @@ class TestDatabaseCreation:
     def test_database_has_expected_methods(self, empty_database):
         """Test that the database has all expected methods."""
         expected_methods = [
+            'preprocess',
             'append_data_from_file',
             'append_data_from_string',
             'query',
@@ -117,6 +121,153 @@ class TestDatabaseCreation:
         from rhydb import Database
         with Database() as db:
             assert db is not None
+
+
+def preprocess_example_dataset(database, **kwargs):
+    """Preprocess the example dataset into `database`, by default into the table `data`."""
+    database.preprocess(
+        database_config=DATABASE_CONFIG_FILE,
+        reference_genomes=REFERENCE_GENOMES_FILE,
+        input_file=INPUT_FILE,
+        lineage_definitions=[LINEAGE_DEFINITION_FILE],
+        phylogenetic_tree=PHYLOGENETIC_TREE_FILE,
+        **kwargs,
+    )
+
+
+class TestPreprocess:
+    """Test preprocessing initialization files and NDJSON data into the default table."""
+
+    def test_preprocess_fills_default_table(self, empty_database):
+        preprocess_example_dataset(empty_database)
+        assert len(empty_database.get_filtered_bitmap("data")) == 100
+
+    def test_preprocess_fills_reference_genomes(self, empty_database, main_reference_sequence):
+        preprocess_example_dataset(empty_database)
+        assert empty_database.get_nucleotide_reference_sequence("data", "main") == main_reference_sequence
+        result = empty_database.query(
+            "reference_genomes.filter(name = 'main' && type = 'nucleotide').project({sequence})"
+        )
+        assert result.to_pydict() == {"sequence": [main_reference_sequence]}
+
+    def test_preprocess_supports_lineage_queries(self, empty_database):
+        preprocess_example_dataset(empty_database)
+        assert empty_database.get_filtered_bitmap("data", "lineage(pango_lineage, 'B.1.1.7')")
+
+    def test_preprocess_accepts_path_objects(self, empty_database):
+        from pathlib import Path
+        empty_database.preprocess(
+            database_config=Path(DATABASE_CONFIG_FILE),
+            reference_genomes=Path(REFERENCE_GENOMES_FILE),
+            input_file=Path(INPUT_FILE),
+            lineage_definitions=[Path(LINEAGE_DEFINITION_FILE)],
+        )
+        assert len(empty_database.get_filtered_bitmap("data")) == 100
+
+    def test_preprocessed_database_survives_checkpoint(self, empty_database, temp_dir):
+        from rhydb import Database
+        preprocess_example_dataset(empty_database)
+        save_path = os.path.join(temp_dir, "checkpoint")
+        empty_database.save_checkpoint(save_path)
+
+        loaded = Database(save_path)
+        assert len(loaded.get_filtered_bitmap("data")) == 100
+
+    def test_preprocess_twice_into_same_table_raises(self, empty_database):
+        preprocess_example_dataset(empty_database)
+        with pytest.raises(RuntimeError, match="already exists"):
+            preprocess_example_dataset(empty_database)
+
+    def test_preprocess_into_named_table(self, empty_database):
+        preprocess_example_dataset(empty_database, table_name="sequences")
+        assert len(empty_database.get_filtered_bitmap("sequences")) == 100
+        with pytest.raises(ValueError, match="not found"):
+            empty_database.query("data")
+
+    def test_preprocess_multiple_tables(self, empty_database):
+        preprocess_example_dataset(empty_database)
+        preprocess_example_dataset(empty_database, table_name="second")
+        assert len(empty_database.get_filtered_bitmap("data")) == 100
+        assert len(empty_database.get_filtered_bitmap("second")) == 100
+        assert empty_database.get_filtered_bitmap(
+            "second",
+            "pango_lineage.lineageFromTables('B.1.1.7', second_pango_lineage, "
+            "second_pango_lineage_aliases)",
+        )
+        reference_genomes = empty_database.query("reference_genomes.project({name})")
+        names = reference_genomes.to_pydict()["name"]
+        assert "main" in names
+        assert "second_main" in names
+        lineage_definitions = empty_database.query("lineage_definitions.project({column_name})")
+        assert sorted(lineage_definitions.to_pydict()["column_name"]) == [
+            "pango_lineage",
+            "second_pango_lineage",
+        ]
+
+    def test_preprocess_tables_with_different_references(
+        self, empty_database, temp_dir, main_reference_sequence
+    ):
+        preprocess_example_dataset(empty_database, table_name="first")
+        with open(REFERENCE_GENOMES_FILE) as source:
+            reference_genomes = json.load(source)
+        for sequence in reference_genomes["nucleotideSequences"]:
+            if sequence["name"] == "main":
+                sequence["sequence"] = "C" + sequence["sequence"][1:]
+        changed_reference_genomes = os.path.join(temp_dir, "reference_genomes.json")
+        with open(changed_reference_genomes, "w") as target:
+            json.dump(reference_genomes, target)
+        empty_database.preprocess(
+            database_config=DATABASE_CONFIG_FILE,
+            reference_genomes=changed_reference_genomes,
+            input_file=INPUT_FILE,
+            lineage_definitions=[LINEAGE_DEFINITION_FILE],
+            phylogenetic_tree=PHYLOGENETIC_TREE_FILE,
+            table_name="second",
+        )
+        assert empty_database.get_nucleotide_reference_sequence("first", "main") == main_reference_sequence
+        assert empty_database.get_nucleotide_reference_sequence("second", "main").startswith("C")
+
+    def test_preprocess_invalid_table_name_raises(self, empty_database):
+        with pytest.raises(RuntimeError, match="table name"):
+            preprocess_example_dataset(empty_database, table_name="has space")
+
+    def test_preprocess_missing_lineage_definition_raises(self, empty_database):
+        with pytest.raises(RuntimeError, match="lineage"):
+            empty_database.preprocess(
+                database_config=DATABASE_CONFIG_FILE,
+                reference_genomes=REFERENCE_GENOMES_FILE,
+                input_file=INPUT_FILE,
+            )
+
+    def test_preprocess_duplicate_primary_key_raises(self, empty_database, temp_dir):
+        input_file = os.path.join(temp_dir, "input.ndjson")
+        with open(INPUT_FILE) as source, open(input_file, "w") as target:
+            first_line = source.readline()
+            target.write(first_line)
+            target.write(first_line)
+        with pytest.raises(RuntimeError, match="primary key"):
+            empty_database.preprocess(
+                database_config=DATABASE_CONFIG_FILE,
+                reference_genomes=REFERENCE_GENOMES_FILE,
+                input_file=input_file,
+                lineage_definitions=[LINEAGE_DEFINITION_FILE],
+            )
+
+    def test_preprocess_nonexistent_file_raises(self, empty_database):
+        with pytest.raises(FileNotFoundError):
+            empty_database.preprocess(
+                database_config=DATABASE_CONFIG_FILE,
+                reference_genomes=REFERENCE_GENOMES_FILE,
+                input_file="/nonexistent/input.ndjson",
+            )
+
+    def test_preprocess_empty_path_raises(self, empty_database):
+        with pytest.raises(ValueError):
+            empty_database.preprocess(
+                database_config="",
+                reference_genomes=REFERENCE_GENOMES_FILE,
+                input_file=INPUT_FILE,
+            )
 
 
 class TestCreateTableQuery:
@@ -277,6 +428,26 @@ class TestAppendData:
         # Then append data
         empty_database.append_data_from_file("sequences", INPUT_FILE)
         # If no exception, data was appended
+
+    def test_append_data_from_zst_file(self, empty_database, main_reference_sequence, tmp_path):
+        """Test appending data from a zstd-compressed file."""
+        zstd = pytest.importorskip("compression.zstd")
+        create_sequence_table(
+            empty_database,
+            table_name="sequences",
+            primary_key_name="primary_key",
+            sequence_name="main",
+            reference_sequence=main_reference_sequence
+        )
+        compressed_file = tmp_path / "input_file.ndjson.zst"
+        with open(INPUT_FILE, "rb") as input_file:
+            compressed_file.write_bytes(zstd.compress(input_file.read()))
+
+        empty_database.append_data_from_file("sequences", str(compressed_file))
+
+        with open(INPUT_FILE) as input_file:
+            expected_row_count = sum(1 for line in input_file if line.strip())
+        assert len(empty_database.get_filtered_bitmap("sequences", 'true')) == expected_row_count
 
 
 class TestGetFilteredBitmap:
@@ -617,6 +788,39 @@ class TestCreatedTablesQueryable:
 
 class TestQuery:
     """Test the query method that returns PyArrow Tables."""
+
+    def test_query_orders_rows(self, empty_database):
+        """order() needs Arrow's compute functions, which the bindings register on import."""
+        empty_database.query("createTable(t, {id := string, age := int}, primaryKey := id)")
+        empty_database.append_data_from_string(
+            "t", '{"id": "b", "age": 1}\n{"id": "a", "age": 3}\n{"id": "c", "age": 2}'
+        )
+
+        assert empty_database.query("t.order(by := {id})").to_pydict() == {
+            "age": [3, 1, 2],
+            "id": ["a", "b", "c"],
+        }
+        assert empty_database.query("t.order(by := {age}).limit(2).project({id})").to_pydict() == {
+            "id": ["b", "c"],
+        }
+
+    def test_query_with_regex_after_importing_pyarrow_first(self):
+        """like() runs RE2, which uses Abseil. pyarrow ships its own Abseil, which must not replace
+        the one of the bindings when pyarrow is imported first. Runs in a subprocess to control the
+        import order and to turn a crash into a failure."""
+        import subprocess
+        import sys
+        script = """
+import pyarrow
+from rhydb import Database
+db = Database()
+db.query("createTable(t, {id := string, name := string}, primaryKey := id)")
+db.append_data_from_string("t", '{"id": "1", "name": "first:main"}\\n{"id": "2", "name": "x"}')
+print(db.query("t.filter(name.like('.*:main')).project({name})").to_pydict())
+"""
+        result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
+        assert result.returncode == 0, result.stderr[-2000:]
+        assert "{'name': ['first:main']}" in result.stdout
 
     def test_query_returns_pyarrow_table(self, empty_database, main_reference_sequence):
         """Test that query returns a PyArrow Table."""
@@ -973,3 +1177,48 @@ class TestUpdateStatementOnLoadedDatabase:
         from rhydb import Database
         fresh = Database(SERIALIZED_STATE_DIR)
         assert self._count(fresh, "age = 999") == 0
+
+
+class TestDeleteStatementOnLoadedDatabase:
+    """End-to-end delete statement tests against the serialized database checked into the repo.
+
+    The deletion mutates only the in-memory database, so every test loads its own fresh copy and
+    the repo files are left untouched.
+    """
+
+    @pytest.fixture
+    def loaded_database(self):
+        from rhydb import Database
+        return Database(SERIALIZED_STATE_DIR)
+
+    @staticmethod
+    def _count(database, filter_expression):
+        return len(database.get_filtered_bitmap("data", filter_expression))
+
+    def test_delete_returns_number_of_deleted_rows(self, loaded_database):
+        """Only the rows matching the predicate are deleted; the rest keep their values."""
+        matching = self._count(loaded_database, "age = 4")
+        total = self._count(loaded_database, "true")
+        assert 0 < matching < total
+        remaining_keys = loaded_database.query(
+            "data.filter(!(age = 4)).project({primaryKey, age})"
+        ).to_pydict()
+
+        result = loaded_database.query("delete(data, where := age = 4)")
+
+        assert result.to_pydict() == {"deletedRows": [matching]}
+        assert self._count(loaded_database, "true") == total - matching
+        assert self._count(loaded_database, "age = 4") == 0
+        assert loaded_database.query("data.project({primaryKey, age})").to_pydict() == remaining_keys
+
+    def test_delete_without_predicate_deletes_every_row(self, loaded_database):
+        total = self._count(loaded_database, "true")
+
+        result = loaded_database.query("delete(data)")
+
+        assert result.to_pydict() == {"deletedRows": [total]}
+        assert self._count(loaded_database, "true") == 0
+
+    def test_delete_with_unknown_column_raises(self, loaded_database):
+        with pytest.raises(ValueError, match="unknown column"):
+            loaded_database.query("delete(data, where := does_not_exist = 1)")

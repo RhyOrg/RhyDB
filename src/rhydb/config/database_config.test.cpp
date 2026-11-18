@@ -90,6 +90,28 @@ schema:
    }
 }
 
+TEST(DatabaseConfig, shouldTreatNullMetadataOptionsAsNotSet) {
+   const DatabaseConfig config = DatabaseConfig::getValidatedConfig(
+      R"({"schema": {
+         "instanceName": "testInstanceName",
+         "metadata": [
+            {
+               "name": "metadata1",
+               "type": "string",
+               "generateIndex": null,
+               "generateLineageIndex": null,
+               "isPhyloTreeField": null
+            }
+         ]
+      }})"
+   );
+   ASSERT_EQ(config.schema.metadata.size(), 1);
+   const auto& metadata = config.schema.metadata.at(0);
+   ASSERT_FALSE(metadata.generate_index);
+   ASSERT_FALSE(metadata.generate_lineage_index.has_value());
+   ASSERT_FALSE(metadata.phylo_tree_node_identifier);
+}
+
 namespace {
 
 struct TestParameter {

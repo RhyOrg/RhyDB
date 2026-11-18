@@ -37,14 +37,22 @@ std::unique_ptr<ScalarExpression> FieldRef::rewrite(
    return std::make_unique<FieldRef>(column);
 }
 
-std::unique_ptr<filter::operators::Operator> FieldRef::compile(const storage::Table& table) const {
+std::unique_ptr<filter::operators::Operator> FieldRef::compile(
+   const storage::Table& table,
+   bool with_null_rows
+) const {
    CHECK_RHYDB_QUERY(
       table.hasColumn<storage::column::BoolColumn>(column.name),
       "The column '{}' is not of type bool and cannot be used directly as a filter predicate",
       column.name
    );
    const auto& bool_column = table.getColumn<storage::column::BoolColumn>(column.name);
-   return std::make_unique<filter::operators::IndexScan>(bool_column.trueRows(), table.row_layout);
+   // Like `column = true`, the predicate is null on the null rows, see `ScalarExpression::compile`
+   Bitmap selected = bool_column.trueRows();
+   if (with_null_rows) {
+      selected |= bool_column.nullRows();
+   }
+   return std::make_unique<filter::operators::IndexScan>(std::move(selected), table.row_layout);
 }
 
 }  // namespace rhydb::query_engine::scalar_expressions

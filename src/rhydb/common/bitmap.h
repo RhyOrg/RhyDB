@@ -5,7 +5,6 @@
 #include <iterator>
 #include <span>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include <roaring/roaring.hh>
@@ -15,9 +14,9 @@
 namespace rhydb {
 
 /// A full row-id set represented as a sorted list of 2^16-keyed containers -- the same
-/// decomposition a `roaring::Roaring` uses internally. Each container is either a non-owning
-/// `RoaringContainerView` into a container owned elsewhere (a column index, or another bitmap that
-/// outlives this one) or an owning `RoaringContainer`. A bitmap constructed from an existing
+/// decomposition a `roaring::Roaring` uses internally. Each container is a `CopyOnWriteContainer`,
+/// i.e. either a non-owning view into a container owned elsewhere (a column index, or another
+/// bitmap that outlives this one) or an owning container. A bitmap constructed from an existing
 /// `roaring::Roaring` starts as all views; the first set operation that has to change a container
 /// replaces that view with a private owning copy -- copy-on-write, at the granularity of a single
 /// container.
@@ -26,21 +25,13 @@ namespace rhydb {
 /// container lists through the roaring container-level C API
 class Bitmap {
    /// A single 2^16 block's container, either a non-owning view or a privately-owned copy.
-   using Container =
-      std::variant<roaring_util::RoaringContainerView, roaring_util::RoaringContainer>;
+   using Container = roaring_util::CopyOnWriteContainer;
 
    /// Struct-of-arrays: `keys[i]` is the 2^16 block key of the container held in `containers[i]`,
    /// so the two vectors always have the same length. `keys` is sorted strictly ascending and no
    /// container is ever empty
    std::vector<uint16_t> keys;
    std::vector<Container> containers;
-
-   /// read-only handle onto a container, regardless of ownership.
-   static roaring_util::RoaringContainerView viewOf(const Container& container);
-
-   /// Deep-copies a container: view alternatives are copied as views, owning alternatives are
-   /// cloned into independent owning containers.
-   static Container copyContainer(const Container& container);
 
    /// Appends a freshly produced container (and its key) to the parallel output arrays, taking
    /// ownership -- or frees it if empty, preserving roaring's "no empty containers" invariant.
@@ -97,7 +88,7 @@ class Bitmap {
             index(index) {}
 
       value_type operator*() const {
-         return {bitmap->keys[index], viewOf(bitmap->containers[index])};
+         return {bitmap->keys[index], bitmap->containers[index].view()};
       }
 
       ConstIterator& operator++() {
@@ -117,6 +108,14 @@ class Bitmap {
 
    [[nodiscard]] ConstIterator begin() const { return ConstIterator{this, 0}; }
    [[nodiscard]] ConstIterator end() const { return ConstIterator{this, keys.size()}; }
+
+   /// The container of the 2^16 block `key`, empty if the bitmap holds no value in it. Like copying
+   /// the bitmap, a view stays a view and an owning container is cloned.
+   [[nodiscard]] Container containerAt(uint16_t key) const;
+
+   /// Appends the container of the 2^16 block `key`, which must be greater than every key the
+   /// bitmap already holds. An empty container is dropped.
+   void append(uint16_t key, Container container);
 
    /// Cardinality of the intersection with `other`, without materializing it.
    [[nodiscard]] uint64_t andCardinality(const Bitmap& other) const;

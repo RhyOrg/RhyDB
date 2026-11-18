@@ -56,8 +56,19 @@ void Date32Column::update(const roaring::Roaring& row_ids, std::optional<common:
    }
 
    // An update can move a value in either direction, so the cheap incremental sortedness tracking
-   // of `appendChunk` no longer applies; recompute it by scanning the whole column. As in
-   // `appendChunk`, any null makes the column unsorted, and `last_appended_value` is the last
+   // of `appendChunk` no longer applies
+   recomputeSortedness();
+}
+
+void Date32Column::deleteRows(const RowCompaction& compaction) {
+   values.deleteRows(compaction);
+   compaction.compact(null_bitmap);
+   // Deleting rows can make an unsorted column sorted, e.g. by deleting its nulls
+   recomputeSortedness();
+}
+
+void Date32Column::recomputeSortedness() {
+   // As in `appendChunk`, any null makes the column unsorted, and `last_appended_value` is the last
    // non-null value so a subsequent `appendChunk` can keep detecting cross-chunk regressions.
    is_sorted = true;
    last_appended_value = std::nullopt;

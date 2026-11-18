@@ -63,4 +63,9 @@ void FloatColumn::update(
    }
 }
 
+void FloatColumn::deleteRows(const RowCompaction& compaction) {
+   values.deleteRows(compaction);
+   compaction.compact(null_bitmap);
+}
+
 }  // namespace rhydb::storage::column

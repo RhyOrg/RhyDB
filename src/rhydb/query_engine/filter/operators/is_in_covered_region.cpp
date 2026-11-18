@@ -52,14 +52,16 @@ bool IsInCoveredRegion::match(storage::column::RowId row_id) const {
    return isCovered(row_id.toGlobal()) == (comparator == Comparator::IS_COVERED);
 }
 
-roaring::Roaring IsInCoveredRegion::makeBitmap(const storage::column::RowLayout& row_layout) const {
-   EVOBENCH_SCOPE("IsInCoveredRegion", "makeBitmap");
-   auto coverage_bitmap = horizontal_coverage_index->coveredRows(position_idx);
+roaring_util::RoaringContainer IsInCoveredRegion::makeChunk(
+   uint16_t chunk_id,
+   uint32_t chunk_size
+) const {
+   EVOBENCH_SCOPE("IsInCoveredRegion", "makeChunk");
+   auto covered_rows = horizontal_coverage_index->coveredRowsInChunk(position_idx, chunk_id);
    if (comparator == Comparator::IS_NOT_COVERED) {
-      row_layout.complementInPlace(coverage_bitmap);
-      return coverage_bitmap;
+      return roaring_util::complement(roaring_util::RoaringContainerView{covered_rows}, chunk_size);
    }
-   return coverage_bitmap;
+   return covered_rows;
 }
 
 double IsInCoveredRegion::estimateSelectivity(uint32_t /*row_count*/) const {

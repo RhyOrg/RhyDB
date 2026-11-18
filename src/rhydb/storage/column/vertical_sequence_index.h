@@ -12,6 +12,7 @@
 #include "rhydb/common/bitmap.h"
 #include "rhydb/common/symbol_map.h"
 #include "rhydb/roaring_util/roaring_container.h"
+#include "rhydb/storage/column/row_compaction.h"
 
 namespace rhydb::storage::column {
 
@@ -100,6 +101,9 @@ class VerticalSequenceIndex {
       uint32_t position_idx,
       const std::vector<typename SymbolType::Symbol>& symbols
    ) const;
+
+   /// Removes the rows `compaction` deletes and renumbers the remaining ones, see `RowCompaction`.
+   void deleteRows(const RowCompaction& compaction);
 
    void overwriteSymbolsInSequences(
       std::vector<std::string>& sequences,

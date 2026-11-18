@@ -15,9 +15,14 @@
 #include "rhydb/query_engine/exec_node/arrow_batch_sink.h"
 #include "rhydb/query_engine/operators/query_node.h"
 #include "rhydb/query_engine/saneql/function_registry.h"
+#include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
 
 namespace rhydb {
 class Database;
+}
+
+namespace rhydb::storage {
+class Table;
 }
 
 namespace rhydb::query_engine::command {
@@ -45,6 +50,15 @@ using WriteCommandPtr = std::unique_ptr<WriteCommand>;
 [[nodiscard]] arrow::Result<std::shared_ptr<arrow::Table>> makeWriteSummary(
    const std::string& name,
    const std::shared_ptr<arrow::Scalar>& value
+);
+
+/// Converts the optional `where` argument of a write statement into a filter predicate over the
+/// columns of `table`, as `filter(...)` sees them. Without `where` the predicate matches every row,
+/// as in SQL.
+[[nodiscard]] std::unique_ptr<scalar_expressions::ScalarExpression> buildWherePredicate(
+   const saneql::BoundArguments& args,
+   const std::shared_ptr<storage::Table>& table,
+   const saneql::Tables& tables
 );
 
 /// Writes the result of a write command to `output_sink`, batch by batch, and finishes the sink.

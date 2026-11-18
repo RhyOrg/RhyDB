@@ -21,9 +21,9 @@ Intersection::Intersection(
    OperatorVector&& negated_children,
    storage::column::RowLayout row_layout
 )
-    : children(std::move(children)),
-      negated_children(std::move(negated_children)),
-      row_layout(std::move(row_layout)) {
+    : Operator(std::move(row_layout)),
+      children(std::move(children)),
+      negated_children(std::move(negated_children)) {
    if (this->children.empty()) {
       SPDLOG_ERROR(
          "Compilation bug: Intersection without non-negated children is not allowed. "
@@ -79,47 +79,31 @@ Type Intersection::type() const {
    return INTERSECTION;
 }
 
-Bitmap Intersection::evaluate() const {
-   EVOBENCH_SCOPE("Intersection", "evaluate");
-   std::vector<Bitmap> children_bm;
-   children_bm.reserve(children.size());
-   std::ranges::transform(children, std::back_inserter(children_bm), [&](const auto& child) {
-      return child->evaluate();
-   });
-   std::vector<Bitmap> negated_children_bm;
-   negated_children_bm.reserve(negated_children.size());
-   std::ranges::transform(
-      negated_children, std::back_inserter(negated_children_bm), [&](const auto& child) {
-         return child->evaluate();
+roaring_util::CopyOnWriteContainer Intersection::evaluateChunk(uint16_t chunk_id) const {
+   EVOBENCH_SCOPE("Intersection", "evaluateChunk");
+   std::vector<roaring_util::CopyOnWriteContainer> child_results;
+   child_results.reserve(children.size());
+   for (const auto& child : children) {
+      auto child_result = child->evaluateChunk(chunk_id);
+      if (child_result.empty()) {
+         // The remaining children cannot select anything
+         return {};
       }
-   );
-   // Sort ascending, such that intermediate results are kept small
-   std::ranges::sort(children_bm, [](const Bitmap& expression1, const Bitmap& expression2) {
-      return expression1.cardinality() < expression2.cardinality();
-   });
-   // Sort negated children descending by size
-   std::ranges::sort(
-      negated_children_bm, [](const Bitmap& expression_result1, const Bitmap& expression_result2) {
-         return expression_result1.cardinality() > expression_result2.cardinality();
-      }
-   );
+      child_results.push_back(std::move(child_result));
+   }
+   // Intersect the smallest first, such that intermediate results are kept small
+   std::ranges::sort(child_results, {}, &roaring_util::CopyOnWriteContainer::getCardinality);
 
-   // children_bm > 0 as asserted in constructor
-   if (children_bm.size() == 1) {
-      // negated_children_bm cannot be empty because of size assertion in constructor
-      Bitmap result = std::move(children_bm[0]);
-      for (auto& neg_bm : negated_children_bm) {
-         result -= neg_bm;
+   // children is not empty, as asserted in the constructor
+   roaring_util::CopyOnWriteContainer result = std::move(child_results.front());
+   for (size_t idx = 1; idx < child_results.size() && !result.empty(); ++idx) {
+      result &= child_results[idx].view();
+   }
+   for (const auto& negated_child : negated_children) {
+      if (result.empty()) {
+         break;
       }
-      return result;
-   }
-   Bitmap result = std::move(children_bm[0]);
-   result &= children_bm[1];
-   for (uint32_t i = 2; i < children_bm.size(); i++) {
-      result &= children_bm[i];
-   }
-   for (auto& neg_bm : negated_children_bm) {
-      result -= neg_bm;
+      result -= negated_child->evaluateChunk(chunk_id).view();
    }
    return result;
 }

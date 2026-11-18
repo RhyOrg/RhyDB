@@ -28,7 +28,8 @@ class DateBetween : public ScalarExpression {
    /// Answers the range from the inverted index of a dictionary-encoded date column
    [[nodiscard]] std::unique_ptr<filter::operators::Operator> compileOnDictionary(
       const storage::column::DictionaryEncodedColumn<storage::column::Date32Column>& date_column,
-      const storage::column::RowLayout& row_layout
+      const storage::column::RowLayout& row_layout,
+      bool with_null_rows
    ) const;
 
   public:
@@ -54,7 +55,8 @@ class DateBetween : public ScalarExpression {
    ) const override;
 
    [[nodiscard]] std::unique_ptr<filter::operators::Operator> compile(
-      const storage::Table& table
+      const storage::Table& table,
+      bool with_null_rows
    ) const override;
 };
 

@@ -19,10 +19,19 @@ TEST(RuntimeConfig, shouldReadConfig) {
    ASSERT_EQ(runtime_config.api_options.port, 1234);
    ASSERT_EQ(runtime_config.data_directory, "test/directory");
    ASSERT_TRUE(runtime_config.api_options.allow_admin_endpoint);
+   ASSERT_EQ(
+      runtime_config.api_options.cors_allowed_origins, "https://example.org,https://other.org:8443"
+   );
 }
 
 // The write-enabled admin endpoint must stay off unless it is explicitly switched on, so that an
 // existing read-only instance stays read-only after an upgrade.
 TEST(RuntimeConfig, adminEndpointIsDisabledByDefault) {
    ASSERT_FALSE(RuntimeConfig::withDefaults().api_options.allow_admin_endpoint);
+}
+
+// CORS is opt-in: without configuration no CORS headers must be sent. The core only stores the raw
+// string; validation and parsing of it live in the API layer (see rhydb_app::CorsPolicy).
+TEST(RuntimeConfig, corsIsDisabledByDefault) {
+   ASSERT_FALSE(RuntimeConfig::withDefaults().api_options.cors_allowed_origins.has_value());
 }

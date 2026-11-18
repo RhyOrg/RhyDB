@@ -1,5 +1,6 @@
 #include "rhydb/query_engine/optimizer/map_pullup_pass.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <string>
@@ -11,7 +12,9 @@
 #include "rhydb/query_engine/operators/fetch_node.h"
 #include "rhydb/query_engine/operators/map_node.h"
 #include "rhydb/query_engine/operators/order_by_node.h"
+#include "rhydb/query_engine/operators/project_node.h"
 #include "rhydb/query_engine/scalar_expressions/at.h"
+#include "rhydb/query_engine/scalar_expressions/cast.h"
 #include "rhydb/query_engine/scalar_expressions/concat.h"
 #include "rhydb/query_engine/scalar_expressions/field_ref.h"
 #include "rhydb/query_engine/scalar_expressions/iso_week.h"
@@ -22,7 +25,13 @@ namespace rhydb::query_engine::optimizer {
 
 namespace {
 
+using scalar_expressions::At;
+using scalar_expressions::Cast;
+using scalar_expressions::Concat;
+using scalar_expressions::FieldRef;
+using scalar_expressions::IsoWeek;
 using scalar_expressions::ScalarExpression;
+using scalar_expressions::ZstdDecompressScalar;
 
 /// Rebuilds `expression` with every `FieldRef` to a column in `produced` replaced by a clone of
 /// that column's defining expression, inlining a lower map's assignments into an upper map's
@@ -42,40 +51,40 @@ std::unique_ptr<ScalarExpression> substituteColumns(
    using Kind = ScalarExpression::Kind;
    switch (expression.kind()) {
       case Kind::FIELD_REF: {
-         const auto& field_ref = static_cast<const scalar_expressions::FieldRef&>(expression);
+         const auto& field_ref = static_cast<const FieldRef&>(expression);
          const auto replacement = produced.find(field_ref.column.name);
          return replacement != produced.end() ? replacement->second->clone() : expression.clone();
       }
       case Kind::AT: {
-         const auto& at_expression = static_cast<const scalar_expressions::At&>(expression);
+         const auto& at_expression = static_cast<const At&>(expression);
          auto input = substituteColumns(*at_expression.input, produced);
          return input == nullptr ? nullptr
-                                 : std::make_unique<scalar_expressions::At>(
-                                      std::move(input), at_expression.position
-                                   );
+                                 : std::make_unique<At>(std::move(input), at_expression.position);
       }
       case Kind::ISO_WEEK: {
-         const auto& iso_week = static_cast<const scalar_expressions::IsoWeek&>(expression);
+         const auto& iso_week = static_cast<const IsoWeek&>(expression);
          auto input = substituteColumns(*iso_week.input, produced);
+         return input == nullptr ? nullptr : std::make_unique<IsoWeek>(std::move(input));
+      }
+      case Kind::CAST: {
+         const auto& cast = static_cast<const Cast&>(expression);
+         auto input = substituteColumns(*cast.input, produced);
          return input == nullptr ? nullptr
-                                 : std::make_unique<scalar_expressions::IsoWeek>(std::move(input));
+                                 : std::make_unique<Cast>(std::move(input), cast.target_type);
       }
       case Kind::CONCAT: {
-         const auto& concat = static_cast<const scalar_expressions::Concat&>(expression);
+         const auto& concat = static_cast<const Concat&>(expression);
          auto left = substituteColumns(*concat.left, produced);
          auto right = substituteColumns(*concat.right, produced);
          return (left == nullptr || right == nullptr)
                    ? nullptr
-                   : std::make_unique<scalar_expressions::Concat>(
-                        std::move(left), std::move(right)
-                     );
+                   : std::make_unique<Concat>(std::move(left), std::move(right));
       }
       case Kind::ZSTD_DECOMPRESS_SCALAR: {
-         const auto& zstd =
-            static_cast<const scalar_expressions::ZstdDecompressScalar&>(expression);
+         const auto& zstd = static_cast<const ZstdDecompressScalar&>(expression);
          auto input = substituteColumns(*zstd.input, produced);
          return input == nullptr ? nullptr
-                                 : std::make_unique<scalar_expressions::ZstdDecompressScalar>(
+                                 : std::make_unique<ZstdDecompressScalar>(
                                       std::move(input), zstd.dictionary_string
                                    );
       }
@@ -91,56 +100,102 @@ std::unique_ptr<ScalarExpression> substituteColumns(
    }
 }
 
+/// `Fetch(Map(child))` → `Map(Fetch(child))`. A FetchNode only limits/offsets rows and references
+/// no columns, so the swap is always valid. Returns the MapNode, now owning the FetchNode.
+operators::QueryNodePtr pullMapAboveFetch(
+   operators::QueryNodePtr map_owner,
+   const operators::FetchNode& fetch
+) {
+   auto& map = static_cast<operators::MapNode&>(*map_owner);
+   map.child =
+      std::make_unique<operators::FetchNode>(std::move(map.child), fetch.count, fetch.offset);
+   return map_owner;
+}
+
+/// Whether `OrderBy(Map(child))` may become `Map(OrderBy(child))`: only when no order-by field
+/// references a column the MapNode produces. Otherwise the OrderBy below would sort on a different
+/// value (a replaced column) or a column that does not exist yet (a newly added one).
+bool canPullMapAboveOrderBy(const operators::MapNode& map, const operators::OrderByNode& order_by) {
+   std::unordered_set<std::string> produced_columns;
+   for (const auto& assignment : map.assignments) {
+      produced_columns.insert(assignment.output_column.name);
+   }
+   return std::ranges::none_of(order_by.fields, [&](const auto& field) {
+      return produced_columns.contains(field.field.name);
+   });
+}
+
+/// `OrderBy(Map(child))` → `Map(OrderBy(child))`; the caller checks `canPullMapAboveOrderBy`.
+/// Returns the MapNode, now owning a new OrderByNode that takes over `order_by`'s fields.
+operators::QueryNodePtr pullMapAboveOrderBy(
+   operators::QueryNodePtr map_owner,
+   operators::OrderByNode& order_by
+) {
+   auto& map = static_cast<operators::MapNode&>(*map_owner);
+   map.child = std::make_unique<operators::OrderByNode>(
+      std::move(map.child), std::move(order_by.fields), order_by.randomize_seed
+   );
+   return map_owner;
+}
+
+/// The MapNode directly below a ProjectNode `node`, or nullptr when `node` is not a ProjectNode
+/// over a MapNode. A FetchNode or OrderByNode above such a projection is moved below it, so the
+/// MapNode can be pulled above it in turn:
+///
+/// ```
+/// P(Project(M(child)))  →  Project(M(P(child)))
+/// ```
+///
+/// Swapping P and the projection is valid because the projection neither changes nor reorders
+/// rows, and every column P references is an output of the projection and hence also available
+/// below it. The projection stays on top, so the output schema (and column order) is unchanged.
+operators::MapNode* mapBelowProject(operators::QueryNode& node) {
+   if (node.kind() != operators::NodeKind::PROJECT) {
+      return nullptr;
+   }
+   auto& project = static_cast<operators::ProjectNode&>(node);
+   if (project.child->kind() != operators::NodeKind::MAP) {
+      return nullptr;
+   }
+   return static_cast<operators::MapNode*>(project.child.get());
+}
+
 }  // namespace
 
 // NOLINTNEXTLINE(misc-no-recursion)
 operators::QueryNodePtr MapPullupPass::operator()(operators::FetchNode& node) {
    propagateToNode(node.child);
 
-   // A FetchNode only limits/offsets rows; it references no columns, so a MapNode below
-   // it can always be pulled up.
-   if (node.child->kind() != operators::NodeKind::MAP) {
-      return nullptr;
+   if (node.child->kind() == operators::NodeKind::MAP) {
+      return pullMapAboveFetch(std::move(node.child), node);
    }
-   operators::QueryNodePtr map_owner = std::move(node.child);
-   auto& map = static_cast<operators::MapNode&>(*map_owner);
-
-   auto new_fetch =
-      std::make_unique<operators::FetchNode>(std::move(map.child), node.count, node.offset);
-   map.child = std::move(new_fetch);
-   return map_owner;
+   if (mapBelowProject(*node.child) != nullptr) {
+      auto& project = static_cast<operators::ProjectNode&>(*node.child);
+      project.child = pullMapAboveFetch(std::move(project.child), node);
+      return std::move(node.child);
+   }
+   return nullptr;
 }
 
 // NOLINTNEXTLINE(misc-no-recursion)
 operators::QueryNodePtr MapPullupPass::operator()(operators::OrderByNode& node) {
    propagateToNode(node.child);
 
-   if (node.child->kind() != operators::NodeKind::MAP) {
-      return nullptr;
-   }
-   auto& map = static_cast<operators::MapNode&>(*node.child);
-
-   // The columns the MapNode produces (newly added or replaced in place).
-   std::unordered_set<std::string> produced_columns;
-   for (const auto& assignment : map.assignments) {
-      produced_columns.insert(assignment.output_column.name);
-   }
-
-   // Pulling the MapNode above the OrderBy is only safe when no order-by field references a
-   // produced column. Otherwise the OrderBy below would sort on a different value (a replaced
-   // column) or a column that does not exist yet (a newly added one), changing the result.
-   for (const auto& field : node.fields) {
-      if (produced_columns.contains(field.field.name)) {
+   if (node.child->kind() == operators::NodeKind::MAP) {
+      if (!canPullMapAboveOrderBy(static_cast<operators::MapNode&>(*node.child), node)) {
          return nullptr;
       }
+      return pullMapAboveOrderBy(std::move(node.child), node);
    }
-
-   operators::QueryNodePtr map_owner = std::move(node.child);
-   auto new_order_by = std::make_unique<operators::OrderByNode>(
-      std::move(map.child), std::move(node.fields), node.randomize_seed
-   );
-   map.child = std::move(new_order_by);
-   return map_owner;
+   if (const auto* map = mapBelowProject(*node.child)) {
+      if (!canPullMapAboveOrderBy(*map, node)) {
+         return nullptr;
+      }
+      auto& project = static_cast<operators::ProjectNode&>(*node.child);
+      project.child = pullMapAboveOrderBy(std::move(project.child), node);
+      return std::move(node.child);
+   }
+   return nullptr;
 }
 
 // NOLINTNEXTLINE(misc-no-recursion)

@@ -10,7 +10,7 @@
 namespace rhydb::query_engine::filter::operators {
 
 Empty::Empty(storage::column::RowLayout row_layout)
-    : row_layout(std::move(row_layout)) {};
+    : Operator(std::move(row_layout)) {};
 
 Empty::~Empty() noexcept = default;
 
@@ -22,7 +22,7 @@ Type Empty::type() const {
    return EMPTY;
 }
 
-Bitmap Empty::evaluate() const {
+roaring_util::CopyOnWriteContainer Empty::evaluateChunk(uint16_t /*chunk_id*/) const {
    return {};
 }
 

@@ -61,6 +61,57 @@ with Database("path/to/rhydb-dir") as db:
     result = db.query("data")
 ```
 
+### Preprocessing
+
+**`preprocess(database_config, reference_genomes, input_file, lineage_definitions=(), phylogenetic_tree=None, without_unaligned_sequences=False, table_name="data")`**
+Does what the `preprocessing` command does, but into this in-memory database instead of a saved
+state. It takes the same initialization files as the command, given as paths (`str` or
+`os.PathLike`). It creates the table `table_name` (default `data`) from the database config and the
+reference genomes, and adds the reference genomes and lineage definitions to the built-in
+`reference_genomes` and `lineage_definitions` tables. It then builds the lineage relation tables,
+appends the NDJSON input and checks that the primary key is unique. A column's
+`generateLineageIndex` names its lineage definition file, with or without the `.yaml` extension.
+
+```python
+db = Database()
+db.preprocess(
+    database_config="database_config.yaml",
+    reference_genomes="reference_genomes.json",
+    input_file="input.ndjson",
+    lineage_definitions=["lineage_definition.yaml"],
+)
+db.save_checkpoint("path/to/rhydb-dir")
+```
+
+Call `preprocess` once per table to preprocess several inputs into the same database:
+
+```python
+db = Database()
+db.preprocess(database_config="dengue_config.yaml", reference_genomes="dengue_references.json",
+              input_file="dengue.ndjson", table_name="dengue")
+db.preprocess(database_config="zika_config.yaml", reference_genomes="zika_references.json",
+              input_file="zika.ndjson", table_name="zika")
+db.query("reference_genomes.filter(name = 'dengue_main')")
+```
+
+For a table other than `data`, preprocessing prefixes the names of its reference sequences in
+`reference_genomes`, of its lineage tables and of their rows in `lineage_definitions` with the
+table name, e.g. `dengue_main` for the sequence `main` and `dengue_lineage` and
+`dengue_lineage_aliases` for the lineage column `lineage`. So the tables may use different
+references and lineage definitions of the same name. Queries must use these names: `lineage(...)`
+only finds the lineage tables of `data`, so the lineage columns of other tables are filtered with
+`lineageFromTables`, and `createTable` columns reference e.g. `reference := dengue_main`:
+
+```python
+db.query("dengue.filter(lineage.lineageFromTables('1', dengue_lineage, dengue_lineage_aliases))")
+```
+
+Preprocessing into a table name that already exists raises, as does a table whose lineage tables
+already exist.
+
+Raises `FileNotFoundError` for a missing file and `RuntimeError` for invalid input. Invalid input may
+leave the database partially filled.
+
 ### Building a database in memory
 
 Tables are created with the SaneQL [`createTable`](query_documentation.md#createtabletable-symbol-columns-record-primarykey-symbol)
@@ -101,7 +152,7 @@ db.append_data_from_string(
 
 **`query(query_string)`** → `pyarrow.Table`
 Executes a [SaneQL](query_documentation.md) query. The leading identifier is the table name.
-Write statements (`createTable(...)`, `<query>.insertInto(<table>)`, `update(...)`) are applied to
+Write statements (`createTable(...)`, `<query>.insertInto(<table>)`, `update(...)`, `delete(...)`) are applied to
 the in-memory database in place and return a single-row summary, e.g. `{createdTable: "sequences"}`.
 
 ```python
@@ -150,6 +201,21 @@ db.query("update(data, set := {test_boolean_column := null}, where := region = '
 The update mutates only the **in-memory** database. On-disk state is left untouched until you call `save_checkpoint`. Because the update bumps the data version, a subsequently saved checkpoint is written as a new versioned state.
 
 **Not thread-safe.** `update` mutates the in-memory database in place with no internal locking.
+
+### Deleting rows
+
+Rows are deleted with the SaneQL
+[`delete`](query_documentation.md#deletetable-symbol-where-expression) statement, run through
+`query()`. It returns the number of deleted rows, e.g. `{deletedRows: 2}`. Like `update`, it only
+changes the in-memory database until `save_checkpoint` is called, and it is not thread-safe.
+
+```python
+# Delete the rows currently equal to 4
+db.query("delete(data, where := age = 4)")
+
+# Delete every row
+db.query("delete(data)")
+```
 
 ### Persisting state
 

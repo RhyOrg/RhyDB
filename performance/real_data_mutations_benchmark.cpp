@@ -140,7 +140,7 @@ Database ingest() {
          )
       );
    }
-   const rhydb::InputStreamWrapper input{dataset};
+   const auto input = rhydb::InputStreamWrapper::openFileWithEndingLookup(dataset);
 
    const auto start = std::chrono::high_resolution_clock::now();
    database.appendData(rhydb::schema::TableName::getDefault(), input.getInputStream());

@@ -13,8 +13,8 @@ BitmapProducer::BitmapProducer(
    std::function<Bitmap()> producer,
    storage::column::RowLayout row_layout
 )
-    : producer(std::move(producer)),
-      row_layout(std::move(row_layout)) {}
+    : Operator(std::move(row_layout)),
+      producer(std::move(producer)) {}
 
 BitmapProducer::~BitmapProducer() noexcept = default;
 
@@ -26,9 +26,12 @@ Type BitmapProducer::type() const {
    return BITMAP_PRODUCER;
 }
 
-Bitmap BitmapProducer::evaluate() const {
-   EVOBENCH_SCOPE("BitmapProducer", "evaluate");
-   return producer();
+roaring_util::CopyOnWriteContainer BitmapProducer::evaluateChunk(uint16_t chunk_id) const {
+   std::call_once(produced, [this] {
+      EVOBENCH_SCOPE("BitmapProducer", "produce");
+      produced_bitmap = producer();
+   });
+   return produced_bitmap.containerAt(chunk_id);
 }
 
 std::unique_ptr<Operator> BitmapProducer::negate(

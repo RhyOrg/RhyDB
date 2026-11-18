@@ -116,6 +116,7 @@ std::expected<void, std::string> SequenceColumn<SymbolType>::appendChunk(const B
       }
    }
    null_bitmap.push_back(std::move(null_rows));
+   insertion_index.appendChunk();
    num_chunks++;
    // The vertical index keys its roaring containers by the row id's high 16 bits (= the chunk id),
    // so a chunk's mutations never share a container with another chunk's. Flushing the per-position
@@ -143,7 +144,7 @@ void SequenceColumn<SymbolType>::appendValue(RowId row_id, const BufferedSequenc
             genome_length
          );
       }
-      insertion_index.addLazily(position, insertion, row_id.toGlobal());
+      insertion_index.add(position, insertion, row_id.row_in_chunk);
    }
 }
 
@@ -159,11 +160,21 @@ bool SequenceColumn<SymbolType>::isNull(RowId row_id) const {
 }
 
 template <typename SymbolType>
+void SequenceColumn<SymbolType>::deleteRows(const RowCompaction& compaction) {
+   // The mutation buffer is flushed at every chunk boundary, so it holds no rows to renumber
+   vertical_sequence_index.deleteRows(compaction);
+   horizontal_coverage_index.deleteRows(compaction);
+   insertion_index.deleteRows(compaction);
+   compaction.compact(null_bitmap);
+   // Every row, null or not, counts as a sequence
+   sequence_count = compaction.compactedLayout().numRows();
+   num_chunks = static_cast<uint16_t>(compaction.compactedLayout().numChunks());
+   calculateInfo();
+}
+
+template <typename SymbolType>
 void SequenceColumn<SymbolType>::finalize() {
    flushBuffer();
-
-   SPDLOG_DEBUG("Building insertion index");
-   insertion_index.buildIndex();
 
    const SequenceColumnInfo info_after_filling = calculateInfo();
 

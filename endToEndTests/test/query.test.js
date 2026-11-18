@@ -137,6 +137,32 @@ describe('The /query endpoint', () => {
     })
   );
 
+  it('should reject deeply nested queries with a bad request instead of crashing', async () => {
+    let filter = "country = 'Switzerland'";
+    for (let i = 0; i < 10000; i++) {
+      filter = `(age >= ${i} ${i % 2 === 0 ? '&&' : '||'} ${filter})`;
+    }
+    const response = await server
+      .post('/query')
+      .set('Content-Type', 'text/plain')
+      .send(`data.filter(${filter}).group(by:={}, aggs:={count:=count()})`);
+
+    const errorMessage = 'Actual result is:\n' + response.text + '\n';
+    expect(response.status, errorMessage).to.equal(400);
+    expect(response.body.message, errorMessage).to.contain(
+      'Expression is nested too deeply, the maximum nesting depth is 100'
+    );
+
+    const postfixChainResponse = await server
+      .post('/query')
+      .set('Content-Type', 'text/plain')
+      .send(`data.filter(country${'.isNull()'.repeat(10000)}).group(by:={}, aggs:={count:=count()})`);
+    expect(postfixChainResponse.status, postfixChainResponse.text).to.equal(400);
+
+    const healthResponse = await server.get('/health');
+    expect(healthResponse.status).to.equal(200);
+  });
+
   it('invalid query test cases should have unique names', () => {
     const testCaseNames = invalidQueryTestCases.map(testCase => testCase.testCaseName);
     const uniqueTestCaseNames = [...new Set(testCaseNames)];

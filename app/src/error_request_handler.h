@@ -12,6 +12,7 @@
 #include <string>
 
 #include <Poco/Net/HTTPRequestHandler.h>
+#include <Poco/Net/HTTPServerResponse.h>
 #include <nlohmann/json.hpp>
 
 #include <rhydb/config/runtime_config.h>
@@ -24,6 +25,12 @@ struct ErrorResponse {
 };
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ErrorResponse, error, message);
+
+/// Sends `error_response` as JSON body with a Content-Length. The status must be set before.
+void sendErrorResponse(
+   Poco::Net::HTTPServerResponse& response,
+   const ErrorResponse& error_response
+);
 
 class ErrorRequestHandler : public Poco::Net::HTTPRequestHandler {
   private:
@@ -42,6 +49,9 @@ class ErrorRequestHandler : public Poco::Net::HTTPRequestHandler {
    ) override;
 
   private:
+   /// Maps the exception that is currently being handled to an error response
+   void respondToCurrentException(Poco::Net::HTTPServerResponse& response);
+
    std::optional<std::string> computeRetryAfterHintForStartupTime();
 };
 

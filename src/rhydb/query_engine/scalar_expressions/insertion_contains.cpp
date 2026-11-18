@@ -50,7 +50,8 @@ std::unique_ptr<ScalarExpression> InsertionContains<SymbolType>::rewrite(
 
 template <typename SymbolType>
 std::unique_ptr<filter::operators::Operator> InsertionContains<SymbolType>::compile(
-   const storage::Table& table
+   const storage::Table& table,
+   bool /*with_null_rows*/
 ) const {
    const auto valid_sequence_name = validateSequenceName<SymbolType>(column.name, *table.schema);
 
@@ -83,8 +84,7 @@ std::unique_ptr<filter::operators::Operator> InsertionContains<SymbolType>::comp
    }
    return std::make_unique<filter::operators::BitmapProducer>(
       [&sequence_store, position_idx = position_idx, search_pattern] {
-         auto search_result = sequence_store.insertion_index.search(position_idx, *search_pattern);
-         return Bitmap(std::move(*search_result));
+         return sequence_store.insertion_index.search(position_idx, *search_pattern);
       },
       table.row_layout
    );

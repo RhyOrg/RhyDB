@@ -22,6 +22,7 @@
 #include "rhydb/query_engine/exec_node/async_batch_producer.h"
 #include "rhydb/query_engine/exec_node/schema_output_builder.h"
 #include "rhydb/query_engine/operators/compute_filter.h"
+#include "rhydb/roaring_util/roaring_container.h"
 #include "rhydb/schema/database_schema.h"
 #include "rhydb/storage/column/insertion_index.h"
 #include "rhydb/storage/table.h"
@@ -66,24 +67,17 @@ arrow::Status addAggregatedInsertionsToInsertionCounts(
    const auto& sequence_column =
       table.getColumn<storage::column::SequenceColumn<SymbolType>>(sequence_name);
    std::unordered_map<PositionAndInsertionKey, uint32_t> all_insertions;
-   const roaring::Roaring filter_bitmap = bitmap_filter.toRoaring();
-   auto bitmap_cardinality = filter_bitmap.cardinality();
-   if (bitmap_cardinality == 0) {
-      return arrow::Status::OK();
-   }
-   if (bitmap_cardinality == table.row_layout.numRows()) {
+   const auto& index_chunks = sequence_column.insertion_index.getChunks();
+   for (const auto& [chunk_id, filter_rows] : bitmap_filter) {
+      // A chunk whose rows all pass the filter counts each insertion's rows without intersecting
+      const bool all_rows_pass =
+         filter_rows.getCardinality() == table.row_layout.chunkSize(chunk_id);
       for (const auto& [position, insertions_at_position] :
-           sequence_column.insertion_index.getInsertionPositions()) {
+           index_chunks.at(chunk_id).getInsertionPositions()) {
          for (const auto& insertion : insertions_at_position.insertions) {
-            all_insertions[PositionAndInsertionKey{position, insertion.value}] +=
-               insertion.row_ids.cardinality();
-         }
-      }
-   } else {
-      for (const auto& [position, insertions_at_position] :
-           sequence_column.insertion_index.getInsertionPositions()) {
-         for (const auto& insertion : insertions_at_position.insertions) {
-            const uint32_t count = insertion.row_ids.and_cardinality(filter_bitmap);
+            const roaring_util::RoaringContainerView rows{insertion.row_ids};
+            const uint32_t count = all_rows_pass ? rows.getCardinality()
+                                                 : roaring_util::andCardinality(rows, filter_rows);
             if (count > 0) {
                all_insertions[PositionAndInsertionKey{position, insertion.value}] += count;
             }

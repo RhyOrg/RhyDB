@@ -50,7 +50,8 @@ std::unique_ptr<ScalarExpression> ZstdDecompressScalar::rewrite(
 }
 
 std::unique_ptr<filter::operators::Operator> ZstdDecompressScalar::compile(
-   const storage::Table& /*table*/
+   const storage::Table& /*table*/,
+   bool /*with_null_rows*/
 ) const {
    // ZstdDecompressScalar is a scalar expression, not a filter predicate.
    RHYDB_UNIMPLEMENTED();

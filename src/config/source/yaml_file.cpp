@@ -5,7 +5,6 @@
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
-#include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/string/split.hpp>
 
@@ -41,7 +40,7 @@ bool isProperSingularValue(const YAML::Node& node) {
 
 std::vector<std::string> splitByDot(const std::string& str) {
    std::vector<std::string> result;
-   boost::split(result, str, boost::is_any_of("."));
+   boost::split(result, str, [](char character) { return character == '.'; });
    return result;
 }
 

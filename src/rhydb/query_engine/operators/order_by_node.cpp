@@ -21,6 +21,7 @@
 
 #include "rhydb/common/panic.h"
 #include "rhydb/query_engine/exec_node/arrow_util.h"
+#include "rhydb/query_engine/exec_node/stop_forwarding_node.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/query_engine/operators/order_by_randomize.h"
 #include "rhydb/schema/database_schema.h"
@@ -38,7 +39,7 @@ arrow::Result<arrow::acero::ExecNode*> addSortNode(
 ) {
    arrow::AsyncGenerator<std::optional<arrow::ExecBatch>> generator;
    ARROW_ASSIGN_OR_RAISE(
-      top_node,
+      auto* sink_node,
       arrow::acero::MakeExecNode(
          "order_by_sink",
          &plan,
@@ -46,11 +47,18 @@ arrow::Result<arrow::acero::ExecNode*> addSortNode(
          arrow::acero::OrderBySinkNodeOptions{arrow::SortOptions{ordering}, &generator}
       )
    );
-   top_node->SetLabel("order by");
+   sink_node->SetLabel("order by");
    auto schema = exec_node::columnsToArrowSchema(output_fields);
-   return arrow::acero::MakeExecNode(
-      "source", &plan, {}, arrow::acero::SourceNodeOptions{schema, std::move(generator), ordering}
+   ARROW_ASSIGN_OR_RAISE(
+      auto* source_node,
+      arrow::acero::MakeExecNode(
+         "source",
+         &plan,
+         {},
+         arrow::acero::SourceNodeOptions{schema, std::move(generator), ordering}
+      )
    );
+   return exec_node::forwardStopToSink(plan, source_node, sink_node);
 }
 
 }  // namespace

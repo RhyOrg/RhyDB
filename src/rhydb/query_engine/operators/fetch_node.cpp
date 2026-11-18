@@ -12,6 +12,7 @@
 #include <arrow/util/async_generator_fwd.h>
 #include <nlohmann/json.hpp>
 
+#include "rhydb/query_engine/exec_node/stop_forwarding_node.h"
 #include "rhydb/schema/database_schema.h"
 #include "rhydb/storage/table.h"
 
@@ -37,12 +38,18 @@ arrow::Result<arrow::acero::ExecNode*> resequenceWithOrdering(
       )
    );
    sink_node->SetLabel(label);
-   return arrow::acero::MakeExecNode(
-      "source",
-      &plan,
-      {},
-      arrow::acero::SourceNodeOptions{std::move(schema), std::move(generator), std::move(ordering)}
+   ARROW_ASSIGN_OR_RAISE(
+      auto* source_node,
+      arrow::acero::MakeExecNode(
+         "source",
+         &plan,
+         {},
+         arrow::acero::SourceNodeOptions{
+            std::move(schema), std::move(generator), std::move(ordering)
+         }
+      )
    );
+   return exec_node::forwardStopToSink(plan, source_node, sink_node);
 }
 
 }  // namespace

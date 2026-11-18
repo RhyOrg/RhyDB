@@ -1,5 +1,51 @@
 # Changelog
 
+## [0.17.5](https://github.com/RhyOrg/RhyDB/compare/v0.17.4...v0.17.5) (2026-11-16)
+
+
+### Features
+
+* **app:** add config options for CORS ([#1782](https://github.com/RhyOrg/RhyDB/issues/1782)) ([3e37cdc](https://github.com/RhyOrg/RhyDB/commit/3e37cdc63e67c4ec6425a5421058d9898251edef))
+* **preprocessing:** preprocess into a configurable table ([#1810](https://github.com/RhyOrg/RhyDB/issues/1810)) ([e0a1023](https://github.com/RhyOrg/RhyDB/commit/e0a1023b0ddf928c1a4af15159fa05bf70e910d1))
+
+
+### Bug Fixes
+
+* **app:** send query results with a Content-Length, or chunked if they are large ([#1774](https://github.com/RhyOrg/RhyDB/issues/1774)) ([3a10e28](https://github.com/RhyOrg/RhyDB/commit/3a10e280ce73121ab4852f417a3d12bb797f638d))
+* **config:** treat null metadata options as not set ([#1795](https://github.com/RhyOrg/RhyDB/issues/1795)) ([36d6e3b](https://github.com/RhyOrg/RhyDB/commit/36d6e3b033c2084100b94e20ed4475ee6dd34947))
+* **query_engine:** make float-between bound inclusive ([#1809](https://github.com/RhyOrg/RhyDB/issues/1809)) ([1523a12](https://github.com/RhyOrg/RhyDB/commit/1523a12915fb6f6bf7edc68db307d0adf865f075))
+* **query_engine:** negations of filters do not select null rows ([#1804](https://github.com/RhyOrg/RhyDB/issues/1804)) ([bc9a58e](https://github.com/RhyOrg/RhyDB/commit/bc9a58e0fd4745166a17db3b07fe8487fb664713))
+* **query_engine:** string searches and string sets cannot match null rows ([#1801](https://github.com/RhyOrg/RhyDB/issues/1801)) ([a975382](https://github.com/RhyOrg/RhyDB/commit/a975382b4cf8c036eca21d81814f3e9b524de4c2))
+
+
+### Performance Improvements
+
+* **query_engine:** fix chunk-filter performance regressions ([#1808](https://github.com/RhyOrg/RhyDB/issues/1808)) ([51e69f7](https://github.com/RhyOrg/RhyDB/commit/51e69f76c88f28526aea6cdd9798e85f85923c2b))
+
+## [0.17.4](https://github.com/RhyOrg/RhyDB/compare/v0.17.3...v0.17.4) (2026-11-02)
+
+
+### Bug Fixes
+
+* **app:** abort the connection when a handler fails after its response was started ([#1775](https://github.com/RhyOrg/RhyDB/issues/1775)) ([da29cba](https://github.com/RhyOrg/RhyDB/commit/da29cba96846fae31ed2d425cdb707cdd67a7692))
+* **app:** close every connection after its response explicitly ([#1776](https://github.com/RhyOrg/RhyDB/issues/1776)) ([6245808](https://github.com/RhyOrg/RhyDB/commit/6245808734fd4e48891443af63fb3c6fb982a050))
+* **app:** send error responses and small fixed bodies with a Content-Length ([#1773](https://github.com/RhyOrg/RhyDB/issues/1773)) ([0889fb4](https://github.com/RhyOrg/RhyDB/commit/0889fb4278c2a150d02e65fa4f7bbe854e3b58e7))
+* **python:** avoid clash of linker symbols ([#1781](https://github.com/RhyOrg/RhyDB/issues/1781)) ([24b2470](https://github.com/RhyOrg/RhyDB/commit/24b2470e3835cb03adf9cbad76348e1fbbecedfd))
+* **python:** register Arrow's compute functions and use the default query options ([#1771](https://github.com/RhyOrg/RhyDB/issues/1771)) ([b03f27c](https://github.com/RhyOrg/RhyDB/commit/b03f27c1b47fd5769c2eefe7bc3ec7c44025ee77))
+
+
+### Performance Improvements
+
+* **common:** check lineage definitions for cycles in linear time ([#1766](https://github.com/RhyOrg/RhyDB/issues/1766)) ([81e3b4b](https://github.com/RhyOrg/RhyDB/commit/81e3b4bca0d0ffcfdfdffb336374fb5e2367bd9b))
+
+## [0.17.3](https://github.com/RhyOrg/RhyDB/compare/v0.17.2...v0.17.3) (2026-10-28)
+
+
+### Features
+
+* **python:** allow running preprocessing directly from python bindings ([#1760](https://github.com/RhyOrg/RhyDB/issues/1760)) ([942e718](https://github.com/RhyOrg/RhyDB/commit/942e718e1b357c5794c87714022fdb42b4520527))
+* **rhydb:** add a delete operator to the query language ([#1764](https://github.com/RhyOrg/RhyDB/issues/1764)) ([cccacc8](https://github.com/RhyOrg/RhyDB/commit/cccacc8de96aff1a87f94b3853fcc49e9ccc0813))
+
 ## [0.17.2](https://github.com/RhyOrg/RhyDB/compare/v0.17.1...v0.17.2) (2026-10-26)
 
 

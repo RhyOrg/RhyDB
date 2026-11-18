@@ -1,11 +1,13 @@
 #include "rhydb/storage/column/string_column.h"
 
+#include <array>
 #include <expected>
 #include <initializer_list>
 #include <optional>
 #include <string>
 #include <string_view>
 
+#include <fmt/format.h>
 #include <roaring/roaring.hh>
 
 #include <boost/archive/binary_iarchive.hpp>
@@ -19,7 +21,9 @@
 #include "rhydb/common/bitmap.h"
 #include "rhydb/common/phylo_tree.h"
 #include "rhydb/common/tree_node_id.h"
+#include "rhydb/storage/column/row_compaction.h"
 #include "rhydb/storage/column/row_id.h"
+#include "rhydb/storage/column/row_layout.h"
 #include "rhydb/storage/column/update_chunks.h"
 
 using rhydb::storage::column::RowId;
@@ -387,4 +391,70 @@ TEST(StringColumn, manyMixedValues) {
          ASSERT_EQ(column.getValueString(RowId(0, i)), test_values.at(i));
       }
    }
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST(StringColumn, deleteRowsMovesTheRemainingStringsDownInPlace) {
+   StringColumnMetadata metadata{"string_column"};
+   StringColumn under_test(&metadata);
+
+   // Three chunks; the second spans several pages of fixed-size strings and mixes short strings,
+   // strings with a suffix stored separately, and nulls.
+   auto value_of = [](uint32_t row) -> std::optional<std::string> {
+      if (row % 7 == 0) {
+         return std::nullopt;
+      }
+      return row % 2 == 0 ? fmt::format("short {}", row)
+                          : fmt::format("a string longer than twelve bytes {}", row);
+   };
+   const std::array<uint32_t, 3> chunk_sizes{3, 2500, 4};
+   for (const uint32_t chunk_size : chunk_sizes) {
+      StringColumn::Builder builder;
+      for (uint32_t row = 0; row < chunk_size; ++row) {
+         const auto value = value_of(row);
+         if (value.has_value()) {
+            builder.insert(*value);
+         } else {
+            builder.insertNull();
+         }
+      }
+      ASSERT_TRUE(under_test.appendChunk(builder.finalize()).has_value());
+   }
+   const auto layout = rhydb::storage::column::RowLayout::of(3, 2500, 4);
+
+   // Delete all rows of the first chunk and every third row of the second one
+   roaring::Roaring deleted;
+   deleted.addRange(0, 3);
+   for (uint16_t row = 0; row < 2500; row += 3) {
+      deleted.add(RowId(1, row).toGlobal());
+   }
+   const rhydb::storage::column::RowCompaction compaction{layout, rhydb::Bitmap{&deleted}};
+   under_test.deleteRows(compaction);
+
+   ASSERT_EQ(under_test.numChunks(), 2);
+   ASSERT_EQ(under_test.chunkSize(0), 2500 - 834);
+   ASSERT_EQ(under_test.chunkSize(1), 4);
+   uint16_t new_row = 0;
+   for (uint16_t row = 0; row < 2500; ++row) {
+      if (row % 3 == 0) {
+         continue;
+      }
+      const RowId row_id(0, new_row++);
+      const auto expected = value_of(row);
+      ASSERT_EQ(under_test.isNull(row_id), !expected.has_value()) << row;
+      if (expected.has_value()) {
+         EXPECT_EQ(under_test.getValueString(row_id), *expected) << row;
+      }
+   }
+   for (uint16_t row = 0; row < 4; ++row) {
+      const auto expected = value_of(row);
+      ASSERT_EQ(under_test.isNull(RowId(1, row)), !expected.has_value()) << row;
+      if (expected.has_value()) {
+         EXPECT_EQ(under_test.getValueString(RowId(1, row)), *expected) << row;
+      }
+   }
+
+   // Appending after the deletion continues in the next chunk
+   ASSERT_TRUE(appendStringValues(under_test, {"appended"}).has_value());
+   EXPECT_EQ(under_test.getValueString(RowId(2, 0)), "appended");
 }

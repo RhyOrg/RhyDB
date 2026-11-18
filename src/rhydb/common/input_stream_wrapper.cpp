@@ -28,43 +28,88 @@ std::filesystem::path withZSTending(const std::filesystem::path& file_path) {
 }  // namespace
 
 namespace rhydb {
-InputStreamWrapper::InputStreamWrapper(const std::filesystem::path& file_path) {
+InputStreamWrapper::InputStreamWrapper(const ResolvedFile& resolved_file) {
+   const auto& resolved_file_path = resolved_file.path;
    auto boost_input_stream = std::make_unique<boost::iostreams::filtering_istream>();
-   if (std::filesystem::is_regular_file(withZSTending(file_path))) {
-      SPDLOG_INFO("Detected file-ending .zst for input file " + file_path.string());
-      file_stream = std::ifstream(withZSTending(file_path), std::ios::binary);
-      boost_input_stream->push(boost::iostreams::zstd_decompressor());
-   } else if (std::filesystem::is_regular_file(withXZending(file_path))) {
+   switch (resolved_file.compression) {
+      case Compression::ZSTD:
+         boost_input_stream->push(boost::iostreams::zstd_decompressor());
+         break;
+      case Compression::XZ:
 #if RHYDB_WITH_LZMA
-      SPDLOG_INFO("Detected file-ending .xz for input file " + file_path.string());
-      file_stream = std::ifstream(withXZending(file_path), std::ios::binary);
-      boost_input_stream->push(boost::iostreams::lzma_decompressor());
+         boost_input_stream->push(boost::iostreams::lzma_decompressor());
+         break;
 #else
-      // Built without lzma (e.g. the WASM build). Fail fast instead of letting the
-      // .xz file fall through and be read as if it were uncompressed.
-      throw rhydb::preprocessing::PreprocessingException(
-         "This build does not support .xz (lzma) inputs; found: " + withXZending(file_path).string()
-      );
+         // Built without lzma (e.g. the WASM build). Fail fast instead of letting the
+         // .xz file fall through and be read as if it were uncompressed.
+         throw preprocessing::PreprocessingException(
+            "This build does not support .xz (lzma) inputs; found: " + resolved_file_path.string()
+         );
 #endif
-   } else if (std::filesystem::is_regular_file(file_path)) {
-      SPDLOG_INFO(
-         "Detected file without specialized ending, processing raw: " + file_path.string()
-      );
-      file_stream = std::ifstream(file_path, std::ios::binary);
-   } else {
-      throw rhydb::preprocessing::PreprocessingException(
-         "Cannot find file with name or associated endings (.xz, .zst): " + file_path.string()
+      case Compression::NONE:
+         break;
+   }
+   file_stream = std::ifstream(resolved_file_path, std::ios::binary);
+   if (!file_stream) {
+      throw preprocessing::PreprocessingException(
+         "Could not open input file: " + resolved_file_path.string()
       );
    }
    boost_input_stream->push(file_stream);
+   // Without this, std::getline swallows decompression errors (e.g. corrupt or truncated input)
+   // by only setting badbit, which readers cannot tell apart from the end of the input.
+   boost_input_stream->exceptions(std::ios::badbit);
    input_stream = std::move(boost_input_stream);
 }
 
-InputStreamWrapper::InputStreamWrapper(const std::string& content) {
-   input_stream = std::make_unique<std::istringstream>(content);
+InputStreamWrapper::ResolvedFile InputStreamWrapper::resolveFileWithEndings(
+   const std::filesystem::path& file_path
+) {
+   if (std::filesystem::is_regular_file(withZSTending(file_path))) {
+      SPDLOG_INFO("Detected file-ending .zst for input file " + file_path.string());
+      return {.path = withZSTending(file_path), .compression = Compression::ZSTD};
+   }
+   if (std::filesystem::is_regular_file(withXZending(file_path))) {
+      SPDLOG_INFO("Detected file-ending .xz for input file " + file_path.string());
+      return {.path = withXZending(file_path), .compression = Compression::XZ};
+   }
+   if (std::filesystem::is_regular_file(file_path)) {
+      SPDLOG_INFO(
+         "Detected file without specialized ending, processing raw: " + file_path.string()
+      );
+      return {.path = file_path, .compression = Compression::NONE};
+   }
+   throw preprocessing::PreprocessingException(
+      "Cannot find file with name or associated endings (.xz, .zst): " + file_path.string()
+   );
 }
 
-std::istream& rhydb::InputStreamWrapper::getInputStream() const {
+InputStreamWrapper::ResolvedFile InputStreamWrapper::resolveExactFile(
+   const std::filesystem::path& file_path
+) {
+   if (!std::filesystem::is_regular_file(file_path)) {
+      throw preprocessing::PreprocessingException("Cannot find input file: " + file_path.string());
+   }
+   if (file_path.extension() == ".zst") {
+      return {.path = file_path, .compression = Compression::ZSTD};
+   }
+   if (file_path.extension() == ".xz") {
+      return {.path = file_path, .compression = Compression::XZ};
+   }
+   return {.path = file_path, .compression = Compression::NONE};
+}
+
+InputStreamWrapper InputStreamWrapper::openFileWithEndingLookup(
+   const std::filesystem::path& file_path
+) {
+   return InputStreamWrapper{resolveFileWithEndings(file_path)};
+}
+
+InputStreamWrapper InputStreamWrapper::openExactFile(const std::filesystem::path& file_path) {
+   return InputStreamWrapper{resolveExactFile(file_path)};
+}
+
+std::istream& InputStreamWrapper::getInputStream() const {
    return *input_stream;
 }
 
@@ -73,7 +118,7 @@ InputStreamWrapper InputStreamWrapper::openFileOrStdIn(
 ) {
    if (maybe_file_path.has_value()) {
       SPDLOG_DEBUG("Given input file: {}", maybe_file_path.value().string());
-      return InputStreamWrapper{maybe_file_path.value()};
+      return openFileWithEndingLookup(maybe_file_path.value());
    }
    SPDLOG_DEBUG("No input file given, instead opening stdin");
    return InputStreamWrapper{std::make_unique<std::istream>(std::cin.rdbuf())};

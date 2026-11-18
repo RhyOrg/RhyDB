@@ -98,14 +98,15 @@ void logCompiledChildren(
 }  // namespace
 
 std::tuple<OperatorVector, OperatorVector, filter::operators::PredicateVector> And::compileChildren(
-   const storage::Table& table
+   const storage::Table& table,
+   bool with_null_rows
 ) const {
    OperatorVector unprocessed_child_operators;
    std::ranges::transform(
       children,
       std::back_inserter(unprocessed_child_operators),
       [&](const std::unique_ptr<ScalarExpression>& expression) {
-         return expression->compile(table);
+         return expression->compile(table, with_null_rows);
       }
    );
    OperatorVector non_negated_child_operators;
@@ -142,7 +143,9 @@ std::tuple<OperatorVector, OperatorVector, filter::operators::PredicateVector> A
          );
          if (selection_child->child_operator.has_value()) {
             auto child_operator = std::move(selection_child->child_operator.value());
-            SPDLOG_TRACE("Appending child of selection {}", child_operator->toString());
+            if (spdlog::should_log(spdlog::level::trace)) {
+               SPDLOG_TRACE("Appending child of selection {}", child_operator->toString());
+            }
             unprocessed_child_operators.emplace_back(std::move(child_operator));
          }
       } else {
@@ -150,9 +153,11 @@ std::tuple<OperatorVector, OperatorVector, filter::operators::PredicateVector> A
       }
    }
 
-#if SPDLOG_ACTIVE_LEVEL <= SPDLOG_LEVEL_TRACE
-   logCompiledChildren(non_negated_child_operators, negated_child_operators, predicates);
-#endif
+   // The operators' toString() is linear in the size of their subtree, so only build the strings
+   // when they are actually logged. Otherwise compiling nested expressions becomes quadratic.
+   if (spdlog::should_log(spdlog::level::trace)) {
+      logCompiledChildren(non_negated_child_operators, negated_child_operators, predicates);
+   }
 
    return {
       std::move(non_negated_child_operators),
@@ -173,8 +178,10 @@ std::unique_ptr<ScalarExpression> And::rewrite(
    return std::make_unique<And>(std::move(rewritten_children));
 }
 
-std::unique_ptr<Operator> And::compile(const storage::Table& table) const {
-   auto [non_negated_child_operators, negated_child_operators, predicates] = compileChildren(table);
+std::unique_ptr<Operator> And::compile(const storage::Table& table, bool with_null_rows) const {
+   // True where all children are true, true or null where no child is false
+   auto [non_negated_child_operators, negated_child_operators, predicates] =
+      compileChildren(table, with_null_rows);
 
    if (non_negated_child_operators.empty() && negated_child_operators.empty()) {
       if (predicates.empty()) {
@@ -185,9 +192,11 @@ std::unique_ptr<Operator> And::compile(const storage::Table& table) const {
       }
       auto result =
          std::make_unique<filter::operators::Selection>(std::move(predicates), table.row_layout);
-      SPDLOG_TRACE(
-         "Compiled And filter expression to {} - found only predicates", result->toString()
-      );
+      if (spdlog::should_log(spdlog::level::trace)) {
+         SPDLOG_TRACE(
+            "Compiled And filter expression to {} - found only predicates", result->toString()
+         );
+      }
 
       return result;
    }
@@ -206,10 +215,12 @@ std::unique_ptr<Operator> And::compile(const storage::Table& table) const {
       );
    }
    if (predicates.empty()) {
-      SPDLOG_TRACE(
-         "Compiled And filter expression to {} - found no predicates",
-         index_arithmetic_operator->toString()
-      );
+      if (spdlog::should_log(spdlog::level::trace)) {
+         SPDLOG_TRACE(
+            "Compiled And filter expression to {} - found no predicates",
+            index_arithmetic_operator->toString()
+         );
+      }
 
       return index_arithmetic_operator;
    }
@@ -217,7 +228,9 @@ std::unique_ptr<Operator> And::compile(const storage::Table& table) const {
       std::move(index_arithmetic_operator), std::move(predicates), table.row_layout
    );
 
-   SPDLOG_TRACE("Compiled And filter expression to {}", result->toString());
+   if (spdlog::should_log(spdlog::level::trace)) {
+      SPDLOG_TRACE("Compiled And filter expression to {}", result->toString());
+   }
 
    return result;
 }

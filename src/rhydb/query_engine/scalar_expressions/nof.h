@@ -29,7 +29,14 @@ class NOf : public ScalarExpression {
 
    [[nodiscard]] std::
       tuple<filter::operators::OperatorVector, filter::operators::OperatorVector, int>
-      mapChildExpressions(const storage::Table& table) const;
+      mapChildExpressions(const storage::Table& table, int at_least, bool with_null_rows) const;
+
+   /// Compiles `at_least` children being true (or, if `with_null_rows`, true or null)
+   [[nodiscard]] std::unique_ptr<filter::operators::Operator> compileAtLeast(
+      const storage::Table& table,
+      int at_least,
+      bool with_null_rows
+   ) const;
 
   public:
    explicit NOf(ScalarExpressionVector&& children, int number_of_matchers, bool match_exactly);
@@ -55,7 +62,8 @@ class NOf : public ScalarExpression {
    ) const override;
 
    [[nodiscard]] std::unique_ptr<filter::operators::Operator> compile(
-      const storage::Table& table
+      const storage::Table& table,
+      bool with_null_rows
    ) const override;
 };
 

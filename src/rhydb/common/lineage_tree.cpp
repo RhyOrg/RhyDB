@@ -49,7 +49,8 @@ class Graph {
 
    std::optional<std::vector<Idx>> findCycleWitnessFromStartVertex(
       Idx start_vertex,
-      std::vector<bool>& visited
+      std::vector<bool>& visited,
+      std::vector<bool>& in_recursion_stack
    ) const;
 
   public:
@@ -69,23 +70,30 @@ void Graph::addEdge(Idx vertex_from, Idx vertex_to) {
    adjacency_list.at(vertex_from).emplace_back(vertex_to);
 }
 
+/// A depth-first search from `start_vertex`. `in_recursion_stack` must be all false, and is again
+/// when no cycle is found. Each vertex on the stack keeps the position of its next edge, so that
+/// every edge is followed once even for vertices with many children.
 std::optional<std::vector<Idx>> Graph::findCycleWitnessFromStartVertex(
    Idx start_vertex,
-   std::vector<bool>& visited
+   std::vector<bool>& visited,
+   std::vector<bool>& in_recursion_stack
 ) const {
    std::vector<Idx> recursion_stack;
-   std::vector<bool> in_recursion_stack(number_of_vertices);
+   std::vector<size_t> next_edges;
 
    recursion_stack.emplace_back(start_vertex);
+   next_edges.emplace_back(0);
    in_recursion_stack[start_vertex] = true;
    visited[start_vertex] = true;
 
    while (!recursion_stack.empty()) {
       const Idx current_vertex = recursion_stack.back();
+      const auto& neighbors = adjacency_list[current_vertex];
 
       bool backtrack = true;
 
-      for (const Idx neighbor : adjacency_list[current_vertex]) {
+      while (next_edges.back() < neighbors.size()) {
+         const Idx neighbor = neighbors[next_edges.back()++];
          if (in_recursion_stack[neighbor]) {
             // We found a cycle, "visit" the vertex by immediately adding it to the stack
             // as the witness and return the witness lasso
@@ -96,6 +104,7 @@ std::optional<std::vector<Idx>> Graph::findCycleWitnessFromStartVertex(
             backtrack = false;
             visited[neighbor] = true;
             recursion_stack.emplace_back(neighbor);
+            next_edges.emplace_back(0);
             in_recursion_stack[neighbor] = true;
             break;
          }
@@ -103,6 +112,7 @@ std::optional<std::vector<Idx>> Graph::findCycleWitnessFromStartVertex(
 
       if (backtrack) {
          recursion_stack.pop_back();
+         next_edges.pop_back();
          in_recursion_stack[current_vertex] = false;
       }
    }
@@ -111,10 +121,11 @@ std::optional<std::vector<Idx>> Graph::findCycleWitnessFromStartVertex(
 
 std::optional<std::vector<Idx>> Graph::getCycle() const {
    std::vector<bool> visited(number_of_vertices, false);
+   std::vector<bool> in_recursion_stack(number_of_vertices, false);
 
    for (Idx i = 0; i < number_of_vertices; i++) {
       if (!visited[i]) {
-         auto witness_lasso = findCycleWitnessFromStartVertex(i, visited);
+         auto witness_lasso = findCycleWitnessFromStartVertex(i, visited, in_recursion_stack);
          if (witness_lasso.has_value()) {
             // We found a witness lasso of the form 1 -> 2 -> 3 -> 4 -> 5 -> 3
             // We need to remove leading vertices up until the cycle
@@ -299,7 +310,7 @@ LineageTree LineageTree::fromEdgeList(
    std::unordered_map<Idx, Idx>&& alias_mapping
 ) {
    LineageTree result;
-   result.alias_mapping = alias_mapping;
+   result.alias_mapping = std::move(alias_mapping);
    if (auto cycle = containsCycle(n_vertices, edge_list)) {
       throw preprocessing::PreprocessingException(
          fmt::format(

@@ -19,11 +19,13 @@ template <Column ColumnType>
 StringInSet<ColumnType>::StringInSet(
    const ColumnType* column,
    Comparator comparator,
-   std::unordered_set<std::string> values
+   std::unordered_set<std::string> values,
+   bool with_nulls
 )
     : column(column),
       values(std::move(values)),
-      comparator(comparator) {}
+      comparator(comparator),
+      with_nulls(with_nulls) {}
 
 template <Column ColumnType>
 StringInSet<ColumnType>::~StringInSet() noexcept = default;
@@ -31,22 +33,28 @@ StringInSet<ColumnType>::~StringInSet() noexcept = default;
 template <Column ColumnType>
 std::string StringInSet<ColumnType>::toString() const {
    return fmt::format(
-      "{} {} [{}]",
+      "{} {} [{}]{}",
       column->metadata->column_name,
       comparator == Comparator::IN ? "IN" : "NOT IN",
-      fmt::join(values, ",")
+      fmt::join(values, ","),
+      with_nulls ? " (or null)" : ""
    );
 }
 
 template <Column ColumnType>
 bool StringInSet<ColumnType>::match(storage::column::RowId row_id) const {
+   if (column->isNull(row_id)) {
+      return with_nulls;
+   }
    const bool in_set = values.contains(column->getValueString(row_id));
    return comparator == Comparator::IN ? in_set : !in_set;
 }
 
 template <Column ColumnType>
 std::unique_ptr<Predicate> StringInSet<ColumnType>::copy() const {
-   return std::make_unique<operators::StringInSet<ColumnType>>(column, comparator, values);
+   return std::make_unique<operators::StringInSet<ColumnType>>(
+      column, comparator, values, with_nulls
+   );
 }
 
 template <Column ColumnType>
@@ -54,7 +62,9 @@ std::unique_ptr<Predicate> StringInSet<ColumnType>::negate() const {
    const Comparator negated_comparator = comparator == Comparator::IN
                                             ? StringInSet<ColumnType>::Comparator::NOT_IN
                                             : StringInSet<ColumnType>::Comparator::IN;
-   return std::make_unique<StringInSet<ColumnType>>(column, negated_comparator, values);
+   return std::make_unique<StringInSet<ColumnType>>(
+      column, negated_comparator, values, !with_nulls
+   );
 }
 
 template class StringInSet<storage::column::StringColumn>;

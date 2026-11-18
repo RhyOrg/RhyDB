@@ -147,6 +147,10 @@ class SequenceColumn {
 
    [[nodiscard]] bool isNull(RowId row_id) const;
 
+   /// Removes the rows `compaction` deletes and renumbers the remaining ones, see `RowCompaction`.
+   /// The local reference is kept, since the mutations of the remaining rows are stored against it.
+   void deleteRows(const RowCompaction& compaction);
+
    void finalize();
 
   private:
@@ -165,7 +169,7 @@ class SequenceColumn {
 
    void flushBuffer();
 
-   [[nodiscard]] SequenceColumnInfo calculateInfo();
+   SequenceColumnInfo calculateInfo();
 
    [[nodiscard]] size_t computeVerticalBitmapsSize() const;
 

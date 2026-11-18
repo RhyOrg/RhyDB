@@ -92,7 +92,6 @@ void LineageDefinitionHandler::get(
    const std::string& lineage_definition_yaml = lineage_definition.value();
 
    response.setContentType("application/yaml");
-   std::ostream& out_stream = response.send();
-   out_stream << lineage_definition_yaml;
+   response.sendBuffer(lineage_definition_yaml.data(), lineage_definition_yaml.size());
 }
 }  // namespace rhydb_app

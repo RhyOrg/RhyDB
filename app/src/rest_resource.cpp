@@ -14,9 +14,9 @@ void methodNotAllowed(
    Poco::Net::HTTPServerRequest& request,
    Poco::Net::HTTPServerResponse& response
 ) {
-   response.setContentType("application/json");
    response.setStatus(Poco::Net::HTTPResponse::HTTP_METHOD_NOT_ALLOWED);
-   response.send() << nlohmann::json(
+   rhydb_app::sendErrorResponse(
+      response,
       rhydb_app::ErrorResponse{
          .error = "Method not allowed",
          .message = request.getMethod() + " is not allowed on resource " + request.getURI(),

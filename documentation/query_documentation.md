@@ -85,9 +85,10 @@ Notes:
 - Comparisons **exclude** null values: a null cell never matches any comparison,
   including `<>`. So `country <> 'Germany'` does not return rows where `country`
   is null.
-- `!` is a set complement, not SQL's `NOT`, so it does **not** mean the same as
-  `<>`: `!(country = 'Germany')` *does* return rows where `country` is null,
-  whereas `country <> 'Germany'` does not.
+- Negating a comparison does not return null values either: `!(country = 'Germany')`
+  returns the same rows as `country <> 'Germany'`. To also keep the rows where
+  `country` is null, add them explicitly:
+  `!(country = 'Germany') || country.isNull()`.
 - String ordering is lexicographic and applies to both plain and
   dictionary-encoded string columns.
 
@@ -99,6 +100,40 @@ date <= '2021-12-31'::date
 !qc_value.isNull()
 ```
 
+### Type Casts
+
+`expr::type` converts a value to another type, e.g. `age::float` or `'2021-03-15'::date`. It
+applies to any expression and can be chained (`age::string::int64`).
+
+Type names are those of the database config: `string`, `date`, `boolean`, `int32`, `int64`,
+`float` (`int` is an alias of `int32`). Dictionary-encoded columns cast like plain ones.
+
+| From                      | To                                           |
+|---------------------------|----------------------------------------------|
+| `int32`, `int64`, `float` | each other, and `string`                     |
+| `date`, `boolean`         | `string`                                     |
+| `string`                  | `int32`, `int64`, `float`, `date`, `boolean` |
+
+Every other combination is an error, e.g. `date::int32` or `boolean::int32`. Casting to the
+type an expression already has does nothing.
+
+Rules:
+- A `null` value stays `null`. `null::type` is a null of that type, e.g. `null::int32`.
+- There is no rounding or truncation: a value that does not fit the target type is an error,
+  e.g. `3.7::int32` or `3000000000::int32`.
+- Strings are parsed strictly: no surrounding whitespace, `'5'::int32` works but `'5.0'::int32`
+  does not. A date must be exactly `YYYY-MM-DD`, and a boolean exactly `true` or `false`.
+- Casting a number to a string gives its plain decimal form, e.g. `5::string` is `'5'`.
+- A cast of a literal is evaluated when the query is read, so it can be used wherever a
+  literal is required, e.g. `date > '2021-12-31'::date` or `age = '42'::int32`. An invalid
+  literal is a query error with its position.
+
+Limitations:
+- A cast on a column cannot be used in a `filter()` that is applied directly to a table, e.g.
+  `data.filter(age::float < 3.5)` or `data.filter(flag::boolean)`. Compute the value first:
+  `data.map({age_float := age::float}).filter(age_float < 3.5)`.
+- An invalid value in a column (e.g. `'abc'::int32` for a string column) is only detected while the query runs.
+
 ### Method Call Syntax
 
 Any function `f(table, arg1, arg2)` can be written as `table.f(arg1, arg2)`. Named arguments use `:=`:
@@ -108,6 +143,10 @@ pango_lineage.lineage('B.1.1.7', includeSublineages:=true)
 ```
 
 After the first named argument is given, no more positional arguments are accepted.
+
+### Nesting Limit
+
+A query may be nested at most 100 levels deep.
 
 ---
 
@@ -120,8 +159,6 @@ Keeps only rows where the boolean `condition` is true. Passes all input columns 
 ```
 data.filter(country = 'USA' && age > 30)
 ```
-
-A boolean column can be used directly as a predicate: `data.filter(isHuman)` is equivalent to `data.filter(isHuman = true)`, and `data.filter(!isHuman)` negates it (a set complement that also keeps rows where `isHuman` is null, matching `!(isHuman = true)`). Only boolean columns may be used this way; a bare reference to a non-boolean column is rejected.
 
 ### `group(by, aggs)`
 
@@ -724,6 +761,39 @@ It bumps the data version and, like `insertInto`, mutates the table in place, so
 run next to other queries against the same database; over the API it is issued through
 [`POST /admin/query`](api.md#post-adminquery).
 
+### `delete(table: symbol, where?: expression)`
+
+Removes the rows of a table, like SQL's `DELETE FROM <table> WHERE <predicate>`. Like `insertInto`,
+it is a write statement: it must be the whole query and returns a summary instead of rows:
+
+```json
+{"deletedRows": 2}
+```
+
+```
+delete(data, where := primaryKey = 'key1')
+delete(data, where := division = 'Bern' && age < 10)
+delete(data, where := main.at(2) = 'A')
+delete(data)
+data.delete(where := age.isNull())
+```
+
+**Rows.** `where` is a filter predicate over the columns of `table`, as in `filter(...)`; only the
+matching rows are deleted. As in SQL, without `where` every row of the table is deleted. `where` can
+only be passed by name. The rows are selected before any is removed, so a predicate that cannot be
+evaluated rejects the statement without changing the table.
+
+The rows are removed from every column of the table and from its indexes, including sequence columns
+and string columns backed by a phylogenetic tree; a deleted primary key can be inserted again. The
+remaining rows are moved together in place, and only the parts of the table holding deleted rows
+are touched. Some memory of the deleted rows is not reclaimed: values of indexed string columns and
+insertions that no longer occur stay in their dictionaries, and the characters beyond the first 12
+of deleted plain strings stay in their chunk.
+
+It bumps the data version and, like `insertInto`, mutates the table in place, so it is not safe to
+run next to other queries against the same database; over the API it is issued through
+[`POST /admin/query`](api.md#post-adminquery).
+
 ### `createTable(table: symbol, columns: record, primaryKey?: symbol)`
 
 Creates a new, empty table with the given schema. Like `insertInto`, it is a write statement: it must
@@ -832,9 +902,7 @@ data.map({greeting := 'Hi '.concat(first_name)})
 
 ### `between(column, from, to)`
 
-True if `column` is between `from` and `to` (inclusive). Use `null` for an open bound. Works for dates, integers, and floats.
-
-WARNING: Currently float is non-inclusive for `to`.
+True if `column` is between `from` and `to` (both bounds inclusive). Use `null` for an open bound. Works for dates, integers, and floats.
 
 ```
 date.between('2021-01-01'::date, '2021-12-31'::date)

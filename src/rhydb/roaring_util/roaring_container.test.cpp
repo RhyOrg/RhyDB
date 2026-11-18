@@ -813,3 +813,26 @@ TEST(CopyOnWriteContainer, iteratesCurrentContentAscending) {
    }
    EXPECT_EQ(values, (std::vector<uint16_t>{3, 7, 9}));
 }
+
+TEST(RoaringContainer, ofRangeHoldsExactlyTheRange) {
+   const auto container = RoaringContainer::ofRange(3, 7);
+   EXPECT_EQ(container.getCardinality(), 4);
+   EXPECT_EQ(iterate(RoaringContainerView{container}), (std::vector<uint16_t>{3, 4, 5, 6}));
+
+   EXPECT_TRUE(RoaringContainer::ofRange(5, 5).empty());
+   EXPECT_EQ(RoaringContainer::ofRange(0, 1U << 16).getCardinality(), 1U << 16);
+}
+
+TEST(RoaringContainer, complementFlipsWithinTheUniverse) {
+   const auto container = makeContainer({0, 2, 4});
+   const auto result = rhydb::roaring_util::complement(RoaringContainerView{container}, 6);
+   EXPECT_EQ(iterate(RoaringContainerView{result}), (std::vector<uint16_t>{1, 3, 5}));
+}
+
+TEST(RoaringContainer, complementOfEmptyAndFullContainers) {
+   const auto empty = makeContainer({});
+   EXPECT_EQ(rhydb::roaring_util::complement(RoaringContainerView{empty}, 4).getCardinality(), 4);
+
+   const auto full = RoaringContainer::ofRange(0, 1U << 16);
+   EXPECT_TRUE(rhydb::roaring_util::complement(RoaringContainerView{full}, 1U << 16).empty());
+}

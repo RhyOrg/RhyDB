@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include "rhydb/common/bitmap.h"
@@ -13,7 +14,10 @@ namespace rhydb::query_engine::filter::operators {
 class BitmapProducer : public Operator {
   private:
    std::function<Bitmap()> producer;
-   storage::column::RowLayout row_layout;
+   // The producer computes the rows of all chunks at once, so its result is computed on the first
+   // evaluated chunk and kept for the others
+   mutable std::once_flag produced;
+   mutable Bitmap produced_bitmap;
 
   public:
    explicit BitmapProducer(std::function<Bitmap()> producer, storage::column::RowLayout row_layout);
@@ -22,7 +26,7 @@ class BitmapProducer : public Operator {
 
    [[nodiscard]] Type type() const override;
 
-   [[nodiscard]] Bitmap evaluate() const override;
+   [[nodiscard]] roaring_util::CopyOnWriteContainer evaluateChunk(uint16_t chunk_id) const override;
 
    [[nodiscard]] std::string toString() const override;
 

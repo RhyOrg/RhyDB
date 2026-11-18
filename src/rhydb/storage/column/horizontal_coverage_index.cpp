@@ -258,6 +258,45 @@ void HorizontalCoverageIndex::insertNullSequence(RowId row_id) {
    insertCoverage(row_id, Coverage{.start = 0, .end = 0, .missing_positions = {}});
 }
 
+void HorizontalCoverageIndex::deleteRows(const RowCompaction& compaction) {
+   const size_t num_chunks = starts.size();
+   compaction.compactChunks(starts);
+   compaction.compactChunks(ends);
+   compaction.dropDeletedChunks(batch_min_start);
+   compaction.dropDeletedChunks(batch_max_start);
+   compaction.dropDeletedChunks(batch_min_end);
+   compaction.dropDeletedChunks(batch_max_end);
+
+   // The envelopes of the chunks that lost rows may have shrunk, so only those are recomputed
+   for (size_t chunk_id = 0; chunk_id < num_chunks; ++chunk_id) {
+      if (!compaction.losesSomeRows(static_cast<uint16_t>(chunk_id))) {
+         continue;
+      }
+      const uint16_t new_chunk_id = *compaction.newChunkId(static_cast<uint16_t>(chunk_id));
+      const auto [min_start, max_start] = std::ranges::minmax(starts[new_chunk_id]);
+      const auto [min_end, max_end] = std::ranges::minmax(ends[new_chunk_id]);
+      batch_min_start[new_chunk_id] = min_start;
+      batch_max_start[new_chunk_id] = max_start;
+      batch_min_end[new_chunk_id] = min_end;
+      batch_max_end[new_chunk_id] = max_end;
+   }
+
+   // Renumbering keeps the order of the remaining rows, so relabelling the keys one by one keeps
+   // the map sorted at every step: a relabelled node is reinserted where it was.
+   for (auto entry = horizontal_bitmaps.begin(); entry != horizontal_bitmaps.end();) {
+      const auto next = std::next(entry);
+      const auto new_row_id = compaction.map(RowId::fromGlobal(entry->first));
+      if (!new_row_id.has_value()) {
+         horizontal_bitmaps.erase(entry);
+      } else if (new_row_id->toGlobal() != entry->first) {
+         auto node = horizontal_bitmaps.extract(entry);
+         node.key() = new_row_id->toGlobal();
+         horizontal_bitmaps.insert(next, std::move(node));
+      }
+      entry = next;
+   }
+}
+
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 std::vector<uint64_t> HorizontalCoverageIndex::computeCoverageCardinalities(
    size_t genome_length

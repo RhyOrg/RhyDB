@@ -1,13 +1,11 @@
 #include "rhydb/storage/column/row_layout.h"
 
 #include <cstdint>
-#include <initializer_list>
 #include <stdexcept>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <roaring/roaring.hh>
 
 #include "rhydb/storage/column/column.h"
 #include "rhydb/storage/column/row_id.h"
@@ -115,55 +113,4 @@ TEST(RowLayout, appendChunkRejectsEmptyChunk) {
 
 TEST(RowLayout, ofRejectsEmptyChunk) {
    ASSERT_THROW(RowLayout::of(2, 0, 3), std::runtime_error);
-}
-
-namespace {
-uint32_t global(uint16_t chunk_id, uint16_t row_in_chunk) {
-   return RowId{.chunk_id = chunk_id, .row_in_chunk = row_in_chunk}.toGlobal();
-}
-
-roaring::Roaring bitmapOf(std::initializer_list<uint32_t> global_row_ids) {
-   roaring::Roaring bitmap;
-   for (const uint32_t global_row_id : global_row_ids) {
-      bitmap.add(global_row_id);
-   }
-   return bitmap;
-}
-}  // namespace
-
-TEST(RowLayout, fullBitmapReflectsSparse2To16AlignedLayout) {
-   const RowLayout layout = RowLayout::of(2, 3);
-
-   // Exactly the populated rows of each chunk; the 2^16-aligned gap between chunks stays empty.
-   const roaring::Roaring expected =
-      bitmapOf({global(0, 0), global(0, 1), global(1, 0), global(1, 1), global(1, 2)});
-
-   ASSERT_EQ(layout.fullBitmap(), expected);
-}
-
-TEST(RowLayout, complementInPlaceFlipsOnlyPopulatedRanges) {
-   const RowLayout layout = RowLayout::of(2, 3);
-
-   roaring::Roaring bitmap = bitmapOf({global(0, 0), global(1, 1)});
-
-   layout.complementInPlace(bitmap);
-
-   // The complement within the universe of valid row ids; gaps between chunks stay empty.
-   const roaring::Roaring expected = bitmapOf({global(0, 1), global(1, 0), global(1, 2)});
-
-   ASSERT_EQ(bitmap, expected);
-}
-
-TEST(RowLayout, complementInPlaceOfFullBitmapIsEmptyAndViceVersa) {
-   const RowLayout layout = RowLayout::of(2, 3);
-
-   // Complementing the full universe yields the empty set.
-   roaring::Roaring full = layout.fullBitmap();
-   layout.complementInPlace(full);
-   ASSERT_TRUE(full.isEmpty());
-
-   // Complementing the empty set yields the full universe back.
-   roaring::Roaring empty;
-   layout.complementInPlace(empty);
-   ASSERT_EQ(empty, layout.fullBitmap());
 }

@@ -80,6 +80,11 @@ void ZstdCompressedStringColumn::update(
    }
 }
 
+void ZstdCompressedStringColumn::deleteRows(const RowCompaction& compaction) {
+   values.deleteRows(compaction);
+   compaction.compact(null_bitmap);
+}
+
 bool ZstdCompressedStringColumn::isNull(RowId row_id) const {
    return null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk);
 }

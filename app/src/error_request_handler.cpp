@@ -1,11 +1,13 @@
 #include "error_request_handler.h"
 
 #include <exception>
+#include <string>
 #include <typeinfo>
 
 #include <cxxabi.h>
 
 #include <Poco/Net/HTTPResponse.h>
+#include <Poco/Net/HTTPServerRequestImpl.h>
 #include <Poco/Net/HTTPServerResponse.h>
 #include <spdlog/spdlog.h>
 #include <nlohmann/json.hpp>
@@ -21,12 +23,65 @@ ErrorRequestHandler::ErrorRequestHandler(
     : wrapped_handler(std::move(wrapped_handler)),
       runtime_config(runtime_config) {}
 
+void sendErrorResponse(
+   Poco::Net::HTTPServerResponse& response,
+   const ErrorResponse& error_response
+) {
+   const std::string body = nlohmann::json(error_response).dump();
+   response.setContentType("application/json");
+   response.sendBuffer(body.data(), body.size());
+}
+
+namespace {
+
+/// Called when the handler failed after it began sending its response, so the status line is out
+/// and an error response is no longer possible. Shutting the connection down keeps the client from
+/// mistaking the partial body for a complete one: a chunked body then lacks its terminating chunk,
+/// which Poco would otherwise write when the response is destroyed.
+/// Must be called while an exception is being handled.
+void abortStartedResponse(
+   Poco::Net::HTTPServerRequest& request,
+   const Poco::Net::HTTPServerResponse& response
+) {
+   std::string reason;
+   try {
+      throw;
+   } catch (const std::exception& exception) {
+      reason = exception.what();
+   } catch (...) {
+      reason = abi::__cxa_current_exception_type()->name();
+   }
+   // Usually the client went away while the response was sent, so this is no server error
+   SPDLOG_WARN(
+      "Request Id [{}] - failed after the response was started, aborting the connection: {}",
+      response.get("X-Request-Id", ""),
+      reason
+   );
+   if (auto* request_impl = dynamic_cast<Poco::Net::HTTPServerRequestImpl*>(&request)) {
+      request_impl->session().abort();
+   }
+}
+
+}  // namespace
+
 void ErrorRequestHandler::handleRequest(
    Poco::Net::HTTPServerRequest& request,
    Poco::Net::HTTPServerResponse& response
 ) {
    try {
       wrapped_handler->handleRequest(request, response);
+   } catch (...) {
+      if (response.sent()) {
+         abortStartedResponse(request, response);
+         return;
+      }
+      respondToCurrentException(response);
+   }
+}
+
+void ErrorRequestHandler::respondToCurrentException(Poco::Net::HTTPServerResponse& response) {
+   try {
+      throw;
    } catch (const rhydb_app::UninitializedDatabaseException& exception) {
       SPDLOG_INFO("Caught exception: {}", exception.what());
 
@@ -38,44 +93,39 @@ void ErrorRequestHandler::handleRequest(
          response.set("Retry-After", retry_after.value());
          message += " Please try again after " + retry_after.value() + " seconds.";
       }
-      std::ostream& out_stream = response.send();
-      out_stream << nlohmann::json(
-         ErrorResponse{.error = "Service Temporarily Unavailable", .message = message}
+      sendErrorResponse(
+         response, ErrorResponse{.error = "Service Temporarily Unavailable", .message = message}
       );
    } catch (const rhydb_app::BadRequest& exception) {
-      response.setContentType("application/json");
       response.setStatusAndReason(Poco::Net::HTTPResponse::HTTP_BAD_REQUEST);
-      std::ostream& out_stream = response.send();
-      out_stream << nlohmann::json(
-         ErrorResponse{.error = "Bad request", .message = exception.what()}
+      sendErrorResponse(
+         response, ErrorResponse{.error = "Bad request", .message = exception.what()}
       );
    } catch (const std::exception& exception) {
       SPDLOG_ERROR("Caught exception: {}", exception.what());
 
       response.setStatusAndReason(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
-      std::ostream& out_stream = response.send();
-      out_stream << nlohmann::json(
-         ErrorResponse{.error = "Internal Server Error", .message = exception.what()}
+      sendErrorResponse(
+         response, ErrorResponse{.error = "Internal Server Error", .message = exception.what()}
       );
    } catch (const std::string& ex) {
       SPDLOG_ERROR(ex);
       response.setStatusAndReason(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
-      std::ostream& out_stream = response.send();
-      out_stream << nlohmann::json(ErrorResponse{.error = "Internal Server Error", .message = ex});
+      sendErrorResponse(response, ErrorResponse{.error = "Internal Server Error", .message = ex});
    } catch (...) {
       SPDLOG_ERROR("Query cancelled with uncatchable (...) exception");
       response.setStatusAndReason(Poco::Net::HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
-      std::ostream& out_stream = response.send();
 
       const auto exception = std::current_exception();
       if (exception) {
          const auto* message = abi::__cxa_current_exception_type()->name();
          SPDLOG_ERROR("current_exception: {}", message);
-         out_stream << nlohmann::json(
-            ErrorResponse{.error = "Internal Server Error", .message = message}
+         sendErrorResponse(
+            response, ErrorResponse{.error = "Internal Server Error", .message = message}
          );
       } else {
-         out_stream << nlohmann::json(
+         sendErrorResponse(
+            response,
             ErrorResponse{
                .error = "Internal Server Error",
                .message = "non recoverable error message",

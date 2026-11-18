@@ -6,10 +6,19 @@ from libcpp.optional cimport optional
 from libc.stdint cimport uint64_t, uint32_t
 from libc.stdlib cimport malloc, free
 from cython.operator cimport dereference as deref
-from database cimport Database as CppDatabase, Roaring as CppRoaring
+from database cimport Database as CppDatabase, Roaring as CppRoaring, preprocessDatabase
 import os
 import pyroaring
 import pyarrow as pa
+
+def _existing_path(str name, path):
+    """The UTF-8 encoded path of an existing file, for an argument named `name`"""
+    path = os.fspath(path)
+    if not path or not path.strip():
+        raise ValueError(f"{name} cannot be empty")
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"File not found: {path}")
+    return path.encode('utf-8')
 
 cdef class PyDatabase:
     """Python wrapper for C++ Database"""
@@ -57,6 +66,83 @@ cdef class PyDatabase:
         except Exception as e:
             raise RuntimeError(f"Failed to save checkpoint to '{save_directory}': {e}")
 
+    def preprocess(
+        self,
+        database_config,
+        reference_genomes,
+        input_file,
+        lineage_definitions=(),
+        phylogenetic_tree=None,
+        bint without_unaligned_sequences=False,
+        str table_name="data",
+    ):
+        """
+        Create a table from initialization files and fill it with NDJSON data
+
+        This does what the ``preprocessing`` command does, but into this database instead of a
+        saved database state: it creates the table from the database config and the reference
+        genomes, adds to the built-in ``reference_genomes`` and ``lineage_definitions`` tables,
+        builds the lineage relation tables, appends the input data and validates that the primary
+        key is unique.
+
+        Call it once per table to preprocess several inputs into the same database. For a table
+        other than ``data``, the names of its reference sequences in the ``reference_genomes`` table
+        and of its lineage tables are prefixed with the table name, e.g. ``dengue_main`` for the
+        sequence ``main`` and ``dengue_lineage`` for the lineage column ``lineage``.
+
+        Parameters
+        ----------
+        database_config : str or os.PathLike
+            Path to the database config (YAML or JSON)
+        reference_genomes : str or os.PathLike
+            Path to the reference genomes JSON file
+        input_file : str or os.PathLike
+            Path to the NDJSON input data
+        lineage_definitions : iterable of str or os.PathLike, optional
+            Paths to the lineage definition files. A column's ``generateLineageIndex`` names its
+            file, with or without the ``.yaml`` extension
+        phylogenetic_tree : str or os.PathLike, optional
+            Path to the phylogenetic tree file
+        without_unaligned_sequences : bool, optional
+            Do not create the ``unaligned_<sequence>`` columns (default: False)
+        table_name : str, optional
+            Name of the table to create (default: ``data``)
+        """
+        if not table_name or not table_name.strip():
+            raise ValueError("table_name cannot be empty")
+
+        cdef vector[string] cpp_lineage_definitions
+        cdef optional[string] cpp_phylogenetic_tree
+        cdef string cpp_database_config
+        cdef string cpp_reference_genomes
+        cdef string cpp_input_file
+        cdef string cpp_table_name = table_name.encode('utf-8')
+
+        cpp_database_config = _existing_path("database_config", database_config)
+        cpp_reference_genomes = _existing_path("reference_genomes", reference_genomes)
+        cpp_input_file = _existing_path("input_file", input_file)
+        for path in lineage_definitions:
+            cpp_lineage_definitions.push_back(_existing_path("lineage_definitions", path))
+        if phylogenetic_tree is not None:
+            cpp_phylogenetic_tree = <string> _existing_path("phylogenetic_tree", phylogenetic_tree)
+
+        try:
+            preprocessDatabase(
+                deref(self.c_database),
+                cpp_table_name,
+                cpp_database_config,
+                cpp_reference_genomes,
+                cpp_input_file,
+                cpp_lineage_definitions,
+                cpp_phylogenetic_tree,
+                without_unaligned_sequences,
+            )
+        except Exception as e:
+            raise RuntimeError(
+                f"""Failed to preprocess: {e}
+                The database object might be invalid now. Any further operations can lead to undefined behavior."""
+            )
+
     def append_data_from_file(self, str table_name, str file_name):
         """
         Append data from file to table
@@ -66,7 +152,8 @@ cdef class PyDatabase:
         table_name : str
             Name of the table
         file_name : str
-            Path to data file
+            Path to an NDJSON data file. Files ending in ``.zst`` (or ``.xz``, if the
+            library was built with lzma support) are decompressed.
         """
         if not table_name or not table_name.strip():
             raise ValueError("table_name cannot be empty")
@@ -261,10 +348,11 @@ cdef class PyDatabase:
         """
         Execute a query and return results as a PyArrow Table
 
-        Write statements such as ``createTable(...)``, ``<query>.insertInto(<table>)`` and
-        ``update(<table>, set := {...}, where := ...)`` are applied to this database in place and
-        return a single-row summary of their effect (e.g. ``{createdTable: "sequences"}`` or
-        ``{updatedRows: 2}``). Sequence columns take their reference from the
+        Write statements such as ``createTable(...)``, ``<query>.insertInto(<table>)``,
+        ``update(<table>, set := {...}, where := ...)`` and ``delete(<table>, where := ...)`` are
+        applied to this database in place and return a single-row summary of their effect (e.g.
+        ``{createdTable: "sequences"}`` or ``{deletedRows: 2}``). Sequence columns take their
+        reference from the
         built-in ``reference_genomes`` table, so add the reference there before creating a table
         with a sequence column. Not thread-safe: write statements mutate the in-memory database
         with no internal locking.

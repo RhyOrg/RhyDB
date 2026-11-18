@@ -52,6 +52,21 @@ class GermanStringPage {
       return n()++;
    }
 
+   /// Overwrites the string at `row_id`, which must already be stored on the page.
+   void set(const Idx& row_id, const RhyDBString& rhydb_string) const {
+      RHYDB_ASSERT(row_id < n());
+      // NOLINTNEXTLINE(misc-const-correctness)
+      uint8_t* const start_of_string_struct =
+         page.buffer + sizeof(Header) + (row_id * sizeof(RhyDBString));
+      new (start_of_string_struct) RhyDBString(rhydb_string);
+   }
+
+   /// Keeps only the first `num_strings` strings of the page.
+   void truncate(uint16_t num_strings) const {
+      RHYDB_ASSERT(num_strings <= n());
+      n() = num_strings;
+   }
+
    [[nodiscard]] const RhyDBString& get(const Idx& row_id) const {
       RHYDB_ASSERT(row_id < n());
       uint8_t* start_of_string_struct =
@@ -77,6 +92,12 @@ class GermanStringRegistry {
    Idx insert(const RhyDBString& rhydb_string);
 
    [[nodiscard]] RhyDBString get(Idx row_id) const;
+
+   /// Overwrites the string at `row_id`, which must already be stored.
+   void set(Idx row_id, const RhyDBString& rhydb_string);
+
+   /// Keeps only the first `num_values` strings, freeing the pages no longer needed.
+   void truncate(size_t num_values);
 
    [[nodiscard]] size_t numValues() const {
       if (german_string_pages.empty()) {

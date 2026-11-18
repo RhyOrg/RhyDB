@@ -97,4 +97,17 @@ void BoolColumn::update(
    }
 }
 
+void BoolColumn::deleteRows(const RowCompaction& compaction) {
+   for (size_t chunk_id = 0; chunk_id < chunks.size(); ++chunk_id) {
+      if (!compaction.losesSomeRows(static_cast<uint16_t>(chunk_id))) {
+         continue;
+      }
+      auto& chunk = chunks[chunk_id];
+      compaction.compact(static_cast<uint16_t>(chunk_id), chunk.true_rows);
+      compaction.compact(static_cast<uint16_t>(chunk_id), chunk.false_rows);
+      compaction.compact(static_cast<uint16_t>(chunk_id), chunk.null_rows);
+   }
+   compaction.dropDeletedChunks(chunks);
+}
+
 }  // namespace rhydb::storage::column

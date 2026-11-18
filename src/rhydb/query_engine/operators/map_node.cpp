@@ -14,7 +14,9 @@
 
 #include "rhydb/common/size_constants.h"
 #include "rhydb/query_engine/exec_node/batch_reslicer.h"
+#include "rhydb/query_engine/exec_node/stop_forwarding_node.h"
 #include "rhydb/query_engine/scalar_expressions/at.h"
+#include "rhydb/query_engine/scalar_expressions/cast.h"
 #include "rhydb/query_engine/scalar_expressions/concat.h"
 #include "rhydb/query_engine/scalar_expressions/iso_week.h"
 #include "rhydb/query_engine/scalar_expressions/zstd_decompress_scalar.h"
@@ -22,6 +24,7 @@
 namespace rhydb::query_engine::operators {
 
 using scalar_expressions::At;
+using scalar_expressions::Cast;
 using scalar_expressions::Concat;
 using scalar_expressions::dynCast;
 using scalar_expressions::IsoWeek;
@@ -43,6 +46,9 @@ size_t sumDecompressDictionarySizes(const ScalarExpression& expression) {
    }
    if (const auto* iso_week = dynCast<IsoWeek>(&expression)) {
       return sumDecompressDictionarySizes(*iso_week->input);
+   }
+   if (const auto* cast = dynCast<Cast>(&expression)) {
+      return sumDecompressDictionarySizes(*cast->input);
    }
    if (const auto* concat = dynCast<Concat>(&expression)) {
       return sumDecompressDictionarySizes(*concat->left) +
@@ -79,7 +85,7 @@ arrow::Result<arrow::acero::ExecNode*> insertBackpressureForDecompression(
    arrow::acero::BackpressureMonitor* backpressure_monitor;
    std::shared_ptr<arrow::Schema> schema_of_sequence_batches;
    ARROW_ASSIGN_OR_RAISE(
-      auto* current_node,
+      auto* sink_node,
       arrow::acero::MakeExecNode(
          "sink",
          &plan,
@@ -95,12 +101,12 @@ arrow::Result<arrow::acero::ExecNode*> insertBackpressureForDecompression(
          }
       )
    );
-   current_node->SetLabel(
+   sink_node->SetLabel(
       "additional sink node to help backpressure application before zstd decompression"
    );
 
    ARROW_ASSIGN_OR_RAISE(
-      current_node,
+      auto* source_node,
       arrow::acero::MakeExecNode(
          "source",
          &plan,
@@ -116,11 +122,11 @@ arrow::Result<arrow::acero::ExecNode*> insertBackpressureForDecompression(
          }
       )
    );
-   current_node->SetLabel(
+   source_node->SetLabel(
       "additional source node to help backpressure application before zstd decompression"
    );
 
-   return current_node;
+   return exec_node::forwardStopToSink(plan, source_node, sink_node);
 }
 
 }  // namespace

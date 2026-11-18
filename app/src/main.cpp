@@ -3,8 +3,6 @@
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
-#include <arrow/compute/api.h>
-
 #include <config/config_interface.h>
 #include <rhydb/append/append.h>
 #include <rhydb/common/overloaded.h>
@@ -83,7 +81,6 @@ int mainWhichMayThrowExceptions(int argc, char** argv) {
    }
 
    setupLogger();
-   RHYDB_ASSERT(arrow::compute::Initialize().ok());
 
    ExecutionMode mode;
    if (args.empty()) {

@@ -1,4 +1,10 @@
+#include "rhydb/query_engine/scalar_expressions/string_in_set.h"
+
+#include <sstream>
+
+#include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
+#include <roaring/roaring.hh>
 
 #include "rhydb/test/query_fixture.test.h"
 
@@ -143,6 +149,36 @@ const QueryTestScenario STRING_IN_SET_NONEXISTENT_COLUMN = {
    .expected_error_message = "The database does not contain the column 'nonexistent'",
 };
 
+const QueryTestData TEST_DATA_WITH_NULL{
+   .ndjson_input_data =
+      {
+         nlohmann::json::parse(
+            R"({"primaryKey": "id_0", "country": "Switzerland", "region": "Europe", "segment1": null})"
+         ),
+         nlohmann::json::parse(
+            R"({"primaryKey": "id_1", "country": "", "region": "", "segment1": null})"
+         ),
+         nlohmann::json::parse(
+            R"({"primaryKey": "id_2", "country": null, "region": null, "segment1": null})"
+         ),
+      },
+   .database_config = DATABASE_CONFIG,
+   .reference_genomes = REFERENCE_GENOMES,
+   .without_unaligned_sequences = true,
+};
+
+const QueryTestScenario STRING_IN_SET_EMPTY_STRING_DOES_NOT_MATCH_NULL = {
+   .name = "STRING_IN_SET_EMPTY_STRING_DOES_NOT_MATCH_NULL",
+   .query = "data.filter(country.in({'', 'Germany'})).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
+};
+
+const QueryTestScenario STRING_IN_SET_EMPTY_STRING_DOES_NOT_MATCH_NULL_INDEXED_COLUMN = {
+   .name = "STRING_IN_SET_EMPTY_STRING_DOES_NOT_MATCH_NULL_INDEXED_COLUMN",
+   .query = "data.filter(region.in({'', 'Americas'})).project(primaryKey)",
+   .expected_query_result = nlohmann::json::parse(R"([{"primaryKey":"id_1"}])"),
+};
+
 }  // namespace
 
 QUERY_TEST(
@@ -162,3 +198,61 @@ QUERY_TEST(
       STRING_IN_SET_NONEXISTENT_COLUMN
    )
 );
+
+QUERY_TEST(
+   StringInSetWithNull,
+   TEST_DATA_WITH_NULL,
+   ::testing::Values(
+      STRING_IN_SET_EMPTY_STRING_DOES_NOT_MATCH_NULL,
+      STRING_IN_SET_EMPTY_STRING_DOES_NOT_MATCH_NULL_INDEXED_COLUMN
+   )
+);
+
+namespace {
+
+std::shared_ptr<rhydb::Database> createDatabaseWithNull() {
+   auto database = std::make_shared<rhydb::Database>();
+   rhydb::initialize::Initializer::createTableInDatabase(
+      rhydb::schema::TableName::getDefault(),
+      rhydb::config::DatabaseConfig::getValidatedConfig(TEST_DATA_WITH_NULL.database_config),
+      TEST_DATA_WITH_NULL.reference_genomes,
+      TEST_DATA_WITH_NULL.lineage_trees,
+      TEST_DATA_WITH_NULL.phylo_tree_file,
+      TEST_DATA_WITH_NULL.without_unaligned_sequences,
+      *database
+   );
+   std::stringstream ndjson;
+   for (const auto& object : TEST_DATA_WITH_NULL.ndjson_input_data) {
+      ndjson << object.dump() << "\n";
+   }
+   database->appendData(rhydb::schema::TableName::getDefault(), ndjson);
+   return database;
+}
+
+roaring::Roaring selectedRowsOfEmptySet(const std::string& column_name, bool with_null_rows) {
+   const auto database = createDatabaseWithNull();
+   const auto& table = *database->tables.at(rhydb::schema::TableName::getDefault());
+   const rhydb::query_engine::scalar_expressions::StringInSet string_in_set(
+      {.name = column_name, .type = rhydb::schema::DataType::STRING}, {}
+   );
+   return string_in_set
+      .rewrite(table, rhydb::query_engine::scalar_expressions::ScalarExpression::NONE)
+      ->compile(table, with_null_rows)
+      ->evaluate()
+      .toRoaring();
+}
+
+}  // namespace
+
+// The empty set is matched by no row, so it is false (not null) on the null rows. Both storage
+// paths must agree: the non-indexed column compiles to a row-wise selection, the indexed one is
+// rewritten to an empty `Or`.
+TEST(StringInSetCompile, emptySetDoesNotSelectNullRowsOfNonIndexedColumn) {
+   EXPECT_EQ(selectedRowsOfEmptySet("country", false), roaring::Roaring{});
+   EXPECT_EQ(selectedRowsOfEmptySet("country", true), roaring::Roaring{});
+}
+
+TEST(StringInSetCompile, emptySetDoesNotSelectNullRowsOfIndexedColumn) {
+   EXPECT_EQ(selectedRowsOfEmptySet("region", false), roaring::Roaring{});
+   EXPECT_EQ(selectedRowsOfEmptySet("region", true), roaring::Roaring{});
+}
