@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.17.6](https://github.com/RhyOrg/RhyDB/compare/v0.17.5...v0.17.6) (2026-11-18)
+
+
+### Features
+
+* **query_engine:** add type casts at query execution time ([#1799](https://github.com/RhyOrg/RhyDB/issues/1799)) ([f7acdf0](https://github.com/RhyOrg/RhyDB/commit/f7acdf0a6e7eb552a6fe7b6090d2b129eedebe44))
+
+
+### Bug Fixes
+
+* **query_engine:** do not decompress every row before applying a limit ([#1833](https://github.com/RhyOrg/RhyDB/issues/1833)) ([d3c06a2](https://github.com/RhyOrg/RhyDB/commit/d3c06a2d0f4ac3920eb985a1df0d6ac7926a90b3))
+* **query_engine:** evaluate out-of-bound `.at()` expressions to null for null inputs ([#1839](https://github.com/RhyOrg/RhyDB/issues/1839)) ([511d2ee](https://github.com/RhyOrg/RhyDB/commit/511d2ee67d832e547d088865fa00fed8e23dd5ad))
+* **query_engine:** limit the nesting of queries ([#1828](https://github.com/RhyOrg/RhyDB/issues/1828)) ([599d3a4](https://github.com/RhyOrg/RhyDB/commit/599d3a4110a3b939ab55b733771a4dfbeb7e7923))
+* **query_engine:** treat Unicode whitespace as whitespace and report non-ASCII errors ([#1816](https://github.com/RhyOrg/RhyDB/issues/1816)) ([edc1c02](https://github.com/RhyOrg/RhyDB/commit/edc1c02ccc85fb27406be85b2aec143041ceb657))
+
 ## [0.17.5](https://github.com/RhyOrg/RhyDB/compare/v0.17.4...v0.17.5) (2026-11-16)
 
 
