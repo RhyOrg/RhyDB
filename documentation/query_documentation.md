@@ -145,11 +145,7 @@ After the first named argument is given, no more positional arguments are accept
 
 ### Nesting Limit
 
-A query may be nested at most 100 levels deep, otherwise it is rejected with
-`Expression is nested too deeply`. Every operator, function or method call, cast, set and record
-adds a level around its operands, e.g. `data.filter(a = 1)` is 3 levels deep, and parentheses add a
-level for their content. Chains of the same operator (`a && b && c && ...`) add only one level, so
-long filters such as `x = 1 || x = 2 || ...` are not affected.
+A query may be nested at most 100 levels deep.
 
 ---
 
