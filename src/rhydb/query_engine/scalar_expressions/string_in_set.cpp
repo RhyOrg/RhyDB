@@ -2,6 +2,8 @@
 
 #include <utility>
 
+#include <arrow/api.h>
+#include <arrow/compute/api.h>
 #include <fmt/format.h>
 #include <fmt/ranges.h>
 
@@ -35,6 +37,24 @@ std::string StringInSet::toString() const {
 
 std::vector<schema::ColumnIdentifier> StringInSet::freeIUs() const {
    return {column};
+}
+
+arrow::Result<arrow::compute::Expression> StringInSet::toArrowExpression() const {
+   // An empty set is matched by no row, not even a null one: it is the empty disjunction
+   if (values.empty()) {
+      return arrow::compute::literal(false);
+   }
+   arrow::LargeStringBuilder value_set_builder;
+   for (const auto& value : values) {
+      ARROW_RETURN_NOT_OK(value_set_builder.Append(value));
+   }
+   ARROW_ASSIGN_OR_RAISE(auto value_set, value_set_builder.Finish());
+   // A null input yields null (not false), so that a negation does not select the null rows
+   const arrow::compute::SetLookupOptions options{
+      arrow::Datum(std::move(value_set)),
+      arrow::compute::SetLookupOptions::EMIT_NULL,
+   };
+   return arrow::compute::call("is_in", {arrow::compute::field_ref(column.name)}, options);
 }
 
 std::unique_ptr<ScalarExpression> StringInSet::rewrite(

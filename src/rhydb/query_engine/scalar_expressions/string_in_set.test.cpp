@@ -2,11 +2,14 @@
 
 #include <sstream>
 
+#include <arrow/api.h>
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 #include <roaring/roaring.hh>
 
+#include "rhydb/query_engine/scalar_expressions/negation.h"
 #include "rhydb/test/query_fixture.test.h"
+#include "rhydb/test/scalar_expression_test_util.test.h"
 
 namespace {
 using rhydb::ReferenceGenomes;
@@ -255,4 +258,72 @@ TEST(StringInSetCompile, emptySetDoesNotSelectNullRowsOfNonIndexedColumn) {
 TEST(StringInSetCompile, emptySetDoesNotSelectNullRowsOfIndexedColumn) {
    EXPECT_EQ(selectedRowsOfEmptySet("region", false), roaring::Roaring{});
    EXPECT_EQ(selectedRowsOfEmptySet("region", true), roaring::Roaring{});
+}
+
+namespace {
+
+using rhydb::query_engine::scalar_expressions::Negation;
+using rhydb::query_engine::scalar_expressions::StringInSet;
+using rhydb::test::evaluateOnBatch;
+using rhydb::test::makeBooleanArray;
+using rhydb::test::makeLargeStringArray;
+
+const auto STRING_COLUMN = rhydb::schema::ColumnIdentifier{
+   .name = "country",
+   .type = rhydb::schema::DataType::STRING,
+};
+
+std::shared_ptr<arrow::RecordBatch> batchWithCountries(
+   const std::vector<std::optional<std::string>>& countries
+) {
+   return arrow::RecordBatch::Make(
+      arrow::schema({arrow::field("country", arrow::large_utf8())}),
+      static_cast<int64_t>(countries.size()),
+      {makeLargeStringArray(countries)}
+   );
+}
+
+void expectEvaluatesTo(
+   const rhydb::query_engine::scalar_expressions::ScalarExpression& expression,
+   const std::vector<std::optional<std::string>>& countries,
+   const std::vector<std::optional<bool>>& expected
+) {
+   const auto batch = batchWithCountries(countries);
+   const auto actual = evaluateOnBatch(expression, batch->schema(), batch);
+   EXPECT_TRUE(actual->Equals(*makeBooleanArray(expected)))
+      << "actual: " << actual->ToString() << "expected: " << makeBooleanArray(expected)->ToString();
+}
+
+}  // namespace
+
+// There is no query test for the Arrow translation: a `StringInSet` only comes into existence in
+// `rewrite`, which the Arrow path (`FilterNode`) does not call. A SaneQL `in` is parsed into
+// comparisons, which are translated on their own.
+TEST(StringInSetArrow, isTrueForMembersFalseForOthersAndNullForNull) {
+   expectEvaluatesTo(
+      StringInSet(STRING_COLUMN, {"Switzerland", "Germany"}),
+      {"Switzerland", "USA", std::nullopt, "Germany", ""},
+      {true, false, std::nullopt, true, false}
+   );
+}
+
+TEST(StringInSetArrow, emptyStringIsAMemberOnlyIfItIsInTheSet) {
+   expectEvaluatesTo(
+      StringInSet(STRING_COLUMN, {""}), {"", "USA", std::nullopt}, {true, false, std::nullopt}
+   );
+}
+
+// Like the bitmap path, the empty set is false on every row, including the null ones.
+TEST(StringInSetArrow, emptySetIsFalseOnEveryRow) {
+   expectEvaluatesTo(StringInSet(STRING_COLUMN, {}), {"Switzerland", std::nullopt}, {false, false});
+}
+
+TEST(StringInSetArrow, negationDoesNotSelectNullRows) {
+   expectEvaluatesTo(
+      Negation(
+         std::make_unique<StringInSet>(STRING_COLUMN, std::unordered_set<std::string>{"Germany"})
+      ),
+      {"Germany", "USA", std::nullopt},
+      {false, true, std::nullopt}
+   );
 }
