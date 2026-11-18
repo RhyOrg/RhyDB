@@ -1,0 +1,8 @@
+{
+  "testCaseName": "Type cast between unsupported types",
+  "query": "data.map({a := date::int32}).project({primary_key, a})",
+  "expectedError": {
+    "error": "Bad request",
+    "message": "map() field 'a': cannot cast from DATE32 to INT32 at 1:20"
+  }
+}

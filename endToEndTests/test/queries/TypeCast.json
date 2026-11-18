@@ -1,0 +1,24 @@
+{
+  "testCaseName": "Type casts on columns and literals",
+  "query": "data.filter(primary_key = 'key_29' || primary_key = 'key_38').order(by:={primary_key}).map({age_str := age::string, age_float := age::float, date_str := date::string, qc_str := qc_value::string, lit := '42'::int64, typed_null := null::int32}).project({primary_key, age_str, age_float, date_str, qc_str, lit, typed_null})",
+  "expectedQueryResult": [
+    {
+      "primary_key": "key_29",
+      "age_str": "4",
+      "age_float": 4,
+      "date_str": "2021-03-18",
+      "qc_str": "0.98",
+      "lit": 42,
+      "typed_null": null
+    },
+    {
+      "primary_key": "key_38",
+      "age_str": null,
+      "age_float": null,
+      "date_str": "2021-03-02",
+      "qc_str": "0.91",
+      "lit": 42,
+      "typed_null": null
+    }
+  ]
+}

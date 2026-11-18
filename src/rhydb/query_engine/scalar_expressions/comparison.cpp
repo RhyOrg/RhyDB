@@ -129,6 +129,16 @@ std::optional<SequencePositionAndLiteral> splitSequencePositionAndLiteral(
    };
 }
 
+/// False on rows that have a sequence and null on rows whose sequence is null - the value of a
+/// position comparison that can never match. A plain `false` would be wrong under a negation, which
+/// must not select the null rows.
+std::unique_ptr<ScalarExpression> falseOrNullIfNull(const ColumnIdentifier& column) {
+   ScalarExpressionVector children;
+   children.emplace_back(std::make_unique<IsNull>(column));
+   children.emplace_back(std::make_unique<NullLiteral>(schema::DataType::BOOL));
+   return std::make_unique<And>(std::move(children));
+}
+
 /// Rewrites `sequence.at(position) = 'X'` (or `<>`) into the symbol filters that `nucleotideEquals`
 /// / `aminoAcidEquals` use, so the predicate is answered from the sequence index instead of
 /// reconstructing every sequence. The result must match the Arrow evaluation of the comparison,
@@ -154,13 +164,13 @@ std::unique_ptr<ScalarExpression> rewriteSequencePositionComparison(
       if (comparator == Comparator::EQUALS) {
          return std::make_unique<Negation>(std::make_unique<IsNull>(split.column));
       }
-      return std::make_unique<BoolLiteral>(false);
+      return falseOrNullIfNull(split.column);
    }
    if (!in_bounds || !is_decoded_symbol) {
       // The extracted character can never equal the literal, so `=` matches nothing and `<>`
       // matches every row that has a sequence.
       if (comparator == Comparator::EQUALS) {
-         return std::make_unique<BoolLiteral>(false);
+         return falseOrNullIfNull(split.column);
       }
       return std::make_unique<Negation>(std::make_unique<IsNull>(split.column));
    }

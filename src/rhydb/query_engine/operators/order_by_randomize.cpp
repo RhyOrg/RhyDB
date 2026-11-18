@@ -15,6 +15,7 @@
 #include <spdlog/spdlog.h>
 
 #include "rhydb/common/panic.h"
+#include "rhydb/query_engine/exec_node/stop_forwarding_node.h"
 
 namespace rhydb::query_engine::operators {
 
@@ -57,7 +58,7 @@ arrow::Result<arrow::acero::ExecNode*> addRandomizeColumn(
    arrow::AsyncGenerator<std::optional<arrow::ExecBatch>> sequenced_batches;
    std::shared_ptr<arrow::Schema> schema_of_sequence_batches;
    ARROW_ASSIGN_OR_RAISE(
-      top_node,
+      auto* sink_node,
       arrow::acero::MakeExecNode(
          "sink",
          &plan,
@@ -65,7 +66,7 @@ arrow::Result<arrow::acero::ExecNode*> addRandomizeColumn(
          arrow::acero::SinkNodeOptions{&sequenced_batches, &schema_of_sequence_batches}
       )
    );
-   top_node->SetLabel("input to randomize column projection");
+   sink_node->SetLabel("input to randomize column projection");
    auto output_schema_fields = schema_of_sequence_batches->fields();
    output_schema_fields.emplace_back(
       std::make_shared<arrow::Field>(RANDOMIZE_HASH_FIELD_NAME, arrow::uint64())
@@ -121,7 +122,7 @@ arrow::Result<arrow::acero::ExecNode*> addRandomizeColumn(
       )
    );
    top_node->SetLabel("output of randomize column projection");
-   return top_node;
+   return exec_node::forwardStopToSink(plan, top_node, sink_node);
 }
 
 }  // namespace rhydb::query_engine::operators

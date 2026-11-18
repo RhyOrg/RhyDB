@@ -326,6 +326,110 @@ TEST(MapPullupPass, doesNotPullMapUpThroughProject) {
    EXPECT_EQ(project_node->child->kind(), operators::NodeKind::MAP);
 }
 
+// --- FetchNode(ProjectNode(MapNode(...))) → ProjectNode(MapNode(FetchNode(...))): the fetch moves
+// below the projection so the map can be pulled above it; the projection stays on top ---
+
+std::unique_ptr<operators::ProjectNode> makeProjectIdAndX(operators::QueryNodePtr child) {
+   return std::make_unique<operators::ProjectNode>(
+      std::move(child),
+      std::vector<ColumnIdentifier>{
+         {.name = "x", .type = DataType::INT64},
+         {.name = "id", .type = DataType::STRING},
+      }
+   );
+}
+
+void expectProjectIdAndX(const operators::QueryNode& node) {
+   ASSERT_EQ(node.kind(), operators::NodeKind::PROJECT);
+   const auto& project = dynamic_cast<const operators::ProjectNode&>(node);
+   ASSERT_EQ(project.fields.size(), 2);
+   EXPECT_EQ(project.fields[0].name, "x");
+   EXPECT_EQ(project.fields[1].name, "id");
+}
+
+TEST(MapPullupPass, pullsMapUpThroughFetchOverProject) {
+   auto fetch =
+      std::make_unique<operators::FetchNode>(makeProjectIdAndX(makeMap(makeScan())), 5, 2);
+
+   auto result = MapPullupPass::run(std::move(fetch));
+
+   expectProjectIdAndX(*result);
+   auto* project = dynamic_cast<operators::ProjectNode*>(result.get());
+   ASSERT_EQ(project->child->kind(), operators::NodeKind::MAP);
+   auto* map = dynamic_cast<operators::MapNode*>(project->child.get());
+   ASSERT_EQ(map->child->kind(), operators::NodeKind::FETCH);
+   auto* moved_fetch = dynamic_cast<operators::FetchNode*>(map->child.get());
+   EXPECT_EQ(moved_fetch->count, 5);
+   EXPECT_EQ(moved_fetch->offset, 2);
+   EXPECT_EQ(moved_fetch->child->kind(), operators::NodeKind::TABLE_SCAN);
+}
+
+TEST(MapPullupPass, leavesFetchOverProjectOverNonMapInPlace) {
+   auto fetch = std::make_unique<operators::FetchNode>(
+      std::make_unique<operators::ProjectNode>(
+         makeScan(), std::vector<ColumnIdentifier>{{.name = "id", .type = DataType::STRING}}
+      ),
+      5,
+      std::nullopt
+   );
+
+   auto result = MapPullupPass::run(std::move(fetch));
+
+   ASSERT_EQ(result->kind(), operators::NodeKind::FETCH);
+   auto* fetch_node = dynamic_cast<operators::FetchNode*>(result.get());
+   EXPECT_EQ(fetch_node->child->kind(), operators::NodeKind::PROJECT);
+}
+
+// The shape LAPIS sends for sorted sequence requests:
+// `.project({...}).order(by:={...}).limit(n)` = Fetch(OrderBy(Project(Map(scan)))). Both the
+// OrderBy and the Fetch end up below the Map, so only the rows that survive the limit are
+// decompressed, and SelectKRewritePass can fuse Fetch(OrderBy) into an OrderByWithLimit.
+
+TEST(MapPullupPass, pullsMapUpThroughFetchAndOrderByOverProject) {
+   std::vector<rhydb::query_engine::OrderByField> fields{
+      {.field = {.name = "id", .type = DataType::STRING}, .ascending = true},
+   };
+   auto order_by = std::make_unique<operators::OrderByNode>(
+      makeProjectIdAndX(makeMap(makeScan())), std::move(fields), std::nullopt
+   );
+   auto fetch = std::make_unique<operators::FetchNode>(std::move(order_by), 40, std::nullopt);
+
+   auto result = MapPullupPass::run(std::move(fetch));
+
+   expectProjectIdAndX(*result);
+   auto* project = dynamic_cast<operators::ProjectNode*>(result.get());
+   ASSERT_EQ(project->child->kind(), operators::NodeKind::MAP);
+   auto* map = dynamic_cast<operators::MapNode*>(project->child.get());
+   ASSERT_EQ(map->child->kind(), operators::NodeKind::FETCH);
+   auto* moved_fetch = dynamic_cast<operators::FetchNode*>(map->child.get());
+   EXPECT_EQ(moved_fetch->count, 40);
+   ASSERT_EQ(moved_fetch->child->kind(), operators::NodeKind::ORDER_BY);
+   auto* moved_order_by = dynamic_cast<operators::OrderByNode*>(moved_fetch->child.get());
+   ASSERT_EQ(moved_order_by->fields.size(), 1);
+   EXPECT_EQ(moved_order_by->fields.front().field.name, "id");
+   EXPECT_EQ(moved_order_by->child->kind(), operators::NodeKind::TABLE_SCAN);
+}
+
+// Ordering by a produced column blocks the pullup through a projection just as it does directly.
+
+TEST(MapPullupPass, doesNotPullMapUpThroughOrderByOverProjectOnProducedColumn) {
+   std::vector<rhydb::query_engine::OrderByField> fields{
+      {.field = {.name = "x", .type = DataType::INT64}, .ascending = true},
+   };
+   auto order_by = std::make_unique<operators::OrderByNode>(
+      makeProjectIdAndX(makeMap(makeScan())), std::move(fields), std::nullopt
+   );
+
+   auto result = MapPullupPass::run(std::move(order_by));
+
+   ASSERT_EQ(result->kind(), operators::NodeKind::ORDER_BY);
+   auto* order_by_node = dynamic_cast<operators::OrderByNode*>(result.get());
+   ASSERT_EQ(order_by_node->fields.size(), 1);
+   expectProjectIdAndX(*order_by_node->child);
+   auto* project = dynamic_cast<operators::ProjectNode*>(order_by_node->child.get());
+   EXPECT_EQ(project->child->kind(), operators::NodeKind::MAP);
+}
+
 // --- OrderByNode(MapNode(...)) → MapNode(OrderByNode(...)) when the order-by fields do not
 // reference a produced column ---
 
