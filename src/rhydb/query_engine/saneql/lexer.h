@@ -26,15 +26,17 @@ class Lexer {
       size_t byte_length;
    };
 
-   [[nodiscard]] char peek() const;
-   [[nodiscard]] char peekNext() const;
-   /// Consumes one ASCII byte. Bytes >= 0x80 must go through peekCodepoint/advanceCodepoint.
-   char advance();
-   /// Decodes the UTF-8 code point at the current position.
+   [[nodiscard]] char peekByte() const;
+   [[nodiscard]] char peekNextByte() const;
+   /// Consumes one ASCII byte. Bytes >= 0x80 must go through peekCodepoint/consumeCodepoint.
+   char advanceByte();
+   /// Decodes the UTF-8 code point at the current position without consuming it.
    /// Throws ParseException if the input is not valid UTF-8 there.
    [[nodiscard]] Codepoint peekCodepoint() const;
-   /// Consumes a non-ASCII code point previously decoded with peekCodepoint. Counts one column.
-   void advanceCodepoint(const Codepoint& codepoint);
+   /// Consumes the UTF-8 code point at the current position and returns its raw bytes.
+   /// Handles both ASCII and multi-byte code points and counts one column.
+   /// Throws ParseException if the input is not valid UTF-8 there.
+   std::string_view consumeCodepoint();
    [[nodiscard]] static bool isUnicodeWhitespace(char32_t codepoint);
    void skipWhitespace();
    [[nodiscard]] bool isAtEnd() const;

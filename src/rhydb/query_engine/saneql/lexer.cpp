@@ -53,21 +53,21 @@ bool Lexer::isAtEnd() const {
    return position >= input.size();
 }
 
-char Lexer::peek() const {
+char Lexer::peekByte() const {
    if (isAtEnd()) {
       return '\0';
    }
    return input[position];
 }
 
-char Lexer::peekNext() const {
+char Lexer::peekNextByte() const {
    if (position + 1 >= input.size()) {
       return '\0';
    }
    return input[position + 1];
 }
 
-char Lexer::advance() {
+char Lexer::advanceByte() {
    RHYDB_ASSERT(!isAtEnd());
    const char current = input[position];
    RHYDB_ASSERT(isAsciiByte(current));
@@ -102,11 +102,17 @@ Lexer::Codepoint Lexer::peekCodepoint() const {
    return {.value = value, .byte_length = byte_length};
 }
 
-void Lexer::advanceCodepoint(const Codepoint& codepoint) {
-   RHYDB_ASSERT(codepoint.value >= FIRST_NON_ASCII_BYTE);
-   RHYDB_ASSERT(position + codepoint.byte_length <= input.size());
+std::string_view Lexer::consumeCodepoint() {
+   const Codepoint codepoint = peekCodepoint();
+   const std::string_view bytes = input.substr(position, codepoint.byte_length);
    position += codepoint.byte_length;
-   current_location.column++;
+   if (codepoint.value == '\n') {
+      current_location.line++;
+      current_location.column = 1;
+   } else {
+      current_location.column++;
+   }
+   return bytes;
 }
 
 bool Lexer::isUnicodeWhitespace(char32_t codepoint) {
@@ -119,26 +125,21 @@ bool Lexer::isUnicodeWhitespace(char32_t codepoint) {
 
 void Lexer::skipWhitespace() {
    while (!isAtEnd()) {
-      const char current = peek();
+      const char current = peekByte();
       if (
          current == ' ' || current == '\t' || current == '\n' || current == '\v' ||
          current == '\f' || current == '\r'
       ) {
-         advance();
-      } else if (current == '-' && peekNext() == '-') {
-         while (!isAtEnd() && peek() != '\n') {
-            if (isAsciiByte(peek())) {
-               advance();
-            } else {
-               advanceCodepoint(peekCodepoint());
-            }
+         advanceByte();
+      } else if (current == '-' && peekNextByte() == '-') {
+         while (!isAtEnd() && peekByte() != '\n') {
+            consumeCodepoint();
          }
       } else if (!isAsciiByte(current)) {
-         const Codepoint codepoint = peekCodepoint();
-         if (!isUnicodeWhitespace(codepoint.value)) {
+         if (!isUnicodeWhitespace(peekCodepoint().value)) {
             break;
          }
-         advanceCodepoint(codepoint);
+         consumeCodepoint();
       } else {
          break;
       }
@@ -155,26 +156,22 @@ Token Lexer::makeToken(TokenType type, TokenValue value, SourceLocation loc) {
 
 Token Lexer::readString() {
    const SourceLocation start = current_location;
-   RHYDB_ASSERT(peek() == '\'');
-   advance();
+   RHYDB_ASSERT(peekByte() == '\'');
+   advanceByte();
 
    std::string result;
    while (!isAtEnd()) {
-      if (peek() == '\'') {
-         advance();
-         if (!isAtEnd() && peek() == '\'') {
-            advance();
+      if (peekByte() == '\'') {
+         advanceByte();
+         if (!isAtEnd() && peekByte() == '\'') {
+            advanceByte();
             // Escaped single quote: '' -> '
             result += '\'';
          } else {
             return makeToken(TokenType::STRING_LITERAL, std::move(result), start);
          }
-      } else if (isAsciiByte(peek())) {
-         result += advance();
       } else {
-         const Codepoint codepoint = peekCodepoint();
-         result += input.substr(position, codepoint.byte_length);
-         advanceCodepoint(codepoint);
+         result += consumeCodepoint();
       }
    }
    throw ParseException(start, "Unterminated string literal");
@@ -183,26 +180,22 @@ Token Lexer::readString() {
 Token Lexer::readQuotedIdentifier() {
    const SourceLocation start = current_location;
 
-   RHYDB_ASSERT(peek() == '"');
-   advance();
+   RHYDB_ASSERT(peekByte() == '"');
+   advanceByte();
 
    std::string result;
    while (!isAtEnd()) {
-      if (peek() == '"') {
-         advance();
-         if (!isAtEnd() && peek() == '"') {
-            advance();
+      if (peekByte() == '"') {
+         advanceByte();
+         if (!isAtEnd() && peekByte() == '"') {
+            advanceByte();
             // Escaped double quote: "" -> "
             result += '"';
          } else {
             return makeToken(TokenType::IDENTIFIER, std::move(result), start);
          }
-      } else if (isAsciiByte(peek())) {
-         result += advance();
       } else {
-         const Codepoint codepoint = peekCodepoint();
-         result += input.substr(position, codepoint.byte_length);
-         advanceCodepoint(codepoint);
+         result += consumeCodepoint();
       }
    }
    throw ParseException(start, "Unterminated quoted identifier");
@@ -213,15 +206,16 @@ Token Lexer::readNumber() {
    const size_t num_start = position;
 
    bool is_float = false;
-   while (!isAtEnd() && (std::isalnum(static_cast<unsigned char>(peek())) || peek() == '.')) {
-      const char current = advance();
+   while (!isAtEnd() &&
+          (std::isalnum(static_cast<unsigned char>(peekByte())) || peekByte() == '.')) {
+      const char current = advanceByte();
       if (current == '.') {
          is_float = true;
       } else if (current == 'e' || current == 'E') {
          // Scientific notation such as 9.0E-4
          is_float = true;
-         if (!isAtEnd() && (peek() == '+' || peek() == '-')) {
-            advance();
+         if (!isAtEnd() && (peekByte() == '+' || peekByte() == '-')) {
+            advanceByte();
          }
       }
    }
@@ -249,8 +243,9 @@ Token Lexer::readIdentifierOrKeyword() {
    const SourceLocation start = current_location;
    const size_t id_start = position;
 
-   while (!isAtEnd() && (std::isalnum(static_cast<unsigned char>(peek())) || peek() == '_')) {
-      advance();
+   while (!isAtEnd() &&
+          (std::isalnum(static_cast<unsigned char>(peekByte())) || peekByte() == '_')) {
+      advanceByte();
    }
 
    std::string identifier(input.substr(id_start, position - id_start));
@@ -277,7 +272,7 @@ Token Lexer::nextToken() {
    }
 
    const SourceLocation start = current_location;
-   char current = peek();
+   char current = peekByte();
 
    if (current == '"') {
       return readQuotedIdentifier();
@@ -297,80 +292,80 @@ Token Lexer::nextToken() {
 
    switch (current) {
       case '.':
-         advance();
+         advanceByte();
          return makeToken(TokenType::DOT, start);
       case ',':
-         advance();
+         advanceByte();
          return makeToken(TokenType::COMMA, start);
       case '(':
-         advance();
+         advanceByte();
          return makeToken(TokenType::LEFT_PAREN, start);
       case ')':
-         advance();
+         advanceByte();
          return makeToken(TokenType::RIGHT_PAREN, start);
       case '{':
-         advance();
+         advanceByte();
          return makeToken(TokenType::LEFT_BRACE, start);
       case '}':
-         advance();
+         advanceByte();
          return makeToken(TokenType::RIGHT_BRACE, start);
       case '[':
-         advance();
+         advanceByte();
          return makeToken(TokenType::LEFT_BRACKET, start);
       case ']':
-         advance();
+         advanceByte();
          return makeToken(TokenType::RIGHT_BRACKET, start);
       case '!':
-         advance();
+         advanceByte();
          return makeToken(TokenType::NOT, start);
       case '=':
-         advance();
+         advanceByte();
          return makeToken(TokenType::EQUALS, start);
       case '<':
-         advance();
-         if (!isAtEnd() && peek() == '>') {
-            advance();
+         advanceByte();
+         if (!isAtEnd() && peekByte() == '>') {
+            advanceByte();
             return makeToken(TokenType::NOT_EQUALS, start);
          }
-         if (!isAtEnd() && peek() == '=') {
-            advance();
+         if (!isAtEnd() && peekByte() == '=') {
+            advanceByte();
             return makeToken(TokenType::LESS_EQUAL, start);
          }
          return makeToken(TokenType::LESS_THAN, start);
       case '>':
-         advance();
-         if (!isAtEnd() && peek() == '=') {
-            advance();
+         advanceByte();
+         if (!isAtEnd() && peekByte() == '=') {
+            advanceByte();
             return makeToken(TokenType::GREATER_EQUAL, start);
          }
          return makeToken(TokenType::GREATER_THAN, start);
       case '&':
-         advance();
-         if (!isAtEnd() && peek() == '&') {
-            advance();
+         advanceByte();
+         if (!isAtEnd() && peekByte() == '&') {
+            advanceByte();
             return makeToken(TokenType::AND, start);
          }
          throw ParseException(start, "Expected '&&'");
       case '|':
-         advance();
-         if (!isAtEnd() && peek() == '|') {
-            advance();
+         advanceByte();
+         if (!isAtEnd() && peekByte() == '|') {
+            advanceByte();
             return makeToken(TokenType::OR, start);
          }
          throw ParseException(start, "Expected '||'");
       case ':':
-         advance();
-         if (!isAtEnd() && peek() == ':') {
-            advance();
+         advanceByte();
+         if (!isAtEnd() && peekByte() == ':') {
+            advanceByte();
             return makeToken(TokenType::DOUBLE_COLON, start);
          }
-         if (!isAtEnd() && peek() == '=') {
-            advance();
+         if (!isAtEnd() && peekByte() == '=') {
+            advanceByte();
             return makeToken(TokenType::COLON_EQUALS, start);
          }
          throw ParseException(start, "Expected '::' or ':='");
       case '-':
-         advance();
+         advanceByte();
          return makeToken(TokenType::MINUS, start);
       default:
          if (!isAsciiByte(current)) {
@@ -383,14 +378,14 @@ Token Lexer::nextToken() {
          if (!isPrintableAsciiByte(current)) {
             // Control characters (incl. NUL) and DEL: report the code point so the raw
             // byte never ends up in the error message or the response body.
-            advance();
+            advanceByte();
             throw ParseException(
                start,
                "Unexpected character U+{:04X}",
                static_cast<uint32_t>(static_cast<unsigned char>(current))
             );
          }
-         advance();
+         advanceByte();
          throw ParseException(start, "Unexpected character '{}'", current);
    }
 }
