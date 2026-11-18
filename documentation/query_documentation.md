@@ -143,6 +143,10 @@ pango_lineage.lineage('B.1.1.7', includeSublineages:=true)
 
 After the first named argument is given, no more positional arguments are accepted.
 
+### Nesting Limit
+
+A query may be nested at most 100 levels deep.
+
 ---
 
 ## Pipeline Operations

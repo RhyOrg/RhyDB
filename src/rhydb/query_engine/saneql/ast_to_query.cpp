@@ -163,7 +163,8 @@ std::unique_ptr<ScalarExpression> convertToScalar(
    std::string_view error_context,
    const ScalarConversionContext& context
 ) {
-   const auto& [value, location] = ast;
+   const auto& value = ast.value;
+   const auto& location = ast.location;
 
    if (std::holds_alternative<ast::Identifier>(value)) {
       const auto& name = std::get<ast::Identifier>(value).name;

@@ -1,5 +1,7 @@
 #include "rhydb/query_engine/saneql/ast.h"
 
+#include <algorithm>
+#include <cstdint>
 #include <utility>
 
 #include <fmt/format.h>
@@ -148,10 +150,59 @@ std::string Expression::toString() const {
    return std::visit(ExprToString{}, value);
 }
 
+namespace {
+
+/// The maximum depth of the direct children of an expression, 0 for leaves
+struct MaxChildDepth {
+   static uint32_t of(const ExpressionPtr& child) { return child->depth; }
+
+   /// The maximum of `depth_of` over all `children`
+   template <typename Range, typename DepthOf>
+   static uint32_t ofAll(const Range& children, DepthOf depth_of) {
+      uint32_t result = 0;
+      for (const auto& child : children) {
+         result = std::max(result, depth_of(child));
+      }
+      return result;
+   }
+
+   uint32_t operator()(const IntLiteral& /*literal*/) const { return 0; }
+   uint32_t operator()(const FloatLiteral& /*literal*/) const { return 0; }
+   uint32_t operator()(const StringLiteral& /*literal*/) const { return 0; }
+   uint32_t operator()(const BoolLiteral& /*literal*/) const { return 0; }
+   uint32_t operator()(const NullLiteral& /*literal*/) const { return 0; }
+   uint32_t operator()(const Identifier& /*identifier*/) const { return 0; }
+   uint32_t operator()(const BinaryExpr& expr) const {
+      return std::max(of(expr.left), of(expr.right));
+   }
+   uint32_t operator()(const LogicalExpr& expr) const { return ofAll(expr.operands, of); }
+   uint32_t operator()(const UnaryNotExpr& expr) const { return of(expr.operand); }
+   uint32_t operator()(const FunctionCall& call) const {
+      return std::max(
+         ofAll(
+            call.positional_arguments,
+            [](const PositionalArgument& argument) { return of(argument.value); }
+         ),
+         ofAll(call.named_arguments, [](const NamedArgument& argument) {
+            return of(argument.value);
+         })
+      );
+   }
+   uint32_t operator()(const TypeCast& cast) const { return of(cast.operand); }
+   uint32_t operator()(const SetLiteral& set) const { return ofAll(set.elements, of); }
+   uint32_t operator()(const RecordLiteral& record) const {
+      return ofAll(record.fields, [](const RecordField& field) { return of(field.value); });
+   }
+};
+
+}  // namespace
+
 ExpressionPtr makeExpr(ExpressionVariant value, SourceLocation location) {
+   const uint32_t depth = std::visit(MaxChildDepth{}, value) + 1;
    auto expr = std::make_unique<Expression>();
    expr->value = std::move(value);
    expr->location = location;
+   expr->depth = depth;
    return expr;
 }
 

@@ -113,7 +113,9 @@ std::unique_ptr<filter::operators::Operator> IntBetween::compileFor(
    auto result =
       std::make_unique<filter::operators::Selection>(std::move(predicates), table.row_layout);
 
-   SPDLOG_TRACE("Compiled IntBetween filter expression to {}", result->toString());
+   if (spdlog::should_log(spdlog::level::trace)) {
+      SPDLOG_TRACE("Compiled IntBetween filter expression to {}", result->toString());
+   }
 
    return std::move(result);
 }

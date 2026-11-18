@@ -1,8 +1,10 @@
 #include "rhydb/query_engine/saneql/parser.h"
 
 #include <string>
+#include <string_view>
 #include <variant>
 
+#include <fmt/format.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -819,4 +821,136 @@ TEST(SaneQLParser, parsesNamedArgInMethodCall) {
    ASSERT_EQ(call.named_arguments.size(), 1);
    EXPECT_EQ(call.named_arguments[0].name, "x");
    EXPECT_EQ(expr->toString(), "f(a, x:=1)");
+}
+
+namespace {
+/// `(x = 1 && (x = 2 || (x = 3 && ... x = 0)))` with `depth` parenthesized levels
+std::string alternatingAndOr(size_t depth) {
+   std::string expression;
+   for (size_t i = 0; i < depth; ++i) {
+      expression += fmt::format("(x = {} {} ", i + 1, i % 2 == 0 ? "&&" : "||");
+   }
+   expression += "x = 0";
+   expression += std::string(depth, ')');
+   return expression;
+}
+
+std::string repeated(std::string_view part, size_t count) {
+   std::string result;
+   for (size_t i = 0; i < count; ++i) {
+      result += part;
+   }
+   return result;
+}
+}  // namespace
+
+/// The innermost operator of alternatingAndOr(n), `x = n && x = 0`, is 3 levels deep and nested in
+/// n parentheses.
+constexpr size_t MAX_ALTERNATING_DEPTH = Parser::MAX_NESTING_DEPTH - 3;
+
+TEST(SaneQLParser, acceptsNestingUpToTheMaximumDepth) {
+   const std::string input = alternatingAndOr(MAX_ALTERNATING_DEPTH);
+   Parser parser(input);
+   EXPECT_NO_THROW((void)parser.parse());
+}
+
+TEST(SaneQLParser, rejectsNestingBeyondTheMaximumDepth) {
+   const std::string input = alternatingAndOr(MAX_ALTERNATING_DEPTH + 1);
+   Parser parser(input);
+   EXPECT_THAT(
+      [&]() { (void)parser.parse(); },
+      ThrowsMessage<ParseException>(
+         ::testing::HasSubstr("Expression is nested too deeply, the maximum nesting depth is 100")
+      )
+   );
+}
+
+TEST(SaneQLParser, rejectsVeryDeepNestingWithoutCrashing) {
+   const std::string input = alternatingAndOr(100'000);
+   Parser parser(input);
+   EXPECT_THROW((void)parser.parse(), ParseException);
+}
+
+TEST(SaneQLParser, rejectsDeeplyNestedNegations) {
+   const std::string input = repeated("!", 100'000) + "x";
+   Parser parser(input);
+   EXPECT_THROW((void)parser.parse(), ParseException);
+}
+
+TEST(SaneQLParser, rejectsDeeplyNestedArguments) {
+   const std::string input = repeated("f(", 100'000) + "x" + repeated(")", 100'000);
+   Parser parser(input);
+   EXPECT_THROW((void)parser.parse(), ParseException);
+}
+
+TEST(SaneQLParser, acceptsPostfixChainsUpToTheMaximumDepth) {
+   const std::string input = "x" + repeated(".f()", Parser::MAX_NESTING_DEPTH - 1);
+   Parser parser(input);
+   EXPECT_NO_THROW((void)parser.parse());
+}
+
+TEST(SaneQLParser, rejectsPostfixChainsBeyondTheMaximumDepth) {
+   const std::string input = "x" + repeated(".f()", Parser::MAX_NESTING_DEPTH);
+   Parser parser(input);
+   EXPECT_THROW((void)parser.parse(), ParseException);
+}
+
+TEST(SaneQLParser, rejectsVeryLongPostfixChainsWithoutCrashing) {
+   const std::string input = "x" + repeated(".f()", 100'000);
+   Parser parser(input);
+   EXPECT_THROW((void)parser.parse(), ParseException);
+}
+
+// Postfix operations wrap an expression that has already been parsed, which must not reset the
+// depth that this expression reached, e.g. inside parentheses or arguments.
+TEST(SaneQLParser, countsPostfixChainsAroundParentheses) {
+   const std::string accepted = "(x" + repeated(".f()", 49) + ")" + repeated(".f()", 49);
+   Parser accepted_parser(accepted);
+   EXPECT_NO_THROW((void)accepted_parser.parse());
+
+   const std::string rejected = "(x" + repeated(".f()", 98) + ")" + repeated(".f()", 99);
+   Parser rejected_parser(rejected);
+   EXPECT_THROW((void)rejected_parser.parse(), ParseException);
+}
+
+TEST(SaneQLParser, countsPostfixChainsAroundFunctionArguments) {
+   const std::string input = "g(x" + repeated(".f()", 98) + ")" + repeated(".f()", 99);
+   Parser parser(input);
+   EXPECT_THROW((void)parser.parse(), ParseException);
+}
+
+TEST(SaneQLParser, countsPostfixChainsAroundMethodArguments) {
+   const std::string input = "x.g(y" + repeated(".f()", 98) + ")" + repeated(".f()", 99);
+   Parser parser(input);
+   EXPECT_THROW((void)parser.parse(), ParseException);
+}
+
+TEST(SaneQLParser, countsPostfixChainsAroundOperators) {
+   const std::string input = "(a = x" + repeated(".f()", 97) + ")" + repeated(".f()", 99);
+   Parser parser(input);
+   EXPECT_THROW((void)parser.parse(), ParseException);
+}
+
+TEST(SaneQLParser, rejectsPostfixChainsAtEveryNestingLevel) {
+   // f(f(f(...).g().g()).g().g()).g().g(): each level could reuse the whole budget if the depth
+   // of the arguments were forgotten
+   std::string input = "x";
+   for (size_t level = 0; level < 50; ++level) {
+      input.insert(0, "f(");
+      input += ')';
+      input += repeated(".g()", 50);
+   }
+   Parser parser(input);
+   EXPECT_THROW((void)parser.parse(), ParseException);
+}
+
+TEST(SaneQLParser, longFlatLogicalChainsDoNotCountAsNesting) {
+   std::string expression = "x = 0";
+   for (size_t i = 1; i < 100'000; ++i) {
+      expression += fmt::format(" && x = {}", i);
+   }
+   Parser parser(expression);
+   auto expr = parser.parse();
+   ASSERT_TRUE(std::holds_alternative<ast::LogicalExpr>(expr->value));
+   EXPECT_EQ(std::get<ast::LogicalExpr>(expr->value).operands.size(), 100'000);
 }
