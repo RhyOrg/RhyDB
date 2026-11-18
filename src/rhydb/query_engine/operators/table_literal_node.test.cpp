@@ -229,6 +229,30 @@ const QueryTestScenario BARE_NULL_IN_HEADER_ERROR = {
       "a type with a typed null like null::string at 1:12",
 };
 
+const QueryTestScenario INVALID_CAST_CELL_ERROR = {
+   .name = "INVALID_CAST_CELL_ERROR",
+   .query = "table({{a:='abc'::int32}})",
+   .expected_error_message =
+      "table() cell for column 'a': cannot cast 'abc' from STRING to INT32 at 1:17: Failed to "
+      "parse string: 'abc' as a scalar of type int32",
+};
+
+const QueryTestScenario INVALID_CAST_IN_LATER_ROW_ERROR = {
+   .name = "INVALID_CAST_IN_LATER_ROW_ERROR",
+   .query = "table({{a:=1::int32},{'abc'::int32}})",
+   .expected_error_message =
+      "table() cell for column 'a': cannot cast 'abc' from STRING to INT32 at 1:28: Failed to "
+      "parse string: 'abc' as a scalar of type int32",
+};
+
+const QueryTestScenario NULL_IN_EVERY_LATER_ROW_KEEPS_COLUMN_TYPE = {
+   .name = "NULL_IN_EVERY_LATER_ROW_KEEPS_COLUMN_TYPE",
+   .query = "table({{a:='x'},{null},{null}}).schema()",
+   .expected_query_result = nlohmann::json({
+      {{"fieldName", "a"}, {"type", "STRING"}},
+   }),
+};
+
 const QueryTestScenario COLUMN_REFERENCE_ERROR = {
    .name = "COLUMN_REFERENCE_ERROR",
    .query = "table({{a:=primaryKey}})",
@@ -266,6 +290,9 @@ QUERY_TEST(
       MIXED_TYPES_ERROR,
       TYPED_NULL_IN_HEADER_WRONG_TYPE_IN_LATER_ROW_ERROR,
       BARE_NULL_IN_HEADER_ERROR,
+      NULL_IN_EVERY_LATER_ROW_KEEPS_COLUMN_TYPE,
+      INVALID_CAST_CELL_ERROR,
+      INVALID_CAST_IN_LATER_ROW_ERROR,
       COLUMN_REFERENCE_ERROR
    )
 );

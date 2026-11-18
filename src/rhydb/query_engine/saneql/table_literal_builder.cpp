@@ -41,29 +41,28 @@ arrow::Result<std::shared_ptr<arrow::Scalar>> evaluateConstantCell(
       const auto datum,
       arrow::compute::ExecuteScalarExpression(bound_expression, arrow::ExecBatch{{}, 1})
    );
-   if (datum.is_scalar()) {
-      return datum.scalar();
-   }
-   return datum.make_array()->GetScalar(0);
+   // A constant expression has no column inputs, so Arrow evaluates it to a scalar.
+   RHYDB_ASSERT(datum.is_scalar());
+   return datum.scalar();
 }
 
-/// The cell expressions of a single column of a table() literal, kept in row order. The column's
-/// type is fixed by its header cell (the first row); later rows must conform to it.
+/// The cell values of a single column of a table() literal, kept in row order. The column's type
+/// is fixed by its header cell (the first row); later rows must conform to it.
 struct TableLiteralColumn {
    std::string name;
    schema::DataType type;
-   std::vector<std::shared_ptr<arrow::Scalar>> cells;  // nullptr marks a `null` cell
+   arrow::ScalarVector cells;
 };
 
-/// Converts a constant cell expression (no column references) to a scalar of the given type,
-/// enforcing that it matches. A bare `null` cell yields a nullptr scalar.
+/// Converts a constant cell expression (no column references) to a scalar of the column's type,
+/// enforcing that it matches.
 arrow::Status addPositionalCell(
    TableLiteralColumn& column,
    const ast::Expression& cell,
    const Tables& tables
 ) {
    if (ast::isNullLiteral(cell)) {
-      column.cells.push_back(nullptr);
+      column.cells.push_back(arrow::MakeNullScalar(exec_node::columnTypeToArrowType(column.type)));
       return arrow::Status::OK();
    }
    const auto error_context = fmt::format("table() cell for column '{}'", column.name);
@@ -84,21 +83,14 @@ arrow::Status addPositionalCell(
    return arrow::Status::OK();
 }
 
-/// Builds the Arrow array of a fully-collected column, filling `null` cells with a typed null.
+/// Builds the Arrow array of a fully-collected column.
 arrow::Result<std::shared_ptr<arrow::Array>> buildTableLiteralColumnArray(
    const TableLiteralColumn& column
 ) {
-   const auto arrow_type = exec_node::columnTypeToArrowType(column.type);
-   const auto null_scalar = arrow::MakeNullScalar(arrow_type);
-
-   arrow::ScalarVector scalars;
-   scalars.reserve(column.cells.size());
-   for (const auto& cell : column.cells) {
-      scalars.push_back(cell == nullptr ? null_scalar : cell);
-   }
-
-   ARROW_ASSIGN_OR_RAISE(auto builder, arrow::MakeBuilder(arrow_type));
-   ARROW_RETURN_NOT_OK(builder->AppendScalars(scalars));
+   ARROW_ASSIGN_OR_RAISE(
+      auto builder, arrow::MakeBuilder(exec_node::columnTypeToArrowType(column.type))
+   );
+   ARROW_RETURN_NOT_OK(builder->AppendScalars(column.cells));
    return builder->Finish();
 }
 
@@ -129,12 +121,9 @@ const ast::RecordLiteral& tableHeaderOrThrow(const ast::Expression& first_row) {
       first_row.location.column
    );
    const auto& header = std::get<ast::RecordLiteral>(first_row.value);
-   CHECK_RHYDB_QUERY(
-      !header.fields.empty(),
-      "table()'s first row must have at least one column at {}:{}",
-      first_row.location.line,
-      first_row.location.column
-   );
+   // The parser only produces a record literal after seeing `name :=`, so `{}` is a set and a
+   // record always has at least one field.
+   RHYDB_ASSERT(!header.fields.empty());
    return header;
 }
 
@@ -243,9 +232,7 @@ arrow::Result<operators::QueryNodePtr> buildTableLiteralNodeOrStatus(
 
 operators::QueryNodePtr buildTableLiteralNode(const BoundArguments& args, const Tables& tables) {
    auto result = buildTableLiteralNodeOrStatus(args, tables);
-   // Arrow failures while materializing the literal are user-input errors (e.g. a constant that
-   // cannot be evaluated), so surface them as query errors (HTTP 400) rather than internal errors.
-   CHECK_RHYDB_QUERY(result.ok(), "table() could not be built: {}", result.status().ToString());
+   CHECK_RHYDB_QUERY(result.ok(), "table() could not be built: {}", result.status().message());
    return std::move(result).ValueOrDie();
 }
 
