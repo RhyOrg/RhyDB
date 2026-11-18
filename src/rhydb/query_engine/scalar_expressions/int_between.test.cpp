@@ -1,3 +1,7 @@
+#include <optional>
+#include <string>
+#include <vector>
+
 #include <nlohmann/json.hpp>
 
 #include "rhydb/test/query_fixture.test.h"
@@ -237,66 +241,41 @@ const QueryTestScenario NEGATED_INT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO = {
    }),
 };
 
-// The filters on a column created by `map` are not pushed down into the table scan, so they are
-// evaluated as Arrow expressions.
+nlohmann::json createBooleanRows(const std::vector<std::optional<bool>>& values) {
+   auto rows = nlohmann::json::array();
+   for (size_t i = 0; i < values.size(); ++i) {
+      rows.push_back({
+         {"primaryKey", "id_" + std::to_string(i)},
+         {"b", values[i].has_value() ? nlohmann::json(values[i].value()) : nlohmann::json(nullptr)},
+      });
+   }
+   return rows;
+}
+
+const std::optional<bool> NULL_BOOL = std::nullopt;
+
 const QueryTestScenario ARROW_INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO = {
    .name = "ARROW_INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO",
-   .query = "data.map({x := int_value}).filter(x.between(2, 4)).project({primaryKey})",
-   .expected_query_result = nlohmann::json({
-      {{"primaryKey", "id_0"}},
-      {{"primaryKey", "id_1"}},
-   }),
-};
-
-const QueryTestScenario ARROW_NEGATED_INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO = {
-   .name = "ARROW_NEGATED_INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO",
-   .query = "data.map({x := int_value}).filter(!(x.between(2, 4))).project({primaryKey})",
-   .expected_query_result = nlohmann::json({
-      {{"primaryKey", "id_2"}},
-      {{"primaryKey", "id_3"}},
-   }),
+   .query = "data.map({b := int_value.between(2, 4)}).project({primaryKey, b})",
+   .expected_query_result = createBooleanRows({true, true, false, false, NULL_BOOL}),
 };
 
 const QueryTestScenario ARROW_INT_BETWEEN_WITH_FROM_SCENARIO = {
    .name = "ARROW_INT_BETWEEN_WITH_FROM_SCENARIO",
-   .query = "data.map({x := int_value}).filter(x.between(2, null)).project({primaryKey})",
-   .expected_query_result = nlohmann::json({
-      {{"primaryKey", "id_0"}},
-      {{"primaryKey", "id_1"}},
-      {{"primaryKey", "id_3"}},
-   }),
-};
-
-const QueryTestScenario ARROW_NEGATED_INT_BETWEEN_WITH_FROM_SCENARIO = {
-   .name = "ARROW_NEGATED_INT_BETWEEN_WITH_FROM_SCENARIO",
-   .query = "data.map({x := int_value}).filter(!(x.between(2, null))).project({primaryKey})",
-   .expected_query_result = nlohmann::json({
-      {{"primaryKey", "id_2"}},
-   }),
+   .query = "data.map({b := int_value.between(2, null)}).project({primaryKey, b})",
+   .expected_query_result = createBooleanRows({true, true, false, true, NULL_BOOL}),
 };
 
 const QueryTestScenario ARROW_INT_BETWEEN_WITH_TO_SCENARIO = {
    .name = "ARROW_INT_BETWEEN_WITH_TO_SCENARIO",
-   .query = "data.map({x := int_value}).filter(x.between(null, 4)).project({primaryKey})",
-   .expected_query_result = nlohmann::json({
-      {{"primaryKey", "id_0"}},
-      {{"primaryKey", "id_1"}},
-      {{"primaryKey", "id_2"}},
-   }),
-};
-
-const QueryTestScenario ARROW_NEGATED_INT_BETWEEN_WITH_TO_SCENARIO = {
-   .name = "ARROW_NEGATED_INT_BETWEEN_WITH_TO_SCENARIO",
-   .query = "data.map({x := int_value}).filter(!(x.between(null, 4))).project({primaryKey})",
-   .expected_query_result = nlohmann::json({
-      {{"primaryKey", "id_3"}},
-   }),
+   .query = "data.map({b := int_value.between(null, 4)}).project({primaryKey, b})",
+   .expected_query_result = createBooleanRows({true, true, true, false, NULL_BOOL}),
 };
 
 const QueryTestScenario ARROW_INT_BETWEEN_WITH_BOUND_BEYOND_INT32_SCENARIO = {
    .name = "ARROW_INT_BETWEEN_WITH_BOUND_BEYOND_INT32_SCENARIO",
-   .query = "data.map({x := int_value}).filter(x.between(4294967295, null)).project({primaryKey})",
-   .expected_query_result = nlohmann::json::array(),
+   .query = "data.map({b := int_value.between(4294967295, null)}).project({primaryKey, b})",
+   .expected_query_result = createBooleanRows({false, false, false, false, NULL_BOOL}),
 };
 
 const QueryTestScenario INT_COMPARE_WITH_OVERFLOW = {
@@ -352,42 +331,20 @@ const QueryTestData INT64_TEST_DATA{
 
 const QueryTestScenario ARROW_INT64_BETWEEN_WITH_FROM_AND_TO_SCENARIO = {
    .name = "ARROW_INT64_BETWEEN_WITH_FROM_AND_TO_SCENARIO",
-   .query =
-      "data.map({x := int64_value}).filter(x.between(2000000000, 5000000000))"
-      ".project({primaryKey})",
-   .expected_query_result = nlohmann::json({
-      {{"primaryKey", "id_0"}},
-   }),
-};
-
-const QueryTestScenario ARROW_NEGATED_INT64_BETWEEN_WITH_FROM_AND_TO_SCENARIO = {
-   .name = "ARROW_NEGATED_INT64_BETWEEN_WITH_FROM_AND_TO_SCENARIO",
-   .query =
-      "data.map({x := int64_value}).filter(!(x.between(2000000000, 5000000000)))"
-      ".project({primaryKey})",
-   .expected_query_result = nlohmann::json({
-      {{"primaryKey", "id_1"}},
-      {{"primaryKey", "id_2"}},
-   }),
+   .query = "data.map({b := int64_value.between(2000000000, 5000000000)}).project({primaryKey, b})",
+   .expected_query_result = createBooleanRows({true, false, false, NULL_BOOL}),
 };
 
 const QueryTestScenario ARROW_INT64_BETWEEN_WITH_FROM_SCENARIO = {
    .name = "ARROW_INT64_BETWEEN_WITH_FROM_SCENARIO",
-   .query =
-      "data.map({x := int64_value}).filter(x.between(5000000000, null)).project({primaryKey})",
-   .expected_query_result = nlohmann::json({
-      {{"primaryKey", "id_2"}},
-   }),
+   .query = "data.map({b := int64_value.between(5000000000, null)}).project({primaryKey, b})",
+   .expected_query_result = createBooleanRows({false, false, true, NULL_BOOL}),
 };
 
 const QueryTestScenario ARROW_INT64_BETWEEN_WITH_TO_SCENARIO = {
    .name = "ARROW_INT64_BETWEEN_WITH_TO_SCENARIO",
-   .query =
-      "data.map({x := int64_value}).filter(x.between(null, 5000000000)).project({primaryKey})",
-   .expected_query_result = nlohmann::json({
-      {{"primaryKey", "id_0"}},
-      {{"primaryKey", "id_1"}},
-   }),
+   .query = "data.map({b := int64_value.between(null, 5000000000)}).project({primaryKey, b})",
+   .expected_query_result = createBooleanRows({true, true, false, NULL_BOOL}),
 };
 
 }  // namespace
@@ -397,7 +354,6 @@ QUERY_TEST(
    INT64_TEST_DATA,
    ::testing::Values(
       ARROW_INT64_BETWEEN_WITH_FROM_AND_TO_SCENARIO,
-      ARROW_NEGATED_INT64_BETWEEN_WITH_FROM_AND_TO_SCENARIO,
       ARROW_INT64_BETWEEN_WITH_FROM_SCENARIO,
       ARROW_INT64_BETWEEN_WITH_TO_SCENARIO
    )
@@ -416,11 +372,8 @@ QUERY_TEST(
       INT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO,
       NEGATED_INT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO,
       ARROW_INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO,
-      ARROW_NEGATED_INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO,
       ARROW_INT_BETWEEN_WITH_FROM_SCENARIO,
-      ARROW_NEGATED_INT_BETWEEN_WITH_FROM_SCENARIO,
       ARROW_INT_BETWEEN_WITH_TO_SCENARIO,
-      ARROW_NEGATED_INT_BETWEEN_WITH_TO_SCENARIO,
       ARROW_INT_BETWEEN_WITH_BOUND_BEYOND_INT32_SCENARIO,
       INT_COMPARE_WITH_OVERFLOW
    )
