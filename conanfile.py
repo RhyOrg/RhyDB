@@ -14,22 +14,22 @@ class RhyDbRecipe(ConanFile):
     default_options = {"wasm": False}
 
     def requirements(self):
-        self.requires("arrow/25.0.0")
-        self.requires("boost/1.85.0")
-        self.requires("fast_float/8.1.0")
+        self.requires("arrow/26.0.1")
+        self.requires("boost/1.91.0")
+        self.requires("fast_float/8.2.10")
         self.requires("nlohmann_json/3.12.0")
         self.requires("re2/20251105")
-        self.requires("roaring/4.5.0")
-        self.requires("simdjson/4.2.4")
-        self.requires("simdutf/8.0.0")
+        self.requires("roaring/4.7.2")
+        self.requires("simdjson/5.1.1")
+        self.requires("simdutf/9.3.2")
         self.requires("spdlog/1.17.0")
-        self.requires("yaml-cpp/0.8.0")
+        self.requires("yaml-cpp/0.9.0")
         self.requires("zstd/1.5.7")
 
         if not self.options.wasm:
-            self.requires("gtest/1.17.0")
-            self.requires("mimalloc/3.3.2")
-            self.requires("poco/1.15.2")
+            self.requires("gtest/1.18.0")
+            self.requires("mimalloc/3.5.1")
+            self.requires("poco/1.15.4")
 
     def configure(self):
         # Options shared by both the native and the WASM build.
@@ -66,6 +66,7 @@ class RhyDbRecipe(ConanFile):
         self.options["boost"].without_mpi = True
         self.options["boost"].without_nowide = True
         self.options["boost"].without_program_options = True
+        self.options["boost"].without_process = True
         self.options["boost"].without_python = True
         self.options["boost"].without_stacktrace = True
         self.options["boost"].without_test = True
