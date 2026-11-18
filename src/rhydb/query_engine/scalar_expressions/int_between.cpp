@@ -93,9 +93,11 @@ arrow::Result<arrow::compute::Expression> IntBetween::toArrowExpression() const 
       // Unbounded, so the filter is true on every row that is not null, and null on the others
       return arrow::compute::call(
          "if_else",
-         {arrow::compute::is_valid(value),
-          arrow::compute::literal(true),
-          arrow::compute::literal(arrow::MakeNullScalar(arrow::boolean()))}
+         {
+            arrow::compute::is_valid(value),
+            arrow::compute::literal(true),
+            arrow::compute::literal(arrow::MakeNullScalar(arrow::boolean())),
+         }
       );
    }
    if (predicates.size() == 1) {
