@@ -92,6 +92,39 @@ const QueryTestScenario DATE_COLUMN = {
    }),
 };
 
+const QueryTestScenario TYPED_NULL_CELL = {
+   .name = "TYPED_NULL_CELL",
+   .query = "table({{a:=null::int32,b:=null::string}})",
+   .expected_query_result = nlohmann::json({
+      {{"a", nullptr}, {"b", nullptr}},
+   }),
+};
+
+const QueryTestScenario TYPED_NULL_IN_HEADER_FIXES_COLUMN_TYPE = {
+   .name = "TYPED_NULL_IN_HEADER_FIXES_COLUMN_TYPE",
+   .query = "table({{a:=null::int32},{2::int32}}).schema()",
+   .expected_query_result = nlohmann::json({
+      {{"fieldName", "a"}, {"type", "INT32"}},
+   }),
+};
+
+const QueryTestScenario ALL_NULL_COLUMN_WITH_TYPED_NULL = {
+   .name = "ALL_NULL_COLUMN_WITH_TYPED_NULL",
+   .query = "table({{a:=null::string},{null}}).schema()",
+   .expected_query_result = nlohmann::json({
+      {{"fieldName", "a"}, {"type", "STRING"}},
+   }),
+};
+
+const QueryTestScenario BARE_NULL_IN_LATER_ROW_CONFORMS = {
+   .name = "BARE_NULL_IN_LATER_ROW_CONFORMS",
+   .query = "table({{a:=1},{null}})",
+   .expected_query_result = nlohmann::json({
+      {{"a", 1}},
+      {{"a", nullptr}},
+   }),
+};
+
 const QueryTestScenario CONSTANT_EXPRESSION_CELL = {
    .name = "CONSTANT_EXPRESSION_CELL",
    .query = "table({{s:=concat('a','b')},{'c'}})",
@@ -180,12 +213,20 @@ const QueryTestScenario MIXED_TYPES_ERROR = {
       "column must have the same type",
 };
 
-const QueryTestScenario ALL_NULL_COLUMN_ERROR = {
-   .name = "ALL_NULL_COLUMN_ERROR",
-   .query = "table({{a:=null},{null}})",
+const QueryTestScenario TYPED_NULL_IN_HEADER_WRONG_TYPE_IN_LATER_ROW_ERROR = {
+   .name = "TYPED_NULL_IN_HEADER_WRONG_TYPE_IN_LATER_ROW_ERROR",
+   .query = "table({{a:=null::int32},{'x'}})",
    .expected_error_message =
-      "table() column 'a' has only null values, so its type cannot be inferred; give at least one "
-      "non-null value in the column",
+      "table() column 'a' mixes values of type 'INT32' and 'STRING' at 1:26; every value in a "
+      "column must have the same type",
+};
+
+const QueryTestScenario BARE_NULL_IN_HEADER_ERROR = {
+   .name = "BARE_NULL_IN_HEADER_ERROR",
+   .query = "table({{a:=null},{1}})",
+   .expected_error_message =
+      "table() column 'a' is a bare null in the first row, so its type cannot be inferred; give it "
+      "a type with a typed null like null::string at 1:12",
 };
 
 const QueryTestScenario COLUMN_REFERENCE_ERROR = {
@@ -206,6 +247,10 @@ QUERY_TEST(
       SINGLE_COLUMN,
       MIXED_TYPES_PER_COLUMN,
       NULL_CELLS,
+      TYPED_NULL_CELL,
+      TYPED_NULL_IN_HEADER_FIXES_COLUMN_TYPE,
+      ALL_NULL_COLUMN_WITH_TYPED_NULL,
+      BARE_NULL_IN_LATER_ROW_CONFORMS,
       DATE_COLUMN,
       CONSTANT_EXPRESSION_CELL,
       FILTER_ON_LITERAL,
@@ -219,7 +264,8 @@ QUERY_TEST(
       DUPLICATE_NAME_ERROR,
       WRONG_ROW_WIDTH_ERROR,
       MIXED_TYPES_ERROR,
-      ALL_NULL_COLUMN_ERROR,
+      TYPED_NULL_IN_HEADER_WRONG_TYPE_IN_LATER_ROW_ERROR,
+      BARE_NULL_IN_HEADER_ERROR,
       COLUMN_REFERENCE_ERROR
    )
 );

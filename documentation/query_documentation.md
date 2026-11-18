@@ -600,11 +600,12 @@ produces
   count, and order.
 - **Every later row is positional** (`{3, 4}`) and must have the same number of values as the first
   row.
-- A cell can be any constant expression: a literal, a `'…'::date` value, or a scalar function call
-  such as `concat('a', 'b')`. A cell may not reference a column.
-- Each column takes its type from its non-null cells, which must all have the same type. A `null`
-  cell takes the column's type. A column whose cells are all `null` is an error.
-- Integer literals produce an `INT64` column.
+- A cell can be any constant expression: a literal, a cast such as `'2023-01-01'::date` or
+  `null::int32`, or a scalar function call such as `concat('a', 'b')`. A cell may not reference a
+  column.
+- **The first row fixes each column's type.** Every later cell in a column must have that type.
+  You can use type casts like `null::string` to determine the type.
+- Integer literals produce an `INT64` column; use a cast like `1::int32` for other numeric types.
 
 ### `transitiveClosure(input, from, to [, includeVertices:=bool] [, startingFrom:={...}])`
 

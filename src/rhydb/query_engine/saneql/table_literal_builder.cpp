@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -48,17 +47,17 @@ arrow::Result<std::shared_ptr<arrow::Scalar>> evaluateConstantCell(
    return datum.make_array()->GetScalar(0);
 }
 
-/// The cell expressions of a single column of a table() literal, kept in row order. A null entry is
-/// the SaneQL `null` literal, whose type is only known once the whole column is seen.
+/// The cell expressions of a single column of a table() literal, kept in row order. The column's
+/// type is fixed by its header cell (the first row); later rows must conform to it.
 struct TableLiteralColumn {
    std::string name;
+   schema::DataType type;
    std::vector<std::shared_ptr<arrow::Scalar>> cells;  // nullptr marks a `null` cell
-   std::optional<schema::DataType> type;               // the type of the non-null cells
 };
 
-/// Converts one cell expression, enforcing that it is a constant (no column references). A `null`
-/// cell yields a nullptr scalar whose column type is resolved later.
-arrow::Status addCell(
+/// Converts a constant cell expression (no column references) to a scalar of the given type,
+/// enforcing that it matches. A bare `null` cell yields a nullptr scalar.
+arrow::Status addPositionalCell(
    TableLiteralColumn& column,
    const ast::Expression& cell,
    const Tables& tables
@@ -71,16 +70,15 @@ arrow::Status addCell(
    auto expression = convertToScalar(cell, {}, error_context, tables);
    const auto cell_type = expression->type();
    CHECK_RHYDB_QUERY(
-      !column.type.has_value() || *column.type == cell_type,
+      column.type == cell_type,
       "table() column '{}' mixes values of type '{}' and '{}' at {}:{}; every value in a column "
       "must have the same type",
       column.name,
-      schema::dataTypeToString(*column.type),
+      schema::dataTypeToString(column.type),
       schema::dataTypeToString(cell_type),
       cell.location.line,
       cell.location.column
    );
-   column.type = cell_type;
    ARROW_ASSIGN_OR_RAISE(auto scalar, evaluateConstantCell(*expression));
    column.cells.push_back(std::move(scalar));
    return arrow::Status::OK();
@@ -90,13 +88,7 @@ arrow::Status addCell(
 arrow::Result<std::shared_ptr<arrow::Array>> buildTableLiteralColumnArray(
    const TableLiteralColumn& column
 ) {
-   CHECK_RHYDB_QUERY(
-      column.type.has_value(),
-      "table() column '{}' has only null values, so its type cannot be inferred; give at least one "
-      "non-null value in the column",
-      column.name
-   );
-   const auto arrow_type = exec_node::columnTypeToArrowType(*column.type);
+   const auto arrow_type = exec_node::columnTypeToArrowType(column.type);
    const auto null_scalar = arrow::MakeNullScalar(arrow_type);
 
    arrow::ScalarVector scalars;
@@ -146,10 +138,13 @@ const ast::RecordLiteral& tableHeaderOrThrow(const ast::Expression& first_row) {
    return header;
 }
 
-/// One empty column per header field; column names must be unique.
-std::vector<TableLiteralColumn> makeTableColumns(
+/// One column per header field, each with its type fixed by the header cell and holding that cell
+/// as its first value. Column names must be unique, and a header cell must have a type: a bare
+/// `null` in the first row is rejected, because it leaves the column's type undetermined.
+arrow::Result<std::vector<TableLiteralColumn>> makeTableColumns(
    const ast::RecordLiteral& header,
-   const ast::Expression& first_row
+   const ast::Expression& first_row,
+   const Tables& tables
 ) {
    std::vector<TableLiteralColumn> columns;
    columns.reserve(header.fields.size());
@@ -162,7 +157,20 @@ std::vector<TableLiteralColumn> makeTableColumns(
          first_row.location.line,
          first_row.location.column
       );
-      columns.push_back({.name = field.name, .cells = {}, .type = std::nullopt});
+      const auto& cell = *field.value;
+      CHECK_RHYDB_QUERY(
+         !ast::isNullLiteral(cell),
+         "table() column '{}' is a bare null in the first row, so its type cannot be inferred; "
+         "give it a type with a typed null like null::string at {}:{}",
+         field.name,
+         cell.location.line,
+         cell.location.column
+      );
+      const auto error_context = fmt::format("table() cell for column '{}'", field.name);
+      auto expression = convertToScalar(cell, {}, error_context, tables);
+      const auto cell_type = expression->type();
+      ARROW_ASSIGN_OR_RAISE(auto scalar, evaluateConstantCell(*expression));
+      columns.push_back({.name = field.name, .type = cell_type, .cells = {std::move(scalar)}});
    }
    return columns;
 }
@@ -189,7 +197,9 @@ arrow::Status addPositionalRow(
       row.location.column
    );
    for (size_t value_index = 0; value_index < values.size(); ++value_index) {
-      ARROW_RETURN_NOT_OK(addCell(columns.at(value_index), *values.at(value_index), tables));
+      ARROW_RETURN_NOT_OK(
+         addPositionalCell(columns.at(value_index), *values.at(value_index), tables)
+      );
    }
    return arrow::Status::OK();
 }
@@ -205,7 +215,7 @@ arrow::Result<operators::QueryNodePtr> makeTableLiteralNode(
    for (const auto& column : columns) {
       ARROW_ASSIGN_OR_RAISE(auto array, buildTableLiteralColumnArray(column));
       arrays.push_back(std::move(array));
-      output_schema.push_back({.name = column.name, .type = *column.type});
+      output_schema.push_back({.name = column.name, .type = column.type});
    }
 
    const auto arrow_schema = exec_node::columnsToArrowSchema(output_schema);
@@ -221,13 +231,8 @@ arrow::Result<operators::QueryNodePtr> buildTableLiteralNodeOrStatus(
    const auto& rows = tableRowsOrThrow(args.at("rows"));
    const auto& first_row = *rows.front();
    const auto& header = tableHeaderOrThrow(first_row);
-   auto columns = makeTableColumns(header, first_row);
+   ARROW_ASSIGN_OR_RAISE(auto columns, makeTableColumns(header, first_row, tables));
 
-   for (size_t field_index = 0; field_index < header.fields.size(); ++field_index) {
-      ARROW_RETURN_NOT_OK(
-         addCell(columns.at(field_index), *header.fields.at(field_index).value, tables)
-      );
-   }
    for (size_t row_index = 1; row_index < rows.size(); ++row_index) {
       ARROW_RETURN_NOT_OK(addPositionalRow(columns, *rows.at(row_index), tables));
    }
