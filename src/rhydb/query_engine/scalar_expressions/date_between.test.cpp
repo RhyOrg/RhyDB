@@ -172,7 +172,7 @@ QueryTestScenario arrowScenario(
 }
 
 const std::string FROM = "'2022-06-01'::date";
-const std::string TO = "'2023-12-31'::date"; // NOLINT(readability-identifier-length)
+const std::string TO = "'2023-12-31'::date";  // NOLINT(readability-identifier-length)
 
 const QueryTestScenario ARROW_PLAIN_DATE_WITH_FROM_AND_TO_SCENARIO = arrowScenario(
    "plain_date",
