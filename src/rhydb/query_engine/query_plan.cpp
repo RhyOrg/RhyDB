@@ -153,8 +153,7 @@ arrow::Status QueryPlan::executeAndWriteImpl(
          if (!finished_future.Wait(static_cast<double>(timeout_in_seconds))) {
             return arrow::Status::ExecutionError(
                fmt::format(
-                  "Request timed out, plan did not finish within {} seconds.",
-                  timeout_in_seconds
+                  "Request timed out, plan did not finish within {} seconds.", timeout_in_seconds
                )
             );
          }
