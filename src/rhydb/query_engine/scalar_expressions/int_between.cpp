@@ -6,10 +6,7 @@
 #include <utility>
 #include <vector>
 
-#include <arrow/compute/api.h>
 #include <arrow/datum.h>
-#include <arrow/scalar.h>
-#include <arrow/type.h>
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
@@ -19,6 +16,7 @@
 #include "rhydb/query_engine/filter/operators/operator.h"
 #include "rhydb/query_engine/filter/operators/selection.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
+#include "rhydb/query_engine/scalar_expressions/between_arrow.h"
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
 #include "rhydb/storage/column/int_column.h"
 #include "rhydb/storage/table.h"
@@ -74,36 +72,10 @@ std::unique_ptr<ScalarExpression> IntBetween::rewrite(
 }
 
 arrow::Result<arrow::compute::Expression> IntBetween::toArrowExpression() const {
-   const auto value = arrow::compute::field_ref(column.name);
    // The bounds are int64. Arrow casts int32 columns to int64 for the comparison, so a bound
    // beyond the int32 range compares correctly, while `compile` rejects it.
-   std::vector<arrow::compute::Expression> predicates;
-   if (from.has_value()) {
-      predicates.push_back(
-         arrow::compute::greater_equal(value, arrow::compute::literal(arrow::Datum(from.value())))
-      );
-   }
-   if (to.has_value()) {
-      predicates.push_back(
-         arrow::compute::less_equal(value, arrow::compute::literal(arrow::Datum(to.value())))
-      );
-   }
-
-   if (predicates.empty()) {
-      // Unbounded, so the filter is true on every row that is not null, and null on the others
-      return arrow::compute::call(
-         "if_else",
-         {
-            arrow::compute::is_valid(value),
-            arrow::compute::literal(true),
-            arrow::compute::literal(arrow::MakeNullScalar(arrow::boolean())),
-         }
-      );
-   }
-   if (predicates.size() == 1) {
-      return predicates.front();
-   }
-   return arrow::compute::and_(predicates.front(), predicates.back());
+   const auto to_datum = [](int64_t bound) { return arrow::Datum(bound); };
+   return betweenToArrowExpression(column.name, from.transform(to_datum), to.transform(to_datum));
 }
 
 template <typename ColumnT>

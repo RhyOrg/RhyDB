@@ -3,8 +3,12 @@
 #include <cstdint>
 #include <limits>
 #include <map>
+#include <memory>
 #include <utility>
+#include <vector>
 
+#include <arrow/datum.h>
+#include <arrow/scalar.h>
 #include <fmt/format.h>
 
 #include "rhydb/common/bitmap.h"
@@ -16,6 +20,7 @@
 #include "rhydb/query_engine/filter/operators/selection.h"
 #include "rhydb/query_engine/filter/operators/union.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
+#include "rhydb/query_engine/scalar_expressions/between_arrow.h"
 #include "rhydb/storage/column/column.h"
 #include "rhydb/storage/column/date32_column.h"
 #include "rhydb/storage/column/dictionary_encoded_column.h"
@@ -55,6 +60,15 @@ std::unique_ptr<ScalarExpression> DateBetween::rewrite(
    AmbiguityMode /*mode*/
 ) const {
    return std::make_unique<DateBetween>(column, date_from, date_to);
+}
+
+arrow::Result<arrow::compute::Expression> DateBetween::toArrowExpression() const {
+   const auto to_datum = [](Date32 date) {
+      return arrow::Datum(std::make_shared<arrow::Date32Scalar>(date));
+   };
+   return betweenToArrowExpression(
+      column.name, date_from.transform(to_datum), date_to.transform(to_datum)
+   );
 }
 
 using filter::operators::Comparator;
