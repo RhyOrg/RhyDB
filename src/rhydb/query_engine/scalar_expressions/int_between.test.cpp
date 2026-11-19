@@ -1,3 +1,7 @@
+#include <optional>
+#include <string>
+#include <vector>
+
 #include <nlohmann/json.hpp>
 
 #include "rhydb/test/query_fixture.test.h"
@@ -237,13 +241,123 @@ const QueryTestScenario NEGATED_INT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO = {
    }),
 };
 
+nlohmann::json createBooleanRows(const std::vector<std::optional<bool>>& values) {
+   auto rows = nlohmann::json::array();
+   for (size_t i = 0; i < values.size(); ++i) {
+      rows.push_back({
+         {"primaryKey", "id_" + std::to_string(i)},
+         {"b", values[i].has_value() ? nlohmann::json(values[i].value()) : nlohmann::json(nullptr)},
+      });
+   }
+   return rows;
+}
+
+const std::optional<bool> NULL_BOOL = std::nullopt;
+
+const QueryTestScenario ARROW_INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO = {
+   .name = "ARROW_INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO",
+   .query = "data.map({b := int_value.between(2, 4)}).project({primaryKey, b})",
+   .expected_query_result = createBooleanRows({true, true, false, false, NULL_BOOL}),
+};
+
+const QueryTestScenario ARROW_INT_BETWEEN_WITH_FROM_SCENARIO = {
+   .name = "ARROW_INT_BETWEEN_WITH_FROM_SCENARIO",
+   .query = "data.map({b := int_value.between(2, null)}).project({primaryKey, b})",
+   .expected_query_result = createBooleanRows({true, true, false, true, NULL_BOOL}),
+};
+
+const QueryTestScenario ARROW_INT_BETWEEN_WITH_TO_SCENARIO = {
+   .name = "ARROW_INT_BETWEEN_WITH_TO_SCENARIO",
+   .query = "data.map({b := int_value.between(null, 4)}).project({primaryKey, b})",
+   .expected_query_result = createBooleanRows({true, true, true, false, NULL_BOOL}),
+};
+
+const QueryTestScenario ARROW_INT_BETWEEN_WITH_BOUND_BEYOND_INT32_SCENARIO = {
+   .name = "ARROW_INT_BETWEEN_WITH_BOUND_BEYOND_INT32_SCENARIO",
+   .query = "data.map({b := int_value.between(4294967295, null)}).project({primaryKey, b})",
+   .expected_query_result = createBooleanRows({false, false, false, false, NULL_BOOL}),
+};
+
 const QueryTestScenario INT_COMPARE_WITH_OVERFLOW = {
    .name = "INT_COMPARE_WITH_OVERFLOW",
    .query = "data.filter(int_value >= 4294967295)",
    .expected_error_message = "Cannot cast 4294967295 to int32. Value out of range",
 };
 
+const int64_t INT64_VALUE_BELOW_FILTER = 1;
+const int64_t INT64_VALUE_IN_FILTER = 4'000'000'000;
+const int64_t INT64_VALUE_ABOVE_FILTER = 6'000'000'000;
+
+nlohmann::json createDataWithInt64Value(const std::string& primaryKey, int64_t value) {
+   return {
+      {"primaryKey", primaryKey},
+      {"int64_value", value},
+      {"segment1", nullptr},
+      {"gene1", nullptr},
+      {"unaligned_segment1", nullptr},
+   };
+}
+
+const std::vector<nlohmann::json> INT64_DATA = {
+   createDataWithInt64Value("id_0", INT64_VALUE_IN_FILTER),
+   createDataWithInt64Value("id_1", INT64_VALUE_BELOW_FILTER),
+   createDataWithInt64Value("id_2", INT64_VALUE_ABOVE_FILTER),
+   {
+      {"primaryKey", "id_3"},
+      {"int64_value", nullptr},
+      {"segment1", nullptr},
+      {"gene1", nullptr},
+      {"unaligned_segment1", nullptr},
+   },
+};
+
+const auto INT64_DATABASE_CONFIG =
+   R"(
+schema:
+  instanceName: "dummy name"
+  metadata:
+    - name: "primaryKey"
+      type: "string"
+    - name: "int64_value"
+      type: "int64"
+  primaryKey: "primaryKey"
+)";
+
+const QueryTestData INT64_TEST_DATA{
+   .ndjson_input_data = INT64_DATA,
+   .database_config = INT64_DATABASE_CONFIG,
+   .reference_genomes = REFERENCE_GENOMES,
+};
+
+const QueryTestScenario ARROW_INT64_BETWEEN_WITH_FROM_AND_TO_SCENARIO = {
+   .name = "ARROW_INT64_BETWEEN_WITH_FROM_AND_TO_SCENARIO",
+   .query = "data.map({b := int64_value.between(2000000000, 5000000000)}).project({primaryKey, b})",
+   .expected_query_result = createBooleanRows({true, false, false, NULL_BOOL}),
+};
+
+const QueryTestScenario ARROW_INT64_BETWEEN_WITH_FROM_SCENARIO = {
+   .name = "ARROW_INT64_BETWEEN_WITH_FROM_SCENARIO",
+   .query = "data.map({b := int64_value.between(5000000000, null)}).project({primaryKey, b})",
+   .expected_query_result = createBooleanRows({false, false, true, NULL_BOOL}),
+};
+
+const QueryTestScenario ARROW_INT64_BETWEEN_WITH_TO_SCENARIO = {
+   .name = "ARROW_INT64_BETWEEN_WITH_TO_SCENARIO",
+   .query = "data.map({b := int64_value.between(null, 5000000000)}).project({primaryKey, b})",
+   .expected_query_result = createBooleanRows({true, true, false, NULL_BOOL}),
+};
+
 }  // namespace
+
+QUERY_TEST(
+   Int64BetweenTest,
+   INT64_TEST_DATA,
+   ::testing::Values(
+      ARROW_INT64_BETWEEN_WITH_FROM_AND_TO_SCENARIO,
+      ARROW_INT64_BETWEEN_WITH_FROM_SCENARIO,
+      ARROW_INT64_BETWEEN_WITH_TO_SCENARIO
+   )
+);
 
 QUERY_TEST(
    IntBetweenTest,
@@ -257,6 +371,10 @@ QUERY_TEST(
       NEGATED_INT_BETWEEN_WITH_TO_SCENARIO,
       INT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO,
       NEGATED_INT_BETWEEN_WITH_FROM_AND_TO_NULL_SCENARIO,
+      ARROW_INT_BETWEEN_WITH_FROM_AND_TO_SCENARIO,
+      ARROW_INT_BETWEEN_WITH_FROM_SCENARIO,
+      ARROW_INT_BETWEEN_WITH_TO_SCENARIO,
+      ARROW_INT_BETWEEN_WITH_BOUND_BEYOND_INT32_SCENARIO,
       INT_COMPARE_WITH_OVERFLOW
    )
 );
