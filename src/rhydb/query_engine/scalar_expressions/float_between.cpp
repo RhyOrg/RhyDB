@@ -4,11 +4,14 @@
 #include <memory>
 #include <utility>
 
+#include <arrow/datum.h>
+
 #include "rhydb/query_engine/filter/operators/complement.h"
 #include "rhydb/query_engine/filter/operators/full.h"
 #include "rhydb/query_engine/filter/operators/index_scan.h"
 #include "rhydb/query_engine/filter/operators/selection.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
+#include "rhydb/query_engine/scalar_expressions/between_arrow.h"
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
 
 using rhydb::storage::column::FloatColumn;
@@ -42,6 +45,11 @@ std::unique_ptr<ScalarExpression> FloatBetween::rewrite(
    AmbiguityMode /*mode*/
 ) const {
    return std::make_unique<FloatBetween>(column, from, to);
+}
+
+arrow::Result<arrow::compute::Expression> FloatBetween::toArrowExpression() const {
+   const auto to_datum = [](double bound) { return arrow::Datum(bound); };
+   return betweenToArrowExpression(column.name, from.transform(to_datum), to.transform(to_datum));
 }
 
 std::unique_ptr<filter::operators::Operator> FloatBetween::compile(
