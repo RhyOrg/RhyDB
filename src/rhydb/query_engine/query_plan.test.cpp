@@ -177,7 +177,10 @@ TEST(QueryPlan, reportsErrorWhenANodeFailsDuringExecution) {
          NdjsonSink output_sink{&output, under_test.results_schema};
          under_test.executeAndWrite(output_sink, 10);
       }),
-      ThrowsMessage<std::runtime_error>(::testing::HasSubstr("Internal server error"))
+      ThrowsMessage<std::runtime_error>(::testing::AllOf(
+         ::testing::HasSubstr("Query execution error:"),
+         ::testing::HasSubstr("not in range: -128 to 127")
+      ))
    );
 }
 

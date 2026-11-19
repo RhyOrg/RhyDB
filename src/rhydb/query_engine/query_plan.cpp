@@ -149,7 +149,16 @@ arrow::Status QueryPlan::executeAndWriteImpl(
          // node error (e.g. an Arrow cast that overflows) is reported instead of silently
          // truncating the result. StopProducing() has not run yet, so a Cancelled status (which is
          // expected only after cancellation) cannot occur here.
-         ARROW_RETURN_NOT_OK(arrow_plan->finished().status());
+         auto finished_future = arrow_plan->finished();
+         if (!finished_future.Wait(static_cast<double>(timeout_in_seconds))) {
+            return arrow::Status::ExecutionError(
+               fmt::format(
+                  "Request timed out, plan did not finish within {} seconds.",
+                  timeout_in_seconds
+               )
+            );
+         }
+         ARROW_RETURN_NOT_OK(finished_future.status());
          break;  // end of input
       }
       SPDLOG_DEBUG(
