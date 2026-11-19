@@ -1,8 +1,10 @@
 #include "rhydb/initialize/initializer.h"
 
+#include <memory>
 #include <ranges>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include <fmt/ranges.h>
@@ -80,6 +82,7 @@ void Initializer::createTableInDatabase(
    database.createTable(table_name, std::move(table_schema));
 
    fillReferenceGenomesTable(table_name, reference_genomes, database);
+   fillColumnReferencesTable(table_name, reference_genomes, database);
 
    // Materialize the companion lineage relation and alias tables for every column with a lineage
    // definition, named as given by `preprocessedName`. This is where `lineage(...)` reads the
@@ -165,6 +168,82 @@ void Initializer::fillReferenceGenomesTable(
          reference_genomes.aa_sequence_names.size(),
       table_name_string
    );
+}
+
+namespace {
+
+std::shared_ptr<schema::TableSchema> createColumnReferencesTableSchema() {
+   // No primary key: only (table_name, column_name) identifies a row.
+   auto table_schema = std::make_shared<schema::TableSchema>();
+   for (const auto column_name : {
+           Initializer::COLUMN_REFERENCES_TABLE_NAME_COLUMN,
+           Initializer::COLUMN_REFERENCES_COLUMN_NAME_COLUMN,
+           Initializer::COLUMN_REFERENCES_REFERENCE_NAME_COLUMN,
+           Initializer::COLUMN_REFERENCES_REFERENCE_TYPE_COLUMN,
+        }) {
+      const schema::ColumnIdentifier column{
+         .name = std::string{column_name},
+         .type = schema::DataType::STRING,
+      };
+      table_schema->column_metadata.emplace(
+         column, std::make_shared<storage::column::StringColumnMetadata>(column.name)
+      );
+   }
+   return table_schema;
+}
+
+}  // namespace
+
+void Initializer::fillColumnReferencesTable(
+   const schema::TableName& preprocessed_table_name,
+   const ReferenceGenomes& reference_genomes,
+   Database& database
+) {
+   const std::string table_name_string{COLUMN_REFERENCES_TABLE_NAME};
+   const schema::TableName table_name{table_name_string};
+   auto expected_schema = createColumnReferencesTableSchema();
+   if (database.tables.contains(table_name)) {
+      // Left by preprocessing an earlier table, or created by the user: only append to it if it
+      // has the schema preprocessing would have given it.
+      const auto& existing_schema = *database.tables.at(table_name)->schema;
+      if (
+         existing_schema.getColumnIdentifiers() != expected_schema->getColumnIdentifiers() ||
+         existing_schema.primary_key.has_value()
+      ) {
+         throw InitializeException(
+            "Cannot record the references of table '{}' in the table '{}': it already exists with "
+            "a different schema.",
+            preprocessed_table_name.getName(),
+            table_name_string
+         );
+      }
+   } else {
+      database.createTable(table_name, std::move(expected_schema));
+   }
+
+   std::string ndjson;
+   const auto append_rows = [&](const std::vector<std::string>& names, std::string_view type) {
+      for (const auto& name : names) {
+         const nlohmann::json line{
+            {COLUMN_REFERENCES_TABLE_NAME_COLUMN, preprocessed_table_name.getName()},
+            {COLUMN_REFERENCES_COLUMN_NAME_COLUMN, name},
+            {
+               COLUMN_REFERENCES_REFERENCE_NAME_COLUMN,
+               preprocessedName(preprocessed_table_name, name),
+            },
+            {COLUMN_REFERENCES_REFERENCE_TYPE_COLUMN, type},
+         };
+         ndjson += line.dump();
+         ndjson += '\n';
+      }
+   };
+   append_rows(
+      reference_genomes.nucleotide_sequence_names, schema::REFERENCE_GENOMES_NUCLEOTIDE_TYPE
+   );
+   append_rows(reference_genomes.aa_sequence_names, schema::REFERENCE_GENOMES_AMINO_ACID_TYPE);
+   std::stringstream ndjson_stream{ndjson};
+   rhydb::append::NdjsonLineReader ndjson_reader{ndjson_stream};
+   rhydb::append::appendDataToTable(database.tables.at(table_name), ndjson_reader);
 }
 
 void Initializer::fillLineageDefinitionsTable(
