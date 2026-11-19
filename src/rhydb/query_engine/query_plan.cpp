@@ -179,11 +179,7 @@ void QueryPlan::executeAndWrite(
          );
       } else {
          throw std::runtime_error(
-            fmt::format(
-               "Request Id [{}] - Query execution error: {}",
-               request_id,
-               status.message()
-            )
+            fmt::format("Request Id [{}] - Query execution error: {}", request_id, status.message())
          );
       }
    }
