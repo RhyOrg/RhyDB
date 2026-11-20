@@ -25,6 +25,12 @@ std::vector<schema::ColumnIdentifier> Exact::freeIUs() const {
    return child->freeIUs();
 }
 
+arrow::Result<arrow::compute::Expression> Exact::toArrowExpression() const {
+   // `Exact` only selects the `AmbiguityMode` in `rewrite`, which affects only the sequence symbol
+   // expressions. Those have no Arrow translation, so their `toArrowExpression` reports that.
+   return child->toArrowExpression();
+}
+
 std::unique_ptr<ScalarExpression> Exact::rewrite(
    const storage::Table& table,
    AmbiguityMode /*mode*/

@@ -25,6 +25,12 @@ std::vector<schema::ColumnIdentifier> Maybe::freeIUs() const {
    return child->freeIUs();
 }
 
+arrow::Result<arrow::compute::Expression> Maybe::toArrowExpression() const {
+   // `Maybe` only selects the `AmbiguityMode` in `rewrite`, which affects only the sequence symbol
+   // expressions. Those have no Arrow translation, so their `toArrowExpression` reports that.
+   return child->toArrowExpression();
+}
+
 std::unique_ptr<ScalarExpression> Maybe::rewrite(
    const storage::Table& table,
    AmbiguityMode /*mode*/
