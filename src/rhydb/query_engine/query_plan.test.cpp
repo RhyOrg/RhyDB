@@ -141,9 +141,7 @@ TEST(QueryPlan, timesOutWhenAnInvalidPlanDoesNotFinish) {
          release_stalled_batch.join();
       }),
       ThrowsMessage<std::runtime_error>(::testing::HasSubstr(
-         "Internal server error. Please notify developers. RhyDB likely constructed an invalid "
-         "arrow plan and more user-input validation needs to be added: Request timed out, no batch"
-         " within 0 seconds."
+         "Query execution error: Request timed out, no batch within 0 seconds."
       ))
    );
 }
