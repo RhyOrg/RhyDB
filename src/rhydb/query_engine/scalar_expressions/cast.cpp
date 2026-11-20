@@ -23,18 +23,19 @@ using exec_node::StringToBoolExpression;
 using filter::operators::Operator;
 using schema::ColumnIdentifier;
 using schema::DataType;
+using schema::DataTypePtr;
 using storage::Table;
 
 namespace {
 
-bool isNumeric(const DataType& type) {
+bool isNumeric(const DataTypePtr& type) {
    return type == DataType::INT32 || type == DataType::INT64 || type == DataType::FLOAT;
 }
 
 /// The value of the single-element `scalar` as a literal of `type`.
 arrow::Result<std::unique_ptr<ScalarExpression>> scalarToLiteral(
    const arrow::Scalar& scalar,
-   const DataType& type
+   const DataTypePtr& type
 ) {
    if (!scalar.is_valid) {
       return std::make_unique<NullLiteral>(type);
@@ -66,7 +67,7 @@ arrow::Result<std::unique_ptr<ScalarExpression>> scalarToLiteral(
 
 }  // namespace
 
-bool isCastSupported(const DataType& from, const DataType& to) {
+bool isCastSupported(const DataTypePtr& from, const DataTypePtr& to) {
    if (from == to) {
       return true;
    }
@@ -80,14 +81,14 @@ bool isCastSupported(const DataType& from, const DataType& to) {
           (isNumeric(from) || from == DataType::DATE32 || from == DataType::BOOL);
 }
 
-Cast::Cast(std::unique_ptr<ScalarExpression> input, DataType target_type)
+Cast::Cast(std::unique_ptr<ScalarExpression> input, DataTypePtr target_type)
     : input(std::move(input)),
       target_type(std::move(target_type)) {
    RHYDB_ASSERT(this->input != nullptr);
 }
 
 std::string Cast::toString() const {
-   return fmt::format("{}::{}", input->toString(), schema::toSchemaTypeName(target_type));
+   return fmt::format("{}::{}", input->toString(), schema::toSchemaTypeName(*target_type));
 }
 
 std::vector<ColumnIdentifier> Cast::freeIUs() const {
@@ -95,7 +96,7 @@ std::vector<ColumnIdentifier> Cast::freeIUs() const {
 }
 
 arrow::Result<arrow::compute::Expression> Cast::toArrowExpression() const {
-   const DataType source_type = input->type().getPlainType();
+   const DataTypePtr source_type = input->type()->getPlainType();
    ARROW_ASSIGN_OR_RAISE(auto input_expression, input->toArrowExpression());
    if (source_type == target_type) {
       return input_expression;
@@ -124,7 +125,7 @@ std::unique_ptr<Operator> Cast::compile(const Table& /*table*/, bool /*with_null
 
 arrow::Result<std::unique_ptr<ScalarExpression>> castConstant(
    const ScalarExpression& input,
-   const DataType& target_type
+   const DataTypePtr& target_type
 ) {
    const Cast cast{input.clone(), target_type};
    ARROW_ASSIGN_OR_RAISE(auto expression, cast.toArrowExpression());

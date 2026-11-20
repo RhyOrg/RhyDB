@@ -51,7 +51,7 @@ std::unique_ptr<ScalarExpression> makeStringEquals(
    return std::make_unique<Comparison>(
       std::make_unique<FieldRef>(rhydb::schema::ColumnIdentifier{
          .name = column,
-         .type = rhydb::schema::DataType::dictionaryEncoded(rhydb::schema::DataType::STRING),
+         .type = rhydb::schema::DictionaryType::STRING,
       }),
       std::make_unique<StringLiteral>(value),
       rhydb::query_engine::filter::operators::Comparator::EQUALS

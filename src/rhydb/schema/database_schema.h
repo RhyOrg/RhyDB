@@ -18,27 +18,36 @@
 
 namespace rhydb::schema {
 
-bool isSequenceColumn(const DataType& type);
+bool isSequenceColumn(const DataTypePtr& type);
 
 struct ColumnIdentifier {
    std::string name;
-   rhydb::schema::DataType type;
+   rhydb::schema::DataTypePtr type;
 
    bool operator<(const ColumnIdentifier& other) const {
-      return std::tie(name, type) < std::tie(other.name, other.type);
+      return std::tie(name, *type) < std::tie(other.name, *other.type);
    }
 
    bool operator==(const ColumnIdentifier& other) const {
-      return std::tie(name, type) == std::tie(other.name, other.type);
+      return std::tie(name, *type) == std::tie(other.name, *other.type);
    }
 
   private:
    friend class boost::serialization::access;
+
    template <class Archive>
-   [[maybe_unused]] void serialize(Archive& archive, const uint32_t /*version*/) {
+   [[maybe_unused]] void save(Archive& archive, const uint32_t /*version*/) const {
       archive & name;
-      archive & type;
+      saveDataType(archive, *type);
    }
+
+   template <class Archive>
+   [[maybe_unused]] void load(Archive& archive, const uint32_t /*version*/) {
+      archive & name;
+      type = loadDataType(archive);
+   }
+
+   BOOST_SERIALIZATION_SPLIT_MEMBER()
 };
 
 class TableSchema {

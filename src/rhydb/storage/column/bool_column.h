@@ -63,9 +63,9 @@ class BoolColumn {
    using Builder = BoolColumnBuilder;
    using Buffer = std::vector<std::optional<bool>>;
 
-   static constexpr const schema::DataType& TYPE = schema::DataType::BOOL;
+   static constexpr const schema::DataTypePtr& TYPE = schema::DataType::BOOL;
    static constexpr schema::DataType::Kind KIND = schema::DataType::Kind::BOOL;
-   static schema::DataType type() { return TYPE; }
+   static const schema::DataTypePtr& type() { return TYPE; }
    using value_type = bool;
 
    /// One entry per chunk, indexed by chunk id.

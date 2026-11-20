@@ -30,6 +30,7 @@
 using rhydb::query_engine::optimizer::ColumnNarrowingPass;
 using rhydb::schema::ColumnIdentifier;
 using rhydb::schema::DataType;
+using rhydb::schema::DataTypePtr;
 namespace operators = rhydb::query_engine::operators;
 
 namespace {
@@ -38,7 +39,7 @@ ColumnIdentifier col(std::string name) {
    return ColumnIdentifier{.name = std::move(name), .type = DataType::STRING};
 }
 
-ColumnIdentifier colWithType(std::string name, DataType type) {
+ColumnIdentifier colWithType(std::string name, DataTypePtr type) {
    return ColumnIdentifier{.name = std::move(name), .type = std::move(type)};
 }
 

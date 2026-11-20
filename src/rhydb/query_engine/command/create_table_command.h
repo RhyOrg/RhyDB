@@ -21,7 +21,7 @@ namespace rhydb::query_engine::command {
 /// One column of a `createTable` statement as written in the query.
 struct ColumnDefinition {
    std::string name;
-   schema::DataType type;
+   schema::DataTypePtr type;
    /// The `name` of the `reference_genomes` row whose sequence is the column's reference sequence.
    /// Only set for aligned sequence columns.
    std::optional<std::string> reference_name;

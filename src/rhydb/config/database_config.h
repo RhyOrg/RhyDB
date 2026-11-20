@@ -14,13 +14,13 @@
 namespace rhydb::config {
 
 /// The type of a metadata field named `type` in the database config
-schema::DataType toDatabaseDataType(std::string_view type);
+schema::DataTypePtr toDatabaseDataType(std::string_view type);
 
 class DatabaseMetadata {
   public:
    std::string name;
    /// Never dictionary encoded, `generate_index` makes the column type dictionary encoded
-   schema::DataType type;
+   schema::DataTypePtr type;
    bool generate_index;
    /// The lineage definition file this column's values belong to. Preprocessing materializes the
    /// definition as a lineage relation table named after the column, which is what `lineage(...)`
@@ -28,7 +28,7 @@ class DatabaseMetadata {
    std::optional<std::string> generate_lineage_index;
    bool phylo_tree_node_identifier;
 
-   [[nodiscard]] schema::DataType getColumnType() const;
+   [[nodiscard]] schema::DataTypePtr getColumnType() const;
 };
 
 class DatabaseSchema {

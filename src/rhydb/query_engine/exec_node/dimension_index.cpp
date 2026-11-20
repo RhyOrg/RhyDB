@@ -540,7 +540,7 @@ arrow::Result<std::unique_ptr<DimensionIndex>> buildDimensionIndex(
    }
    const auto& scalar_expression = std::get<ResolvedScalarExpressionDimension>(dimension);
    using Kind = schema::DataType::Kind;
-   switch (scalar_expression.output_type.getPlainType().getKind()) {
+   switch (scalar_expression.output_type->getPlainType()->getKind()) {
       case Kind::STRING:
          return buildScalarExpressionIndex<StringValueTraits>(
             table, scalar_expression, filter_bitmap

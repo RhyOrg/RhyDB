@@ -66,13 +66,14 @@ Tables makeTablesWithDefault() {
 Tables makeTablesWithDictionaryEncodedColumn() {
    using rhydb::schema::ColumnIdentifier;
    using rhydb::schema::DataType;
+   using rhydb::schema::DictionaryType;
    using rhydb::storage::column::ColumnMetadata;
    using rhydb::storage::column::StringColumnMetadata;
 
    ColumnIdentifier primary_key{.name = "id", .type = DataType::STRING};
    ColumnIdentifier lineage_column{
       .name = "lineage",
-      .type = DataType::dictionaryEncoded(DataType::STRING),
+      .type = DictionaryType::STRING,
    };
    std::map<ColumnIdentifier, std::shared_ptr<ColumnMetadata>> col_meta{
       {primary_key, std::make_shared<StringColumnMetadata>(primary_key.name)},

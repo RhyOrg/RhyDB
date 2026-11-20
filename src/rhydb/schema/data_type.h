@@ -8,21 +8,27 @@
 #include <string_view>
 #include <utility>
 
-#include <boost/serialization/access.hpp>
-#include <boost/serialization/split_member.hpp>
-
 #include "rhydb/common/panic.h"
 
 namespace rhydb::schema {
 
+class DataType;
+
+/// Types are shared and immutable, like Arrow's `std::shared_ptr<arrow::DataType>`
+using DataTypePtr = std::shared_ptr<const DataType>;
+
 /// The type of a column or value, composed like Arrow's data types: every kind but
-/// `DICTIONARY_ENCODED` is a complete type on its own, a dictionary-encoded type has the type of
-/// its dictionary values as child (see `dictionaryEncoded`).
-class DataType {
+/// `DICTIONARY_ENCODED` is a complete type on its own, a dictionary-encoded type is a
+/// `DictionaryType` holding the type of its dictionary values (see `dictionaryEncoded`).
+///
+/// Every type exists exactly once (the constants below and the instances `dictionaryEncoded`
+/// returns), so comparing two `DataTypePtr`s compares the types. Types are compared structurally
+/// via `operator==`/`operator<=>` all the same.
+class DataType : public std::enable_shared_from_this<DataType> {
   public:
    /// The discriminator of a type (like clang's `Decl::Kind`). Code that handles each type
    /// differently switches over `getKind()` and reads the parameters of parameterized kinds from
-   /// the `DataType` itself.
+   /// the subclass (see `as`).
    enum class Kind : uint8_t {
       STRING,
       DICTIONARY_ENCODED,
@@ -37,41 +43,38 @@ class DataType {
    };
 
   private:
-   Kind kind = Kind::STRING;
-   /// The child type of a parameterized kind (the dictionary values of `DICTIONARY_ENCODED`), or
-   /// nullptr.
-   std::shared_ptr<const DataType> child;
+   Kind kind;
 
-   DataType(Kind kind, std::shared_ptr<const DataType> child)
-       : kind(kind),
-         child(std::move(child)) {}
-
-   explicit constexpr DataType(Kind kind)
+   explicit DataType(Kind kind)
        : kind(kind) {}
 
-  public:
-   static const DataType STRING;
-   static const DataType DATE32;
-   static const DataType BOOL;
-   static const DataType INT32;
-   static const DataType INT64;
-   static const DataType FLOAT;
-   static const DataType AMINO_ACID_SEQUENCE;
-   static const DataType NUCLEOTIDE_SEQUENCE;
-   static const DataType ZSTD_COMPRESSED_STRING;
+   [[nodiscard]] static DataTypePtr make(Kind kind) { return DataTypePtr{new DataType(kind)}; }
 
-   /// Only needed to deserialize into; yields `STRING`
-   DataType() = default;
+   friend class DictionaryType;
+
+  public:
+   static const DataTypePtr STRING;
+   static const DataTypePtr DATE32;
+   static const DataTypePtr BOOL;
+   static const DataTypePtr INT32;
+   static const DataTypePtr INT64;
+   static const DataTypePtr FLOAT;
+   static const DataTypePtr AMINO_ACID_SEQUENCE;
+   static const DataTypePtr NUCLEOTIDE_SEQUENCE;
+   static const DataTypePtr ZSTD_COMPRESSED_STRING;
+
+   DataType(const DataType&) = delete;
+   DataType& operator=(const DataType&) = delete;
+   DataType(DataType&&) = delete;
+   DataType& operator=(DataType&&) = delete;
+   virtual ~DataType() = default;
 
    [[nodiscard]] static constexpr bool canBeDictionaryEncoded(const DataType& value_type) {
       return value_type.kind == Kind::STRING || value_type.kind == Kind::DATE32;
    }
 
    /// A column storing each distinct value of type `value_type` once in a sorted dictionary
-   [[nodiscard]] static DataType dictionaryEncoded(const DataType& value_type) {
-      RHYDB_ASSERT(canBeDictionaryEncoded(value_type));
-      return DataType{Kind::DICTIONARY_ENCODED, std::make_shared<const DataType>(value_type)};
-   }
+   [[nodiscard]] static const DataTypePtr& dictionaryEncoded(const DataType& value_type);
 
    [[nodiscard]] constexpr Kind getKind() const { return kind; }
 
@@ -79,82 +82,130 @@ class DataType {
       return kind == Kind::DICTIONARY_ENCODED;
    }
 
-   /// The type of the dictionary values of a `DICTIONARY_ENCODED` type
-   [[nodiscard]] DataType getDictionaryValueType() const {
-      RHYDB_ASSERT(isDictionaryEncoded());
-      return *child;
+   /// This type as its subclass `T`, which must be the class of its kind
+   template <typename T>
+   [[nodiscard]] const T& as() const {
+      RHYDB_ASSERT(kind == T::KIND);
+      return static_cast<const T&>(*this);
    }
 
    /// The type of a single value of this column once read: the dictionary value type for a
    /// dictionary-encoded type, the type itself otherwise
-   [[nodiscard]] DataType getPlainType() const { return isDictionaryEncoded() ? *child : *this; }
+   [[nodiscard]] virtual DataTypePtr getPlainType() const { return shared_from_this(); }
 
-   // NOLINTNEXTLINE(misc-no-recursion)
-   bool operator==(const DataType& other) const {
-      if (kind != other.kind || (child == nullptr) != (other.child == nullptr)) {
-         return false;
-      }
-      return child == nullptr || *child == *other.child;
-   }
+   bool operator==(const DataType& other) const { return (*this <=> other) == 0; }
 
-   // NOLINTNEXTLINE(misc-no-recursion)
    std::strong_ordering operator<=>(const DataType& other) const {
       if (const auto ordering = kind <=> other.kind; ordering != 0) {
          return ordering;
       }
-      // A type without child sorts first
-      if (child == nullptr || other.child == nullptr) {
-         if (child == other.child) {
-            return std::strong_ordering::equal;
-         }
-         return child == nullptr ? std::strong_ordering::less : std::strong_ordering::greater;
-      }
-      return *child <=> *other.child;
+      return compareParameters(other);
    }
 
-  private:
-   friend class boost::serialization::access;
-
-   template <class Archive>
-   // NOLINTNEXTLINE(misc-no-recursion)
-   void save(Archive& archive, const uint32_t version) const {
-      // clang-format off
-      archive & kind;
-      // clang-format on
-      if (child != nullptr) {
-         child->save(archive, version);
-      }
+  protected:
+   /// Orders this type against `other` of the same kind by their parameters
+   [[nodiscard]] virtual std::strong_ordering compareParameters(const DataType& /*other*/) const {
+      return std::strong_ordering::equal;
    }
-
-   template <class Archive>
-   // NOLINTNEXTLINE(misc-no-recursion)
-   void load(Archive& archive, const uint32_t version) {
-      // clang-format off
-      archive & kind;
-      // clang-format on
-      child = nullptr;
-      if (kind == Kind::DICTIONARY_ENCODED) {
-         DataType value_type;
-         value_type.load(archive, version);
-         child = std::make_shared<const DataType>(std::move(value_type));
-      }
-   }
-
-   BOOST_SERIALIZATION_SPLIT_MEMBER()
 };
 
-inline constinit const DataType DataType::STRING{Kind::STRING};
-inline constinit const DataType DataType::DATE32{Kind::DATE32};
-inline constinit const DataType DataType::BOOL{Kind::BOOL};
-inline constinit const DataType DataType::INT32{Kind::INT32};
-inline constinit const DataType DataType::INT64{Kind::INT64};
-inline constinit const DataType DataType::FLOAT{Kind::FLOAT};
-inline constinit const DataType DataType::AMINO_ACID_SEQUENCE{Kind::AMINO_ACID_SEQUENCE};
-inline constinit const DataType DataType::NUCLEOTIDE_SEQUENCE{Kind::NUCLEOTIDE_SEQUENCE};
-inline constinit const DataType DataType::ZSTD_COMPRESSED_STRING{Kind::ZSTD_COMPRESSED_STRING};
+/// A column storing each distinct value of type `getValueType()` once in a sorted dictionary
+class DictionaryType final : public DataType {
+   DataTypePtr value_type;
+
+   explicit DictionaryType(DataTypePtr value_type)
+       : DataType(Kind::DICTIONARY_ENCODED),
+         value_type(std::move(value_type)) {}
+
+   [[nodiscard]] static DataTypePtr make(DataTypePtr value_type) {
+      return DataTypePtr{new DictionaryType(std::move(value_type))};
+   }
+
+  public:
+   static constexpr Kind KIND = Kind::DICTIONARY_ENCODED;
+
+   /// The dictionary-encoded types, one for each type that `canBeDictionaryEncoded`
+   static const DataTypePtr STRING;
+   static const DataTypePtr DATE32;
+
+   /// The type of the dictionary values
+   [[nodiscard]] const DataTypePtr& getValueType() const { return value_type; }
+
+   [[nodiscard]] DataTypePtr getPlainType() const override { return value_type; }
+
+  protected:
+   [[nodiscard]] std::strong_ordering compareParameters(const DataType& other) const override {
+      return *value_type <=> *other.as<DictionaryType>().value_type;
+   }
+};
+
+// The dictionary types are defined after the plain ones in every translation unit and therefore
+// initialized after them
+inline const DataTypePtr DataType::STRING = DataType::make(Kind::STRING);
+inline const DataTypePtr DataType::DATE32 = DataType::make(Kind::DATE32);
+inline const DataTypePtr DataType::BOOL = DataType::make(Kind::BOOL);
+inline const DataTypePtr DataType::INT32 = DataType::make(Kind::INT32);
+inline const DataTypePtr DataType::INT64 = DataType::make(Kind::INT64);
+inline const DataTypePtr DataType::FLOAT = DataType::make(Kind::FLOAT);
+inline const DataTypePtr DataType::AMINO_ACID_SEQUENCE = DataType::make(Kind::AMINO_ACID_SEQUENCE);
+inline const DataTypePtr DataType::NUCLEOTIDE_SEQUENCE = DataType::make(Kind::NUCLEOTIDE_SEQUENCE);
+inline const DataTypePtr DataType::ZSTD_COMPRESSED_STRING =
+   DataType::make(Kind::ZSTD_COMPRESSED_STRING);
+inline const DataTypePtr DictionaryType::STRING = DictionaryType::make(DataType::STRING);
+inline const DataTypePtr DictionaryType::DATE32 = DictionaryType::make(DataType::DATE32);
+
+inline const DataTypePtr& DataType::dictionaryEncoded(const DataType& value_type) {
+   RHYDB_ASSERT(canBeDictionaryEncoded(value_type));
+   return value_type.kind == Kind::DATE32 ? DictionaryType::DATE32 : DictionaryType::STRING;
+}
+
+/// The type with the given kind and, for a dictionary-encoded kind, the dictionary value kind.
+/// Throws `std::runtime_error` if there is no such type.
+DataTypePtr dataTypeFromKinds(DataType::Kind kind, std::optional<DataType::Kind> value_kind);
+
+/// Writes `type` to a Boost archive: its kind, followed by the kind of the dictionary values for a
+/// dictionary-encoded type
+template <class Archive>
+void saveDataType(Archive& archive, const DataType& type) {
+   DataType::Kind kind = type.getKind();
+   // clang-format off
+   archive & kind;
+   // clang-format on
+   if (type.isDictionaryEncoded()) {
+      saveDataType(archive, *type.as<DictionaryType>().getValueType());
+   }
+}
+
+/// Reads a type written by `saveDataType`
+template <class Archive>
+DataTypePtr loadDataType(Archive& archive) {
+   DataType::Kind kind{};
+   // clang-format off
+   archive & kind;
+   // clang-format on
+   if (kind != DataType::Kind::DICTIONARY_ENCODED) {
+      return dataTypeFromKinds(kind, std::nullopt);
+   }
+   DataType::Kind value_kind{};
+   // clang-format off
+   archive & value_kind;
+   // clang-format on
+   return dataTypeFromKinds(kind, value_kind);
+}
+
+/// Orders `DataTypePtr`s by their types, e.g. as key of a `std::map`
+struct DataTypePtrLess {
+   bool operator()(const DataTypePtr& left, const DataTypePtr& right) const {
+      return *left < *right;
+   }
+};
 
 /// The display name of a type, e.g. in error messages and query plans
 std::string dataTypeToString(const DataType& type);
+
+inline std::string dataTypeToString(const DataTypePtr& type) {
+   return dataTypeToString(*type);
+}
 
 /// The name of a non-parameterized type in a schema definition (database config, `createTable`),
 /// as opposed to its display name `dataTypeToString`
@@ -162,6 +213,6 @@ std::string_view toSchemaTypeName(const DataType& type);
 
 /// The non-parameterized type named `name` in a schema definition (see `toSchemaTypeName`), which
 /// also accepts the alias `int`
-std::optional<DataType> fromSchemaTypeName(std::string_view name);
+std::optional<DataTypePtr> fromSchemaTypeName(std::string_view name);
 
 }  // namespace rhydb::schema

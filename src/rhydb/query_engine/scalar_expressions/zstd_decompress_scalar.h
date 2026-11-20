@@ -23,7 +23,7 @@ class ZstdDecompressScalar : public ScalarExpression {
 
    ZstdDecompressScalar(std::unique_ptr<ScalarExpression> input, std::string dictionary_string);
 
-   [[nodiscard]] schema::DataType type() const override { return schema::DataType::STRING; }
+   [[nodiscard]] schema::DataTypePtr type() const override { return schema::DataType::STRING; }
 
    static constexpr Kind KIND = Kind::ZSTD_DECOMPRESS_SCALAR;
    [[nodiscard]] Kind kind() const override { return KIND; }

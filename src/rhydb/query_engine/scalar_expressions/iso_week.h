@@ -18,7 +18,7 @@ class IsoWeek : public ScalarExpression {
 
    explicit IsoWeek(std::unique_ptr<ScalarExpression> input);
 
-   [[nodiscard]] schema::DataType type() const override { return schema::DataType::STRING; }
+   [[nodiscard]] schema::DataTypePtr type() const override { return schema::DataType::STRING; }
 
    static constexpr Kind KIND = Kind::ISO_WEEK;
    [[nodiscard]] Kind kind() const override { return KIND; }
