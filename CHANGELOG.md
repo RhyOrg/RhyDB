@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.17.7](https://github.com/RhyOrg/RhyDB/compare/v0.17.6...v0.17.7) (2026-11-20)
+
+
+### Features
+
+* **query_engine:** add `table` function to create inline tables ([#1780](https://github.com/RhyOrg/RhyDB/issues/1780)) ([4548400](https://github.com/RhyOrg/RhyDB/commit/4548400434c3f222dcf2d2ef0a92601381312aa6))
+* **query_engine:** implement `DateBetween::toArrowExpression` ([#1844](https://github.com/RhyOrg/RhyDB/issues/1844)) ([e307fca](https://github.com/RhyOrg/RhyDB/commit/e307fcae8e4074d66cc21ac69c89ac813ee1c2d4))
+* **query_engine:** implement `FloatBetween::toArrowExpression` ([#1848](https://github.com/RhyOrg/RhyDB/issues/1848)) ([8ad6ba0](https://github.com/RhyOrg/RhyDB/commit/8ad6ba0c3b55d6dc765c42e98dc197e5c8fbb759))
+* **query_engine:** implement `IntBetween::toArrowExpression` ([#1841](https://github.com/RhyOrg/RhyDB/issues/1841)) ([6956528](https://github.com/RhyOrg/RhyDB/commit/69565282f1faf82b8cec332462779d8307169097))
+
+
+### Bug Fixes
+
+* **query_engine:** surface plan execution errors ([#1849](https://github.com/RhyOrg/RhyDB/issues/1849)) ([f45c520](https://github.com/RhyOrg/RhyDB/commit/f45c520ef42e6cb6e1e82f20465a097a77d7bf61))
+
 ## [0.17.6](https://github.com/RhyOrg/RhyDB/compare/v0.17.5...v0.17.6) (2026-11-18)
 
 
