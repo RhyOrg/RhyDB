@@ -591,16 +591,16 @@ const QueryTestScenario NOF_NEGATIVE_COUNT_EXACT = {
 // true.
 nlohmann::json createArrowData(
    const std::string& primary_key,
-   const std::optional<int> x,
-   const std::optional<int> y
+   const std::optional<int> x_value,
+   const std::optional<int> y_value
 ) {
    const auto to_json = [](const std::optional<int> value) {
       return value.has_value() ? nlohmann::json(*value) : nlohmann::json(nullptr);
    };
    return {
       {"primaryKey", primary_key},
-      {"x", to_json(x)},
-      {"y", to_json(y)},
+      {"x", to_json(x_value)},
+      {"y", to_json(y_value)},
       {"z", 1},
    };
 }
@@ -663,42 +663,42 @@ QueryTestScenario arrowScenario(
    };
 }
 
-const std::string XY = "{x > 0, y > 0}";
+const std::string TWO_CHILDREN = "{x > 0, y > 0}";
 const std::string EXACTLY = ", matchExactly := true";
 
 const QueryTestScenario ARROW_NOF_AT_LEAST_0_SCENARIO = arrowScenario(
    "ARROW_NOF_AT_LEAST_0_SCENARIO",
-   "0, " + XY,
+   "0, " + TWO_CHILDREN,
    {true, true, true, true, true, true, true, true, true}
 );
 const QueryTestScenario ARROW_NOF_AT_LEAST_1_SCENARIO = arrowScenario(
    "ARROW_NOF_AT_LEAST_1_SCENARIO",
-   "1, " + XY,
+   "1, " + TWO_CHILDREN,
    {true, true, true, true, false, NUL, true, NUL, NUL}
 );
 const QueryTestScenario ARROW_NOF_AT_LEAST_2_SCENARIO = arrowScenario(
    "ARROW_NOF_AT_LEAST_2_SCENARIO",
-   "2, " + XY,
+   "2, " + TWO_CHILDREN,
    {true, false, NUL, false, false, false, NUL, false, NUL}
 );
 const QueryTestScenario ARROW_NOF_AT_LEAST_MORE_THAN_CHILDREN_SCENARIO = arrowScenario(
    "ARROW_NOF_AT_LEAST_MORE_THAN_CHILDREN_SCENARIO",
-   "3, " + XY,
+   "3, " + TWO_CHILDREN,
    {false, false, false, false, false, false, false, false, false}
 );
 const QueryTestScenario ARROW_NOF_EXACTLY_0_SCENARIO = arrowScenario(
    "ARROW_NOF_EXACTLY_0_SCENARIO",
-   "0, " + XY + EXACTLY,
+   "0, " + TWO_CHILDREN + EXACTLY,
    {false, false, false, false, true, NUL, false, NUL, NUL}
 );
 const QueryTestScenario ARROW_NOF_EXACTLY_1_SCENARIO = arrowScenario(
    "ARROW_NOF_EXACTLY_1_SCENARIO",
-   "1, " + XY + EXACTLY,
+   "1, " + TWO_CHILDREN + EXACTLY,
    {false, true, NUL, true, false, NUL, NUL, NUL, NUL}
 );
 const QueryTestScenario ARROW_NOF_EXACTLY_2_SCENARIO = arrowScenario(
    "ARROW_NOF_EXACTLY_2_SCENARIO",
-   "2, " + XY + EXACTLY,
+   "2, " + TWO_CHILDREN + EXACTLY,
    {true, false, NUL, false, false, false, NUL, false, NUL}
 );
 const QueryTestScenario ARROW_NOF_AT_LEAST_WITH_THREE_CHILDREN_SCENARIO = arrowScenario(
@@ -710,6 +710,12 @@ const QueryTestScenario ARROW_NOF_EXACTLY_WITH_THREE_CHILDREN_SCENARIO = arrowSc
    "ARROW_NOF_EXACTLY_WITH_THREE_CHILDREN_SCENARIO",
    "2, {x > 0, y > 0, z > 0}" + EXACTLY,
    {false, true, NUL, true, false, NUL, NUL, NUL, NUL}
+);
+// `INT32_MAX + 1` must not overflow when building the exactly-n expression
+const QueryTestScenario ARROW_NOF_EXACTLY_INT32_MAX_SCENARIO = arrowScenario(
+   "ARROW_NOF_EXACTLY_INT32_MAX_SCENARIO",
+   "2147483647, " + TWO_CHILDREN + EXACTLY,
+   {false, false, false, false, false, false, false, false, false}
 );
 const QueryTestScenario ARROW_NOF_WITH_SINGLE_CHILD_SCENARIO = arrowScenario(
    "ARROW_NOF_WITH_SINGLE_CHILD_SCENARIO",
@@ -732,6 +738,7 @@ QUERY_TEST(
       ARROW_NOF_EXACTLY_2_SCENARIO,
       ARROW_NOF_AT_LEAST_WITH_THREE_CHILDREN_SCENARIO,
       ARROW_NOF_EXACTLY_WITH_THREE_CHILDREN_SCENARIO,
+      ARROW_NOF_EXACTLY_INT32_MAX_SCENARIO,
       ARROW_NOF_WITH_SINGLE_CHILD_SCENARIO
    )
 );

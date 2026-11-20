@@ -166,10 +166,11 @@ arrow::compute::Expression countChildren(
 }
 
 /// Three-valued "at least n children are true": true if enough children are certainly true,
-/// null if enough children are true or null, false otherwise
+/// null if enough children are true or null, false otherwise. The threshold is 64 bit, so that
+/// callers can pass `INT32_MAX + 1` without overflow; Arrow widens the 32 bit sums to compare.
 arrow::compute::Expression atLeastToArrowExpression(
    const std::vector<arrow::compute::Expression>& children,
-   const int32_t number_of_matchers
+   const int64_t number_of_matchers
 ) {
    const auto required = arrow::compute::literal(number_of_matchers);
    const auto certainly_true = countChildren(children, /*null_count=*/0);
@@ -229,19 +230,23 @@ arrow::Result<arrow::compute::Expression> NOf::toArrowExpression() const {
       ARROW_ASSIGN_OR_RAISE(auto child_expression, child->toArrowExpression());
       child_expressions.push_back(std::move(child_expression));
    }
-   auto at_least = atLeastToArrowExpression(child_expressions, number_of_matchers);
+   const auto threshold = static_cast<int64_t>(number_of_matchers);
+   auto at_least = atLeastToArrowExpression(child_expressions, threshold);
    if (!match_exactly) {
       return at_least;
    }
    // Like `compile`: exactly-n is `atLeast(n) && !atLeast(n + 1)`
    return arrow::compute::and_(
       std::move(at_least),
-      arrow::compute::not_(atLeastToArrowExpression(child_expressions, number_of_matchers + 1))
+      arrow::compute::not_(atLeastToArrowExpression(child_expressions, threshold + 1))
    );
 }
 
-std::tuple<OperatorVector, OperatorVector, int> NOf::
-   mapChildExpressions(const storage::Table& table, int at_least, bool with_null_rows) const {
+std::tuple<OperatorVector, OperatorVector, int> NOf::mapChildExpressions(
+   const storage::Table& table,
+   int at_least,
+   bool with_null_rows
+) const {
    OperatorVector child_operators;
    child_operators.reserve(children.size());
    for (const auto& child_expression : children) {
@@ -333,10 +338,7 @@ std::unique_ptr<Operator> NOf::compileAtLeast(
    );
 }
 
-std::unique_ptr<Operator> NOf::compile(
-   const storage::Table& table,
-   bool with_null_rows
-) const {
+std::unique_ptr<Operator> NOf::compile(const storage::Table& table, bool with_null_rows) const {
    // At-least-n is true where at least n children are true, and true or null where at least n
    // children are true or null
    if (!match_exactly) {
