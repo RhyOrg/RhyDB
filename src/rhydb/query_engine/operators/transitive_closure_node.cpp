@@ -56,7 +56,7 @@ uint32_t validateAndFindColumn(
       column_name
    );
    CHECK_RHYDB_QUERY(
-      found->type.getPlainType() == schema::DataType::STRING,
+      found->type->getPlainType() == schema::DataType::STRING,
       "transitiveClosure() can only be applied to STRING columns, but column '{}' has type {}",
       column_name,
       schema::dataTypeToString(found->type)

@@ -22,7 +22,7 @@ class Int32Literal : public ScalarExpression {
 
    explicit Int32Literal(int32_t value);
 
-   [[nodiscard]] schema::DataType type() const override { return schema::DataType::INT32; }
+   [[nodiscard]] schema::DataTypePtr type() const override { return schema::DataType::INT32; }
 
    static constexpr Kind KIND = Kind::INT32_LITERAL;
    [[nodiscard]] Kind kind() const override { return KIND; }
@@ -52,7 +52,7 @@ class Int64Literal : public ScalarExpression {
 
    explicit Int64Literal(int64_t value);
 
-   [[nodiscard]] schema::DataType type() const override { return schema::DataType::INT64; }
+   [[nodiscard]] schema::DataTypePtr type() const override { return schema::DataType::INT64; }
 
    static constexpr Kind KIND = Kind::INT64_LITERAL;
    [[nodiscard]] Kind kind() const override { return KIND; }
@@ -82,7 +82,7 @@ class FloatLiteral : public ScalarExpression {
 
    explicit FloatLiteral(double value);
 
-   [[nodiscard]] schema::DataType type() const override { return schema::DataType::FLOAT; }
+   [[nodiscard]] schema::DataTypePtr type() const override { return schema::DataType::FLOAT; }
 
    static constexpr Kind KIND = Kind::FLOAT_LITERAL;
    [[nodiscard]] Kind kind() const override { return KIND; }
@@ -112,7 +112,7 @@ class StringLiteral : public ScalarExpression {
 
    explicit StringLiteral(std::string value);
 
-   [[nodiscard]] schema::DataType type() const override { return schema::DataType::STRING; }
+   [[nodiscard]] schema::DataTypePtr type() const override { return schema::DataType::STRING; }
 
    static constexpr Kind KIND = Kind::STRING_LITERAL;
    [[nodiscard]] Kind kind() const override { return KIND; }
@@ -142,7 +142,7 @@ class BoolLiteral : public ScalarExpression {
 
    explicit BoolLiteral(bool value);
 
-   [[nodiscard]] schema::DataType type() const override { return schema::DataType::BOOL; }
+   [[nodiscard]] schema::DataTypePtr type() const override { return schema::DataType::BOOL; }
 
    static constexpr Kind KIND = Kind::BOOL_LITERAL;
    [[nodiscard]] Kind kind() const override { return KIND; }
@@ -172,7 +172,7 @@ class DateLiteral : public ScalarExpression {
 
    explicit DateLiteral(common::Date32 value);
 
-   [[nodiscard]] schema::DataType type() const override { return schema::DataType::DATE32; }
+   [[nodiscard]] schema::DataTypePtr type() const override { return schema::DataType::DATE32; }
 
    static constexpr Kind KIND = Kind::DATE_LITERAL;
    [[nodiscard]] Kind kind() const override { return KIND; }
@@ -200,11 +200,11 @@ class DateLiteral : public ScalarExpression {
 /// stands for, e.g. the column it is assigned to.
 class NullLiteral : public ScalarExpression {
   public:
-   schema::DataType value_type;
+   schema::DataTypePtr value_type;
 
-   explicit NullLiteral(schema::DataType value_type);
+   explicit NullLiteral(schema::DataTypePtr value_type);
 
-   [[nodiscard]] schema::DataType type() const override { return value_type; }
+   [[nodiscard]] schema::DataTypePtr type() const override { return value_type; }
 
    static constexpr Kind KIND = Kind::NULL_LITERAL;
    [[nodiscard]] Kind kind() const override { return KIND; }

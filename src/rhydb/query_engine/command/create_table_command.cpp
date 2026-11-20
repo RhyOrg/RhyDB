@@ -102,14 +102,14 @@ ColumnDefinition parseColumnDefinition(
    }
 
    const auto data_type = schema::fromSchemaTypeName(type_name);
-   if (data_type.has_value() && DataType::canBeDictionaryEncoded(data_type.value())) {
+   if (data_type.has_value() && DataType::canBeDictionaryEncoded(*data_type.value())) {
       auto options =
          saneql::bindArguments(type_name, INDEXABLE_TYPE_SIGNATURE, *positional, *named);
       const auto* generate_index = options.get(GENERATE_INDEX_OPTION);
       const bool is_indexed = generate_index != nullptr && extractBoolLiteral(*generate_index);
       return ColumnDefinition{
          .name = column_name,
-         .type = is_indexed ? DataType::dictionaryEncoded(data_type.value()) : data_type.value(),
+         .type = is_indexed ? DataType::dictionaryEncoded(*data_type.value()) : data_type.value(),
          .reference_name = std::nullopt,
          .dictionary_query = std::nullopt,
       };
@@ -265,7 +265,7 @@ std::string computeDictionary(
 ) {
    const auto output_schema = dictionary_query->getOutputSchema();
    CHECK_RHYDB_QUERY(
-      output_schema.size() == 1 && output_schema.front().type.getPlainType() == DataType::STRING,
+      output_schema.size() == 1 && output_schema.front().type->getPlainType() == DataType::STRING,
       "createTable(): the dictionary of column '{}' must be a query with exactly one column of "
       "type "
       "`string`, e.g. `reference_genomes.filter(name = 'main' && type = 'nucleotide')"
@@ -308,7 +308,7 @@ std::shared_ptr<ColumnMetadata> createColumnMetadata(
    std::string_view request_id
 ) {
    using Kind = DataType::Kind;
-   switch (column.type.getKind()) {
+   switch (column.type->getKind()) {
       case Kind::STRING:
          return std::make_shared<StringColumnMetadata>(column.name);
       case Kind::DICTIONARY_ENCODED:

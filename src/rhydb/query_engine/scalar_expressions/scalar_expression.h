@@ -70,7 +70,7 @@ class ScalarExpression {
 
    /// The column type this expression evaluates to. All current expressions are
    /// boolean filter predicates; non-boolean scalar expressions may override this.
-   [[nodiscard]] virtual schema::DataType type() const { return schema::DataType::BOOL; }
+   [[nodiscard]] virtual schema::DataTypePtr type() const { return schema::DataType::BOOL; }
 
    /// The concrete type of this expression, used by isA<>/dynCast<>.
    [[nodiscard]] virtual Kind kind() const = 0;

@@ -36,7 +36,7 @@ concept Column = requires(T column) {
 
    { column.chunkSize(static_cast<uint32_t>(0)) } -> std::convertible_to<uint32_t>;
 
-   { T::TYPE } -> std::convertible_to<schema::DataType>;
+   { T::TYPE } -> std::convertible_to<schema::DataTypePtr>;
 
    // The kind of `TYPE`, as a compile-time constant to dispatch on with `if constexpr` (`TYPE`
    // itself is not a constant expression for parameterized types)
@@ -44,7 +44,7 @@ concept Column = requires(T column) {
 
    // The full type of this column. Today it is the static `TYPE` of the column class, but columns
    // whose type depends on their metadata (e.g. the fields of a struct) report it per instance.
-   { column.type() } -> std::convertible_to<schema::DataType>;
+   { column.type() } -> std::convertible_to<schema::DataTypePtr>;
 };
 
 }  // namespace rhydb::storage::column

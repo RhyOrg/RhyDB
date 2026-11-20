@@ -82,6 +82,7 @@ using rhydb::query_engine::scalar_expressions::castConstant;
 using rhydb::query_engine::scalar_expressions::isCastSupported;
 using rhydb::query_engine::scalar_expressions::ScalarExpression;
 using rhydb::schema::DataType;
+using rhydb::schema::DataTypePtr;
 using rhydb::schema::dataTypeToString;
 using rhydb::schema::fromSchemaTypeName;
 using rhydb::storage::column::Column;
@@ -227,7 +228,7 @@ std::unique_ptr<ScalarExpression> convertToScalar(
 
 /// The type a cast `expr::<name>` converts to: any type of a schema definition that holds plain
 /// values.
-DataType resolveCastTargetType(const TypeCast& cast, const SourceLocation& location) {
+DataTypePtr resolveCastTargetType(const TypeCast& cast, const SourceLocation& location) {
    const auto type = fromSchemaTypeName(cast.target_type);
    const bool is_value_type = type.has_value() && *type != DataType::NUCLEOTIDE_SEQUENCE &&
                               *type != DataType::AMINO_ACID_SEQUENCE &&
@@ -289,7 +290,7 @@ std::unique_ptr<ScalarExpression> convertTypeCast(
 ) {
    const auto& cast = std::get<TypeCast>(ast.value);
    const auto& location = ast.location;
-   const DataType target_type = resolveCastTargetType(cast, location);
+   const DataTypePtr target_type = resolveCastTargetType(cast, location);
 
    if (ast::isNullLiteral(*cast.operand)) {
       return std::make_unique<scalar_expressions::NullLiteral>(target_type);
@@ -302,7 +303,7 @@ std::unique_ptr<ScalarExpression> convertTypeCast(
    }
 
    auto operand = convertCastOperand(*cast.operand, schema, error_context, context);
-   const DataType source_type = operand->type().getPlainType();
+   const DataTypePtr source_type = operand->type()->getPlainType();
    CHECK_RHYDB_QUERY(
       isCastSupported(source_type, target_type),
       "{}: cannot cast from {} to {} at {}:{}",
@@ -638,7 +639,7 @@ ScalarExpressionPtr handleAt(
    const auto& input_ast = args.at("input");
    auto input = convertToScalar(input_ast, schema, "at() input", context);
    CHECK_RHYDB_QUERY(
-      input->type().getPlainType() == DataType::STRING,
+      input->type()->getPlainType() == DataType::STRING,
       "at(): the input {} must be a string, but is of type {}",
       input_ast.toString(),
       dataTypeToString(input->type())
@@ -659,7 +660,7 @@ ScalarExpressionPtr handleIsoWeek(
    const auto& input_ast = args.at("input");
    auto input = convertToScalar(input_ast, schema, "isoWeek() input", context);
    CHECK_RHYDB_QUERY(
-      input->type().getPlainType() == DataType::DATE32,
+      input->type()->getPlainType() == DataType::DATE32,
       "isoWeek(): the input {} must be a date, but is of type {}",
       input_ast.toString(),
       dataTypeToString(input->type())
@@ -676,7 +677,7 @@ ScalarExpressionPtr handleConcat(
    const auto& left_ast = args.at("left");
    auto left = convertToScalar(left_ast, schema, "concat() left argument", context);
    CHECK_RHYDB_QUERY(
-      left->type().getPlainType() == DataType::STRING,
+      left->type()->getPlainType() == DataType::STRING,
       "concat(): the left argument {} must be a string, but is of type {}",
       left_ast.toString(),
       dataTypeToString(left->type())
@@ -684,7 +685,7 @@ ScalarExpressionPtr handleConcat(
    const auto& right_ast = args.at("right");
    auto right = convertToScalar(right_ast, schema, "concat() right argument", context);
    CHECK_RHYDB_QUERY(
-      right->type().getPlainType() == DataType::STRING,
+      right->type()->getPlainType() == DataType::STRING,
       "concat(): the right argument {} must be a string, but is of type {}",
       right_ast.toString(),
       dataTypeToString(right->type())
@@ -1007,8 +1008,8 @@ void validateCountArguments(const ast::RecordField& field, const ast::FunctionCa
    );
 }
 
-bool isNumericColumnType(const DataType& type) {
-   const DataType plain_type = type.getPlainType();
+bool isNumericColumnType(const DataTypePtr& type) {
+   const DataTypePtr plain_type = type->getPlainType();
    return plain_type == DataType::INT32 || plain_type == DataType::INT64 ||
           plain_type == DataType::FLOAT;
 }
@@ -1033,8 +1034,8 @@ void validateSumArguments(
    );
 }
 
-bool isOrderedColumnType(const DataType& type) {
-   const DataType plain_type = type.getPlainType();
+bool isOrderedColumnType(const DataTypePtr& type) {
+   const DataTypePtr plain_type = type->getPlainType();
    return isNumericColumnType(plain_type) || plain_type == DataType::DATE32 ||
           plain_type == DataType::STRING || plain_type == DataType::BOOL;
 }

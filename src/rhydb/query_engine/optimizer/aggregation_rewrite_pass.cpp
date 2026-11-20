@@ -166,7 +166,7 @@ std::optional<operators::GroupingDimension> matchIndexedColumnDimension(
       column_name = field_ref->column.name;
    }
    const auto column = source.scan.table->schema->getColumn(column_name);
-   if (!column.has_value() || !column->type.isDictionaryEncoded()) {
+   if (!column.has_value() || !column->type->isDictionaryEncoded()) {
       return std::nullopt;
    }
    return operators::IndexedColumnDimension{column.value(), group_by_field.name};
@@ -175,9 +175,9 @@ std::optional<operators::GroupingDimension> matchIndexedColumnDimension(
 /// A scalar output type the bitmap aggregation can group on (and emit): every value type its output
 /// materialization can build. Sequence / compressed columns are excluded -- they are not a single
 /// groupable value.
-bool isGroupableScalarType(const schema::DataType& type) {
+bool isGroupableScalarType(const schema::DataTypePtr& type) {
    using Kind = schema::DataType::Kind;
-   switch (type.getPlainType().getKind()) {
+   switch (type->getPlainType()->getKind()) {
       case Kind::STRING:
       case Kind::INT32:
       case Kind::INT64:

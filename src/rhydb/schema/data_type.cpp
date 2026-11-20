@@ -2,6 +2,7 @@
 
 #include <initializer_list>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 
@@ -18,7 +19,7 @@ std::string dataTypeToString(const DataType& type) {
          return "STRING";
       case DataType::Kind::DICTIONARY_ENCODED:
          return fmt::format(
-            "DICTIONARY_ENCODED({})", dataTypeToString(type.getDictionaryValueType())
+            "DICTIONARY_ENCODED({})", dataTypeToString(*type.as<DictionaryType>().getValueType())
          );
       case DataType::Kind::DATE32:
          return "DATE32";
@@ -66,11 +67,11 @@ std::string_view toSchemaTypeName(const DataType& type) {
    RHYDB_UNREACHABLE();
 }
 
-std::optional<DataType> fromSchemaTypeName(std::string_view name) {
+std::optional<DataTypePtr> fromSchemaTypeName(std::string_view name) {
    if (name == "int") {
       return DataType::INT32;
    }
-   for (const DataType& type : {
+   for (const DataTypePtr& type : {
            DataType::STRING,
            DataType::DATE32,
            DataType::BOOL,
@@ -81,11 +82,50 @@ std::optional<DataType> fromSchemaTypeName(std::string_view name) {
            DataType::AMINO_ACID_SEQUENCE,
            DataType::ZSTD_COMPRESSED_STRING,
         }) {
-      if (toSchemaTypeName(type) == name) {
+      if (toSchemaTypeName(*type) == name) {
          return type;
       }
    }
    return std::nullopt;
+}
+
+DataTypePtr dataTypeFromKinds(DataType::Kind kind, std::optional<DataType::Kind> value_kind) {
+   using Kind = DataType::Kind;
+   if (kind == Kind::DICTIONARY_ENCODED) {
+      if (value_kind == Kind::STRING) {
+         return DictionaryType::STRING;
+      }
+      if (value_kind == Kind::DATE32) {
+         return DictionaryType::DATE32;
+      }
+      throw std::runtime_error("invalid dictionary value type");
+   }
+   if (value_kind.has_value()) {
+      throw std::runtime_error("only dictionary-encoded types have a value type");
+   }
+   switch (kind) {
+      case Kind::STRING:
+         return DataType::STRING;
+      case Kind::DATE32:
+         return DataType::DATE32;
+      case Kind::BOOL:
+         return DataType::BOOL;
+      case Kind::INT32:
+         return DataType::INT32;
+      case Kind::INT64:
+         return DataType::INT64;
+      case Kind::FLOAT:
+         return DataType::FLOAT;
+      case Kind::AMINO_ACID_SEQUENCE:
+         return DataType::AMINO_ACID_SEQUENCE;
+      case Kind::NUCLEOTIDE_SEQUENCE:
+         return DataType::NUCLEOTIDE_SEQUENCE;
+      case Kind::ZSTD_COMPRESSED_STRING:
+         return DataType::ZSTD_COMPRESSED_STRING;
+      case Kind::DICTIONARY_ENCODED:
+         break;
+   }
+   throw std::runtime_error("invalid data type kind");
 }
 
 }  // namespace rhydb::schema
