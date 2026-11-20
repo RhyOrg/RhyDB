@@ -56,12 +56,12 @@ struct IndexedColumnDimension {
 /// `map({week := date.isoWeek()})`
 struct ScalarExpressionDimension {
    std::unique_ptr<scalar_expressions::ScalarExpression> expression;
-   schema::DataType output_type;
+   schema::DataTypePtr output_type;
    std::string output_name;
 
    ScalarExpressionDimension(
       std::unique_ptr<scalar_expressions::ScalarExpression> expression,
-      schema::DataType output_type,
+      schema::DataTypePtr output_type,
       std::string output_name
    );
 

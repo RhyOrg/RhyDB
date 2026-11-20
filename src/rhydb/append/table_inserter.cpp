@@ -32,10 +32,7 @@ schema::ColumnIdentifier resolveDriverColumn(
          "the clustering driver column '{}' does not exist in the table schema", *driver_column_name
       );
    }
-   if (
-      column.value().type != schema::DataType::NUCLEOTIDE_SEQUENCE &&
-      column.value().type != schema::DataType::AMINO_ACID_SEQUENCE
-   ) {
+   if (!schema::isA<schema::SequenceType>(column.value().type)) {
       throw AppendException(
          "the clustering driver column '{}' must be a nucleotide or amino-acid sequence column",
          *driver_column_name
@@ -44,13 +41,8 @@ schema::ColumnIdentifier resolveDriverColumn(
    return *column;
 }
 
-size_t genomeLengthOf(const storage::Table& table, const schema::ColumnIdentifier& driver_column) {
-   if (driver_column.type == schema::DataType::NUCLEOTIDE_SEQUENCE) {
-      return table.getColumn<storage::column::SequenceColumn<Nucleotide>>(driver_column.name)
-         .genome_length;
-   }
-   return table.getColumn<storage::column::SequenceColumn<AminoAcid>>(driver_column.name)
-      .genome_length;
+size_t genomeLengthOf(const schema::ColumnIdentifier& driver_column) {
+   return schema::cast<schema::SequenceType>(driver_column.type)->getLength();
 }
 
 std::expected<simdjson::ondemand::value, std::string> findFieldManual(
@@ -161,7 +153,7 @@ TableInserter::TableInserter(
       input_buffer{*this->table},
       null_buffer{.builder = storage::TableChunkBuilder{*this->table}, .range = std::nullopt} {
    if (driver_column.has_value()) {
-      const size_t genome_length = genomeLengthOf(*this->table, *driver_column);
+      const size_t genome_length = genomeLengthOf(*driver_column);
       growth_threshold = static_cast<uint32_t>(
          std::llround(options.span_growth_threshold_fraction * static_cast<double>(genome_length))
       );

@@ -1,15 +1,57 @@
 #include "rhydb/schema/data_type.h"
 
-#include <initializer_list>
+#include <cstdint>
+#include <map>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include <fmt/format.h>
 
 #include "rhydb/common/panic.h"
 
 namespace rhydb::schema {
+
+DataTypePtr SequenceType::get(Kind kind, uint32_t length) {
+   RHYDB_ASSERT(isSequenceKind(kind));
+   // The instances, so that every sequence type exists exactly once
+   static std::mutex mutex;
+   static std::map<std::pair<Kind, uint32_t>, DataTypePtr> instances;
+   const std::scoped_lock lock{mutex};
+   auto& instance = instances[{kind, length}];
+   if (instance == nullptr) {
+      instance = kind == Kind::NUCLEOTIDE_SEQUENCE ? make<NucleotideSequenceType>(length)
+                                                   : make<AminoAcidSequenceType>(length);
+   }
+   return instance;
+}
+
+DataTypePtr nonParameterizedDataType(DataType::Kind kind) {
+   using Kind = DataType::Kind;
+   switch (kind) {
+      case Kind::STRING:
+         return DataType::STRING;
+      case Kind::DATE32:
+         return DataType::DATE32;
+      case Kind::BOOL:
+         return DataType::BOOL;
+      case Kind::INT32:
+         return DataType::INT32;
+      case Kind::INT64:
+         return DataType::INT64;
+      case Kind::FLOAT:
+         return DataType::FLOAT;
+      case Kind::ZSTD_COMPRESSED_STRING:
+         return DataType::ZSTD_COMPRESSED_STRING;
+      case Kind::DICTIONARY_ENCODED:
+      case Kind::AMINO_ACID_SEQUENCE:
+      case Kind::NUCLEOTIDE_SEQUENCE:
+         break;
+   }
+   return nullptr;
+}
 
 // NOLINTNEXTLINE(misc-no-recursion)
 std::string dataTypeToString(const DataType& type) {
@@ -18,7 +60,7 @@ std::string dataTypeToString(const DataType& type) {
          return "STRING";
       case DataType::Kind::DICTIONARY_ENCODED:
          return fmt::format(
-            "DICTIONARY_ENCODED({})", dataTypeToString(type.getDictionaryValueType())
+            "DICTIONARY_ENCODED({})", dataTypeToString(*cast<DictionaryType>(&type)->getValueType())
          );
       case DataType::Kind::DATE32:
          return "DATE32";
@@ -31,17 +73,17 @@ std::string dataTypeToString(const DataType& type) {
       case DataType::Kind::FLOAT:
          return "FLOAT";
       case DataType::Kind::AMINO_ACID_SEQUENCE:
-         return "AMINO_ACID_SEQUENCE";
+         return fmt::format("AMINO_ACID_SEQUENCE({})", cast<SequenceType>(&type)->getLength());
       case DataType::Kind::NUCLEOTIDE_SEQUENCE:
-         return "NUCLEOTIDE_SEQUENCE";
+         return fmt::format("NUCLEOTIDE_SEQUENCE({})", cast<SequenceType>(&type)->getLength());
       case DataType::Kind::ZSTD_COMPRESSED_STRING:
          return "ZSTD_COMPRESSED_STRING";
    }
    RHYDB_UNREACHABLE();
 }
 
-std::string_view toSchemaTypeName(const DataType& type) {
-   switch (type.getKind()) {
+std::string_view toSchemaTypeName(DataType::Kind kind) {
+   switch (kind) {
       case DataType::Kind::STRING:
          return "string";
       case DataType::Kind::DATE32:
@@ -66,23 +108,24 @@ std::string_view toSchemaTypeName(const DataType& type) {
    RHYDB_UNREACHABLE();
 }
 
-std::optional<DataType> fromSchemaTypeName(std::string_view name) {
+std::optional<DataType::Kind> fromSchemaTypeName(std::string_view name) {
+   using Kind = DataType::Kind;
    if (name == "int") {
-      return DataType::INT32;
+      return Kind::INT32;
    }
-   for (const DataType& type : {
-           DataType::STRING,
-           DataType::DATE32,
-           DataType::BOOL,
-           DataType::INT32,
-           DataType::INT64,
-           DataType::FLOAT,
-           DataType::NUCLEOTIDE_SEQUENCE,
-           DataType::AMINO_ACID_SEQUENCE,
-           DataType::ZSTD_COMPRESSED_STRING,
+   for (const Kind kind : {
+           Kind::STRING,
+           Kind::DATE32,
+           Kind::BOOL,
+           Kind::INT32,
+           Kind::INT64,
+           Kind::FLOAT,
+           Kind::NUCLEOTIDE_SEQUENCE,
+           Kind::AMINO_ACID_SEQUENCE,
+           Kind::ZSTD_COMPRESSED_STRING,
         }) {
-      if (toSchemaTypeName(type) == name) {
-         return type;
+      if (toSchemaTypeName(kind) == name) {
+         return kind;
       }
    }
    return std::nullopt;

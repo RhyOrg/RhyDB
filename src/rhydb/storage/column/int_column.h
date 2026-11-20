@@ -20,21 +20,21 @@
 
 namespace rhydb::storage::column {
 
-/// Maps a C++ integer value type to its schema::DataType. Adding a further width (e.g. int16_t or
-/// an unsigned variant) only requires a new specialization here plus the corresponding
-/// schema::DataType enum value and config/query wiring.
+/// Maps a C++ integer value type to its schema::DataTypePtr. Adding a further width (e.g. int16_t
+/// or an unsigned variant) only requires a new specialization here plus the corresponding
+/// schema::DataTypePtr enum value and config/query wiring.
 template <typename T>
 struct NumericColumnTypeTraits;
 
 template <>
 struct NumericColumnTypeTraits<int32_t> {
-   static constexpr const schema::DataType& COLUMN_TYPE = schema::DataType::INT32;
+   static constexpr const schema::DataTypePtr& COLUMN_TYPE = schema::DataType::INT32;
    static constexpr schema::DataType::Kind COLUMN_KIND = schema::DataType::Kind::INT32;
 };
 
 template <>
 struct NumericColumnTypeTraits<int64_t> {
-   static constexpr const schema::DataType& COLUMN_TYPE = schema::DataType::INT64;
+   static constexpr const schema::DataTypePtr& COLUMN_TYPE = schema::DataType::INT64;
    static constexpr schema::DataType::Kind COLUMN_KIND = schema::DataType::Kind::INT64;
 };
 
@@ -51,9 +51,9 @@ class NumericColumn {
    using Builder = NumericColumnBuilder<T>;
    using Buffer = std::vector<std::optional<T>>;
 
-   static constexpr const schema::DataType& TYPE = NumericColumnTypeTraits<T>::COLUMN_TYPE;
+   static constexpr const schema::DataTypePtr& TYPE = NumericColumnTypeTraits<T>::COLUMN_TYPE;
    static constexpr schema::DataType::Kind KIND = NumericColumnTypeTraits<T>::COLUMN_KIND;
-   static schema::DataType type() { return TYPE; }
+   static const schema::DataTypePtr& type() { return TYPE; }
    using value_type = T;
 
   private:

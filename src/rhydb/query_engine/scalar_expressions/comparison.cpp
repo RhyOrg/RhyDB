@@ -116,10 +116,7 @@ std::optional<SequencePositionAndLiteral> splitSequencePositionAndLiteral(
    // The FieldRef carries the type the column has in the query (sequences are read as strings),
    // so whether it is a sequence column is decided by the table's schema.
    auto table_column = table.schema->getColumn(field->column.name);
-   if (
-      !table_column.has_value() || (table_column->type != Nucleotide::COLUMN_TYPE &&
-                                    table_column->type != AminoAcid::COLUMN_TYPE)
-   ) {
+   if (!table_column.has_value() || !schema::isA<schema::SequenceType>(table_column->type)) {
       return std::nullopt;
    }
    return SequencePositionAndLiteral{
@@ -205,7 +202,7 @@ std::unique_ptr<ScalarExpression> tryRewriteSequencePositionComparison(
    if (!split.has_value()) {
       return nullptr;
    }
-   if (split->column.type == Nucleotide::COLUMN_TYPE) {
+   if (split->column.type->getKind() == Nucleotide::COLUMN_KIND) {
       return rewriteSequencePositionComparison<Nucleotide>(table, *split, comparator, mode);
    }
    return rewriteSequencePositionComparison<AminoAcid>(table, *split, comparator, mode);

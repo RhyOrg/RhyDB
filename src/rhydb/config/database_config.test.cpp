@@ -11,6 +11,8 @@ using rhydb::config::ConfigException;
 using rhydb::config::DatabaseConfig;
 using rhydb::config::toDatabaseDataType;
 using rhydb::schema::DataType;
+using rhydb::schema::DataTypePtr;
+using rhydb::schema::DictionaryType;
 
 TEST(DatabaseMetadataType, shouldBeConvertableFromString) {
    ASSERT_TRUE(toDatabaseDataType("string") == DataType::STRING);
@@ -115,11 +117,11 @@ TEST(DatabaseConfig, shouldTreatNullMetadataOptionsAsNotSet) {
 namespace {
 
 struct TestParameter {
-   DataType value_type;
+   DataTypePtr value_type;
    bool generate_index;
    bool generate_lineage_index;
    bool phylo_tree_node_identifier;
-   DataType expected_column_type;
+   DataTypePtr expected_column_type;
 };
 
 class DatabaseMetadataFixture : public ::testing::TestWithParam<TestParameter> {};
@@ -150,7 +152,7 @@ INSTANTIATE_TEST_SUITE_P(
       TestParameter{
          .value_type = DataType::STRING,
          .generate_index = true,
-         .expected_column_type = DataType::dictionaryEncoded(DataType::STRING),
+         .expected_column_type = DictionaryType::STRING,
       },
       TestParameter{
          .value_type = DataType::DATE32,
@@ -161,7 +163,7 @@ INSTANTIATE_TEST_SUITE_P(
          .value_type = DataType::STRING,
          .generate_index = true,
          .generate_lineage_index = true,
-         .expected_column_type = DataType::dictionaryEncoded(DataType::STRING),
+         .expected_column_type = DictionaryType::STRING,
       },
       TestParameter{
          .value_type = DataType::INT32,
@@ -375,7 +377,7 @@ schema:
    const auto config = DatabaseConfig::getValidatedConfig(config_yaml);
    const auto metadata = config.getMetadata("indexed date");
    ASSERT_TRUE(metadata.has_value());
-   EXPECT_EQ(metadata->getColumnType(), DataType::dictionaryEncoded(DataType::DATE32));
+   EXPECT_EQ(metadata->getColumnType(), DictionaryType::DATE32);
 }
 
 TEST(DatabaseConfig, givenLineageIndexAndNotGenerateThenThrows) {

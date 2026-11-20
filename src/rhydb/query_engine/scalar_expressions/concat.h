@@ -19,7 +19,7 @@ class Concat : public ScalarExpression {
 
    Concat(std::unique_ptr<ScalarExpression> left, std::unique_ptr<ScalarExpression> right);
 
-   [[nodiscard]] schema::DataType type() const override { return schema::DataType::STRING; }
+   [[nodiscard]] schema::DataTypePtr type() const override { return schema::DataType::STRING; }
 
    static constexpr Kind KIND = Kind::CONCAT;
    [[nodiscard]] Kind kind() const override { return KIND; }

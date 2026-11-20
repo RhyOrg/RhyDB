@@ -47,7 +47,7 @@ std::shared_ptr<Table> makeTable(size_t genome_length) {
    const ColumnIdentifier pk_id{.name = std::string{PK_COLUMN}, .type = DataType::STRING};
    const ColumnIdentifier seq_id{
       .name = std::string{SEQ_COLUMN},
-      .type = DataType::NUCLEOTIDE_SEQUENCE,
+      .type = DataType::nucleotideSequence(static_cast<uint32_t>(genome_length)),
    };
    std::map<ColumnIdentifier, std::shared_ptr<ColumnMetadata>> column_metadata;
    column_metadata.emplace(pk_id, std::make_shared<StringColumnMetadata>(std::string{PK_COLUMN}));

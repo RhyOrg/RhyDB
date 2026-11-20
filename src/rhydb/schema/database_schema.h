@@ -18,27 +18,36 @@
 
 namespace rhydb::schema {
 
-bool isSequenceColumn(const DataType& type);
+bool isSequenceColumn(const DataTypePtr& type);
 
 struct ColumnIdentifier {
    std::string name;
-   rhydb::schema::DataType type;
+   rhydb::schema::DataTypePtr type;
 
    bool operator<(const ColumnIdentifier& other) const {
-      return std::tie(name, type) < std::tie(other.name, other.type);
+      return std::tie(name, *type) < std::tie(other.name, *other.type);
    }
 
    bool operator==(const ColumnIdentifier& other) const {
-      return std::tie(name, type) == std::tie(other.name, other.type);
+      return std::tie(name, *type) == std::tie(other.name, *other.type);
    }
 
   private:
    friend class boost::serialization::access;
+
    template <class Archive>
-   [[maybe_unused]] void serialize(Archive& archive, const uint32_t /*version*/) {
+   [[maybe_unused]] void save(Archive& archive, const uint32_t /*version*/) const {
       archive & name;
-      archive & type;
+      saveDataType(archive, *type);
    }
+
+   template <class Archive>
+   [[maybe_unused]] void load(Archive& archive, const uint32_t /*version*/) {
+      archive & name;
+      type = loadDataType(archive);
+   }
+
+   BOOST_SERIALIZATION_SPLIT_MEMBER()
 };
 
 class TableSchema {
@@ -65,7 +74,7 @@ class TableSchema {
    [[nodiscard]] std::vector<ColumnIdentifier> getColumnByType() const {
       std::vector<ColumnIdentifier> result;
       for (const auto& [column_identifier, _] : column_metadata) {
-         if (column_identifier.type == ColumnType::TYPE) {
+         if (storage::column::storesType<ColumnType>(*column_identifier.type)) {
             result.push_back(column_identifier);
          }
       }
@@ -82,10 +91,10 @@ class TableSchema {
       if (iter == column_metadata.end()) {
          return std::nullopt;
       }
-      if (iter->first.type != ColumnType::TYPE) {
+      if (!storage::column::storesType<ColumnType>(*iter->first.type)) {
          SPDLOG_INFO(
-            "Mismatching type found: expected {} vs actual {}",
-            dataTypeToString(ColumnType::TYPE),
+            "Mismatching type found: column '{}' has type {}",
+            name,
             dataTypeToString(iter->first.type)
          );
          return std::nullopt;

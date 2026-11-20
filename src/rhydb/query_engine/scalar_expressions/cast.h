@@ -12,7 +12,7 @@ namespace rhydb::query_engine::scalar_expressions {
 
 /// Whether values of the (plain) type `from` can be cast to the (plain) type `to` with `Cast`.
 /// A cast to the same type is supported, but is a no-op.
-[[nodiscard]] bool isCastSupported(const schema::DataType& from, const schema::DataType& to);
+[[nodiscard]] bool isCastSupported(const schema::DataTypePtr& from, const schema::DataTypePtr& to);
 
 /// A scalar expression that converts the value of its child expression to `target_type`, e.g.
 /// `age::float`. A null input stays null. Values that cannot be converted (overflow, a fractional
@@ -20,11 +20,11 @@ namespace rhydb::query_engine::scalar_expressions {
 class Cast : public ScalarExpression {
   public:
    std::unique_ptr<ScalarExpression> input;
-   schema::DataType target_type;
+   schema::DataTypePtr target_type;
 
-   Cast(std::unique_ptr<ScalarExpression> input, schema::DataType target_type);
+   Cast(std::unique_ptr<ScalarExpression> input, schema::DataTypePtr target_type);
 
-   [[nodiscard]] schema::DataType type() const override { return target_type; }
+   [[nodiscard]] schema::DataTypePtr type() const override { return target_type; }
 
    static constexpr Kind KIND = Kind::CAST;
    [[nodiscard]] Kind kind() const override { return KIND; }
@@ -56,7 +56,7 @@ class Cast : public ScalarExpression {
 /// `NullLiteral`.
 [[nodiscard]] arrow::Result<std::unique_ptr<ScalarExpression>> castConstant(
    const ScalarExpression& input,
-   const schema::DataType& target_type
+   const schema::DataTypePtr& target_type
 );
 
 }  // namespace rhydb::query_engine::scalar_expressions

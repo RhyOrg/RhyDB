@@ -13,6 +13,7 @@
 #include "config/config_exception.h"
 
 using rhydb::schema::DataType;
+using rhydb::schema::DataTypePtr;
 
 namespace {
 
@@ -24,13 +25,15 @@ bool isSet(const YAML::Node& node) {
 
 }  // namespace
 
-DataType rhydb::config::toDatabaseDataType(std::string_view type) {
-   const auto data_type = rhydb::schema::fromSchemaTypeName(type);
+DataTypePtr rhydb::config::toDatabaseDataType(std::string_view type) {
+   const auto kind = rhydb::schema::fromSchemaTypeName(type);
+   auto data_type =
+      kind.has_value() ? rhydb::schema::nonParameterizedDataType(*kind) : DataTypePtr{};
    // Sequence columns are declared separately, as `nucleotideSequences` etc.
-   if (!data_type.has_value() || rhydb::schema::isSequenceColumn(data_type.value())) {
+   if (data_type == nullptr || rhydb::schema::isSequenceColumn(data_type)) {
       throw ConfigException("Unknown metadata type: " + std::string(type));
    }
-   return data_type.value();
+   return data_type;
 }
 
 bool YAML::convert<rhydb::config::DatabaseConfig>::decode(
@@ -116,7 +119,7 @@ YAML::Node YAML::convert<rhydb::config::DatabaseMetadata>::encode(
 ) {
    Node node;
    node["name"] = metadata.name;
-   node["type"] = std::string{toSchemaTypeName(metadata.type)};
+   node["type"] = std::string{toSchemaTypeName(metadata.type->getKind())};
    node["generateIndex"] = metadata.generate_index;
    if (metadata.generate_lineage_index) {
       node["generateLineageIndex"] = metadata.generate_lineage_index.value();
@@ -129,9 +132,9 @@ YAML::Node YAML::convert<rhydb::config::DatabaseMetadata>::encode(
 
 namespace rhydb::config {
 
-schema::DataType DatabaseMetadata::getColumnType() const {
+schema::DataTypePtr DatabaseMetadata::getColumnType() const {
    if (generate_index) {
-      return schema::DataType::dictionaryEncoded(type);
+      return schema::DataType::dictionaryEncoded(*type);
    }
    return type;
 }
@@ -187,8 +190,8 @@ DatabaseConfig DatabaseConfig::getValidatedConfigFromFile(
 }
 
 namespace {
-std::map<std::string, DataType> validateMetadataDefinitions(const DatabaseConfig& config) {
-   std::map<std::string, DataType> metadata_map;
+std::map<std::string, DataTypePtr> validateMetadataDefinitions(const DatabaseConfig& config) {
+   std::map<std::string, DataTypePtr> metadata_map;
    for (const auto& metadata : config.schema.metadata) {
       if (metadata_map.contains(metadata.name)) {
          throw ConfigException("Metadata " + metadata.name + " is defined twice in the config");
@@ -210,7 +213,7 @@ std::map<std::string, DataType> validateMetadataDefinitions(const DatabaseConfig
          );
       }
 
-      if (metadata.generate_index && !DataType::canBeDictionaryEncoded(metadata.type)) {
+      if (metadata.generate_index && !DataType::canBeDictionaryEncoded(*metadata.type)) {
          throw ConfigException(
             "Metadata '" + metadata.name +
             "' generateIndex is set, but generating an index is only allowed for types STRING "
@@ -241,7 +244,7 @@ std::map<std::string, DataType> validateMetadataDefinitions(const DatabaseConfig
 }  // namespace
 
 void DatabaseConfig::validateConfig(const DatabaseConfig& config) {
-   const std::map<std::string, DataType> metadata_map = validateMetadataDefinitions(config);
+   const std::map<std::string, DataTypePtr> metadata_map = validateMetadataDefinitions(config);
 
    if (config.schema.metadata.empty()) {
       throw ConfigException("Database config without fields not possible");
@@ -287,7 +290,7 @@ void DatabaseConfig::validateConfig(const DatabaseConfig& config) {
       ctx.out(),
       "{{ name: '{}', type: '{}', generate_index: {} }}",
       database_metadata.name,
-      toSchemaTypeName(database_metadata.type),
+      toSchemaTypeName(database_metadata.type->getKind()),
       database_metadata.generate_index
    );
 }

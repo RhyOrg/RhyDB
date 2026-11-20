@@ -67,7 +67,7 @@ tablesWithSequenceColumnFirst() {
    using rhydb::storage::column::SequenceColumnMetadata;
    using rhydb::storage::column::StringColumnMetadata;
 
-   const ColumnIdentifier sequence{.name = "E", .type = DataType::AMINO_ACID_SEQUENCE};
+   const ColumnIdentifier sequence{.name = "E", .type = DataType::aminoAcidSequence(1)};
    const ColumnIdentifier primary_key{.name = "id", .type = DataType::STRING};
    std::map<ColumnIdentifier, std::shared_ptr<ColumnMetadata>> col_meta{
       {

@@ -140,7 +140,7 @@ IndexedColumnDimension::IndexedColumnDimension(
       output_name(std::move(output_name)) {}
 
 schema::ColumnIdentifier IndexedColumnDimension::outputColumn() const {
-   return {.name = output_name, .type = column.type.getPlainType()};
+   return {.name = output_name, .type = column.type->getPlainType()};
 }
 
 nlohmann::json IndexedColumnDimension::toJson() const {
@@ -153,7 +153,7 @@ nlohmann::json IndexedColumnDimension::toJson() const {
 
 ScalarExpressionDimension::ScalarExpressionDimension(
    std::unique_ptr<scalar_expressions::ScalarExpression> expression,
-   schema::DataType output_type,
+   schema::DataTypePtr output_type,
    std::string output_name
 )
     : expression(std::move(expression)),

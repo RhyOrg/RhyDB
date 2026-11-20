@@ -25,6 +25,8 @@
 
 using rhydb::Nucleotide;
 using rhydb::schema::ColumnIdentifier;
+using rhydb::schema::DataType;
+using rhydb::schema::DataTypePtr;
 using rhydb::schema::TableSchema;
 using rhydb::storage::TableChunkBuilder;
 using rhydb::storage::column::BoolColumn;
@@ -57,14 +59,17 @@ std::expected<void, std::string> setupColumnAndInsertJson(
    const std::string& json_string
 ) {
    std::shared_ptr<typename ColumnType::Metadata> meta;
+   DataTypePtr type;
    if constexpr (std::is_same_v<ColumnType, SequenceColumn<Nucleotide>>) {
       meta = std::make_shared<SequenceColumnMetadata<Nucleotide>>(
          column_name, std::vector<Nucleotide::Symbol>{Nucleotide::Symbol::A}
       );
+      type = DataType::nucleotideSequence(1);
    } else {
       meta = std::make_shared<typename ColumnType::Metadata>(column_name);
+      type = ColumnType::TYPE;
    }
-   const ColumnIdentifier column_id{column_name, ColumnType::TYPE};
+   const ColumnIdentifier column_id{.name = column_name, .type = type};
    auto schema = std::make_shared<TableSchema>(makeSingleColumnSchema(column_id, meta));
    const rhydb::storage::Table table{rhydb::schema::TableName::getDefault(), schema};
    TableChunkBuilder builder{table};
@@ -85,7 +90,10 @@ std::expected<void, std::string> setupNucleotideColumnAndInsertJson(
    auto meta = std::make_shared<SequenceColumnMetadata<Nucleotide>>(
       column_name, std::vector<Nucleotide::Symbol>{reference}
    );
-   const ColumnIdentifier column_id{.name = column_name, .type = SequenceColumn<Nucleotide>::TYPE};
+   const ColumnIdentifier column_id{
+      .name = column_name,
+      .type = DataType::nucleotideSequence(static_cast<uint32_t>(reference.size())),
+   };
    auto schema = std::make_shared<TableSchema>(makeSingleColumnSchema(column_id, meta));
    const rhydb::storage::Table table{rhydb::schema::TableName::getDefault(), schema};
    TableChunkBuilder builder{table};
@@ -277,7 +285,7 @@ TEST(TableChunkBuilder, givenSequenceCompressedMultipleRows_succeeds) {
 
    auto meta =
       std::make_shared<SequenceColumnMetadata<Nucleotide>>("nuc_col", std::move(reference));
-   const ColumnIdentifier column_id{.name = "nuc_col", .type = SequenceColumn<Nucleotide>::TYPE};
+   const ColumnIdentifier column_id{.name = "nuc_col", .type = DataType::nucleotideSequence(4)};
    auto schema = std::make_shared<TableSchema>(makeSingleColumnSchema(column_id, meta));
    const rhydb::storage::Table table{rhydb::schema::TableName::getDefault(), schema};
    TableChunkBuilder builder{table};

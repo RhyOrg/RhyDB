@@ -116,7 +116,7 @@ class CompareToValueSelection : public Predicate {
    [[nodiscard]] std::string toString() const override {
       return fmt::format(
          "${} {} {} {}",
-         schema::dataTypeToString(ColumnType::TYPE),
+         schema::dataTypeToString(column.type()),
          column.metadata->column_name,
          displayComparator(comparator),
          value

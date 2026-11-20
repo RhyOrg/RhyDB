@@ -37,7 +37,8 @@ operators::QueryNodePtr NodeResolutionPass::operator()(
    for (const auto& sequence_name : node.sequence_names) {
       auto column_identifier = (*scan)->table->schema->getColumn(sequence_name);
       CHECK_RHYDB_QUERY(
-         column_identifier.has_value() && column_identifier.value().type == SymbolType::COLUMN_TYPE,
+         column_identifier.has_value() &&
+            column_identifier.value().type->getKind() == SymbolType::COLUMN_KIND,
          "The database does not contain the {} sequence '{}'",
          SymbolType::SYMBOL_NAME,
          sequence_name
@@ -96,7 +97,8 @@ operators::QueryNodePtr NodeResolutionPass::operator()(
    for (const auto& sequence_name : node.sequence_names) {
       auto column_identifier = (*scan)->table->schema->getColumn(sequence_name);
       CHECK_RHYDB_QUERY(
-         column_identifier.has_value() && column_identifier.value().type == SymbolType::COLUMN_TYPE,
+         column_identifier.has_value() &&
+            column_identifier.value().type->getKind() == SymbolType::COLUMN_KIND,
          "The database does not contain the {} sequence '{}'",
          SymbolType::SYMBOL_NAME,
          sequence_name
