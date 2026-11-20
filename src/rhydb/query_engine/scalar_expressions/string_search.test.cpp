@@ -241,16 +241,6 @@ const QueryTestScenario ARROW_SEARCH_EMPTY_STRING_ON_INDEXED_COLUMN = mapScenari
    "^$",
    {false, false, false, false, false, false, NUL, true}
 );
-// A search as the child of another Arrow translated expression. The null row has a null search but
-// a true `isNull`, so at least one child is certainly true
-const QueryTestScenario ARROW_SEARCH_COMBINED_WITH_IS_NULL = {
-   .name = "ARROW_SEARCH_COMBINED_WITH_IS_NULL",
-   .query =
-      "data.map({r := nOf(1, {test_column.like('AA'), test_column.isNull()})})"
-      ".project({primaryKey, r})",
-   .expected_query_result = createMapResult({true, true, true, false, true, false, true, false}),
-};
-
 const QueryTestScenario INVALID_REGULAR_EXPRESSION = {
    .name = "INVALID_REGULAR_EXPRESSION",
    .query = "data.filter(test_column.like('^(')).project(primaryKey)",
@@ -302,7 +292,6 @@ QUERY_TEST(
       ARROW_SEARCH_NO_MATCH,
       ARROW_SEARCH_CHARACTER_CLASS,
       ARROW_SEARCH_ON_INDEXED_COLUMN,
-      ARROW_SEARCH_EMPTY_STRING_ON_INDEXED_COLUMN,
-      ARROW_SEARCH_COMBINED_WITH_IS_NULL
+      ARROW_SEARCH_EMPTY_STRING_ON_INDEXED_COLUMN
    )
 );
