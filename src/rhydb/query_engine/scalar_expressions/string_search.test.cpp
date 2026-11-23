@@ -1,3 +1,4 @@
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -163,6 +164,83 @@ const QueryTestScenario NEGATED_DISJUNCTION_WITH_IS_NULL = {
    .expected_query_result = createExpectedResult({"id4", "id6", "id8"}),
 };
 
+// The scenarios below put the search into a `map`, which is never pushed into the table scan, so
+// the expression is evaluated by Arrow (`toArrowExpression`) and not by the bitmap-based `compile`.
+// The rows are id1..id8 with the values of `DATA`; id7 is null.
+nlohmann::json createMapResult(const std::vector<std::optional<bool>>& values) {
+   nlohmann::json result = nlohmann::json::array();
+   for (size_t i = 0; i < values.size(); ++i) {
+      result.push_back({
+         {"primaryKey", "id" + std::to_string(i + 1)},
+         {"r", values[i].has_value() ? nlohmann::json(*values[i]) : nlohmann::json(nullptr)},
+      });
+   }
+   return result;
+}
+
+constexpr std::optional<bool> NUL = std::nullopt;
+
+QueryTestScenario mapScenario(
+   const std::string& name,
+   const std::string& column,
+   const std::string& pattern,
+   const std::vector<std::optional<bool>>& expected
+) {
+   return {
+      .name = name,
+      .query = "data.map({r := " + column + ".like('" + pattern + "')}).project({primaryKey, r})",
+      .expected_query_result = createMapResult(expected),
+   };
+}
+
+const QueryTestScenario ARROW_SEARCH_UNANCHORED = mapScenario(
+   "ARROW_SEARCH_UNANCHORED",
+   TEST_COLUMN,
+   "AA",
+   {true, true, true, false, true, false, NUL, false}
+);
+const QueryTestScenario ARROW_SEARCH_ANCHORED_AT_THE_BEGINNING = mapScenario(
+   "ARROW_SEARCH_ANCHORED_AT_THE_BEGINNING",
+   TEST_COLUMN,
+   "^AA",
+   {true, false, true, false, true, false, NUL, false}
+);
+const QueryTestScenario ARROW_SEARCH_EMPTY_STRING = mapScenario(
+   "ARROW_SEARCH_EMPTY_STRING",
+   TEST_COLUMN,
+   "^$",
+   {false, false, false, false, false, false, NUL, true}
+);
+const QueryTestScenario ARROW_SEARCH_EMPTY_PATTERN_MATCHES_EVERYTHING_BUT_NULL = mapScenario(
+   "ARROW_SEARCH_EMPTY_PATTERN_MATCHES_EVERYTHING_BUT_NULL",
+   TEST_COLUMN,
+   "",
+   {true, true, true, true, true, true, NUL, true}
+);
+const QueryTestScenario ARROW_SEARCH_NO_MATCH = mapScenario(
+   "ARROW_SEARCH_NO_MATCH",
+   TEST_COLUMN,
+   "should not match on anything",
+   {false, false, false, false, false, false, NUL, false}
+);
+const QueryTestScenario ARROW_SEARCH_CHARACTER_CLASS = mapScenario(
+   "ARROW_SEARCH_CHARACTER_CLASS",
+   TEST_COLUMN,
+   "^A[AB]+$",
+   {true, false, true, true, true, false, NUL, false}
+);
+const QueryTestScenario ARROW_SEARCH_ON_INDEXED_COLUMN = mapScenario(
+   "ARROW_SEARCH_ON_INDEXED_COLUMN",
+   INDEXED_TEST_COLUMN,
+   "AA",
+   {true, true, true, false, true, false, NUL, false}
+);
+const QueryTestScenario ARROW_SEARCH_EMPTY_STRING_ON_INDEXED_COLUMN = mapScenario(
+   "ARROW_SEARCH_EMPTY_STRING_ON_INDEXED_COLUMN",
+   INDEXED_TEST_COLUMN,
+   "^$",
+   {false, false, false, false, false, false, NUL, true}
+);
 const QueryTestScenario INVALID_REGULAR_EXPRESSION = {
    .name = "INVALID_REGULAR_EXPRESSION",
    .query = "data.filter(test_column.like('^(')).project(primaryKey)",
@@ -206,6 +284,14 @@ QUERY_TEST(
       NEGATED_DISJUNCTION_WITH_IS_NULL,
       INVALID_REGULAR_EXPRESSION,
       FILTER_FOR_COLUMN_THAT_DOES_NOT_EXIST,
-      TABLE_NOT_FOUND
+      TABLE_NOT_FOUND,
+      ARROW_SEARCH_UNANCHORED,
+      ARROW_SEARCH_ANCHORED_AT_THE_BEGINNING,
+      ARROW_SEARCH_EMPTY_STRING,
+      ARROW_SEARCH_EMPTY_PATTERN_MATCHES_EVERYTHING_BUT_NULL,
+      ARROW_SEARCH_NO_MATCH,
+      ARROW_SEARCH_CHARACTER_CLASS,
+      ARROW_SEARCH_ON_INDEXED_COLUMN,
+      ARROW_SEARCH_EMPTY_STRING_ON_INDEXED_COLUMN
    )
 );

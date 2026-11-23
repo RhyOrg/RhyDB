@@ -4,7 +4,9 @@
 #include <memory>
 #include <optional>
 #include <utility>
+#include <vector>
 
+#include <arrow/datum.h>
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
@@ -14,6 +16,7 @@
 #include "rhydb/query_engine/filter/operators/operator.h"
 #include "rhydb/query_engine/filter/operators/selection.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
+#include "rhydb/query_engine/scalar_expressions/between_arrow.h"
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
 #include "rhydb/storage/column/int_column.h"
 #include "rhydb/storage/table.h"
@@ -66,6 +69,13 @@ std::unique_ptr<ScalarExpression> IntBetween::rewrite(
    AmbiguityMode /*mode*/
 ) const {
    return std::make_unique<IntBetween>(column, from, to);
+}
+
+arrow::Result<arrow::compute::Expression> IntBetween::toArrowExpression() const {
+   // The bounds are int64. Arrow casts int32 columns to int64 for the comparison, so a bound
+   // beyond the int32 range compares correctly, while `compile` rejects it.
+   const auto to_datum = [](int64_t bound) { return arrow::Datum(bound); };
+   return betweenToArrowExpression(column.name, from.transform(to_datum), to.transform(to_datum));
 }
 
 template <typename ColumnT>

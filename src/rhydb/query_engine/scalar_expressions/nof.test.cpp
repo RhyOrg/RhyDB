@@ -3,6 +3,8 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
@@ -582,7 +584,164 @@ const QueryTestScenario NOF_NEGATIVE_COUNT_EXACT = {
    .expected_query_result = nlohmann::json::parse(R"([])"),
 };
 
+// The tests below put `nOf` into a `map`, which is never pushed into the table scan, so the
+// expression is evaluated by Arrow (`toArrowExpression`) and not by the bitmap-based `compile`.
+// The children `x > 0` and `y > 0` take every combination of true, false and null over the rows
+// id_0..id_8: x = [T, T, T, F, F, F, N, N, N], y = [T, F, N, T, F, N, T, F, N]. `z > 0` is always
+// true.
+nlohmann::json createArrowData(
+   const std::string& primary_key,
+   const std::optional<int> x_value,
+   const std::optional<int> y_value
+) {
+   const auto to_json = [](const std::optional<int> value) {
+      return value.has_value() ? nlohmann::json(*value) : nlohmann::json(nullptr);
+   };
+   return {
+      {"primaryKey", primary_key},
+      {"x", to_json(x_value)},
+      {"y", to_json(y_value)},
+      {"z", 1},
+   };
+}
+
+const auto ARROW_DATABASE_CONFIG =
+   R"(
+schema:
+  instanceName: "dummy name"
+  metadata:
+    - name: "primaryKey"
+      type: "string"
+    - name: "x"
+      type: "int"
+    - name: "y"
+      type: "int"
+    - name: "z"
+      type: "int"
+  primaryKey: "primaryKey"
+)";
+
+const QueryTestData ARROW_TEST_DATA{
+   .ndjson_input_data =
+      {
+         createArrowData("id_0", 1, 1),
+         createArrowData("id_1", 1, -1),
+         createArrowData("id_2", 1, std::nullopt),
+         createArrowData("id_3", -1, 1),
+         createArrowData("id_4", -1, -1),
+         createArrowData("id_5", -1, std::nullopt),
+         createArrowData("id_6", std::nullopt, 1),
+         createArrowData("id_7", std::nullopt, -1),
+         createArrowData("id_8", std::nullopt, std::nullopt),
+      },
+   .database_config = ARROW_DATABASE_CONFIG,
+   .reference_genomes = ReferenceGenomes{{}, {}},
+};
+
+nlohmann::json createBooleanRows(const std::vector<std::optional<bool>>& values) {
+   auto rows = nlohmann::json::array();
+   for (size_t i = 0; i < values.size(); ++i) {
+      rows.push_back({
+         {"primaryKey", "id_" + std::to_string(i)},
+         {"r", values[i].has_value() ? nlohmann::json(values[i].value()) : nlohmann::json(nullptr)},
+      });
+   }
+   return rows;
+}
+
+constexpr std::optional<bool> NUL = std::nullopt;
+
+QueryTestScenario arrowScenario(
+   const std::string& name,
+   const std::string& n_of_arguments,
+   const std::vector<std::optional<bool>>& expected
+) {
+   return {
+      .name = name,
+      .query = "data.map({r := nOf(" + n_of_arguments + ")}).project({primaryKey, r})",
+      .expected_query_result = createBooleanRows(expected),
+   };
+}
+
+const std::string TWO_CHILDREN = "{x > 0, y > 0}";
+const std::string EXACTLY = ", matchExactly := true";
+
+const QueryTestScenario ARROW_NOF_AT_LEAST_0_SCENARIO = arrowScenario(
+   "ARROW_NOF_AT_LEAST_0_SCENARIO",
+   "0, " + TWO_CHILDREN,
+   {true, true, true, true, true, true, true, true, true}
+);
+const QueryTestScenario ARROW_NOF_AT_LEAST_1_SCENARIO = arrowScenario(
+   "ARROW_NOF_AT_LEAST_1_SCENARIO",
+   "1, " + TWO_CHILDREN,
+   {true, true, true, true, false, NUL, true, NUL, NUL}
+);
+const QueryTestScenario ARROW_NOF_AT_LEAST_2_SCENARIO = arrowScenario(
+   "ARROW_NOF_AT_LEAST_2_SCENARIO",
+   "2, " + TWO_CHILDREN,
+   {true, false, NUL, false, false, false, NUL, false, NUL}
+);
+const QueryTestScenario ARROW_NOF_AT_LEAST_MORE_THAN_CHILDREN_SCENARIO = arrowScenario(
+   "ARROW_NOF_AT_LEAST_MORE_THAN_CHILDREN_SCENARIO",
+   "3, " + TWO_CHILDREN,
+   {false, false, false, false, false, false, false, false, false}
+);
+const QueryTestScenario ARROW_NOF_EXACTLY_0_SCENARIO = arrowScenario(
+   "ARROW_NOF_EXACTLY_0_SCENARIO",
+   "0, " + TWO_CHILDREN + EXACTLY,
+   {false, false, false, false, true, NUL, false, NUL, NUL}
+);
+const QueryTestScenario ARROW_NOF_EXACTLY_1_SCENARIO = arrowScenario(
+   "ARROW_NOF_EXACTLY_1_SCENARIO",
+   "1, " + TWO_CHILDREN + EXACTLY,
+   {false, true, NUL, true, false, NUL, NUL, NUL, NUL}
+);
+const QueryTestScenario ARROW_NOF_EXACTLY_2_SCENARIO = arrowScenario(
+   "ARROW_NOF_EXACTLY_2_SCENARIO",
+   "2, " + TWO_CHILDREN + EXACTLY,
+   {true, false, NUL, false, false, false, NUL, false, NUL}
+);
+const QueryTestScenario ARROW_NOF_AT_LEAST_WITH_THREE_CHILDREN_SCENARIO = arrowScenario(
+   "ARROW_NOF_AT_LEAST_WITH_THREE_CHILDREN_SCENARIO",
+   "2, {x > 0, y > 0, z > 0}",
+   {true, true, true, true, false, NUL, true, NUL, NUL}
+);
+const QueryTestScenario ARROW_NOF_EXACTLY_WITH_THREE_CHILDREN_SCENARIO = arrowScenario(
+   "ARROW_NOF_EXACTLY_WITH_THREE_CHILDREN_SCENARIO",
+   "2, {x > 0, y > 0, z > 0}" + EXACTLY,
+   {false, true, NUL, true, false, NUL, NUL, NUL, NUL}
+);
+// `INT32_MAX + 1` must not overflow when building the exactly-n expression
+const QueryTestScenario ARROW_NOF_EXACTLY_INT32_MAX_SCENARIO = arrowScenario(
+   "ARROW_NOF_EXACTLY_INT32_MAX_SCENARIO",
+   "2147483647, " + TWO_CHILDREN + EXACTLY,
+   {false, false, false, false, false, false, false, false, false}
+);
+const QueryTestScenario ARROW_NOF_WITH_SINGLE_CHILD_SCENARIO = arrowScenario(
+   "ARROW_NOF_WITH_SINGLE_CHILD_SCENARIO",
+   "1, {x > 0}",
+   {true, true, true, false, false, false, NUL, NUL, NUL}
+);
+
 }  // namespace
+
+QUERY_TEST(
+   NOfArrowTest,
+   ARROW_TEST_DATA,
+   ::testing::Values(
+      ARROW_NOF_AT_LEAST_0_SCENARIO,
+      ARROW_NOF_AT_LEAST_1_SCENARIO,
+      ARROW_NOF_AT_LEAST_2_SCENARIO,
+      ARROW_NOF_AT_LEAST_MORE_THAN_CHILDREN_SCENARIO,
+      ARROW_NOF_EXACTLY_0_SCENARIO,
+      ARROW_NOF_EXACTLY_1_SCENARIO,
+      ARROW_NOF_EXACTLY_2_SCENARIO,
+      ARROW_NOF_AT_LEAST_WITH_THREE_CHILDREN_SCENARIO,
+      ARROW_NOF_EXACTLY_WITH_THREE_CHILDREN_SCENARIO,
+      ARROW_NOF_EXACTLY_INT32_MAX_SCENARIO,
+      ARROW_NOF_WITH_SINGLE_CHILD_SCENARIO
+   )
+);
 
 QUERY_TEST(
    NOf,
