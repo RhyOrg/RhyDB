@@ -30,6 +30,7 @@
 #include "rhydb/query_engine/scalar_expressions/is_null.h"
 #include "rhydb/query_engine/scalar_expressions/literal.h"
 #include "rhydb/query_engine/scalar_expressions/negation.h"
+#include "rhydb/query_engine/scalar_expressions/or.h"
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
 #include "rhydb/query_engine/scalar_expressions/string_in_set.h"
 #include "rhydb/query_engine/scalar_expressions/symbol_equals.h"
@@ -136,6 +137,16 @@ std::unique_ptr<ScalarExpression> falseOrNullIfNull(const ColumnIdentifier& colu
    return std::make_unique<And>(std::move(children));
 }
 
+/// True on rows that have a sequence and null on rows whose sequence is null - the value of a
+/// position comparison that always matches. A `!isNull` would be false, not null, on the null rows,
+/// so its negation would wrongly select them.
+std::unique_ptr<ScalarExpression> trueOrNullIfNull(const ColumnIdentifier& column) {
+   ScalarExpressionVector children;
+   children.emplace_back(std::make_unique<Negation>(std::make_unique<IsNull>(column)));
+   children.emplace_back(std::make_unique<NullLiteral>(schema::DataType::BOOL));
+   return std::make_unique<Or>(std::move(children));
+}
+
 /// Rewrites `sequence.at(position) = 'X'` (or `<>`) into the symbol filters that `nucleotideEquals`
 /// / `aminoAcidEquals` use, so the predicate is answered from the sequence index instead of
 /// reconstructing every sequence. The result must match the Arrow evaluation of the comparison,
@@ -159,7 +170,7 @@ std::unique_ptr<ScalarExpression> rewriteSequencePositionComparison(
 
    if (!in_bounds && split.literal->empty()) {
       if (comparator == Comparator::EQUALS) {
-         return std::make_unique<Negation>(std::make_unique<IsNull>(split.column));
+         return trueOrNullIfNull(split.column);
       }
       return falseOrNullIfNull(split.column);
    }
@@ -169,7 +180,7 @@ std::unique_ptr<ScalarExpression> rewriteSequencePositionComparison(
       if (comparator == Comparator::EQUALS) {
          return falseOrNullIfNull(split.column);
       }
-      return std::make_unique<Negation>(std::make_unique<IsNull>(split.column));
+      return trueOrNullIfNull(split.column);
    }
 
    auto symbol_equals = std::make_unique<SymbolEquals<SymbolType>>(
@@ -179,12 +190,8 @@ std::unique_ptr<ScalarExpression> rewriteSequencePositionComparison(
       return symbol_equals->rewrite(table, mode);
    }
 
-   // `<>` is the negation of `=` restricted to rows that have a sequence: the Arrow evaluation
-   // yields null, not true, for a null sequence, whereas a Negation would include those rows.
-   ScalarExpressionVector children;
-   children.emplace_back(std::make_unique<Negation>(std::move(symbol_equals)));
-   children.emplace_back(std::make_unique<Negation>(std::make_unique<IsNull>(split.column)));
-   return And(std::move(children)).rewrite(table, mode);
+   // `<>` is the negation of `=`: like the Arrow evaluation, it is null on a null sequence
+   return Negation(std::move(symbol_equals)).rewrite(table, mode);
 }
 
 /// Returns nullptr when the comparison is not a sequence-position comparison that can be rewritten.
