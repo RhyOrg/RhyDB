@@ -249,7 +249,8 @@ TEST(FilterPushdownPass, pushesFilterThroughTransparentDecompressMapIntoTableSca
    using rhydb::schema::DataType;
 
    const ColumnIdentifier compressed_column{
-      .name = "seq", .type = DataType::nucleotideSequence(100),
+      .name = "seq",
+      .type = DataType::nucleotideSequence(100),
    };
    auto scan = std::make_unique<operators::TableScanNode>(
       makeTable(), makeDummyFilter(), std::vector<ColumnIdentifier>{compressed_column}
