@@ -4,6 +4,7 @@
 #include <string>
 #include <utility>
 
+#include <arrow/compute/api.h>
 #include <fmt/format.h>
 
 #include "rhydb/common/panic.h"
@@ -106,6 +107,16 @@ std::unique_ptr<Operator> createMatchingSelection(
 }
 
 }  // namespace
+
+arrow::Result<arrow::compute::Expression> StringSearch::toArrowExpression() const {
+   // Like `MatchesSearchExpression`, Arrow matches unanchored (`RE2::PartialMatch`) and is case
+   // sensitive.
+   return arrow::compute::call(
+      "match_substring_regex",
+      {arrow::compute::field_ref(column.name)},
+      arrow::compute::MatchSubstringOptions{search_expression->pattern(), /*ignore_case=*/false}
+   );
+}
 
 std::unique_ptr<ScalarExpression> StringSearch::rewrite(
    const storage::Table& /*table*/,

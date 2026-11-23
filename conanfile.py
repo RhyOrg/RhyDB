@@ -40,6 +40,8 @@ class RhyDbRecipe(ConanFile):
         self.options["arrow"].acero = True
         self.options["arrow"].parquet = False
         self.options["arrow"].with_thrift = False
+        # Registers the regex compute functions, e.g. `match_substring_regex`
+        self.options["arrow"].with_re2 = True
 
         self.options["boost"].zstd = True
         self.options["boost"].shared = False
