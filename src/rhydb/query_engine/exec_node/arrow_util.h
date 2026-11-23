@@ -18,7 +18,7 @@
 
 namespace rhydb::query_engine::exec_node {
 
-std::shared_ptr<arrow::DataType> columnTypeToArrowType(const schema::DataType& column_type);
+std::shared_ptr<arrow::DataType> columnTypeToArrowType(const schema::DataTypePtr& column_type);
 
 std::shared_ptr<arrow::Schema> columnsToArrowSchema(
    const std::vector<rhydb::schema::ColumnIdentifier>& columns

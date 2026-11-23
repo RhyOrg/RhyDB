@@ -37,7 +37,7 @@ struct ResolvedScalarExpressionDimension {
    std::vector<schema::ColumnIdentifier> referenced_columns;
    /// The expression, bound against `columnsToArrowSchema(referenced_columns)`
    arrow::compute::Expression bound_expression;
-   schema::DataType output_type;
+   schema::DataTypePtr output_type;
 };
 
 /// One grouping dimension of a bitmap aggregation (`operators::GroupingDimension`), resolved

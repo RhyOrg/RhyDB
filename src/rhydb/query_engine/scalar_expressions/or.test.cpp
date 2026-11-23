@@ -20,7 +20,7 @@ schema::ColumnIdentifier col(std::string name) {
 }
 
 schema::ColumnIdentifier nucSeq(std::string name) {
-   return {.name = std::move(name), .type = schema::DataType::NUCLEOTIDE_SEQUENCE};
+   return {.name = std::move(name), .type = schema::DataType::nucleotideSequence(100)};
 }
 
 // Helper to count expressions of a specific type

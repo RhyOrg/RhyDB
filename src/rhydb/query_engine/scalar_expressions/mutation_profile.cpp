@@ -148,7 +148,7 @@ std::vector<typename SymbolType::Symbol> MutationProfile<SymbolType>::buildProfi
             break;
          }
       }
-   } else if (primary_key_type == schema::DataType::dictionaryEncoded(schema::DataType::STRING)) {
+   } else if (primary_key_type == schema::DictionaryType::STRING) {
       const auto& primary_key_column =
          table.getColumn<storage::column::DictionaryEncodedColumn<storage::column::StringColumn>>(
             primary_key_name

@@ -2,10 +2,10 @@
 
 namespace rhydb::query_engine::exec_node {
 
-std::shared_ptr<arrow::DataType> columnTypeToArrowType(const schema::DataType& column_type) {
+std::shared_ptr<arrow::DataType> columnTypeToArrowType(const schema::DataTypePtr& column_type) {
    using Kind = schema::DataType::Kind;
    // A dictionary-encoded column is output as plain values
-   switch (column_type.getPlainType().getKind()) {
+   switch (column_type->getPlainType()->getKind()) {
       case Kind::STRING:
          return arrow::large_utf8();
       case Kind::DICTIONARY_ENCODED:

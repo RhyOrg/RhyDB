@@ -16,18 +16,22 @@ namespace rhydb::storage::column {
 
 /// Calls `func.template operator()<Column>(args...)` with the column class storing `type`
 template <typename VisitorFunction, typename... Args>
-static decltype(auto) visit(const schema::DataType& type, VisitorFunction&& func, Args&&... args) {
+static decltype(auto) visit(
+   const schema::DataTypePtr& type,
+   VisitorFunction&& func,
+   Args&&... args
+) {
    using Kind = schema::DataType::Kind;
-   switch (type.getKind()) {
+   switch (type->getKind()) {
       case Kind::STRING:
          return func.template operator()<StringColumn>(std::forward<Args>(args)...);
       case Kind::DICTIONARY_ENCODED:
-         if (type.getDictionaryValueType() == schema::DataType::DATE32) {
+         if (type == schema::DictionaryType::DATE32) {
             return func.template operator()<DictionaryEncodedColumn<Date32Column>>(
                std::forward<Args>(args)...
             );
          }
-         RHYDB_ASSERT(type.getDictionaryValueType() == schema::DataType::STRING);
+         RHYDB_ASSERT(type == schema::DictionaryType::STRING);
          return func.template operator()<DictionaryEncodedColumn<StringColumn>>(
             std::forward<Args>(args)...
          );

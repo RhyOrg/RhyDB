@@ -50,7 +50,7 @@ arrow::Result<std::shared_ptr<arrow::Scalar>> evaluateConstantCell(
 /// is fixed by its header cell (the first row); later rows must conform to it.
 struct TableLiteralColumn {
    std::string name;
-   schema::DataType type;
+   schema::DataTypePtr type;
    arrow::ScalarVector cells;
 };
 

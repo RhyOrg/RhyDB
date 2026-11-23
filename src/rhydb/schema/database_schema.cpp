@@ -21,9 +21,8 @@
 
 namespace rhydb::schema {
 
-bool isSequenceColumn(const DataType& type) {
-   return type == DataType::NUCLEOTIDE_SEQUENCE || type == DataType::AMINO_ACID_SEQUENCE ||
-          type == DataType::ZSTD_COMPRESSED_STRING;
+bool isSequenceColumn(const DataTypePtr& type) {
+   return isA<SequenceType>(type) || isA<ZstdCompressedStringType>(type);
 }
 
 std::optional<ColumnIdentifier> TableSchema::getColumn(std::string_view name) const {

@@ -19,6 +19,7 @@
 namespace rhydb_app {
 
 using rhydb::schema::DataType;
+using rhydb::schema::DictionaryType;
 
 namespace {
 
@@ -79,7 +80,7 @@ void LineageDefinitionHandler::get(
    if (column_identifier == std::nullopt) {
       throw BadRequest("The column {} does not exist in this instance.", column_name);
    }
-   if (column_identifier.value().type != DataType::dictionaryEncoded(DataType::STRING)) {
+   if (column_identifier.value().type != DictionaryType::STRING) {
       throw BadRequest("The column {} is not of type dictionary-encoded string.", column_name);
    }
 

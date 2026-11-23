@@ -125,10 +125,11 @@ class DictionaryEncodedColumn {
    using Buffer = ValueColumn::Buffer;
    using Key = Values::Key;
 
-   static inline const schema::DataType TYPE =
-      schema::DataType::dictionaryEncoded(ValueColumn::TYPE);
+   static constexpr const schema::DataTypePtr& TYPE =
+      ValueColumn::KIND == schema::DataType::Kind::DATE32 ? schema::DictionaryType::DATE32
+                                                          : schema::DictionaryType::STRING;
    static constexpr schema::DataType::Kind KIND = schema::DataType::Kind::DICTIONARY_ENCODED;
-   static schema::DataType type() { return TYPE; }
+   static const schema::DataTypePtr& type() { return TYPE; }
    using value_type = ValueColumn::value_type;
 
    Metadata* metadata;

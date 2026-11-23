@@ -129,9 +129,9 @@ class LiteralCollectingSink : public exec_node::ArrowBatchSink {
    arrow::Status finish() override { return arrow::Status::OK(); }
 };
 
-bool isSupportedScalarType(const schema::DataType& type) {
+bool isSupportedScalarType(const schema::DataTypePtr& type) {
    using Kind = schema::DataType::Kind;
-   switch (type.getPlainType().getKind()) {
+   switch (type->getPlainType()->getKind()) {
       case Kind::STRING:
       case Kind::INT32:
       case Kind::INT64:

@@ -51,7 +51,6 @@ class AminoAcid {
       X,     // Any amino acid
    };
 
-   static constexpr const schema::DataType& COLUMN_TYPE = schema::DataType::AMINO_ACID_SEQUENCE;
    static constexpr schema::DataType::Kind COLUMN_KIND =
       schema::DataType::Kind::AMINO_ACID_SEQUENCE;
    using Column = storage::column::SequenceColumn<AminoAcid>;

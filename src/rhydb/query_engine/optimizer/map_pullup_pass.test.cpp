@@ -119,7 +119,8 @@ TEST(MapPullupPass, pullsEmptyMapUpThroughFetch) {
 // --- A zstd-decompression MapNode (the real motivating case) is pulled above a Fetch ---
 
 TEST(MapPullupPass, pullsDecompressMapUpThroughFetch) {
-   const auto seq_column = ColumnIdentifier{.name = "seq", .type = DataType::NUCLEOTIDE_SEQUENCE};
+   const auto seq_column =
+      ColumnIdentifier{.name = "seq", .type = DataType::nucleotideSequence(100)};
    std::vector<operators::MapNode::Assignment> assignments;
    assignments.push_back({
       .output_column = {.name = "seq", .type = DataType::STRING},
@@ -204,7 +205,8 @@ TEST(MapPullupPass, pullsInnerMapUpUnderRootMapAndMerges) {
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST(MapPullupPass, mergesAtOverDecompressIntoOneMap) {
-   const auto seq_column = ColumnIdentifier{.name = "seq", .type = DataType::NUCLEOTIDE_SEQUENCE};
+   const auto seq_column =
+      ColumnIdentifier{.name = "seq", .type = DataType::nucleotideSequence(100)};
 
    std::vector<operators::MapNode::Assignment> lower_assignments;
    lower_assignments.push_back({
@@ -260,7 +262,8 @@ TEST(MapPullupPass, mergesAtOverDecompressIntoOneMap) {
 // place. ---
 
 TEST(MapPullupPass, doesNotMergeWhenUpperReferencesProducedColumnUnsubstitutably) {
-   const auto seq_column = ColumnIdentifier{.name = "seq", .type = DataType::NUCLEOTIDE_SEQUENCE};
+   const auto seq_column =
+      ColumnIdentifier{.name = "seq", .type = DataType::nucleotideSequence(100)};
 
    std::vector<operators::MapNode::Assignment> lower_assignments;
    lower_assignments.push_back({

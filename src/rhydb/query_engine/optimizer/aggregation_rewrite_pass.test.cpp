@@ -32,16 +32,18 @@ using rhydb::Nucleotide;
 using rhydb::query_engine::optimizer::AggregationRewritePass;
 using rhydb::schema::ColumnIdentifier;
 using rhydb::schema::DataType;
+using rhydb::schema::DataTypePtr;
+using rhydb::schema::DictionaryType;
 namespace scalar_expressions = rhydb::query_engine::scalar_expressions;
 namespace operators = rhydb::query_engine::operators;
 
 namespace {
 
-const ColumnIdentifier NUC_COLUMN{.name = "nuc", .type = DataType::NUCLEOTIDE_SEQUENCE};
+const ColumnIdentifier NUC_COLUMN{.name = "nuc", .type = DataType::nucleotideSequence(100)};
 const ColumnIdentifier ID_COLUMN{.name = "id", .type = DataType::STRING};
 const ColumnIdentifier DIVISION_COLUMN{
    .name = "division",
-   .type = DataType::dictionaryEncoded(DataType::STRING),
+   .type = DictionaryType::STRING,
 };
 const ColumnIdentifier HOST_COLUMN{.name = "host", .type = DataType::STRING};
 const ColumnIdentifier DATE_COLUMN{.name = "date", .type = DataType::DATE32};
@@ -143,7 +145,7 @@ operators::QueryNodePtr makeMapWithFieldRef(
    operators::QueryNodePtr child,
    const std::string& field,
    const ColumnIdentifier& source_column,
-   DataType output_type = DataType::STRING
+   DataTypePtr output_type = DataType::STRING
 ) {
    std::vector<operators::MapNode::Assignment> assignments;
    assignments.push_back({

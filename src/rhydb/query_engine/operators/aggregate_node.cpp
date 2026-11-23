@@ -96,14 +96,15 @@ arrow::acero::AggregateNodeOptions buildAggregateOptions(
 }
 
 using rhydb::schema::DataType;
-DataType getType(const AggregateDefinition& aggregate_definition) {
+using rhydb::schema::DataTypePtr;
+DataTypePtr getType(const AggregateDefinition& aggregate_definition) {
    switch (aggregate_definition.function) {
       case AggregateFunction::COUNT:
          return DataType::INT64;
       case AggregateFunction::SUM:
          // Arrow widens integer sums to int64 and keeps floating point sums as double
          RHYDB_ASSERT(aggregate_definition.source_column.has_value());
-         switch (aggregate_definition.source_column->type.getPlainType().getKind()) {
+         switch (aggregate_definition.source_column->type->getPlainType()->getKind()) {
             case rhydb::schema::DataType::Kind::INT32:
             case rhydb::schema::DataType::Kind::INT64:
                return DataType::INT64;
@@ -119,7 +120,7 @@ DataType getType(const AggregateDefinition& aggregate_definition) {
       case AggregateFunction::MAX:
          RHYDB_ASSERT(aggregate_definition.source_column.has_value());
          // The extremum is a plain value, not a column with a dictionary index
-         return aggregate_definition.source_column->type.getPlainType();
+         return aggregate_definition.source_column->type->getPlainType();
    }
    RHYDB_UNREACHABLE();
 }

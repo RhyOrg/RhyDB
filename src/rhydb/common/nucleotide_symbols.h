@@ -39,7 +39,6 @@ class Nucleotide {
       N,    // any base
    };
 
-   static constexpr const schema::DataType& COLUMN_TYPE = schema::DataType::NUCLEOTIDE_SEQUENCE;
    static constexpr schema::DataType::Kind COLUMN_KIND =
       schema::DataType::Kind::NUCLEOTIDE_SEQUENCE;
    using Column = storage::column::SequenceColumn<Nucleotide>;

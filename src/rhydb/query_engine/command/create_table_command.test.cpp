@@ -19,6 +19,7 @@
 using rhydb::query_engine::IllegalQueryException;
 using rhydb::schema::ColumnIdentifier;
 using rhydb::schema::DataType;
+using rhydb::schema::DictionaryType;
 using rhydb::schema::TableName;
 using ::testing::HasSubstr;
 using ::testing::ThrowsMessage;
@@ -100,17 +101,17 @@ TEST(CreateTableCommand, createsTableWithFullSchema) {
    EXPECT_EQ(
       schema.getColumnIdentifiers(),
       (std::vector<ColumnIdentifier>{
-         {.name = "S", .type = DataType::AMINO_ACID_SEQUENCE},
+         {.name = "S", .type = DataType::aminoAcidSequence(4)},
          {.name = "age", .type = DataType::INT32},
          {.name = "big", .type = DataType::INT64},
          {.name = "complete", .type = DataType::BOOL},
-         {.name = "country", .type = DataType::dictionaryEncoded(DataType::STRING)},
+         {.name = "country", .type = DictionaryType::STRING},
          {.name = "date", .type = DataType::DATE32},
          {.name = "key", .type = DataType::STRING},
-         {.name = "main", .type = DataType::NUCLEOTIDE_SEQUENCE},
+         {.name = "main", .type = DataType::nucleotideSequence(4)},
          {.name = "qc", .type = DataType::FLOAT},
-         {.name = "sampled", .type = DataType::dictionaryEncoded(DataType::DATE32)},
-         {.name = "segment", .type = DataType::NUCLEOTIDE_SEQUENCE},
+         {.name = "sampled", .type = DictionaryType::DATE32},
+         {.name = "segment", .type = DataType::nucleotideSequence(5)},
          {.name = "unaligned_main", .type = DataType::ZSTD_COMPRESSED_STRING},
       })
    );

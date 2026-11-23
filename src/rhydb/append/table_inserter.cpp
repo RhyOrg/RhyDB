@@ -7,20 +7,24 @@
 
 #include "evobench/evobench.hpp"
 #include "rhydb/append/append_exception.h"
-#include "rhydb/common/aa_symbols.h"
 #include "rhydb/common/error.h"
-#include "rhydb/common/nucleotide_symbols.h"
 #include "rhydb/common/panic.h"
-#include "rhydb/storage/column/sequence_column.h"
+#include "rhydb/schema/data_type.h"
 
 namespace rhydb::append {
+
+using schema::cast;
+using schema::ColumnIdentifier;
+using schema::isA;
+using schema::SequenceType;
+using schema::TableSchema;
 
 namespace {
 
 /// The sequence column whose coverage drives clustered routing, looked up by name. Throws if no
 /// name was given or it does not name a sequence column of the table.
-schema::ColumnIdentifier resolveDriverColumn(
-   const schema::TableSchema& schema,
+ColumnIdentifier resolveDriverColumn(
+   const TableSchema& schema,
    const std::optional<std::string>& driver_column_name
 ) {
    if (!driver_column_name.has_value()) {
@@ -32,10 +36,7 @@ schema::ColumnIdentifier resolveDriverColumn(
          "the clustering driver column '{}' does not exist in the table schema", *driver_column_name
       );
    }
-   if (
-      column.value().type != schema::DataType::NUCLEOTIDE_SEQUENCE &&
-      column.value().type != schema::DataType::AMINO_ACID_SEQUENCE
-   ) {
+   if (!isA<SequenceType>(column.value().type)) {
       throw AppendException(
          "the clustering driver column '{}' must be a nucleotide or amino-acid sequence column",
          *driver_column_name
@@ -44,18 +45,13 @@ schema::ColumnIdentifier resolveDriverColumn(
    return *column;
 }
 
-size_t genomeLengthOf(const storage::Table& table, const schema::ColumnIdentifier& driver_column) {
-   if (driver_column.type == schema::DataType::NUCLEOTIDE_SEQUENCE) {
-      return table.getColumn<storage::column::SequenceColumn<Nucleotide>>(driver_column.name)
-         .genome_length;
-   }
-   return table.getColumn<storage::column::SequenceColumn<AminoAcid>>(driver_column.name)
-      .genome_length;
+size_t genomeLengthOf(const ColumnIdentifier& driver_column) {
+   return cast<SequenceType>(driver_column.type)->getLength();
 }
 
 std::expected<simdjson::ondemand::value, std::string> findFieldManual(
    simdjson::ondemand::object& object,
-   const schema::ColumnIdentifier& column_identifier
+   const ColumnIdentifier& column_identifier
 ) {
    object.reset();
    for (auto maybe_field : object) {
@@ -161,7 +157,7 @@ TableInserter::TableInserter(
       input_buffer{*this->table},
       null_buffer{.builder = storage::TableChunkBuilder{*this->table}, .range = std::nullopt} {
    if (driver_column.has_value()) {
-      const size_t genome_length = genomeLengthOf(*this->table, *driver_column);
+      const size_t genome_length = genomeLengthOf(*driver_column);
       growth_threshold = static_cast<uint32_t>(
          std::llround(options.span_growth_threshold_fraction * static_cast<double>(genome_length))
       );

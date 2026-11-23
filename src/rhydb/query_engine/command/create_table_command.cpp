@@ -101,46 +101,55 @@ ColumnDefinition parseColumnDefinition(
       );
    }
 
-   const auto data_type = schema::fromSchemaTypeName(type_name);
-   if (data_type.has_value() && DataType::canBeDictionaryEncoded(data_type.value())) {
+   const auto kind = schema::fromSchemaTypeName(type_name);
+   // Null for the parameterized sequence kinds, whose type is only known once their reference is
+   // looked up
+   const auto data_type =
+      kind.has_value() ? schema::nonParameterizedDataType(*kind) : schema::DataTypePtr{};
+   if (data_type != nullptr && DataType::canBeDictionaryEncoded(*data_type)) {
       auto options =
          saneql::bindArguments(type_name, INDEXABLE_TYPE_SIGNATURE, *positional, *named);
       const auto* generate_index = options.get(GENERATE_INDEX_OPTION);
       const bool is_indexed = generate_index != nullptr && extractBoolLiteral(*generate_index);
+      const auto& type = is_indexed ? DataType::dictionaryEncoded(*data_type) : data_type;
       return ColumnDefinition{
          .name = column_name,
-         .type = is_indexed ? DataType::dictionaryEncoded(data_type.value()) : data_type.value(),
+         .kind = type->getKind(),
+         .type = type,
          .reference_name = std::nullopt,
          .dictionary_query = std::nullopt,
       };
    }
 
-   if (data_type.has_value() && !schema::isSequenceColumn(data_type.value())) {
+   if (data_type != nullptr && !schema::isSequenceColumn(data_type)) {
       std::ignore = saneql::bindArguments(type_name, NO_OPTIONS_SIGNATURE, *positional, *named);
       return ColumnDefinition{
          .name = column_name,
-         .type = data_type.value(),
+         .kind = data_type->getKind(),
+         .type = data_type,
          .reference_name = std::nullopt,
          .dictionary_query = std::nullopt,
       };
    }
 
-   if (data_type == DataType::NUCLEOTIDE_SEQUENCE || data_type == DataType::AMINO_ACID_SEQUENCE) {
+   if (kind.has_value() && schema::SequenceType::isSequenceKind(*kind)) {
       auto options = saneql::bindArguments(type_name, SEQUENCE_TYPE_SIGNATURE, *positional, *named);
       return ColumnDefinition{
          .name = column_name,
-         .type = data_type.value(),
+         .kind = *kind,
+         .type = nullptr,
          .reference_name = extractIdentifierName(options.at(REFERENCE_OPTION)),
          .dictionary_query = std::nullopt,
       };
    }
 
-   if (data_type == DataType::ZSTD_COMPRESSED_STRING) {
+   if (kind == DataType::Kind::ZSTD_COMPRESSED_STRING) {
       auto options = saneql::bindArguments(
          type_name, ZSTD_COMPRESSED_STRING_TYPE_SIGNATURE, *positional, *named
       );
       return ColumnDefinition{
          .name = column_name,
+         .kind = DataType::Kind::ZSTD_COMPRESSED_STRING,
          .type = DataType::ZSTD_COMPRESSED_STRING,
          .reference_name = std::nullopt,
          .dictionary_query = saneql::convertExpression(options.at(DICTIONARY_OPTION), tables),
@@ -265,7 +274,7 @@ std::string computeDictionary(
 ) {
    const auto output_schema = dictionary_query->getOutputSchema();
    CHECK_RHYDB_QUERY(
-      output_schema.size() == 1 && output_schema.front().type.getPlainType() == DataType::STRING,
+      output_schema.size() == 1 && output_schema.front().type->getPlainType() == DataType::STRING,
       "createTable(): the dictionary of column '{}' must be a query with exactly one column of "
       "type "
       "`string`, e.g. `reference_genomes.filter(name = 'main' && type = 'nucleotide')"
@@ -300,6 +309,8 @@ std::string computeDictionary(
    return std::move(sink.values.front()).value();
 }
 
+/// The metadata of the new column `column`. Sets the `type` of an aligned sequence column, which
+/// has the length of its reference sequence.
 std::shared_ptr<ColumnMetadata> createColumnMetadata(
    ColumnDefinition& column,
    const storage::Table& reference_genomes,
@@ -308,7 +319,7 @@ std::shared_ptr<ColumnMetadata> createColumnMetadata(
    std::string_view request_id
 ) {
    using Kind = DataType::Kind;
-   switch (column.type.getKind()) {
+   switch (column.kind) {
       case Kind::STRING:
          return std::make_shared<StringColumnMetadata>(column.name);
       case Kind::DICTIONARY_ENCODED:
@@ -322,16 +333,20 @@ std::shared_ptr<ColumnMetadata> createColumnMetadata(
          auto reference = getReferenceSequence(
             reference_genomes, column, schema::REFERENCE_GENOMES_NUCLEOTIDE_TYPE
          );
+         auto symbols = toReferenceSymbols<Nucleotide>(reference, column);
+         column.type = DataType::nucleotideSequence(static_cast<uint32_t>(symbols.size()));
          return std::make_shared<SequenceColumnMetadata<Nucleotide>>(
-            column.name, toReferenceSymbols<Nucleotide>(reference, column)
+            column.name, std::move(symbols)
          );
       }
       case Kind::AMINO_ACID_SEQUENCE: {
          auto reference = getReferenceSequence(
             reference_genomes, column, schema::REFERENCE_GENOMES_AMINO_ACID_TYPE
          );
+         auto symbols = toReferenceSymbols<AminoAcid>(reference, column);
+         column.type = DataType::aminoAcidSequence(static_cast<uint32_t>(symbols.size()));
          return std::make_shared<SequenceColumnMetadata<AminoAcid>>(
-            column.name, toReferenceSymbols<AminoAcid>(reference, column)
+            column.name, std::move(symbols)
          );
       }
       case Kind::ZSTD_COMPRESSED_STRING: {
@@ -442,9 +457,10 @@ arrow::Result<std::shared_ptr<arrow::Table>> CreateTableCommand::execute(
       *database.tables.at(schema::TableName{std::string{schema::REFERENCE_GENOMES_TABLE_NAME}});
    std::map<schema::ColumnIdentifier, std::shared_ptr<ColumnMetadata>> column_metadata;
    for (auto& column : columns_) {
+      auto metadata =
+         createColumnMetadata(column, reference_genomes, database, query_options, request_id);
       column_metadata.emplace(
-         schema::ColumnIdentifier{.name = column.name, .type = column.type},
-         createColumnMetadata(column, reference_genomes, database, query_options, request_id)
+         schema::ColumnIdentifier{.name = column.name, .type = column.type}, std::move(metadata)
       );
    }
 

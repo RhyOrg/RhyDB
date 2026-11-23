@@ -20,7 +20,10 @@
 namespace rhydb::query_engine::exec_node {
 
 class ExecBatchBuilder {
-   std::map<schema::DataType, std::map<std::string, std::shared_ptr<arrow::ArrayBuilder>>>
+   std::map<
+      schema::DataTypePtr,
+      std::map<std::string, std::shared_ptr<arrow::ArrayBuilder>>,
+      schema::DataTypePtrLess>
       array_builders;
    std::vector<rhydb::schema::ColumnIdentifier> output_fields;
 
@@ -30,8 +33,13 @@ class ExecBatchBuilder {
    template <storage::column::Column Column>
    std::map<std::string, ArrowBuilder<Column>*> getColumnTypeArrayBuilders() {
       std::map<std::string, ArrowBuilder<Column>*> result;
-      for (auto& [builder_name, builder] : array_builders.at(Column::TYPE)) {
-         result.emplace(builder_name, dynamic_cast<ArrowBuilder<Column>*>(builder.get()));
+      for (auto& [type, builders] : array_builders) {
+         if (!storage::column::storesType<Column>(*type)) {
+            continue;
+         }
+         for (auto& [builder_name, builder] : builders) {
+            result.emplace(builder_name, dynamic_cast<ArrowBuilder<Column>*>(builder.get()));
+         }
       }
       return result;
    }

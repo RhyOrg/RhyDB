@@ -466,12 +466,14 @@ std::shared_ptr<schema::TableSchema> Initializer::createSchemaFromConfigFiles(
         ++sequence_idx) {
       const auto& sequence_name = reference_genomes.nucleotide_sequence_names.at(sequence_idx);
       const auto& reference_sequence = reference_genomes.raw_nucleotide_sequences.at(sequence_idx);
+      auto reference_symbols = ReferenceGenomes::stringToVector<Nucleotide>(reference_sequence);
       const schema::ColumnIdentifier column_identifier{
          .name = sequence_name,
-         .type = schema::DataType::NUCLEOTIDE_SEQUENCE,
+         .type =
+            schema::DataType::nucleotideSequence(static_cast<uint32_t>(reference_symbols.size())),
       };
       auto metadata = std::make_shared<storage::column::SequenceColumnMetadata<Nucleotide>>(
-         sequence_name, ReferenceGenomes::stringToVector<Nucleotide>(reference_sequence)
+         sequence_name, std::move(reference_symbols)
       );
       column_metadata.emplace(column_identifier, std::move(metadata));
 
@@ -492,12 +494,14 @@ std::shared_ptr<schema::TableSchema> Initializer::createSchemaFromConfigFiles(
         ++sequence_idx) {
       const auto& sequence_name = reference_genomes.aa_sequence_names.at(sequence_idx);
       const auto& reference_sequence = reference_genomes.raw_aa_sequences.at(sequence_idx);
+      auto reference_symbols = ReferenceGenomes::stringToVector<AminoAcid>(reference_sequence);
       const schema::ColumnIdentifier column_identifier{
          .name = sequence_name,
-         .type = schema::DataType::AMINO_ACID_SEQUENCE,
+         .type =
+            schema::DataType::aminoAcidSequence(static_cast<uint32_t>(reference_symbols.size())),
       };
       auto metadata = std::make_shared<storage::column::SequenceColumnMetadata<AminoAcid>>(
-         sequence_name, ReferenceGenomes::stringToVector<AminoAcid>(reference_sequence)
+         sequence_name, std::move(reference_symbols)
       );
       column_metadata.emplace(column_identifier, std::move(metadata));
    }

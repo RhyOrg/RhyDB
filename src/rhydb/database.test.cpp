@@ -369,10 +369,11 @@ TEST(DatabaseUpdateQueryTest, rejectsInvalidStatements) {
    );
    // Sequence columns can be read, but not updated.
    expect_rejected(
-      "update(data, set := {main := 'ACGTACGT'})", "Updating columns of type 'NUCLEOTIDE_SEQUENCE'"
+      "update(data, set := {main := 'ACGTACGT'})",
+      "Updating columns of type 'NUCLEOTIDE_SEQUENCE(8)'"
    );
    expect_rejected(
-      "update(data, set := {E := 'MYSF*'})", "Updating columns of type 'AMINO_ACID_SEQUENCE'"
+      "update(data, set := {E := 'MYSF*'})", "Updating columns of type 'AMINO_ACID_SEQUENCE(5)'"
    );
    expect_rejected("update(data, set := {primaryKey := 'new_key'})", "phylogenetic tree");
    expect_rejected("update(data, set := {does_not_exist := 1})", "does not contain a column");
@@ -660,7 +661,7 @@ using rhydb::storage::column::StringColumnMetadata;
 TEST(DatabaseTest, canCreateMultipleTablesAndAddData) {
    rhydb::Database database;
    ColumnIdentifier primary_key{.name = "key", .type = DataType::STRING};
-   ColumnIdentifier sequence_column{.name = "sequence", .type = DataType::NUCLEOTIDE_SEQUENCE};
+   ColumnIdentifier sequence_column{.name = "sequence", .type = DataType::nucleotideSequence(4)};
    std::vector<Nucleotide::Symbol> reference_sequence{
       Nucleotide::Symbol::A,
       Nucleotide::Symbol::C,

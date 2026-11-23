@@ -67,7 +67,7 @@ roaring::Roaring selectedRows(
 ) {
    const auto& table = *database.tables.at(schema::TableName::getDefault());
    const SymbolInSet<Nucleotide> expression(
-      {.name = "segment1", .type = schema::DataType::NUCLEOTIDE_SEQUENCE},
+      {.name = "segment1", .type = schema::DataType::nucleotideSequence(4)},
       /*position_idx=*/0,
       std::move(symbols)
    );

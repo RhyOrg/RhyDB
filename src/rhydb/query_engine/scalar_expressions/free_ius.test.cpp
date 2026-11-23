@@ -22,10 +22,11 @@ namespace {
 
 using rhydb::schema::ColumnIdentifier;
 using rhydb::schema::DataType;
+using rhydb::schema::DictionaryType;
 
 const ColumnIdentifier COLUMN_A{
    .name = "country",
-   .type = DataType::dictionaryEncoded(DataType::STRING),
+   .type = DictionaryType::STRING,
 };
 const ColumnIdentifier COLUMN_B{.name = "age", .type = DataType::INT32};
 const ColumnIdentifier COLUMN_C{.name = "date", .type = DataType::DATE32};

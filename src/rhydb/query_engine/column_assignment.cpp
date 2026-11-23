@@ -35,6 +35,7 @@ namespace rhydb::query_engine {
 namespace {
 
 using schema::DataType;
+using schema::DataTypePtr;
 
 // Computing values goes through arrow::Result; this raises its failures (e.g. an integer that does
 // not fit the column it is cast to) as query errors.
@@ -50,17 +51,17 @@ constexpr bool IS_SEQUENCE_COLUMN = Column::KIND == DataType::Kind::NUCLEOTIDE_S
 
 /// The type of the values a column of `column_type` holds, as queries see them: indexed and
 /// compressed string columns hold plain strings.
-DataType valueTypeOf(const DataType& column_type) {
+DataTypePtr valueTypeOf(const DataTypePtr& column_type) {
    if (column_type == DataType::ZSTD_COMPRESSED_STRING) {
       return DataType::STRING;
    }
-   return column_type.getPlainType();
+   return column_type->getPlainType();
 }
 
 /// Whether a value of `value_type` can be assigned to a column of `column_type`. Integers of either
 /// width fit every numeric column; everything else must match the column's value type.
-bool isAssignable(const DataType& value_type, const DataType& column_type) {
-   const DataType target_type = valueTypeOf(column_type);
+bool isAssignable(const DataTypePtr& value_type, const DataTypePtr& column_type) {
+   const DataTypePtr target_type = valueTypeOf(column_type);
    if (valueTypeOf(value_type) == target_type) {
       return true;
    }

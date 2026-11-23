@@ -22,6 +22,7 @@ using rhydb::common::PhyloTree;
 using rhydb::config::DatabaseConfig;
 using rhydb::initialize::Initializer;
 using rhydb::schema::DataType;
+using rhydb::schema::DictionaryType;
 using rhydb::storage::column::DictionaryEncodedColumn;
 using rhydb::storage::column::SequenceColumn;
 using rhydb::storage::column::StringColumn;
@@ -50,7 +51,7 @@ TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
    ASSERT_EQ(table_schema->primary_key->name, database_config.schema.primary_key.value());
 
    ASSERT_TRUE(table_schema->getColumn("M").has_value());
-   ASSERT_EQ(table_schema->getColumn("M").value().type, DataType::AMINO_ACID_SEQUENCE);
+   ASSERT_EQ(table_schema->getColumn("M").value().type, DataType::aminoAcidSequence(5));
    ASSERT_TRUE(table_schema->getColumnMetadata<SequenceColumn<AminoAcid>>("M").has_value());
    ASSERT_EQ(
       table_schema->getColumnMetadata<SequenceColumn<AminoAcid>>("M").value()->reference_sequence,
@@ -61,9 +62,7 @@ TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
    ASSERT_EQ(table_schema->getColumn("age").value().type, DataType::INT32);
 
    ASSERT_TRUE(table_schema->getColumn("country").has_value());
-   ASSERT_EQ(
-      table_schema->getColumn("country").value().type, DataType::dictionaryEncoded(DataType::STRING)
-   );
+   ASSERT_EQ(table_schema->getColumn("country").value().type, DictionaryType::STRING);
    ASSERT_TRUE(
       table_schema->getColumnMetadata<DictionaryEncodedColumn<StringColumn>>("country").has_value()
    );
@@ -72,16 +71,13 @@ TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
    ASSERT_EQ(table_schema->getColumn("date").value().type, DataType::DATE32);
 
    ASSERT_TRUE(table_schema->getColumn("division").has_value());
-   ASSERT_EQ(
-      table_schema->getColumn("division").value().type,
-      DataType::dictionaryEncoded(DataType::STRING)
-   );
+   ASSERT_EQ(table_schema->getColumn("division").value().type, DictionaryType::STRING);
    ASSERT_TRUE(
       table_schema->getColumnMetadata<DictionaryEncodedColumn<StringColumn>>("division").has_value()
    );
 
    ASSERT_TRUE(table_schema->getColumn("main").has_value());
-   ASSERT_EQ(table_schema->getColumn("main").value().type, DataType::NUCLEOTIDE_SEQUENCE);
+   ASSERT_EQ(table_schema->getColumn("main").value().type, DataType::nucleotideSequence(8));
    ASSERT_TRUE(table_schema->getColumnMetadata<SequenceColumn<Nucleotide>>("main").has_value());
    ASSERT_EQ(
       table_schema->getColumnMetadata<SequenceColumn<Nucleotide>>("main")
@@ -91,10 +87,7 @@ TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
    );
 
    ASSERT_TRUE(table_schema->getColumn("pango_lineage").has_value());
-   ASSERT_EQ(
-      table_schema->getColumn("pango_lineage").value().type,
-      DataType::dictionaryEncoded(DataType::STRING)
-   );
+   ASSERT_EQ(table_schema->getColumn("pango_lineage").value().type, DictionaryType::STRING);
    ASSERT_TRUE(table_schema
                   ->getColumnMetadata<DictionaryEncodedColumn<StringColumn>>("pango_lineage")
                   .has_value());
@@ -107,16 +100,14 @@ TEST(Initializer, correctlyCreatesSchemaFromInitializationFiles) {
    ASSERT_EQ(table_schema->getColumn("qc_value").value().type, DataType::FLOAT);
 
    ASSERT_TRUE(table_schema->getColumn("region").has_value());
-   ASSERT_EQ(
-      table_schema->getColumn("region").value().type, DataType::dictionaryEncoded(DataType::STRING)
-   );
+   ASSERT_EQ(table_schema->getColumn("region").value().type, DictionaryType::STRING);
    ASSERT_TRUE(
       table_schema->getColumnMetadata<DictionaryEncodedColumn<StringColumn>>("region").has_value()
    );
 
    ASSERT_TRUE(table_schema->getColumn("testSecondSequence").has_value());
    ASSERT_EQ(
-      table_schema->getColumn("testSecondSequence").value().type, DataType::NUCLEOTIDE_SEQUENCE
+      table_schema->getColumn("testSecondSequence").value().type, DataType::nucleotideSequence(4)
    );
    ASSERT_TRUE(
       table_schema->getColumnMetadata<SequenceColumn<Nucleotide>>("testSecondSequence").has_value()

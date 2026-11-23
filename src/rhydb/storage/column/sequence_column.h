@@ -76,9 +76,11 @@ class SequenceColumn {
    };
    using Buffer = std::vector<BufferedSequence>;
 
-   static constexpr const schema::DataType& TYPE = SymbolType::COLUMN_TYPE;
    static constexpr schema::DataType::Kind KIND = SymbolType::COLUMN_KIND;
-   static schema::DataType type() { return TYPE; }
+   /// Has the length of the reference sequence, so there is no static `TYPE`
+   [[nodiscard]] schema::DataTypePtr type() const {
+      return schema::SequenceType::get(KIND, static_cast<uint32_t>(genome_length));
+   }
    using value_type = void;
 
   private:
