@@ -61,6 +61,8 @@ class NOf : public ScalarExpression {
       AmbiguityMode mode
    ) const override;
 
+   [[nodiscard]] arrow::Result<arrow::compute::Expression> toArrowExpression() const override;
+
    [[nodiscard]] std::unique_ptr<filter::operators::Operator> compile(
       const storage::Table& table,
       bool with_null_rows

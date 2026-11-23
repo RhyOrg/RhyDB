@@ -1,0 +1,8 @@
+{
+  "testCaseName": "table literal with a column that mixes value types",
+  "query": "table({{a:=1},{'x'}})",
+  "expectedError": {
+    "error": "Bad request",
+    "message": "table() column 'a' mixes values of type 'INT64' and 'STRING' at 1:16; every value in a column must have the same type"
+  }
+}

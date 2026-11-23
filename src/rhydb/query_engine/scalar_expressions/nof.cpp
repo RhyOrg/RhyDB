@@ -1,9 +1,14 @@
 #include "rhydb/query_engine/scalar_expressions/nof.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include <arrow/compute/api.h>
+#include <arrow/scalar.h>
+#include <arrow/type.h>
 
 #include "rhydb/common/string_utils.h"
 #include "rhydb/query_engine/filter/operators/complement.h"
@@ -142,6 +147,51 @@ std::unique_ptr<Operator> intersectWithComplement(
    );
 }
 
+/// Sums the children, each counted as 1 if it is true, 0 if it is false and `null_count` if it is
+/// null. Summing the plain casts would propagate null, so one null child would make the whole sum
+/// null.
+arrow::compute::Expression countChildren(
+   const std::vector<arrow::compute::Expression>& children,
+   const int32_t null_count
+) {
+   auto sum = arrow::compute::literal(0);
+   for (const auto& child : children) {
+      const auto as_int =
+         arrow::compute::call("cast", {child}, arrow::compute::CastOptions::Safe(arrow::int32()));
+      const auto count =
+         arrow::compute::call("coalesce", {as_int, arrow::compute::literal(null_count)});
+      sum = arrow::compute::call("add", {std::move(sum), count});
+   }
+   return sum;
+}
+
+/// Three-valued "at least n children are true": true if enough children are certainly true,
+/// null if enough children are true or null, false otherwise. The threshold is 64 bit, so that
+/// callers can pass `INT32_MAX + 1` without overflow; Arrow widens the 32 bit sums to compare.
+arrow::compute::Expression atLeastToArrowExpression(
+   const std::vector<arrow::compute::Expression>& children,
+   const int64_t number_of_matchers
+) {
+   const auto required = arrow::compute::literal(number_of_matchers);
+   const auto certainly_true = countChildren(children, /*null_count=*/0);
+   const auto possibly_true = countChildren(children, /*null_count=*/1);
+   return arrow::compute::call(
+      "if_else",
+      {
+         arrow::compute::greater_equal(certainly_true, required),
+         arrow::compute::literal(true),
+         arrow::compute::call(
+            "if_else",
+            {
+               arrow::compute::greater_equal(possibly_true, required),
+               arrow::compute::literal(arrow::MakeNullScalar(arrow::boolean())),
+               arrow::compute::literal(false),
+            }
+         ),
+      }
+   );
+}
+
 }  // namespace
 
 namespace rhydb::query_engine::scalar_expressions {
@@ -173,16 +223,38 @@ std::vector<schema::ColumnIdentifier> NOf::freeIUs() const {
    return result;
 }
 
-std::tuple<filter::operators::OperatorVector, filter::operators::OperatorVector, int> NOf::
-   mapChildExpressions(const storage::Table& table, int at_least, bool with_null_rows) const {
-   filter::operators::OperatorVector child_operators;
+arrow::Result<arrow::compute::Expression> NOf::toArrowExpression() const {
+   std::vector<arrow::compute::Expression> child_expressions;
+   child_expressions.reserve(children.size());
+   for (const auto& child : children) {
+      ARROW_ASSIGN_OR_RAISE(auto child_expression, child->toArrowExpression());
+      child_expressions.push_back(std::move(child_expression));
+   }
+   const auto threshold = static_cast<int64_t>(number_of_matchers);
+   auto at_least = atLeastToArrowExpression(child_expressions, threshold);
+   if (!match_exactly) {
+      return at_least;
+   }
+   // Like `compile`: exactly-n is `atLeast(n) && !atLeast(n + 1)`
+   return arrow::compute::and_(
+      std::move(at_least),
+      arrow::compute::not_(atLeastToArrowExpression(child_expressions, threshold + 1))
+   );
+}
+
+std::tuple<OperatorVector, OperatorVector, int> NOf::mapChildExpressions(
+   const storage::Table& table,
+   int at_least,
+   bool with_null_rows
+) const {
+   OperatorVector child_operators;
    child_operators.reserve(children.size());
    for (const auto& child_expression : children) {
       child_operators.push_back(child_expression->compile(table, with_null_rows));
    }
 
-   filter::operators::OperatorVector non_negated_child_operators;
-   filter::operators::OperatorVector negated_child_operators;
+   OperatorVector non_negated_child_operators;
+   OperatorVector negated_child_operators;
    int updated_number_of_matchers = at_least;
 
    for (auto& child_operator : child_operators) {
@@ -194,13 +266,13 @@ std::tuple<filter::operators::OperatorVector, filter::operators::OperatorVector,
          continue;
       }
       if (child_operator->type() == filter::operators::COMPLEMENT) {
-         auto canceled_negation = filter::operators::Operator::negate(std::move(child_operator));
+         auto canceled_negation = Operator::negate(std::move(child_operator));
          negated_child_operators.emplace_back(std::move(canceled_negation));
          continue;
       }
       non_negated_child_operators.push_back(std::move(child_operator));
    }
-   return std::tuple<filter::operators::OperatorVector, filter::operators::OperatorVector, int>{
+   return std::tuple<OperatorVector, OperatorVector, int>{
       std::move(non_negated_child_operators),
       std::move(negated_child_operators),
       updated_number_of_matchers,
@@ -251,7 +323,7 @@ std::unique_ptr<ScalarExpression> NOf::rewrite(
    return std::make_unique<NOf>(rewriteChildren(table, mode), number_of_matchers, match_exactly);
 }
 
-std::unique_ptr<filter::operators::Operator> NOf::compileAtLeast(
+std::unique_ptr<Operator> NOf::compileAtLeast(
    const storage::Table& table,
    int at_least,
    bool with_null_rows
@@ -266,10 +338,7 @@ std::unique_ptr<filter::operators::Operator> NOf::compileAtLeast(
    );
 }
 
-std::unique_ptr<filter::operators::Operator> NOf::compile(
-   const storage::Table& table,
-   bool with_null_rows
-) const {
+std::unique_ptr<Operator> NOf::compile(const storage::Table& table, bool with_null_rows) const {
    // At-least-n is true where at least n children are true, and true or null where at least n
    // children are true or null
    if (!match_exactly) {

@@ -144,6 +144,20 @@ arrow::Status QueryPlan::executeAndWriteImpl(
 
       if (!optional_batch.has_value()) {
          guard.reached_end_of_stream = true;
+         // The generator yields nullopt both on a clean end of stream and when a node failed (the
+         // failure stops production, which ends the stream). Surface the plan's final status so a
+         // node error (e.g. an Arrow cast that overflows) is reported instead of silently
+         // truncating the result. StopProducing() has not run yet, so a Cancelled status (which is
+         // expected only after cancellation) cannot occur here.
+         auto finished_future = arrow_plan->finished();
+         if (!finished_future.Wait(static_cast<double>(timeout_in_seconds))) {
+            return arrow::Status::ExecutionError(
+               fmt::format(
+                  "Request timed out, plan did not finish within {} seconds.", timeout_in_seconds
+               )
+            );
+         }
+         ARROW_RETURN_NOT_OK(finished_future.status());
          break;  // end of input
       }
       SPDLOG_DEBUG(
@@ -173,14 +187,7 @@ void QueryPlan::executeAndWrite(
          );
       } else {
          throw std::runtime_error(
-            fmt::format(
-               "Request Id [{}] - Internal server error. Please notify developers. RhyDB likely "
-               "constructed an invalid arrow plan and more user-input validation needs to be "
-               "added: "
-               "{}",
-               request_id,
-               status.message()
-            )
+            fmt::format("Request Id [{}] - Query execution error: {}", request_id, status.message())
          );
       }
    }

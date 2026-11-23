@@ -39,6 +39,11 @@ jobs:
           DIR_HASH=$(echo -n ${{ hashFiles('conanfile.py', 'conanprofile.docker', './Dockerfile_dependencies') }})
           echo "DIR_HASH=$DIR_HASH" >> $GITHUB_ENV
 
+      # ASan-instrumented programs are run while building the Debug dependencies (e.g. configure
+      # checks). See the unitTests job in ci.yml for why the runner's mmap ASLR entropy has to be lowered.
+      - name: Reduce mmap ASLR entropy for ASan
+        run: sudo sysctl vm.mmap_rnd_bits=28
+
       - name: Build and push dependency image
         uses: docker/build-push-action@v7
         with:
