@@ -1,57 +1,36 @@
 #include "rhydb/roaring_util/bitmap_builder.h"
 
+#include <stdexcept>
+#include <utility>
+
 namespace rhydb::roaring_util {
 
-void BitmapBuilderByContainer::addContainer(
-   uint16_t v_index,
-   const roaring::internal::container_t* container,
-   uint8_t typecode
-) {
+void BitmapBuilderByContainer::addContainer(uint16_t v_index, RoaringContainerView container) {
    if (current_v_tile_index > v_index) {
       throw std::runtime_error(
          "containers must be inserted into BitmapBuilderByContainer by increasing v_index"
       );
    }
    // first container received
-   if (current_container == nullptr) {
+   if (!current_container.has_value()) {
       current_v_tile_index = v_index;
-      current_typecode = typecode;
-      current_container = roaring::internal::container_clone(container, typecode);
+      current_container = container.toOwning();
    }
    // current_container is finished
    else if (current_v_tile_index != v_index) {
-      roaring::internal::ra_append(
-         &result_bitmap.roaring.high_low_container,
-         current_v_tile_index,
-         current_container,
-         current_typecode
-      );
+      appendTo(result_bitmap, current_v_tile_index, std::move(*current_container));
       current_v_tile_index = v_index;
-      current_typecode = typecode;
-      current_container = roaring::internal::container_clone(container, typecode);
+      current_container = container.toOwning();
    }
    // add a container to current_container
    else { /* current_v_tile_index == sequence_diff_key.v_index */
-      uint8_t result_typecode;
-      roaring::internal::container_t* result_container = roaring::internal::container_ior(
-         current_container, current_typecode, container, typecode, &result_typecode
-      );
-      if (result_container != current_container) {
-         roaring::internal::container_free(current_container, current_typecode);
-         current_container = result_container;
-         current_typecode = result_typecode;
-      }
+      *current_container |= container;
    }
 }
 
 roaring::Roaring BitmapBuilderByContainer::getBitmap() && {
-   if (current_container != nullptr) {
-      roaring::internal::ra_append(
-         &result_bitmap.roaring.high_low_container,
-         current_v_tile_index,
-         current_container,
-         current_typecode
-      );
+   if (current_container.has_value()) {
+      appendTo(result_bitmap, current_v_tile_index, std::move(*current_container));
    }
    return std::move(result_bitmap);
 }

@@ -22,7 +22,7 @@ namespace rhydb {
 /// container.
 ///
 /// Set-algebra (AND, OR, ANDNOT and the matching cardinalities) is computed directly on these
-/// container lists through the roaring container-level C API
+/// container lists through the container-level operations of `roaring_util`
 class Bitmap {
    /// A single 2^16 block's container, either a non-owning view or a privately-owned copy.
    using Container = roaring_util::CopyOnWriteContainer;
@@ -33,14 +33,13 @@ class Bitmap {
    std::vector<uint16_t> keys;
    std::vector<Container> containers;
 
-   /// Appends a freshly produced container (and its key) to the parallel output arrays, taking
-   /// ownership -- or frees it if empty, preserving roaring's "no empty containers" invariant.
+   /// Appends a freshly produced container (and its key) to the parallel output arrays -- or drops
+   /// it if empty, preserving roaring's "no empty containers" invariant.
    static void pushIfNonEmpty(
       std::vector<uint16_t>& out_keys,
       std::vector<Container>& out_containers,
       uint16_t key,
-      roaring::internal::container_t* container,
-      uint8_t typecode
+      roaring_util::RoaringContainer&& container
    );
 
   public:

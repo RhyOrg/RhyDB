@@ -130,7 +130,7 @@ Bitmap DictionaryEncodedColumn<ValueColumn>::filterById(Idx value_id) const {
       const auto rows = rows_by_value_id.find(value_id);
       if (rows == rows_by_value_id.end()) {
          // An empty view, which `fromChunks` skips
-         return roaring_util::RoaringContainerView{nullptr, 0, ARRAY_CONTAINER_TYPE};
+         return roaring_util::RoaringContainerView{};
       }
       return roaring_util::RoaringContainerView{rows->second};
    });
