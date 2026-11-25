@@ -286,22 +286,22 @@ static_assert(sizeof(RoaringContainer) == (sizeof(void*) == 8 ? 16 : 12));
 /// Non-owning view of a single roaring bitmap container: its typecode, its cardinality and a
 /// pointer to its payload (the sorted array values, the bitset words or the runs), which is all
 /// that is needed to rebuild roaring's container header on demand. The view does not point at a
-/// roaring container header, but it is invalidated if the owner is destroyed or mutates the
-/// container.
+/// roaring container header, so it can also view a payload stored elsewhere, e.g. in a flat buffer
+/// (`fromPayload`). It is invalidated if the owner is destroyed or mutates the container.
 class RoaringContainerView {
-   detail::ContainerPayload payload{.array = nullptr};
+   detail::ContainerPayload payload_data{.array = nullptr};
    uint32_t cardinality = 0;
    /// Number of runs of a run container, 0 otherwise. A run container holds at most 2^15 runs.
    uint16_t n_runs = 0;
    uint8_t typecode = ARRAY_CONTAINER_TYPE;
 
    RoaringContainerView(
-      detail::ContainerPayload payload,
+      detail::ContainerPayload payload_data,
       uint32_t cardinality,
       uint16_t n_runs,
       uint8_t typecode
    )
-       : payload(payload),
+       : payload_data(payload_data),
          cardinality(cardinality),
          n_runs(n_runs),
          typecode(typecode) {}
@@ -343,7 +343,7 @@ class RoaringContainerView {
    }
 
    [[nodiscard]] detail::ContainerHeader header() const {
-      return detail::ContainerHeader{payload, cardinality, n_runs, typecode};
+      return detail::ContainerHeader{payload_data, cardinality, n_runs, typecode};
    }
 
    /// The address of the payload (read through the active member), to tell whether two views
@@ -351,11 +351,11 @@ class RoaringContainerView {
    [[nodiscard]] const void* payloadAddress() const {
       switch (typecode) {
          case BITSET_CONTAINER_TYPE:
-            return payload.bitset_words;
+            return payload_data.bitset_words;
          case RUN_CONTAINER_TYPE:
-            return payload.runs;
+            return payload_data.runs;
          default:
-            return payload.array;
+            return payload_data.array;
       }
    }
 
@@ -365,6 +365,20 @@ class RoaringContainerView {
   public:
    /// An empty view.
    RoaringContainerView() = default;
+
+   /// Views a container payload stored outside of a roaring container, e.g. in a flat,
+   /// pointer-free buffer, in the representation `payload()` returns:
+   /// - array: the `cardinality` sorted values as `uint16_t`, aligned to 2 bytes;
+   /// - bitset: the `BITSET_CONTAINER_WORDS` words as `uint64_t`, aligned to 8 bytes;
+   /// - run: the `{value, length - 1}` runs as pairs of `uint16_t`, aligned to 2 bytes.
+   /// Values are in native byte order. `cardinality` is the number of values the payload holds.
+   /// The payload must outlive the view and must not be mutated while it exists. Panics if the
+   /// payload size or alignment does not match the typecode.
+   [[nodiscard]] static RoaringContainerView fromPayload(
+      uint8_t typecode,
+      uint32_t cardinality,
+      std::span<const std::byte> payload
+   );
 
    explicit RoaringContainerView(const RoaringContainer& owner) {
       if (owner.container != nullptr) {
@@ -377,6 +391,11 @@ class RoaringContainerView {
    [[nodiscard]] uint32_t getCardinality() const { return cardinality; }
 
    [[nodiscard]] bool empty() const { return cardinality == 0; }
+
+   /// The bytes of the viewed payload, in the representation `fromPayload` reads back. Unlike
+   /// roaring's serialization formats, it holds no header (e.g. no run count), so the typecode
+   /// and cardinality need to be stored alongside.
+   [[nodiscard]] std::span<const std::byte> payload() const;
 
    [[nodiscard]] bool contains(uint16_t value) const {
       const detail::ContainerHeader container = header();
