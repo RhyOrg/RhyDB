@@ -24,7 +24,30 @@ class RoaringContainerView;
 /// Number of 64-bit words of a bitset container, which holds one bit per value of its 2^16 range.
 inline constexpr size_t BITSET_CONTAINER_WORDS = roaring::internal::BITSET_CONTAINER_SIZE_IN_WORDS;
 
+/// The representation a roaring container stores its values in: a sorted array, a bitset of the
+/// whole 2^16 range, or a list of runs.
+enum class ContainerType : uint8_t {
+   ARRAY = 2,
+   BITSET = 1,
+   RUN = 3,
+};
+
 namespace detail {
+
+// The values equal roaring's typecodes, so converting between the two is a cast.
+static_assert(static_cast<uint8_t>(ContainerType::ARRAY) == ARRAY_CONTAINER_TYPE);
+static_assert(static_cast<uint8_t>(ContainerType::BITSET) == BITSET_CONTAINER_TYPE);
+static_assert(static_cast<uint8_t>(ContainerType::RUN) == RUN_CONTAINER_TYPE);
+
+/// Roaring's typecode of a container type.
+[[nodiscard]] constexpr uint8_t toTypecode(ContainerType type) {
+   return static_cast<uint8_t>(type);
+}
+
+/// The container type of one of roaring's non-shared typecodes.
+[[nodiscard]] constexpr ContainerType toContainerType(uint8_t typecode) {
+   return static_cast<ContainerType>(typecode);
+}
 
 /// Raw access to the roaring containers behind `RoaringContainer` and `RoaringContainerView`, for
 /// the implementation and tests of roaring_util only. Defined in `container_access.h`.
@@ -138,14 +161,9 @@ class RoaringContainer {
    friend struct detail::ContainerAccess;
 
   public:
-   /// Constructs an empty container that owns nothing (required for boost deserialization).
-   /// Container will be in invalid state, it must be deserialized into before usage.
-   /// Prefer `withCapacity`/`ofRange`/`RoaringContainerView::toOwning` otherwise.
-   [[deprecated(
-      "RoaringContainer{} yields an invalid, container-less object and exists only for boost "
-      "deserialization; use RoaringContainer::withCapacity or RoaringContainerView::toOwning"
-   )]]
-   RoaringContainer() = default;
+   /// Constructs an empty array container.
+   RoaringContainer()
+       : RoaringContainer(withCapacity(0)) {}
 
    /// Creates an empty container sized for `capacity` elements
    static RoaringContainer withCapacity(int32_t capacity);
@@ -170,6 +188,7 @@ class RoaringContainer {
       return result;
    }
 
+   // A moved-from container holds no container and may only be destroyed or assigned to.
    RoaringContainer(RoaringContainer&& other) noexcept
        : container(other.container),
          cardinality(other.cardinality),
@@ -221,7 +240,7 @@ class RoaringContainer {
    /// Converts the container to a run container if that is more compact, then shrinks it to fit.
    void runOptimizeAndShrink();
 
-   [[nodiscard]] uint8_t getTypecode() const { return typecode; }
+   [[nodiscard]] ContainerType getType() const { return detail::toContainerType(typecode); }
 
    friend class boost::serialization::access;
    template <class Archive>
@@ -373,9 +392,9 @@ class RoaringContainerView {
    /// - run: the `{value, length - 1}` runs as pairs of `uint16_t`, aligned to 2 bytes.
    /// Values are in native byte order. `cardinality` is the number of values the payload holds.
    /// The payload must outlive the view and must not be mutated while it exists. Panics if the
-   /// payload size or alignment does not match the typecode.
+   /// payload size or alignment does not match the type.
    [[nodiscard]] static RoaringContainerView fromPayload(
-      uint8_t typecode,
+      ContainerType type,
       uint32_t cardinality,
       std::span<const std::byte> payload
    );
@@ -386,15 +405,15 @@ class RoaringContainerView {
       }
    }
 
-   [[nodiscard]] uint8_t getTypecode() const { return typecode; }
+   [[nodiscard]] ContainerType getType() const { return detail::toContainerType(typecode); }
 
    [[nodiscard]] uint32_t getCardinality() const { return cardinality; }
 
    [[nodiscard]] bool empty() const { return cardinality == 0; }
 
    /// The bytes of the viewed payload, in the representation `fromPayload` reads back. Unlike
-   /// roaring's serialization formats, it holds no header (e.g. no run count), so the typecode
-   /// and cardinality need to be stored alongside.
+   /// roaring's serialization formats, it holds no header (e.g. no run count), so the type and
+   /// cardinality need to be stored alongside.
    [[nodiscard]] std::span<const std::byte> payload() const;
 
    [[nodiscard]] bool contains(uint16_t value) const {

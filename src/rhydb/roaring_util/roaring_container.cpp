@@ -87,10 +87,11 @@ size_t RoaringContainerView::sizeInBytes() const {
 }
 
 RoaringContainerView RoaringContainerView::fromPayload(
-   uint8_t typecode,
+   ContainerType type,
    uint32_t cardinality,
    std::span<const std::byte> payload
 ) {
+   const uint8_t typecode = detail::toTypecode(type);
    size_t expected_size = 0;
    size_t alignment = alignof(uint16_t);
    size_t n_runs = 0;
@@ -183,7 +184,11 @@ RoaringContainer operator&(RoaringContainerView lhs, RoaringContainerView rhs) {
    const auto rhs_container = ContainerAccess::header(rhs);
    uint8_t typecode = 0;
    auto* result = roaring::internal::container_and(
-      lhs_container.get(), lhs.getTypecode(), rhs_container.get(), rhs.getTypecode(), &typecode
+      lhs_container.get(),
+      lhs_container.getTypecode(),
+      rhs_container.get(),
+      rhs_container.getTypecode(),
+      &typecode
    );
    return ContainerAccess::adopt(result, typecode);
 }
@@ -199,7 +204,11 @@ RoaringContainer operator-(RoaringContainerView lhs, RoaringContainerView rhs) {
    const auto rhs_container = ContainerAccess::header(rhs);
    uint8_t typecode = 0;
    auto* result = roaring::internal::container_andnot(
-      lhs_container.get(), lhs.getTypecode(), rhs_container.get(), rhs.getTypecode(), &typecode
+      lhs_container.get(),
+      lhs_container.getTypecode(),
+      rhs_container.get(),
+      rhs_container.getTypecode(),
+      &typecode
    );
    return ContainerAccess::adopt(result, typecode);
 }
@@ -215,7 +224,11 @@ RoaringContainer operator|(RoaringContainerView lhs, RoaringContainerView rhs) {
    const auto rhs_container = ContainerAccess::header(rhs);
    uint8_t typecode = 0;
    auto* result = roaring::internal::container_or(
-      lhs_container.get(), lhs.getTypecode(), rhs_container.get(), rhs.getTypecode(), &typecode
+      lhs_container.get(),
+      lhs_container.getTypecode(),
+      rhs_container.get(),
+      rhs_container.getTypecode(),
+      &typecode
    );
    return ContainerAccess::adopt(result, typecode);
 }
@@ -228,7 +241,7 @@ RoaringContainer complement(RoaringContainerView view, uint32_t universe_size) {
    const auto container = ContainerAccess::header(view);
    uint8_t typecode = 0;
    auto* result = roaring::internal::container_not_range(
-      container.get(), view.getTypecode(), 0, universe_size, &typecode
+      container.get(), container.getTypecode(), 0, universe_size, &typecode
    );
    return ContainerAccess::adopt(result, typecode);
 }
@@ -255,7 +268,7 @@ RoaringContainer fastUnion(std::span<const RoaringContainerView> views) {
       const auto container = ContainerAccess::header(view);
       uint8_t result_typecode = 0;
       auto* result = roaring::internal::container_lazy_ior(
-         accumulator, typecode, container.get(), view.getTypecode(), &result_typecode
+         accumulator, typecode, container.get(), container.getTypecode(), &result_typecode
       );
       if (result != accumulator) {
          roaring::internal::container_free(accumulator, typecode);
@@ -310,7 +323,7 @@ void appendTo(roaring::Roaring& bitmap, uint16_t key, RoaringContainer&& contain
    }
    auto& roaring_array = bitmap.roaring.high_low_container;
    RHYDB_ASSERT(roaring_array.size == 0 || roaring_array.keys[roaring_array.size - 1] < key);
-   const uint8_t typecode = container.getTypecode();
+   const uint8_t typecode = ContainerAccess::typecode(container);
    roaring::internal::ra_append(&roaring_array, key, ContainerAccess::release(container), typecode);
 }
 
@@ -333,7 +346,7 @@ RoaringContainer& RoaringContainer::operator|=(RoaringContainerView addend) {
    const detail::ContainerHeader addend_container = addend.header();
    uint8_t new_typecode = 0;
    auto* new_container = roaring::internal::container_ior(
-      container, typecode, addend_container.get(), addend.getTypecode(), &new_typecode
+      container, typecode, addend_container.get(), addend.typecode, &new_typecode
    );
    if (new_container != container) {
       // The union could not be computed in place, so a new container was allocated and freeing the

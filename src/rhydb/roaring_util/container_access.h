@@ -41,6 +41,9 @@ struct ContainerAccess {
       return adopt(container, cardinality, typecode);
    }
 
+   /// The roaring typecode of `owner`'s container.
+   [[nodiscard]] static uint8_t typecode(const RoaringContainer& owner) { return owner.typecode; }
+
    /// Gives up ownership of the container `owner` holds, leaving `owner` empty and container-less.
    [[nodiscard]] static roaring::internal::container_t* release(RoaringContainer& owner) {
       auto* container = owner.container;

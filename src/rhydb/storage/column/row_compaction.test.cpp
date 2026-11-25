@@ -9,6 +9,7 @@
 #include "rhydb/common/bitmap.h"
 #include "rhydb/roaring_util/roaring_container.h"
 
+using rhydb::roaring_util::ContainerType;
 using rhydb::roaring_util::RoaringContainer;
 using rhydb::storage::column::RowCompaction;
 using rhydb::storage::column::RowId;
@@ -131,7 +132,7 @@ TEST(RowCompaction, compactsBitsetAndRunContainersIntoValidContainers) {
       rhydb::Bitmap::fromChunkContainers(all_rows).toRoaring(),
       allRows(compaction.compactedLayout())
    );
-   EXPECT_EQ(all_rows[1].getTypecode(), RUN_CONTAINER_TYPE);
+   EXPECT_EQ(all_rows[1].getType(), ContainerType::RUN);
 
    // A bitset container of 15000 rows, of which 3000 isolated rows remain: too few for a bitset
    // container and too many runs for a run container, so they must end up in an array container
@@ -146,10 +147,10 @@ TEST(RowCompaction, compactsBitsetAndRunContainersIntoValidContainers) {
       }
    }
    auto sparse_containers = perChunk(sparse_rows, 2);
-   ASSERT_EQ(sparse_containers[1].getTypecode(), BITSET_CONTAINER_TYPE);
+   ASSERT_EQ(sparse_containers[1].getType(), ContainerType::BITSET);
    compaction.compact(sparse_containers);
    EXPECT_EQ(rhydb::Bitmap::fromChunkContainers(sparse_containers).toRoaring(), expected);
-   EXPECT_EQ(sparse_containers[1].getTypecode(), ARRAY_CONTAINER_TYPE);
+   EXPECT_EQ(sparse_containers[1].getType(), ContainerType::ARRAY);
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)

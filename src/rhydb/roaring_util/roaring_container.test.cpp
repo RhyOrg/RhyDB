@@ -25,6 +25,7 @@
 #include "rhydb/roaring_util/subset_ranks.h"
 
 using rhydb::roaring_util::BitmapBuilderByContainer;
+using rhydb::roaring_util::ContainerType;
 using rhydb::roaring_util::CopyOnWriteContainer;
 using rhydb::roaring_util::RoaringContainer;
 using rhydb::roaring_util::RoaringContainerView;
@@ -103,10 +104,10 @@ TEST(RoaringContainer, removeCheckedShrinksBitsetBackToArray) {
    for (uint32_t value = 0; value <= 4096; ++value) {
       container.add(static_cast<uint16_t>(value));
    }
-   EXPECT_EQ(container.getTypecode(), BITSET_CONTAINER_TYPE);
+   EXPECT_EQ(container.getType(), ContainerType::BITSET);
 
    EXPECT_TRUE(container.removeChecked(0));
-   EXPECT_EQ(container.getTypecode(), ARRAY_CONTAINER_TYPE);
+   EXPECT_EQ(container.getType(), ContainerType::ARRAY);
    EXPECT_EQ(container.getCardinality(), 4096);
    EXPECT_FALSE(container.contains(0));
    EXPECT_TRUE(container.contains(4096));
@@ -163,6 +164,44 @@ TEST(RoaringContainer, moveTransfersOwnership) {
    EXPECT_EQ(toRoaring(moved), roaring::Roaring{5});
 }
 
+TEST(RoaringContainer, defaultConstructedIsEmptyAndUsable) {
+   RoaringContainer container;
+   EXPECT_TRUE(container.empty());
+   EXPECT_EQ(container.getCardinality(), 0);
+   EXPECT_EQ(container.getType(), ContainerType::ARRAY);
+   EXPECT_FALSE(container.contains(0));
+   EXPECT_FALSE(container.contains(UINT16_MAX));
+
+   const RoaringContainerView view{container};
+   EXPECT_TRUE(view.empty());
+   EXPECT_EQ(view.getType(), ContainerType::ARRAY);
+   EXPECT_TRUE(view.payload().empty());
+   EXPECT_EQ(view.begin(), view.end());
+   EXPECT_TRUE(view.toOwning().empty());
+
+   container.add(9);
+   EXPECT_TRUE(container.addChecked(4));
+   EXPECT_EQ(toRoaring(container), (roaring::Roaring{4, 9}));
+}
+
+TEST(RoaringContainer, defaultConstructedSerializationRoundTrip) {
+   std::stringstream stream;
+   {
+      boost::archive::binary_oarchive output_archive(stream);
+      output_archive << RoaringContainer{};
+   }
+   // Deserializing into a non-empty container frees what it held.
+   auto restored = makeContainer({1, 2, 3});
+   {
+      boost::archive::binary_iarchive input_archive(stream);
+      input_archive >> restored;
+   }
+   EXPECT_TRUE(restored.empty());
+   EXPECT_EQ(restored.getType(), ContainerType::ARRAY);
+   restored.add(8);
+   EXPECT_EQ(toRoaring(restored), roaring::Roaring{8});
+}
+
 TEST(RoaringContainer, runOptimizeAndShrinkPreservesContents) {
    auto container = RoaringContainer::withCapacity(4);
    for (uint16_t value = 100; value < 200; ++value) {
@@ -183,7 +222,7 @@ TEST(RoaringContainerView, mirrorsOwnerAndDoesNotFree) {
    EXPECT_EQ(view.getCardinality(), 2);
    EXPECT_FALSE(view.empty());
    EXPECT_EQ(view.payload().data(), payloadOf(owner));
-   EXPECT_EQ(view.getTypecode(), owner.getTypecode());
+   EXPECT_EQ(view.getType(), owner.getType());
 
    // The view is non-owning: when it goes out of scope the owner's container stays valid.
    {
@@ -226,7 +265,7 @@ TEST(RoaringContainerView, iteratesBitsetContainerValuesAscending) {
    for (uint16_t value = 0; value < count; ++value) {
       owner.add(value);
    }
-   ASSERT_EQ(owner.getTypecode(), BITSET_CONTAINER_TYPE);
+   ASSERT_EQ(owner.getType(), ContainerType::BITSET);
 
    const auto values = iterate(RoaringContainerView{owner});
    ASSERT_EQ(values.size(), count);
@@ -242,7 +281,7 @@ TEST(RoaringContainerView, iteratesRunContainerValuesAscending) {
       owner.add(value);
    }
    owner.runOptimizeAndShrink();
-   ASSERT_EQ(owner.getTypecode(), RUN_CONTAINER_TYPE);
+   ASSERT_EQ(owner.getType(), ContainerType::RUN);
 
    const auto values = iterate(RoaringContainerView{owner});
    ASSERT_EQ(values.size(), 100);
@@ -260,7 +299,7 @@ TEST(RoaringContainerView, iteratorsAtDifferentValuesOfOneRunCompareUnequal) {
       owner.add(value);
    }
    owner.runOptimizeAndShrink();
-   ASSERT_EQ(owner.getTypecode(), RUN_CONTAINER_TYPE);
+   ASSERT_EQ(owner.getType(), ContainerType::RUN);
 
    const RoaringContainerView view{owner};
    auto first = view.begin();
@@ -294,7 +333,7 @@ TEST(RoaringContainerView, algorithmsTerminateCorrectlyWithinOneRun) {
       owner.add(value);
    }
    owner.runOptimizeAndShrink();
-   ASSERT_EQ(owner.getTypecode(), RUN_CONTAINER_TYPE);
+   ASSERT_EQ(owner.getType(), ContainerType::RUN);
 
    const RoaringContainerView view{owner};
    EXPECT_EQ(std::distance(view.begin(), RoaringContainerView::end()), 100);
@@ -348,11 +387,7 @@ TEST(RoaringContainer, serializationRoundTrip) {
       output_archive << container;
    }
 
-   // How to silence the deprecation warning when one needs to default construct the object
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
    RoaringContainer restored;
-#pragma GCC diagnostic pop
    {
       boost::archive::binary_iarchive input_archive(stream);
       input_archive >> restored;
@@ -520,7 +555,7 @@ TEST(RoaringContainerSetAlgebra, fastUnionOfManySparseContainersStaysCompact) {
 
    const RoaringContainer united = rhydb::roaring_util::fastUnion(views);
    EXPECT_EQ(united.getCardinality(), 100);
-   EXPECT_EQ(united.getTypecode(), ARRAY_CONTAINER_TYPE);
+   EXPECT_EQ(united.getType(), ContainerType::ARRAY);
 }
 
 TEST(RoaringContainerSetAlgebra, orAssignAccumulatesInPlace) {
@@ -568,12 +603,12 @@ TEST(RoaringContainerSetAlgebra, orAssignGrowingBeyondArrayCapacityConvertsToBit
       addend.add(value);
       expected.add(value);
    }
-   ASSERT_EQ(accumulator.getTypecode(), ARRAY_CONTAINER_TYPE);
-   ASSERT_EQ(addend.getTypecode(), ARRAY_CONTAINER_TYPE);
+   ASSERT_EQ(accumulator.getType(), ContainerType::ARRAY);
+   ASSERT_EQ(addend.getType(), ContainerType::ARRAY);
 
    accumulator |= RoaringContainerView{addend};
 
-   EXPECT_EQ(accumulator.getTypecode(), BITSET_CONTAINER_TYPE);
+   EXPECT_EQ(accumulator.getType(), ContainerType::BITSET);
    EXPECT_EQ(accumulator.getCardinality(), 6000);
    EXPECT_EQ(toRoaring(accumulator), expected);
 }
@@ -587,8 +622,8 @@ TEST(RoaringContainerSetAlgebra, orAssignArrayAccumulatorWithBitsetAddend) {
       addend.add(value);
       expected.add(value);
    }
-   ASSERT_EQ(accumulator.getTypecode(), ARRAY_CONTAINER_TYPE);
-   ASSERT_EQ(addend.getTypecode(), BITSET_CONTAINER_TYPE);
+   ASSERT_EQ(accumulator.getType(), ContainerType::ARRAY);
+   ASSERT_EQ(addend.getType(), ContainerType::BITSET);
 
    accumulator |= RoaringContainerView{addend};
 
@@ -611,8 +646,8 @@ TEST(RoaringContainerSetAlgebra, orAssignRunContainers) {
    }
    accumulator.runOptimizeAndShrink();
    addend.runOptimizeAndShrink();
-   ASSERT_EQ(accumulator.getTypecode(), RUN_CONTAINER_TYPE);
-   ASSERT_EQ(addend.getTypecode(), RUN_CONTAINER_TYPE);
+   ASSERT_EQ(accumulator.getType(), ContainerType::RUN);
+   ASSERT_EQ(addend.getType(), ContainerType::RUN);
 
    accumulator |= RoaringContainerView{addend};
 
@@ -894,20 +929,20 @@ std::vector<uint16_t> rhsValues() {
    return valuesInRanges({{25, 75}, {1050, 1060}, {50000, 50200}});
 }
 
-// Builds a container holding `values` in the representation `typecode`.
-RoaringContainer makeTyped(const std::vector<uint16_t>& values, uint8_t typecode) {
+// Builds a container holding `values` in the representation `type`.
+RoaringContainer makeTyped(const std::vector<uint16_t>& values, ContainerType type) {
    // Any capacity above the array limit starts out as a bitset, which adding values keeps.
    auto container = RoaringContainer::withCapacity(
-      typecode == BITSET_CONTAINER_TYPE ? roaring::internal::DEFAULT_MAX_SIZE + 1
-                                        : static_cast<int32_t>(values.size())
+      type == ContainerType::BITSET ? roaring::internal::DEFAULT_MAX_SIZE + 1
+                                    : static_cast<int32_t>(values.size())
    );
    for (const uint16_t value : values) {
       container.add(value);
    }
-   if (typecode == RUN_CONTAINER_TYPE) {
+   if (type == ContainerType::RUN) {
       container.runOptimizeAndShrink();
    }
-   EXPECT_EQ(container.getTypecode(), typecode);
+   EXPECT_EQ(container.getType(), type);
    return container;
 }
 
@@ -923,27 +958,25 @@ roaring::Roaring roaringOf(const std::vector<uint16_t>& values) {
    return bitmap;
 }
 
-std::string_view typecodeName(uint8_t typecode) {
-   switch (typecode) {
-      case ARRAY_CONTAINER_TYPE:
+std::string_view typeName(ContainerType type) {
+   switch (type) {
+      case ContainerType::ARRAY:
          return "Array";
-      case BITSET_CONTAINER_TYPE:
+      case ContainerType::BITSET:
          return "Bitset";
-      default:
+      case ContainerType::RUN:
          return "Run";
    }
+   return "Unknown";
 }
 
-const auto ALL_TYPECODES = ::testing::Values(
-   uint8_t{ARRAY_CONTAINER_TYPE},
-   uint8_t{BITSET_CONTAINER_TYPE},
-   uint8_t{RUN_CONTAINER_TYPE}
-);
+const auto ALL_TYPES =
+   ::testing::Values(ContainerType::ARRAY, ContainerType::BITSET, ContainerType::RUN);
 
-class RoaringContainerPerType : public ::testing::TestWithParam<uint8_t> {};
+class RoaringContainerPerType : public ::testing::TestWithParam<ContainerType> {};
 
-class RoaringContainerPerTypePair : public ::testing::TestWithParam<std::tuple<uint8_t, uint8_t>> {
-};
+class RoaringContainerPerTypePair
+    : public ::testing::TestWithParam<std::tuple<ContainerType, ContainerType>> {};
 
 }  // namespace
 
@@ -953,7 +986,7 @@ TEST_P(RoaringContainerPerType, viewMirrorsContainer) {
    const auto container = makeTyped(values, GetParam());
    const RoaringContainerView view{container};
 
-   EXPECT_EQ(view.getTypecode(), GetParam());
+   EXPECT_EQ(view.getType(), GetParam());
    EXPECT_EQ(view.getCardinality(), values.size());
    EXPECT_EQ(view.sizeInBytes(), container.sizeInBytes());
    EXPECT_EQ(iterate(view), values);
@@ -985,7 +1018,7 @@ TEST_P(RoaringContainerPerType, toOwningCopiesRepresentationAndValues) {
    const auto container = makeTyped(lhsValues(), GetParam());
    auto copy = RoaringContainerView{container}.toOwning();
 
-   EXPECT_EQ(copy.getTypecode(), GetParam());
+   EXPECT_EQ(copy.getType(), GetParam());
    EXPECT_EQ(copy.getCardinality(), container.getCardinality());
    EXPECT_EQ(toRoaring(copy), roaringOf(lhsValues()));
    copy.addChecked(60000);
@@ -1032,8 +1065,8 @@ TEST_P(RoaringContainerPerType, defaultViewAsEitherOperand) {
    EXPECT_EQ(toRoaring(from_empty), roaringOf(values));
 }
 
-INSTANTIATE_TEST_SUITE_P(AllTypes, RoaringContainerPerType, ALL_TYPECODES, [](const auto& info) {
-   return std::string{typecodeName(info.param)};
+INSTANTIATE_TEST_SUITE_P(AllTypes, RoaringContainerPerType, ALL_TYPES, [](const auto& info) {
+   return std::string{typeName(info.param)};
 });
 
 namespace {
@@ -1045,9 +1078,9 @@ struct Operands {
    roaring::Roaring lhs_set = roaringOf(lhsValues());
    roaring::Roaring rhs_set = roaringOf(rhsValues());
 
-   explicit Operands(std::tuple<uint8_t, uint8_t> typecodes)
-       : lhs(makeTyped(lhsValues(), std::get<0>(typecodes))),
-         rhs(makeTyped(rhsValues(), std::get<1>(typecodes))) {}
+   explicit Operands(std::tuple<ContainerType, ContainerType> types)
+       : lhs(makeTyped(lhsValues(), std::get<0>(types))),
+         rhs(makeTyped(rhsValues(), std::get<1>(types))) {}
 
    [[nodiscard]] RoaringContainerView lhsView() const { return RoaringContainerView{lhs}; }
    [[nodiscard]] RoaringContainerView rhsView() const { return RoaringContainerView{rhs}; }
@@ -1141,10 +1174,10 @@ TEST_P(RoaringContainerPerTypePair, bitmapBuilderUnitesContainersOfOneKey) {
 INSTANTIATE_TEST_SUITE_P(
    AllTypePairs,
    RoaringContainerPerTypePair,
-   ::testing::Combine(ALL_TYPECODES, ALL_TYPECODES),
+   ::testing::Combine(ALL_TYPES, ALL_TYPES),
    [](const auto& info) {
-      return std::string{typecodeName(std::get<0>(info.param))} +
-             std::string{typecodeName(std::get<1>(info.param))};
+      return std::string{typeName(std::get<0>(info.param))} +
+             std::string{typeName(std::get<1>(info.param))};
    }
 );
 
@@ -1155,7 +1188,7 @@ TEST(RoaringContainer, bitsetFilledByHoldsTheWrittenBits) {
          words[1023] = uint64_t{1} << 63U;
       }
    );
-   EXPECT_EQ(container.getTypecode(), BITSET_CONTAINER_TYPE);
+   EXPECT_EQ(container.getType(), ContainerType::BITSET);
    EXPECT_EQ(container.getCardinality(), 4);
    EXPECT_EQ(iterate(RoaringContainerView{container}), (std::vector<uint16_t>{0, 1, 3, 65535}));
 }
@@ -1173,11 +1206,11 @@ TEST(RoaringInterop, containerViewsViewEveryContainerOfABitmap) {
    const auto views = rhydb::roaring_util::containerViews(bitmap);
    ASSERT_EQ(views.size(), 3);
    EXPECT_EQ(views[0].first, 0);
-   EXPECT_EQ(views[0].second.getTypecode(), RUN_CONTAINER_TYPE);
+   EXPECT_EQ(views[0].second.getType(), ContainerType::RUN);
    EXPECT_EQ(views[1].first, 1);
-   EXPECT_EQ(views[1].second.getTypecode(), ARRAY_CONTAINER_TYPE);
+   EXPECT_EQ(views[1].second.getType(), ContainerType::ARRAY);
    EXPECT_EQ(views[2].first, 3);
-   EXPECT_EQ(views[2].second.getTypecode(), BITSET_CONTAINER_TYPE);
+   EXPECT_EQ(views[2].second.getType(), ContainerType::BITSET);
 
    roaring::Roaring rebuilt;
    uint64_t total = 0;
@@ -1201,9 +1234,9 @@ TEST(RoaringInterop, containerViewsSeeThroughSharedContainers) {
 
    const auto views = rhydb::roaring_util::containerViews(copy);
    ASSERT_EQ(views.size(), 2);
-   EXPECT_EQ(views[0].second.getTypecode(), RUN_CONTAINER_TYPE);
+   EXPECT_EQ(views[0].second.getType(), ContainerType::RUN);
    EXPECT_EQ(views[0].second.getCardinality(), 4995);
-   EXPECT_EQ(views[1].second.getTypecode(), ARRAY_CONTAINER_TYPE);
+   EXPECT_EQ(views[1].second.getType(), ContainerType::ARRAY);
    EXPECT_EQ(iterate(views[1].second), (std::vector<uint16_t>{7}));
 }
 
@@ -1229,7 +1262,7 @@ TEST(RoaringInterop, releaseContainersCopiesSharedContainers) {
 
    auto containers = rhydb::roaring_util::releaseContainers(std::move(copy));
    ASSERT_EQ(containers.size(), 1);
-   EXPECT_EQ(containers[0].second.getTypecode(), RUN_CONTAINER_TYPE);
+   EXPECT_EQ(containers[0].second.getType(), ContainerType::RUN);
    containers[0].second.addChecked(9000);
 
    // The released container is private: the bitmap it was shared with is unaffected, and both
@@ -1255,7 +1288,7 @@ namespace {
 // sequence index stores them.
 class FlatPayloadBuffer {
    struct Entry {
-      uint8_t typecode;
+      ContainerType type;
       uint32_t cardinality;
       size_t offset_in_words;
       size_t size_in_bytes;
@@ -1271,7 +1304,7 @@ class FlatPayloadBuffer {
       words.resize(offset_in_words + ((payload.size() + 7) / 8));
       std::ranges::copy(payload, reinterpret_cast<std::byte*>(words.data() + offset_in_words));
       entries.push_back({
-         .typecode = view.getTypecode(),
+         .type = view.getType(),
          .cardinality = view.getCardinality(),
          .offset_in_words = offset_in_words,
          .size_in_bytes = payload.size(),
@@ -1283,7 +1316,7 @@ class FlatPayloadBuffer {
    [[nodiscard]] RoaringContainerView view(size_t index) const {
       const Entry& entry = entries.at(index);
       return RoaringContainerView::fromPayload(
-         entry.typecode,
+         entry.type,
          entry.cardinality,
          std::span{
             reinterpret_cast<const std::byte*>(words.data() + entry.offset_in_words),
@@ -1352,7 +1385,7 @@ TEST_P(RoaringContainerPerType, payloadRoundTripsThroughAFlatBuffer) {
 
    EXPECT_NE(flat_view.payload().data(), owned_view.payload().data());
    EXPECT_TRUE(std::ranges::equal(flat_view.payload(), owned_view.payload()));
-   EXPECT_EQ(flat_view.getTypecode(), GetParam());
+   EXPECT_EQ(flat_view.getType(), GetParam());
    EXPECT_EQ(flat_view.getCardinality(), container.getCardinality());
    EXPECT_EQ(flat_view.sizeInBytes(), container.sizeInBytes());
    EXPECT_EQ(iterate(flat_view), lhsValues());
@@ -1386,7 +1419,7 @@ TEST_P(RoaringContainerPerTypePair, flatPayloadViewsBehaveLikeOwnedViews) {
 }
 
 TEST(RoaringContainerView, emptyArrayPayload) {
-   const auto view = RoaringContainerView::fromPayload(ARRAY_CONTAINER_TYPE, 0, {});
+   const auto view = RoaringContainerView::fromPayload(ContainerType::ARRAY, 0, {});
    EXPECT_TRUE(view.empty());
    EXPECT_TRUE(view.payload().empty());
    EXPECT_EQ(view.begin(), view.end());
@@ -1399,42 +1432,44 @@ TEST(RoaringContainerView, fromPayloadRejectsMismatchedSizeOrAlignment) {
 
    // Wrong sizes.
    EXPECT_THROW(
-      std::ignore = RoaringContainerView::fromPayload(ARRAY_CONTAINER_TYPE, 3, bytes.first(4)),
+      std::ignore = RoaringContainerView::fromPayload(ContainerType::ARRAY, 3, bytes.first(4)),
       std::runtime_error
    );
    EXPECT_THROW(
-      std::ignore = RoaringContainerView::fromPayload(BITSET_CONTAINER_TYPE, 0, bytes.first(8)),
+      std::ignore = RoaringContainerView::fromPayload(ContainerType::BITSET, 0, bytes.first(8)),
       std::runtime_error
    );
    EXPECT_THROW(
-      std::ignore = RoaringContainerView::fromPayload(RUN_CONTAINER_TYPE, 1, bytes.first(6)),
+      std::ignore = RoaringContainerView::fromPayload(ContainerType::RUN, 1, bytes.first(6)),
       std::runtime_error
    );
    // Misaligned payloads: bitsets need 8 bytes, arrays and runs 2 bytes.
    EXPECT_THROW(
       std::ignore =
-         RoaringContainerView::fromPayload(BITSET_CONTAINER_TYPE, 0, bytes.subspan(2, 8192)),
+         RoaringContainerView::fromPayload(ContainerType::BITSET, 0, bytes.subspan(2, 8192)),
       std::runtime_error
    );
    EXPECT_THROW(
-      std::ignore = RoaringContainerView::fromPayload(ARRAY_CONTAINER_TYPE, 1, bytes.subspan(1, 2)),
+      std::ignore = RoaringContainerView::fromPayload(ContainerType::ARRAY, 1, bytes.subspan(1, 2)),
       std::runtime_error
    );
    EXPECT_THROW(
-      std::ignore = RoaringContainerView::fromPayload(RUN_CONTAINER_TYPE, 1, bytes.subspan(1, 4)),
+      std::ignore = RoaringContainerView::fromPayload(ContainerType::RUN, 1, bytes.subspan(1, 4)),
       std::runtime_error
    );
-   // Unknown typecode.
+   // Unknown type.
    EXPECT_THROW(
-      std::ignore = RoaringContainerView::fromPayload(SHARED_CONTAINER_TYPE, 0, {}),
+      std::ignore = RoaringContainerView::fromPayload(
+         static_cast<ContainerType>(SHARED_CONTAINER_TYPE), 0, {}
+      ),
       std::runtime_error
    );
    // The same payloads, correctly aligned and sized, are accepted.
    EXPECT_NO_THROW(
       std::ignore =
-         RoaringContainerView::fromPayload(BITSET_CONTAINER_TYPE, 0, bytes.subspan(8, 8192))
+         RoaringContainerView::fromPayload(ContainerType::BITSET, 0, bytes.subspan(8, 8192))
    );
    EXPECT_NO_THROW(
-      std::ignore = RoaringContainerView::fromPayload(ARRAY_CONTAINER_TYPE, 1, bytes.subspan(2, 2))
+      std::ignore = RoaringContainerView::fromPayload(ContainerType::ARRAY, 1, bytes.subspan(2, 2))
    );
 }

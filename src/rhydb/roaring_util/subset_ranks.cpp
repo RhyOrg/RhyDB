@@ -26,7 +26,10 @@ std::vector<uint64_t> roaringSubsetRanks(
    const size_t cardinality = a_and_b.getCardinality();
    std::vector<uint32_t> a_and_b_as_vector(cardinality);
    roaring::internal::container_to_uint32_array(
-      a_and_b_as_vector.data(), detail::ContainerAccess::raw(a_and_b), a_and_b.getTypecode(), base
+      a_and_b_as_vector.data(),
+      detail::ContainerAccess::raw(a_and_b),
+      detail::ContainerAccess::typecode(a_and_b),
+      base
    );
 
    const detail::ContainerHeader header_a = detail::ContainerAccess::header(container_a);
