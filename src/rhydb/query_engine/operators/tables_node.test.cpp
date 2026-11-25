@@ -60,6 +60,7 @@ const QueryTestScenario TABLES_SCENARIO = {
    .name = "TABLES",
    .query = "tables()",
    .expected_query_result = nlohmann::json({
+      {{"tableName", "column_references"}},
       {{"tableName", "data"}},
       {{"tableName", "lineage_definitions"}},
       {{"tableName", "reference_genomes"}},

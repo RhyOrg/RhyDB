@@ -269,6 +269,65 @@ TEST(Initializer, createsSeveralTablesWithPrefixedReferencesAndLineageTables) {
    );
 }
 
+TEST(Initializer, recordsPrefixedReferencesOfSequenceColumns) {
+   rhydb::Database database;
+   createDummyTable(rhydb::schema::TableName::getDefault().getName(), database);
+   createDummyTable("second", database);
+
+   const auto table = Initializer::COLUMN_REFERENCES_TABLE_NAME;
+   EXPECT_EQ(
+      stringValues(database, table, std::string{Initializer::COLUMN_REFERENCES_TABLE_NAME_COLUMN}),
+      (std::vector<std::string>{
+         "data", "data", "data", "data", "second", "second", "second", "second"
+      })
+   );
+   EXPECT_EQ(
+      stringValues(database, table, std::string{Initializer::COLUMN_REFERENCES_COLUMN_NAME_COLUMN}),
+      (std::vector<std::string>{
+         "main", "testSecondSequence", "E", "M", "main", "testSecondSequence", "E", "M"
+      })
+   );
+   EXPECT_EQ(
+      stringValues(
+         database, table, std::string{Initializer::COLUMN_REFERENCES_REFERENCE_NAME_COLUMN}
+      ),
+      (std::vector<std::string>{
+         "main",
+         "testSecondSequence",
+         "E",
+         "M",
+         "second_main",
+         "second_testSecondSequence",
+         "second_E",
+         "second_M",
+      })
+   );
+   EXPECT_EQ(
+      stringValues(
+         database, table, std::string{Initializer::COLUMN_REFERENCES_REFERENCE_TYPE_COLUMN}
+      ),
+      (std::vector<std::string>{
+         "nucleotide",
+         "nucleotide",
+         "amino_acid",
+         "amino_acid",
+         "nucleotide",
+         "nucleotide",
+         "amino_acid",
+         "amino_acid",
+      })
+   );
+}
+
+TEST(Initializer, rejectsColumnReferencesTableWithDifferentSchema) {
+   rhydb::Database database;
+   database.createTable(
+      rhydb::schema::TableName{std::string{Initializer::COLUMN_REFERENCES_TABLE_NAME}},
+      std::make_shared<rhydb::schema::TableSchema>()
+   );
+   EXPECT_THROW(createDummyTable("second", database), rhydb::initialize::InitializeException);
+}
+
 TEST(Initializer, rejectsTableWhoseLineageTablesExist) {
    rhydb::Database database;
    database.createTable(

@@ -99,6 +99,24 @@ reference_genomes
 | `type` | string | `nucleotide` or `amino_acid` |
 | `sequence` | string | The reference sequence |
 
+Preprocessing also records which of these rows each sequence column of the preprocessed table takes
+its reference from, in a table named `column_references`. Unlike `reference_genomes`, this is an
+ordinary table and not built-in: preprocessing creates it if it does not exist yet and appends to it
+otherwise, but databases are not guaranteed to contain it. Preprocessing fails if a table with that
+name exists with a different schema.
+
+```
+column_references
+  .filter(table_name = 'data')
+```
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `table_name` | string | The preprocessed table |
+| `column_name` | string | The sequence column |
+| `reference_name` | string | The `name` of the `reference_genomes` row holding the column's reference sequence |
+| `reference_type` | string | The `type` of that row, `nucleotide` or `amino_acid` |
+
 ## Column Types and Value Semantics
 
 Each field in the NDJSON must correspond to a metadata field defined in `database_config.yaml`. 
