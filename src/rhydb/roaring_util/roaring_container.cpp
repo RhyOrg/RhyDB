@@ -5,8 +5,11 @@
 #include <variant>
 
 #include "rhydb/common/panic.h"
+#include "rhydb/roaring_util/container_access.h"
 
 namespace rhydb::roaring_util {
+
+using detail::ContainerAccess;
 
 RoaringContainer RoaringContainer::withCapacity(int32_t capacity) {
    roaring::internal::container_t* container;
@@ -33,17 +36,6 @@ RoaringContainer RoaringContainer::ofRange(uint32_t start, uint32_t end) {
    auto* container = roaring::internal::container_range_of_ones(start, end, &typecode);
    RHYDB_ASSERT(container != nullptr);
    return RoaringContainer{container, end - start, typecode};
-}
-
-RoaringContainer RoaringContainer::clonedFrom(
-   const roaring::internal::container_t* source,
-   uint8_t typecode
-) {
-   auto* clone = roaring::internal::container_clone(source, typecode);
-   RHYDB_ASSERT(clone != nullptr);
-   const auto cardinality =
-      static_cast<uint32_t>(roaring::internal::container_get_cardinality(clone, typecode));
-   return RoaringContainer{clone, cardinality, typecode};
 }
 
 void RoaringContainer::add(uint16_t value) {
@@ -87,7 +79,18 @@ size_t RoaringContainer::sizeInBytes() const {
 }
 
 size_t RoaringContainerView::sizeInBytes() const {
-   return roaring::internal::container_size_in_bytes(container, typecode);
+   const detail::ContainerHeader container = header();
+   return roaring::internal::container_size_in_bytes(container.get(), typecode);
+}
+
+RoaringContainer RoaringContainerView::toOwning() const {
+   if (empty()) {
+      return RoaringContainer::withCapacity(1);
+   }
+   const detail::ContainerHeader container = header();
+   auto* clone = roaring::internal::container_clone(container.get(), typecode);
+   RHYDB_ASSERT(clone != nullptr);
+   return RoaringContainer{clone, cardinality, typecode};
 }
 
 void RoaringContainer::runOptimizeAndShrink() {
@@ -101,32 +104,17 @@ void RoaringContainer::runOptimizeAndShrink() {
    roaring::internal::container_shrink_to_fit(container, typecode);
 }
 
-namespace {
-RoaringContainer ownContainer(roaring::internal::container_t* container, uint8_t typecode) {
-   const auto cardinality =
-      static_cast<uint32_t>(roaring::internal::container_get_cardinality(container, typecode));
-   return RoaringContainer{container, cardinality, typecode};
-}
-}  // namespace
-
 RoaringContainer operator&(RoaringContainerView lhs, RoaringContainerView rhs) {
    if (lhs.empty() || rhs.empty()) {
       return RoaringContainer::withCapacity(1);
    }
+   const auto lhs_container = ContainerAccess::header(lhs);
+   const auto rhs_container = ContainerAccess::header(rhs);
    uint8_t typecode = 0;
    auto* result = roaring::internal::container_and(
-      lhs.rawContainer(), lhs.getTypecode(), rhs.rawContainer(), rhs.getTypecode(), &typecode
+      lhs_container.get(), lhs.getTypecode(), rhs_container.get(), rhs.getTypecode(), &typecode
    );
-   return ownContainer(result, typecode);
-}
-
-uint32_t andCardinality(RoaringContainerView lhs, RoaringContainerView rhs) {
-   if (lhs.empty() || rhs.empty()) {
-      return 0;
-   }
-   return static_cast<uint32_t>(roaring::internal::container_and_cardinality(
-      lhs.rawContainer(), lhs.getTypecode(), rhs.rawContainer(), rhs.getTypecode()
-   ));
+   return ContainerAccess::adopt(result, typecode);
 }
 
 RoaringContainer operator-(RoaringContainerView lhs, RoaringContainerView rhs) {
@@ -136,11 +124,13 @@ RoaringContainer operator-(RoaringContainerView lhs, RoaringContainerView rhs) {
    if (rhs.empty()) {
       return lhs.toOwning();
    }
+   const auto lhs_container = ContainerAccess::header(lhs);
+   const auto rhs_container = ContainerAccess::header(rhs);
    uint8_t typecode = 0;
    auto* result = roaring::internal::container_andnot(
-      lhs.rawContainer(), lhs.getTypecode(), rhs.rawContainer(), rhs.getTypecode(), &typecode
+      lhs_container.get(), lhs.getTypecode(), rhs_container.get(), rhs.getTypecode(), &typecode
    );
-   return ownContainer(result, typecode);
+   return ContainerAccess::adopt(result, typecode);
 }
 
 RoaringContainer operator|(RoaringContainerView lhs, RoaringContainerView rhs) {
@@ -150,11 +140,13 @@ RoaringContainer operator|(RoaringContainerView lhs, RoaringContainerView rhs) {
    if (rhs.empty()) {
       return lhs.toOwning();
    }
+   const auto lhs_container = ContainerAccess::header(lhs);
+   const auto rhs_container = ContainerAccess::header(rhs);
    uint8_t typecode = 0;
    auto* result = roaring::internal::container_or(
-      lhs.rawContainer(), lhs.getTypecode(), rhs.rawContainer(), rhs.getTypecode(), &typecode
+      lhs_container.get(), lhs.getTypecode(), rhs_container.get(), rhs.getTypecode(), &typecode
    );
-   return ownContainer(result, typecode);
+   return ContainerAccess::adopt(result, typecode);
 }
 
 RoaringContainer complement(RoaringContainerView view, uint32_t universe_size) {
@@ -162,11 +154,12 @@ RoaringContainer complement(RoaringContainerView view, uint32_t universe_size) {
    if (view.empty()) {
       return RoaringContainer::ofRange(0, universe_size);
    }
+   const auto container = ContainerAccess::header(view);
    uint8_t typecode = 0;
    auto* result = roaring::internal::container_not_range(
-      view.rawContainer(), view.getTypecode(), 0, universe_size, &typecode
+      container.get(), view.getTypecode(), 0, universe_size, &typecode
    );
-   return ownContainer(result, typecode);
+   return ContainerAccess::adopt(result, typecode);
 }
 
 RoaringContainer fastUnion(std::span<const RoaringContainerView> views) {
@@ -188,9 +181,10 @@ RoaringContainer fastUnion(std::span<const RoaringContainerView> views) {
       if (view.empty()) {
          continue;
       }
+      const auto container = ContainerAccess::header(view);
       uint8_t result_typecode = 0;
       auto* result = roaring::internal::container_lazy_ior(
-         accumulator, typecode, view.rawContainer(), view.getTypecode(), &result_typecode
+         accumulator, typecode, container.get(), view.getTypecode(), &result_typecode
       );
       if (result != accumulator) {
          roaring::internal::container_free(accumulator, typecode);
@@ -199,7 +193,54 @@ RoaringContainer fastUnion(std::span<const RoaringContainerView> views) {
       typecode = result_typecode;
    }
    accumulator = roaring::internal::container_repair_after_lazy(accumulator, &typecode);
-   return ownContainer(accumulator, typecode);
+   return ContainerAccess::adopt(accumulator, typecode);
+}
+
+std::vector<std::pair<uint16_t, RoaringContainerView>> containerViews(
+   const roaring::Roaring& bitmap
+) {
+   const auto& roaring_array = bitmap.roaring.high_low_container;
+   std::vector<std::pair<uint16_t, RoaringContainerView>> views;
+   views.reserve(static_cast<size_t>(roaring_array.size));
+   for (int32_t idx = 0; idx < roaring_array.size; ++idx) {
+      uint8_t typecode = roaring_array.typecodes[idx];
+      const auto* container =
+         roaring::internal::container_unwrap_shared(roaring_array.containers[idx], &typecode);
+      const auto cardinality =
+         static_cast<uint32_t>(roaring::internal::container_get_cardinality(container, typecode));
+      views.emplace_back(
+         roaring_array.keys[idx], ContainerAccess::view(container, typecode, cardinality)
+      );
+   }
+   return views;
+}
+
+std::vector<std::pair<uint16_t, RoaringContainer>> releaseContainers(roaring::Roaring&& bitmap) {
+   auto& roaring_array = bitmap.roaring.high_low_container;
+   std::vector<std::pair<uint16_t, RoaringContainer>> containers;
+   containers.reserve(static_cast<size_t>(roaring_array.size));
+   for (int32_t idx = 0; idx < roaring_array.size; ++idx) {
+      uint8_t typecode = roaring_array.typecodes[idx];
+      // A shared container hands back its wrapped container if this was the last reference to it,
+      // and a clone otherwise.
+      auto* container =
+         roaring::internal::get_writable_copy_if_shared(roaring_array.containers[idx], &typecode);
+      containers.emplace_back(roaring_array.keys[idx], ContainerAccess::adopt(container, typecode));
+   }
+   // The containers now belong to the result; drop the bookkeeping arrays without freeing the
+   // containers they pointed at.
+   roaring::internal::ra_clear_without_containers(&roaring_array);
+   return containers;
+}
+
+void appendTo(roaring::Roaring& bitmap, uint16_t key, RoaringContainer&& container) {
+   if (container.empty()) {
+      return;
+   }
+   auto& roaring_array = bitmap.roaring.high_low_container;
+   RHYDB_ASSERT(roaring_array.size == 0 || roaring_array.keys[roaring_array.size - 1] < key);
+   const uint8_t typecode = container.getTypecode();
+   roaring::internal::ra_append(&roaring_array, key, ContainerAccess::release(container), typecode);
 }
 
 RoaringContainer& RoaringContainer::operator|=(RoaringContainerView addend) {
@@ -213,9 +254,15 @@ RoaringContainer& RoaringContainer::operator|=(RoaringContainerView addend) {
       *this = addend.toOwning();
       return *this;
    }
+   // OR-ing a container into itself changes nothing. It must not reach `container_ior`, which
+   // could reallocate the payload the addend's header still points at.
+   if (addend.payloadAddress() == RoaringContainerView{*this}.payloadAddress()) {
+      return *this;
+   }
+   const detail::ContainerHeader addend_container = addend.header();
    uint8_t new_typecode = 0;
    auto* new_container = roaring::internal::container_ior(
-      container, typecode, addend.rawContainer(), addend.getTypecode(), &new_typecode
+      container, typecode, addend_container.get(), addend.getTypecode(), &new_typecode
    );
    if (new_container != container) {
       // The union could not be computed in place, so a new container was allocated and freeing the
@@ -249,7 +296,7 @@ std::variant<RoaringContainerView, RoaringContainer> cloneCowState(
          if constexpr (std::is_same_v<Held, RoaringContainerView>) {
             return held;
          } else {
-            return RoaringContainer::clonedFrom(held.rawContainer(), held.getTypecode());
+            return RoaringContainerView{held}.toOwning();
          }
       },
       source

@@ -34,6 +34,7 @@ namespace rhydb::query_engine::exec_node {
 
 namespace {
 
+using roaring_util::RoaringContainer;
 using roaring_util::RoaringContainerView;
 
 /// One observed combination across the grouping dimensions together with the number of (filtered)
@@ -72,8 +73,7 @@ using CombinationCounts = std::unordered_map<std::vector<size_t>, uint64_t, Grou
 // NOLINTNEXTLINE(misc-no-recursion)
 void aggregateChunk(
    size_t depth,
-   const roaring::internal::container_t* current,
-   uint8_t current_typecode,
+   RoaringContainerView current,
    const std::vector<const DimensionIndexChunk*>& groups_by_dimension,
    std::vector<size_t>& chosen_indices,
    CombinationCounts& counts
@@ -86,16 +86,12 @@ void aggregateChunk(
       // Every row of the running intersection carries this one label; nothing to intersect.
       chosen_indices[depth] = *group_index;
       if (depth == last_dimension) {
-         const auto count = static_cast<uint64_t>(
-            roaring::internal::container_get_cardinality(current, current_typecode)
-         );
+         const uint64_t count = current.getCardinality();
          if (count > 0) {
             counts[chosen_indices] += count;
          }
       } else {
-         aggregateChunk(
-            depth + 1, current, current_typecode, groups_by_dimension, chosen_indices, counts
-         );
+         aggregateChunk(depth + 1, current, groups_by_dimension, chosen_indices, counts);
       }
       return;
    }
@@ -108,25 +104,23 @@ void aggregateChunk(
       if (depth == last_dimension) {
          // Leaf: only the cardinality of the final intersection is needed, so compute it directly
          // without allocating a result container.
-         const auto count = static_cast<uint64_t>(roaring::internal::container_and_cardinality(
-            current, current_typecode, view.rawContainer(), view.getTypecode()
-         ));
+         const uint64_t count = roaring_util::andCardinality(current, view);
          if (count > 0) {
             counts[chosen_indices] += count;
          }
          continue;
       }
 
-      uint8_t result_typecode = 0;
-      auto* intersection = roaring::internal::container_and(
-         current, current_typecode, view.rawContainer(), view.getTypecode(), &result_typecode
-      );
-      if (roaring::internal::container_nonzero_cardinality(intersection, result_typecode)) {
+      const RoaringContainer intersection = current & view;
+      if (!intersection.empty()) {
          aggregateChunk(
-            depth + 1, intersection, result_typecode, groups_by_dimension, chosen_indices, counts
+            depth + 1,
+            RoaringContainerView{intersection},
+            groups_by_dimension,
+            chosen_indices,
+            counts
          );
       }
-      roaring::internal::container_free(intersection, result_typecode);
    }
 }
 
@@ -161,14 +155,7 @@ std::vector<GroupCombination> computeCombinations(
          groups[dimension] = indexes[dimension]->chunk(chunk_id, filter_view);
          groups_at_chunk[dimension] = &groups[dimension];
       }
-      aggregateChunk(
-         0,
-         filter_view.rawContainer(),
-         filter_view.getTypecode(),
-         groups_at_chunk,
-         chosen_indices,
-         counts
-      );
+      aggregateChunk(0, filter_view, groups_at_chunk, chosen_indices, counts);
    }
 
    std::vector<GroupCombination> combinations;

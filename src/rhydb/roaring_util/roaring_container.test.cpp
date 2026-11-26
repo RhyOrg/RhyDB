@@ -5,7 +5,12 @@
 #include <cstdint>
 #include <initializer_list>
 #include <iterator>
+#include <span>
 #include <sstream>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -14,11 +19,14 @@
 #include <roaring/roaring.hh>
 
 #include "rhydb/roaring_util/bitmap_builder.h"
+#include "rhydb/roaring_util/container_access.h"
+#include "rhydb/roaring_util/subset_ranks.h"
 
 using rhydb::roaring_util::BitmapBuilderByContainer;
 using rhydb::roaring_util::CopyOnWriteContainer;
 using rhydb::roaring_util::RoaringContainer;
 using rhydb::roaring_util::RoaringContainerView;
+using rhydb::roaring_util::detail::ContainerAccess;
 
 namespace {
 
@@ -26,8 +34,13 @@ namespace {
 // single-container roaring bitmap.
 roaring::Roaring toRoaring(const RoaringContainer& container) {
    BitmapBuilderByContainer builder;
-   builder.addContainer(0, container.rawContainer(), container.getTypecode());
+   builder.addContainer(0, RoaringContainerView{container});
    return std::move(builder).getBitmap();
+}
+
+// The payload an owning container's views point at, to tell whether storage is shared.
+const void* payloadOf(const RoaringContainer& container) {
+   return ContainerAccess::payload(RoaringContainerView{container});
 }
 
 // Collects the low-16-bit values yielded by iterating a view, in iteration order.
@@ -124,12 +137,13 @@ TEST(RoaringContainer, growsFromArrayToBitset) {
    EXPECT_EQ(toRoaring(container), expected);
 }
 
-TEST(RoaringContainer, clonedFromIsIndependent) {
+TEST(RoaringContainer, toOwningIsIndependent) {
    auto source = RoaringContainer::withCapacity(4);
    source.add(1);
    source.add(2);
 
-   auto clone = RoaringContainer::clonedFrom(source.rawContainer(), source.getTypecode());
+   auto clone = RoaringContainerView{source}.toOwning();
+   EXPECT_NE(ContainerAccess::raw(clone), ContainerAccess::raw(source));
    EXPECT_EQ(clone.getCardinality(), 2);
 
    // Mutating the clone must not affect the source.
@@ -166,7 +180,7 @@ TEST(RoaringContainerView, mirrorsOwnerAndDoesNotFree) {
    const RoaringContainerView view{owner};
    EXPECT_EQ(view.getCardinality(), 2);
    EXPECT_FALSE(view.empty());
-   EXPECT_EQ(view.rawContainer(), owner.rawContainer());
+   EXPECT_EQ(ContainerAccess::payload(view), payloadOf(owner));
    EXPECT_EQ(view.getTypecode(), owner.getTypecode());
 
    // The view is non-owning: when it goes out of scope the owner's container stays valid.
@@ -302,6 +316,23 @@ TEST(RoaringContainerView, emptyViewIteratesAsEmptyRange) {
    EXPECT_TRUE(iterate(view).empty());
 }
 
+// A default-constructed view has no payload at all (unlike a view of an allocated empty
+// container), and is used as such in production, e.g. for chunks without null rows.
+TEST(RoaringContainerView, defaultViewIsEmpty) {
+   const RoaringContainerView view{};
+   EXPECT_TRUE(view.empty());
+   EXPECT_EQ(view.getCardinality(), 0);
+   EXPECT_FALSE(view.contains(0));
+   EXPECT_FALSE(view.contains(uint16_t{65535}));
+   EXPECT_EQ(view.begin(), view.end());
+   EXPECT_TRUE(iterate(view).empty());
+
+   auto owned = view.toOwning();
+   EXPECT_TRUE(owned.empty());
+   owned.add(7);
+   EXPECT_EQ(toRoaring(owned), (roaring::Roaring{7}));
+}
+
 TEST(RoaringContainer, serializationRoundTrip) {
    auto container = RoaringContainer::withCapacity(4);
    container.add(1);
@@ -346,7 +377,7 @@ TEST(RoaringContainerSetAlgebra, intersectionOfDisjointContainersIsEmpty) {
    EXPECT_TRUE(result.empty());
    EXPECT_EQ(result.getCardinality(), 0);
    // An empty result must still be a valid owning container, not a container-less object.
-   EXPECT_NE(result.rawContainer(), nullptr);
+   EXPECT_NE(ContainerAccess::raw(result), nullptr);
 }
 
 TEST(RoaringContainerSetAlgebra, intersectionWithEmptyOperandIsEmpty) {
@@ -355,11 +386,11 @@ TEST(RoaringContainerSetAlgebra, intersectionWithEmptyOperandIsEmpty) {
 
    const RoaringContainer empty_rhs = RoaringContainerView{values} & RoaringContainerView{empty};
    EXPECT_TRUE(empty_rhs.empty());
-   EXPECT_NE(empty_rhs.rawContainer(), nullptr);
+   EXPECT_NE(ContainerAccess::raw(empty_rhs), nullptr);
 
    const RoaringContainer empty_lhs = RoaringContainerView{empty} & RoaringContainerView{values};
    EXPECT_TRUE(empty_lhs.empty());
-   EXPECT_NE(empty_lhs.rawContainer(), nullptr);
+   EXPECT_NE(ContainerAccess::raw(empty_lhs), nullptr);
 }
 
 TEST(RoaringContainerSetAlgebra, differenceRemovesRhsValues) {
@@ -377,7 +408,7 @@ TEST(RoaringContainerSetAlgebra, differenceWithEmptyRhsCopiesLhs) {
    const RoaringContainer result = RoaringContainerView{lhs} - RoaringContainerView{empty};
    EXPECT_EQ(toRoaring(result), (roaring::Roaring{1, 2, 3}));
    // The result is an independent owning copy, not a borrow of `lhs`.
-   EXPECT_NE(result.rawContainer(), lhs.rawContainer());
+   EXPECT_NE(payloadOf(result), payloadOf(lhs));
 }
 
 TEST(RoaringContainerSetAlgebra, differenceWithEmptyLhsIsEmpty) {
@@ -386,7 +417,7 @@ TEST(RoaringContainerSetAlgebra, differenceWithEmptyLhsIsEmpty) {
 
    const RoaringContainer result = RoaringContainerView{empty} - RoaringContainerView{rhs};
    EXPECT_TRUE(result.empty());
-   EXPECT_NE(result.rawContainer(), nullptr);
+   EXPECT_NE(ContainerAccess::raw(result), nullptr);
 }
 
 TEST(RoaringContainerSetAlgebra, differenceOfEqualContainersIsEmpty) {
@@ -397,7 +428,7 @@ TEST(RoaringContainerSetAlgebra, differenceOfEqualContainersIsEmpty) {
    const RoaringContainer result = RoaringContainerView{values} - RoaringContainerView{values};
    EXPECT_TRUE(result.empty());
    EXPECT_EQ(result.getCardinality(), 0);
-   EXPECT_NE(result.rawContainer(), nullptr);
+   EXPECT_NE(ContainerAccess::raw(result), nullptr);
 }
 
 TEST(RoaringContainerSetAlgebra, unionMergesValues) {
@@ -422,7 +453,7 @@ TEST(RoaringContainerSetAlgebra, unionWithEmptyOperandsReturnsTheOther) {
    );
    const RoaringContainer both_empty = RoaringContainerView{empty} | RoaringContainerView{empty};
    EXPECT_TRUE(both_empty.empty());
-   EXPECT_NE(both_empty.rawContainer(), nullptr);
+   EXPECT_NE(ContainerAccess::raw(both_empty), nullptr);
 }
 
 TEST(RoaringContainerSetAlgebra, fastUnionOfNoneOneOrTwoContainers) {
@@ -607,12 +638,12 @@ TEST(CopyOnWriteContainer, borrowsWithoutCopying) {
    // While only reading, it is a zero-copy view: same underlying container, same cardinality.
    EXPECT_EQ(cow.getCardinality(), 3);
    EXPECT_FALSE(cow.empty());
-   EXPECT_EQ(cow.view().rawContainer(), owner.rawContainer());
+   EXPECT_EQ(ContainerAccess::payload(cow.view()), payloadOf(owner));
 }
 
 TEST(CopyOnWriteContainer, unionClonesOnWriteAndLeavesSourceUnchanged) {
    auto owner = makeContainer({1, 2, 3});
-   const auto* borrowed = owner.rawContainer();
+   const auto* borrowed = payloadOf(owner);
    CopyOnWriteContainer cow{RoaringContainerView{owner}};
    const auto addend = makeContainer({4});
 
@@ -620,9 +651,9 @@ TEST(CopyOnWriteContainer, unionClonesOnWriteAndLeavesSourceUnchanged) {
 
    // The copy-on-write produced a private owning copy: the borrowed source is untouched ...
    EXPECT_EQ(toRoaring(owner), (roaring::Roaring{1, 2, 3}));
-   EXPECT_EQ(owner.rawContainer(), borrowed);
+   EXPECT_EQ(payloadOf(owner), borrowed);
    // ... and the container now owns a different container holding the union.
-   EXPECT_NE(cow.view().rawContainer(), borrowed);
+   EXPECT_NE(ContainerAccess::payload(cow.view()), borrowed);
    EXPECT_EQ(toRoaring(cow.toOwning()), (roaring::Roaring{1, 2, 3, 4}));
 }
 
@@ -661,10 +692,10 @@ TEST(CopyOnWriteContainer, defaultIsEmptyAndUnionTakesAddend) {
 TEST(RoaringContainer, unionIntoEmptyArrayIgnoresStaleSlot) {
    auto* array = roaring::internal::array_container_create_given_capacity(1);
    array->array[0] = 0;
-   RoaringContainer target{array, 0, ARRAY_CONTAINER_TYPE};
-   const RoaringContainer run{
+   RoaringContainer target = ContainerAccess::adopt(array, 0, ARRAY_CONTAINER_TYPE);
+   const RoaringContainer run = ContainerAccess::adopt(
       roaring::internal::run_container_create_range(5, 50), 45, RUN_CONTAINER_TYPE
-   };
+   );
 
    target |= RoaringContainerView{run};
 
@@ -675,12 +706,12 @@ TEST(RoaringContainer, unionIntoEmptyArrayIgnoresStaleSlot) {
 }
 
 TEST(RoaringContainer, unionWithEmptyArrayAddendLeavesRunUnchanged) {
-   RoaringContainer target{
+   RoaringContainer target = ContainerAccess::adopt(
       roaring::internal::run_container_create_range(5, 50), 45, RUN_CONTAINER_TYPE
-   };
+   );
    auto* array = roaring::internal::array_container_create_given_capacity(1);
    array->array[0] = 0;
-   const RoaringContainer empty_addend{array, 0, ARRAY_CONTAINER_TYPE};
+   const RoaringContainer empty_addend = ContainerAccess::adopt(array, 0, ARRAY_CONTAINER_TYPE);
 
    target |= RoaringContainerView{empty_addend};
 
@@ -691,9 +722,9 @@ TEST(RoaringContainer, unionWithEmptyArrayAddendLeavesRunUnchanged) {
 }
 
 TEST(CopyOnWriteContainer, defaultUnionWithRunTakesExactlyTheRun) {
-   const RoaringContainer run{
+   const RoaringContainer run = ContainerAccess::adopt(
       roaring::internal::run_container_create_range(5, 50), 45, RUN_CONTAINER_TYPE
-   };
+   );
    CopyOnWriteContainer cow;
 
    cow |= RoaringContainerView{run};
@@ -711,7 +742,7 @@ TEST(CopyOnWriteContainer, defaultViewsAProperlyConstructedEmptyContainer) {
    // reads are all well-defined.
    EXPECT_TRUE(cow.empty());
    EXPECT_EQ(cow.getCardinality(), 0);
-   EXPECT_NE(cow.view().rawContainer(), nullptr);
+   EXPECT_NE(ContainerAccess::payload(cow.view()), nullptr);
    EXPECT_EQ(cow.begin(), cow.end());  // iterates as an empty range
 }
 
@@ -722,7 +753,7 @@ TEST(CopyOnWriteContainer, defaultToOwningIsAValidEmptyContainer) {
    // (a real allocation, safe to mutate afterwards) rather than dereferencing a null handle.
    RoaringContainer owned = cow.toOwning();
    EXPECT_TRUE(owned.empty());
-   EXPECT_NE(owned.rawContainer(), nullptr);
+   EXPECT_NE(ContainerAccess::raw(owned), nullptr);
    owned.add(5);
    EXPECT_EQ(toRoaring(owned), roaring::Roaring{5});
 }
@@ -735,7 +766,7 @@ TEST(CopyOnWriteContainer, defaultDifferenceAndIntersectionAreSafe) {
 
    cow &= RoaringContainerView{makeContainer({1, 2})};  // empty & x stays empty
    EXPECT_TRUE(cow.empty());
-   EXPECT_NE(cow.toOwning().rawContainer(), nullptr);
+   EXPECT_NE(ContainerAccess::raw(cow.toOwning()), nullptr);
 }
 
 TEST(CopyOnWriteContainer, distinctDefaultsShareTheEmptyContainerButOwnIndependentlyOnWrite) {
@@ -743,14 +774,14 @@ TEST(CopyOnWriteContainer, distinctDefaultsShareTheEmptyContainerButOwnIndepende
    const CopyOnWriteContainer second;
 
    // Both defaults borrow the same shared empty container.
-   EXPECT_EQ(first.view().rawContainer(), second.view().rawContainer());
+   EXPECT_EQ(ContainerAccess::payload(first.view()), ContainerAccess::payload(second.view()));
 
    // Writing to one copy-on-writes into its own container, leaving the other (and the shared empty)
    // untouched.
    first |= RoaringContainerView{makeContainer({7})};
    EXPECT_EQ(toRoaring(first.toOwning()), roaring::Roaring{7});
    EXPECT_TRUE(second.empty());
-   EXPECT_NE(first.view().rawContainer(), second.view().rawContainer());
+   EXPECT_NE(ContainerAccess::payload(first.view()), ContainerAccess::payload(second.view()));
 }
 
 TEST(CopyOnWriteContainer, unionWithEmptyIsANoOp) {
@@ -777,7 +808,7 @@ TEST(CopyOnWriteContainer, copyOfBorrowingReborrowsSameContainer) {
    const CopyOnWriteContainer copy = cow;  // NOLINT(performance-unnecessary-copy-initialization)
 
    // A borrowing copy re-borrows the same underlying container rather than cloning it.
-   EXPECT_EQ(copy.view().rawContainer(), owner.rawContainer());
+   EXPECT_EQ(ContainerAccess::payload(copy.view()), payloadOf(owner));
 }
 
 TEST(CopyOnWriteContainer, copyOfOwningDeepCopiesAndIsIndependent) {
@@ -789,7 +820,7 @@ TEST(CopyOnWriteContainer, copyOfOwningDeepCopiesAndIsIndependent) {
 
    EXPECT_EQ(toRoaring(owned.toOwning()), (roaring::Roaring{1, 2}));
    EXPECT_EQ(toRoaring(copy.toOwning()), (roaring::Roaring{1, 2, 3}));
-   EXPECT_NE(owned.view().rawContainer(), copy.view().rawContainer());
+   EXPECT_NE(ContainerAccess::payload(owned.view()), ContainerAccess::payload(copy.view()));
 }
 
 TEST(CopyOnWriteContainer, toOwningDeepCopiesTheBorrowedContainer) {
@@ -835,4 +866,383 @@ TEST(RoaringContainer, complementOfEmptyAndFullContainers) {
 
    const auto full = RoaringContainer::ofRange(0, 1U << 16);
    EXPECT_TRUE(rhydb::roaring_util::complement(RoaringContainerView{full}, 1U << 16).empty());
+}
+
+namespace {
+
+// The values of the half-open ranges `ranges`, in ascending order.
+std::vector<uint16_t> valuesInRanges(std::initializer_list<std::pair<uint32_t, uint32_t>> ranges) {
+   std::vector<uint16_t> values;
+   for (const auto& [begin, end] : ranges) {
+      values.reserve(values.size() + (end - begin));
+      for (uint32_t value = begin; value < end; ++value) {
+         values.push_back(static_cast<uint16_t>(value));
+      }
+   }
+   return values;
+}
+
+// Few long runs (so a run container is the most compact form), partially overlapping between the
+// two sets.
+std::vector<uint16_t> lhsValues() {
+   return valuesInRanges({{0, 50}, {1000, 1100}, {40000, 40300}});
+}
+
+std::vector<uint16_t> rhsValues() {
+   return valuesInRanges({{25, 75}, {1050, 1060}, {50000, 50200}});
+}
+
+// Builds a container holding `values` in the representation `typecode`.
+RoaringContainer makeTyped(const std::vector<uint16_t>& values, uint8_t typecode) {
+   // Any capacity above the array limit starts out as a bitset, which adding values keeps.
+   auto container = RoaringContainer::withCapacity(
+      typecode == BITSET_CONTAINER_TYPE ? roaring::internal::DEFAULT_MAX_SIZE + 1
+                                        : static_cast<int32_t>(values.size())
+   );
+   for (const uint16_t value : values) {
+      container.add(value);
+   }
+   if (typecode == RUN_CONTAINER_TYPE) {
+      container.runOptimizeAndShrink();
+   }
+   EXPECT_EQ(container.getTypecode(), typecode);
+   return container;
+}
+
+roaring::Roaring toRoaring(RoaringContainerView view) {
+   return toRoaring(view.toOwning());
+}
+
+roaring::Roaring roaringOf(const std::vector<uint16_t>& values) {
+   roaring::Roaring bitmap;
+   for (const uint16_t value : values) {
+      bitmap.add(value);
+   }
+   return bitmap;
+}
+
+std::string_view typecodeName(uint8_t typecode) {
+   switch (typecode) {
+      case ARRAY_CONTAINER_TYPE:
+         return "Array";
+      case BITSET_CONTAINER_TYPE:
+         return "Bitset";
+      default:
+         return "Run";
+   }
+}
+
+const auto ALL_TYPECODES = ::testing::Values(
+   uint8_t{ARRAY_CONTAINER_TYPE},
+   uint8_t{BITSET_CONTAINER_TYPE},
+   uint8_t{RUN_CONTAINER_TYPE}
+);
+
+class RoaringContainerPerType : public ::testing::TestWithParam<uint8_t> {};
+
+class RoaringContainerPerTypePair : public ::testing::TestWithParam<std::tuple<uint8_t, uint8_t>> {
+};
+
+}  // namespace
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST_P(RoaringContainerPerType, viewMirrorsContainer) {
+   const auto values = lhsValues();
+   const auto container = makeTyped(values, GetParam());
+   const RoaringContainerView view{container};
+
+   EXPECT_EQ(view.getTypecode(), GetParam());
+   EXPECT_EQ(view.getCardinality(), values.size());
+   EXPECT_EQ(view.sizeInBytes(), container.sizeInBytes());
+   EXPECT_EQ(iterate(view), values);
+   size_t contains_mismatches = 0;
+   for (uint32_t value = 0; value < (1U << 16); ++value) {
+      const auto low = static_cast<uint16_t>(value);
+      contains_mismatches += view.contains(low) != container.contains(low) ? 1 : 0;
+   }
+   EXPECT_EQ(contains_mismatches, 0);
+   EXPECT_EQ(toRoaring(view), roaringOf(values));
+}
+
+TEST_P(RoaringContainerPerType, iteratorOutlivesTheView) {
+   const auto container = makeTyped(lhsValues(), GetParam());
+   RoaringContainerView::ConstIterator iterator;
+   {
+      const RoaringContainerView view{container};
+      iterator = view.begin();
+   }
+   // The iterator carries its own copy of the header, so it keeps working once the view is gone.
+   std::vector<uint16_t> values;
+   for (; iterator != RoaringContainerView::end(); ++iterator) {
+      values.push_back(*iterator);
+   }
+   EXPECT_EQ(values, lhsValues());
+}
+
+TEST_P(RoaringContainerPerType, toOwningCopiesRepresentationAndValues) {
+   const auto container = makeTyped(lhsValues(), GetParam());
+   auto copy = RoaringContainerView{container}.toOwning();
+
+   EXPECT_EQ(copy.getTypecode(), GetParam());
+   EXPECT_EQ(copy.getCardinality(), container.getCardinality());
+   EXPECT_EQ(toRoaring(copy), roaringOf(lhsValues()));
+   copy.addChecked(60000);
+   EXPECT_FALSE(container.contains(60000));
+}
+
+TEST_P(RoaringContainerPerType, complementWithinTheUniverse) {
+   const auto container = makeTyped(lhsValues(), GetParam());
+   const auto result = rhydb::roaring_util::complement(RoaringContainerView{container}, 1U << 16);
+
+   roaring::Roaring expected;
+   expected.addRange(0, 1U << 16);
+   expected -= roaringOf(lhsValues());
+   EXPECT_EQ(toRoaring(result), expected);
+   EXPECT_EQ(result.getCardinality(), expected.cardinality());
+}
+
+TEST_P(RoaringContainerPerType, defaultViewAsEitherOperand) {
+   const auto values = lhsValues();
+   const auto container = makeTyped(values, GetParam());
+   const RoaringContainerView view{container};
+   const RoaringContainerView empty{};
+
+   EXPECT_TRUE((view & empty).empty());
+   EXPECT_TRUE((empty & view).empty());
+   EXPECT_EQ(rhydb::roaring_util::andCardinality(view, empty), 0);
+   EXPECT_EQ(rhydb::roaring_util::andCardinality(empty, view), 0);
+   EXPECT_EQ(toRoaring(view - empty), roaringOf(values));
+   EXPECT_TRUE((empty - view).empty());
+   EXPECT_EQ(toRoaring(view | empty), roaringOf(values));
+   EXPECT_EQ(toRoaring(empty | view), roaringOf(values));
+
+   const std::vector<RoaringContainerView> views{empty, view, empty};
+   EXPECT_EQ(toRoaring(rhydb::roaring_util::fastUnion(views)), roaringOf(values));
+   EXPECT_EQ(rhydb::roaring_util::complement(empty, 1U << 16).getCardinality(), 1U << 16);
+
+   auto accumulator = view.toOwning();
+   accumulator |= empty;
+   accumulator -= empty;
+   EXPECT_EQ(toRoaring(accumulator), roaringOf(values));
+
+   auto from_empty = empty.toOwning();
+   from_empty |= view;
+   EXPECT_EQ(toRoaring(from_empty), roaringOf(values));
+}
+
+INSTANTIATE_TEST_SUITE_P(AllTypes, RoaringContainerPerType, ALL_TYPECODES, [](const auto& info) {
+   return std::string{typecodeName(info.param)};
+});
+
+namespace {
+
+// The operands of the binary operation tests, in the representations the test parameter names.
+struct Operands {
+   RoaringContainer lhs;
+   RoaringContainer rhs;
+   roaring::Roaring lhs_set = roaringOf(lhsValues());
+   roaring::Roaring rhs_set = roaringOf(rhsValues());
+
+   explicit Operands(std::tuple<uint8_t, uint8_t> typecodes)
+       : lhs(makeTyped(lhsValues(), std::get<0>(typecodes))),
+         rhs(makeTyped(rhsValues(), std::get<1>(typecodes))) {}
+
+   [[nodiscard]] RoaringContainerView lhsView() const { return RoaringContainerView{lhs}; }
+   [[nodiscard]] RoaringContainerView rhsView() const { return RoaringContainerView{rhs}; }
+};
+
+}  // namespace
+
+TEST_P(RoaringContainerPerTypePair, setOperatorsMatchRoaring) {
+   const Operands operands{GetParam()};
+   const auto& [lhs, rhs, lhs_set, rhs_set] = operands;
+
+   const auto intersection = operands.lhsView() & operands.rhsView();
+   EXPECT_EQ(toRoaring(intersection), lhs_set & rhs_set);
+   EXPECT_EQ(intersection.getCardinality(), (lhs_set & rhs_set).cardinality());
+   EXPECT_EQ(
+      andCardinality(operands.lhsView(), operands.rhsView()), (lhs_set & rhs_set).cardinality()
+   );
+
+   const auto difference = operands.lhsView() - operands.rhsView();
+   EXPECT_EQ(toRoaring(difference), lhs_set - rhs_set);
+   EXPECT_EQ(difference.getCardinality(), (lhs_set - rhs_set).cardinality());
+
+   const auto union_result = operands.lhsView() | operands.rhsView();
+   EXPECT_EQ(toRoaring(union_result), lhs_set | rhs_set);
+   EXPECT_EQ(union_result.getCardinality(), (lhs_set | rhs_set).cardinality());
+
+   // The operands are left untouched.
+   EXPECT_EQ(toRoaring(operands.lhsView()), lhs_set);
+   EXPECT_EQ(toRoaring(operands.rhsView()), rhs_set);
+}
+
+TEST_P(RoaringContainerPerTypePair, compoundAssignmentsMatchRoaring) {
+   const Operands operands{GetParam()};
+   const auto& [lhs, rhs, lhs_set, rhs_set] = operands;
+
+   auto or_assigned = operands.lhsView().toOwning();
+   or_assigned |= operands.rhsView();
+   EXPECT_EQ(toRoaring(or_assigned), lhs_set | rhs_set);
+   EXPECT_EQ(or_assigned.getCardinality(), (lhs_set | rhs_set).cardinality());
+
+   auto subtract_assigned = operands.lhsView().toOwning();
+   subtract_assigned -= operands.rhsView();
+   EXPECT_EQ(toRoaring(subtract_assigned), lhs_set - rhs_set);
+   EXPECT_EQ(subtract_assigned.getCardinality(), (lhs_set - rhs_set).cardinality());
+
+   CopyOnWriteContainer cow{operands.lhsView()};
+   cow &= operands.rhsView();
+   EXPECT_EQ(toRoaring(cow.view()), lhs_set & rhs_set);
+   EXPECT_EQ(toRoaring(operands.lhsView()), lhs_set);
+}
+
+TEST_P(RoaringContainerPerTypePair, fastUnionMatchesRoaring) {
+   const Operands operands{GetParam()};
+
+   const std::vector<RoaringContainerView> views{
+      operands.lhsView(),
+      operands.rhsView(),
+      operands.lhsView(),
+   };
+   EXPECT_EQ(toRoaring(rhydb::roaring_util::fastUnion(views)), operands.lhs_set | operands.rhs_set);
+}
+
+TEST_P(RoaringContainerPerTypePair, subsetRanksAreRanksInLhs) {
+   const Operands operands{GetParam()};
+
+   // The 1-based ranks within lhs of the values both hold.
+   std::vector<uint64_t> expected_ranks;
+   for (const uint32_t value : operands.lhs_set & operands.rhs_set) {
+      expected_ranks.push_back(operands.lhs_set.rank(value));
+   }
+   EXPECT_EQ(
+      rhydb::roaring_util::roaringSubsetRanks(operands.lhsView(), operands.rhsView(), 0),
+      expected_ranks
+   );
+}
+
+TEST_P(RoaringContainerPerTypePair, bitmapBuilderUnitesContainersOfOneKey) {
+   const Operands operands{GetParam()};
+
+   BitmapBuilderByContainer builder;
+   builder.addContainer(3, operands.lhsView());
+   builder.addContainer(3, operands.rhsView());
+
+   roaring::Roaring expected;
+   for (const uint32_t value : operands.lhs_set | operands.rhs_set) {
+      expected.add((3U << 16U) + value);
+   }
+   EXPECT_EQ(std::move(builder).getBitmap(), expected);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+   AllTypePairs,
+   RoaringContainerPerTypePair,
+   ::testing::Combine(ALL_TYPECODES, ALL_TYPECODES),
+   [](const auto& info) {
+      return std::string{typecodeName(std::get<0>(info.param))} +
+             std::string{typecodeName(std::get<1>(info.param))};
+   }
+);
+
+TEST(RoaringContainer, bitsetFilledByHoldsTheWrittenBits) {
+   const auto container = RoaringContainer::bitsetFilledBy(
+      [](std::span<uint64_t, rhydb::roaring_util::BITSET_CONTAINER_WORDS> words) {
+         words[0] = 0b1011;
+         words[1023] = uint64_t{1} << 63U;
+      }
+   );
+   EXPECT_EQ(container.getTypecode(), BITSET_CONTAINER_TYPE);
+   EXPECT_EQ(container.getCardinality(), 4);
+   EXPECT_EQ(iterate(RoaringContainerView{container}), (std::vector<uint16_t>{0, 1, 3, 65535}));
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST(RoaringInterop, containerViewsViewEveryContainerOfABitmap) {
+   roaring::Roaring bitmap;
+   bitmap.addRange(5, 5000);     // run
+   bitmap.add((1U << 16U) + 7);  // array
+   for (uint32_t value = 0; value < 10000; value += 2) {
+      bitmap.add((3U << 16U) + value);  // bitset
+   }
+   bitmap.runOptimize();
+
+   const auto views = rhydb::roaring_util::containerViews(bitmap);
+   ASSERT_EQ(views.size(), 3);
+   EXPECT_EQ(views[0].first, 0);
+   EXPECT_EQ(views[0].second.getTypecode(), RUN_CONTAINER_TYPE);
+   EXPECT_EQ(views[1].first, 1);
+   EXPECT_EQ(views[1].second.getTypecode(), ARRAY_CONTAINER_TYPE);
+   EXPECT_EQ(views[2].first, 3);
+   EXPECT_EQ(views[2].second.getTypecode(), BITSET_CONTAINER_TYPE);
+
+   roaring::Roaring rebuilt;
+   uint64_t total = 0;
+   for (const auto& [key, view] : views) {
+      total += view.getCardinality();
+      rhydb::roaring_util::appendTo(rebuilt, key, view.toOwning());
+   }
+   EXPECT_EQ(total, bitmap.cardinality());
+   EXPECT_EQ(rebuilt, bitmap);
+}
+
+TEST(RoaringInterop, containerViewsSeeThroughSharedContainers) {
+   roaring::Roaring original;
+   original.setCopyOnWrite(true);
+   original.addRange(5, 5000);
+   original.add((1U << 16U) + 7);
+   original.runOptimize();
+   // With copy-on-write, copying a bitmap shares its containers between the copies.
+   const roaring::Roaring copy = original;
+   ASSERT_EQ(copy.roaring.high_low_container.typecodes[0], SHARED_CONTAINER_TYPE);
+
+   const auto views = rhydb::roaring_util::containerViews(copy);
+   ASSERT_EQ(views.size(), 2);
+   EXPECT_EQ(views[0].second.getTypecode(), RUN_CONTAINER_TYPE);
+   EXPECT_EQ(views[0].second.getCardinality(), 4995);
+   EXPECT_EQ(views[1].second.getTypecode(), ARRAY_CONTAINER_TYPE);
+   EXPECT_EQ(iterate(views[1].second), (std::vector<uint16_t>{7}));
+}
+
+TEST(RoaringInterop, releaseContainersMovesOutAndLeavesTheBitmapEmpty) {
+   roaring::Roaring bitmap{1, 2, (2U << 16U) + 3};
+
+   auto containers = rhydb::roaring_util::releaseContainers(std::move(bitmap));
+   EXPECT_TRUE(bitmap.isEmpty());  // NOLINT(bugprone-use-after-move)
+   ASSERT_EQ(containers.size(), 2);
+   EXPECT_EQ(containers[0].first, 0);
+   EXPECT_EQ(iterate(RoaringContainerView{containers[0].second}), (std::vector<uint16_t>{1, 2}));
+   EXPECT_EQ(containers[1].first, 2);
+   EXPECT_EQ(iterate(RoaringContainerView{containers[1].second}), (std::vector<uint16_t>{3}));
+}
+
+TEST(RoaringInterop, releaseContainersCopiesSharedContainers) {
+   roaring::Roaring original;
+   original.setCopyOnWrite(true);
+   original.addRange(5, 5000);
+   original.runOptimize();
+   roaring::Roaring copy = original;
+   ASSERT_EQ(copy.roaring.high_low_container.typecodes[0], SHARED_CONTAINER_TYPE);
+
+   auto containers = rhydb::roaring_util::releaseContainers(std::move(copy));
+   ASSERT_EQ(containers.size(), 1);
+   EXPECT_EQ(containers[0].second.getTypecode(), RUN_CONTAINER_TYPE);
+   containers[0].second.addChecked(9000);
+
+   // The released container is private: the bitmap it was shared with is unaffected, and both
+   // free their storage independently (checked by ASAN).
+   EXPECT_EQ(containers[0].second.getCardinality(), 4996);
+   EXPECT_EQ(original.cardinality(), 4995);
+   EXPECT_FALSE(original.contains(9000));
+}
+
+TEST(RoaringInterop, appendToDropsEmptyContainers) {
+   roaring::Roaring bitmap;
+   rhydb::roaring_util::appendTo(bitmap, 0, makeContainer({4}));
+   rhydb::roaring_util::appendTo(bitmap, 1, makeContainer({}));
+   rhydb::roaring_util::appendTo(bitmap, 5, makeContainer({6}));
+
+   EXPECT_EQ(bitmap.roaring.high_low_container.size, 2);
+   EXPECT_EQ(bitmap, (roaring::Roaring{4, (5U << 16U) + 6}));
 }

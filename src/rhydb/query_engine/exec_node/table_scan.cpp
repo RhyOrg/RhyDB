@@ -1,10 +1,6 @@
 #include "rhydb/query_engine/exec_node/table_scan.h"
 #include <utility>
 
-#include <roaring/containers/array.h>
-#include <roaring/containers/bitset.h>
-#include <roaring/containers/containers.h>
-#include <roaring/containers/run.h>
 #include <roaring/roaring.h>
 #include <roaring/roaring.hh>
 

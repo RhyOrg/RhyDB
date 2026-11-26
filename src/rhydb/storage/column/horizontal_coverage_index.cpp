@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
 #include <spdlog/spdlog.h>
 #include <roaring/roaring.hh>
@@ -159,38 +160,29 @@ roaring_util::RoaringContainer HorizontalCoverageIndex::coveredRowsInChunk(
    // Fast path: if the position lies within the chunk's intersection envelope
    // `[batch_max_start, batch_min_end)`, every row in the chunk covers it.
    if (positionCoveredByWholeChunk(position, chunk_id)) {
-      return {
-         roaring::internal::run_container_create_range(0, num_rows),
-         num_rows,
-         RUN_CONTAINER_TYPE,
-      };
+      return roaring_util::RoaringContainer::ofRange(0, num_rows);
    }
 
-   auto* bitset = roaring::internal::bitset_container_create();
-   bitset->cardinality = static_cast<int32_t>(
-      coverageScan(chunk_starts.data(), ends[chunk_id].data(), num_rows, position, bitset->words)
-   );
+   auto result = roaring_util::RoaringContainer::bitsetFilledBy([&](std::span<uint64_t> words) {
+      coverageScan(chunk_starts.data(), ends[chunk_id].data(), num_rows, position, words.data());
 
-   // Remove this chunk's in-region N positions: a row whose covered range includes `position` but
-   // records an N there is not covered at `position` (it belongs to the missing symbol instead).
-   const uint32_t base_row_id = static_cast<uint32_t>(chunk_id) << 16U;
-   const uint64_t chunk_end_key = static_cast<uint64_t>(base_row_id) + num_rows;
-   const auto chunk_rows_begin = horizontal_bitmaps.lower_bound(base_row_id);
-   const auto chunk_rows_end =
-      chunk_end_key > UINT32_MAX
-         ? horizontal_bitmaps.end()
-         : horizontal_bitmaps.lower_bound(static_cast<uint32_t>(chunk_end_key));
-   for (auto iter = chunk_rows_begin; iter != chunk_rows_end; ++iter) {
-      if (iter->second.contains(position)) {
-         roaring::internal::bitset_container_remove(bitset, static_cast<uint16_t>(iter->first));
+      // Remove this chunk's in-region N positions: a row whose covered range includes `position`
+      // but records an N there is not covered at `position` (it belongs to the missing symbol
+      // instead).
+      const uint32_t base_row_id = static_cast<uint32_t>(chunk_id) << 16U;
+      const uint64_t chunk_end_key = static_cast<uint64_t>(base_row_id) + num_rows;
+      const auto chunk_rows_begin = horizontal_bitmaps.lower_bound(base_row_id);
+      const auto chunk_rows_end =
+         chunk_end_key > UINT32_MAX
+            ? horizontal_bitmaps.end()
+            : horizontal_bitmaps.lower_bound(static_cast<uint32_t>(chunk_end_key));
+      for (auto iter = chunk_rows_begin; iter != chunk_rows_end; ++iter) {
+         if (iter->second.contains(position)) {
+            const auto row = static_cast<uint16_t>(iter->first);
+            words[row / 64U] &= ~(uint64_t{1} << (row % 64U));
+         }
       }
-   }
-
-   roaring_util::RoaringContainer result{
-      bitset,
-      static_cast<uint32_t>(bitset->cardinality),
-      BITSET_CONTAINER_TYPE,
-   };
+   });
    result.runOptimizeAndShrink();
    return result;
 }
@@ -198,17 +190,11 @@ roaring_util::RoaringContainer HorizontalCoverageIndex::coveredRowsInChunk(
 roaring::Roaring HorizontalCoverageIndex::coveredRows(uint32_t position) const {
    roaring::Roaring result;
    for (size_t chunk_id = 0; chunk_id < numChunks(); ++chunk_id) {
-      const roaring_util::RoaringContainer covered =
-         coveredRowsInChunk(position, static_cast<uint16_t>(chunk_id));
-      if (covered.empty()) {
-         continue;
-      }
-      // `ra_append` takes ownership, and `RoaringContainer` frees its own, so hand over a clone
-      roaring::internal::ra_append(
-         &result.roaring.high_low_container,
+      // Empty containers are dropped by `appendTo`
+      roaring_util::appendTo(
+         result,
          static_cast<uint16_t>(chunk_id),
-         roaring::internal::container_clone(covered.rawContainer(), covered.getTypecode()),
-         covered.getTypecode()
+         coveredRowsInChunk(position, static_cast<uint16_t>(chunk_id))
       );
    }
    return result;

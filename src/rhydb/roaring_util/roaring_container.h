@@ -14,31 +14,117 @@
 #include <boost/serialization/string.hpp>
 #include <roaring/roaring.hh>
 
+#include "rhydb/common/panic.h"
+
 namespace rhydb::roaring_util {
 
+class RoaringContainer;
 class RoaringContainerView;
 
+/// Number of 64-bit words of a bitset container, which holds one bit per value of its 2^16 range.
+inline constexpr size_t BITSET_CONTAINER_WORDS = roaring::internal::BITSET_CONTAINER_SIZE_IN_WORDS;
+
+namespace detail {
+
+/// Raw access to the roaring containers behind `RoaringContainer` and `RoaringContainerView`, for
+/// the implementation and tests of roaring_util only. Defined in `container_access.h`.
+struct ContainerAccess;
+
+/// The borrowed payload of a container: a pointer to the sorted array values, the bitset words or
+/// the runs. Which member is active is determined by the container's typecode; only that member
+/// may be read.
+union ContainerPayload {
+   const uint16_t* array;
+   const uint64_t* bitset_words;
+   const roaring::internal::rle16_t* runs;
+};
+
+/// Roaring's per-type container header (`array_container_t`, `bitset_container_t` or
+/// `run_container_t`), built from a view's fields for the duration of a call into roaring's generic
+/// `container_*` functions, which dispatch on the typecode themselves. The header only borrows the
+/// payload, and is only ever passed as `const container_t*`, so roaring never writes through it.
+class ContainerHeader {
+   union {
+      roaring::internal::array_container_t array;
+      roaring::internal::bitset_container_t bitset;
+      roaring::internal::run_container_t run;
+   } header{};
+   uint8_t typecode = ARRAY_CONTAINER_TYPE;
+
+  public:
+   ContainerHeader() = default;
+
+   ContainerHeader(
+      ContainerPayload payload,
+      uint32_t cardinality,
+      uint16_t n_runs,
+      uint8_t typecode
+   )
+       : typecode(typecode) {
+      // Roaring's headers hold mutable payload pointers, but this header is only ever handed out
+      // as `const container_t*`.
+      // NOLINTBEGIN(cppcoreguidelines-pro-type-const-cast)
+      switch (typecode) {
+         case BITSET_CONTAINER_TYPE:
+            header.bitset.cardinality = static_cast<int32_t>(cardinality);
+            header.bitset.words = const_cast<uint64_t*>(payload.bitset_words);
+            break;
+         case RUN_CONTAINER_TYPE:
+            header.run.n_runs = n_runs;
+            header.run.capacity = n_runs;
+            header.run.runs = const_cast<roaring::internal::rle16_t*>(payload.runs);
+            break;
+         default:
+            RHYDB_DEBUG_ASSERT_EQ(typecode, uint8_t{ARRAY_CONTAINER_TYPE});
+            header.array.cardinality = static_cast<int32_t>(cardinality);
+            header.array.capacity = static_cast<int32_t>(cardinality);
+            header.array.array = const_cast<uint16_t*>(payload.array);
+            break;
+      }
+      // NOLINTEND(cppcoreguidelines-pro-type-const-cast)
+   }
+
+   /// The header as roaring's opaque container type. Points into this object, so it must not
+   /// outlive it.
+   [[nodiscard]] const roaring::internal::container_t* get() const {
+      switch (typecode) {
+         case BITSET_CONTAINER_TYPE:
+            return &header.bitset;
+         case RUN_CONTAINER_TYPE:
+            return &header.run;
+         default:
+            return &header.array;
+      }
+   }
+
+   [[nodiscard]] uint8_t getTypecode() const { return typecode; }
+
+   /// The borrowed payload: the array values, the bitset words or the runs.
+   [[nodiscard]] const void* payload() const {
+      switch (typecode) {
+         case BITSET_CONTAINER_TYPE:
+            return header.bitset.words;
+         case RUN_CONTAINER_TYPE:
+            return header.run.runs;
+         default:
+            return header.array.array;
+      }
+   }
+};
+
+}  // namespace detail
+
 /// Owning RAII wrapper around a single roaring bitmap container (the 2^16-valued building block a
-/// `roaring::Roaring` is internally composed of). It bundles the raw `roaring::internal` pointer,
-/// its typecode and its cardinality, and encapsulates the container-level C API -- adding values,
+/// `roaring::Roaring` is internally composed of). It bundles the roaring-allocated container, its
+/// typecode and its cardinality, and encapsulates the container-level C API -- adding values,
 /// sizing, run-optimizing, cloning and (de)serializing -- so callers do not reach into
-/// `roaring::internal` directly.
+/// `roaring::internal` directly. The container is never a roaring shared container.
 class RoaringContainer {
    roaring::internal::container_t* container = nullptr;
    uint32_t cardinality = 0;
    uint8_t typecode = 0;
 
-  public:
-   /// Constructs an empty container that owns nothing (required for boost deserialization).
-   /// Container will be in invalid state, rawContainer() must be initialized before usage
-   /// Prefer `withCapacity`/`clonedFrom`/the owning constructor otherwise.
-   [[deprecated(
-      "RoaringContainer{} yields an invalid, container-less object and exists only for boost "
-      "deserialization; use RoaringContainer::withCapacity/clonedFrom or the owning constructor"
-   )]]
-   RoaringContainer() = default;
-
-   /// Takes ownership of an already-allocated container.
+   /// Takes ownership of an already-allocated, non-shared container.
    RoaringContainer(
       roaring::internal::container_t* container,
       uint32_t cardinality,
@@ -48,17 +134,41 @@ class RoaringContainer {
          cardinality(cardinality),
          typecode(typecode) {}
 
+   friend class RoaringContainerView;
+   friend struct detail::ContainerAccess;
+
+  public:
+   /// Constructs an empty container that owns nothing (required for boost deserialization).
+   /// Container will be in invalid state, it must be deserialized into before usage.
+   /// Prefer `withCapacity`/`ofRange`/`RoaringContainerView::toOwning` otherwise.
+   [[deprecated(
+      "RoaringContainer{} yields an invalid, container-less object and exists only for boost "
+      "deserialization; use RoaringContainer::withCapacity or RoaringContainerView::toOwning"
+   )]]
+   RoaringContainer() = default;
+
    /// Creates an empty container sized for `capacity` elements
    static RoaringContainer withCapacity(int32_t capacity);
 
    /// Creates a container holding exactly the values in `[start, end)`, with `end <= 2^16`
    static RoaringContainer ofRange(uint32_t start, uint32_t end);
 
-   /// Deep-copies an externally owned container and computes its cardinality.
-   static RoaringContainer clonedFrom(
-      const roaring::internal::container_t* source,
-      uint8_t typecode
-   );
+   /// Creates a bitset container whose 64-bit words (all zero initially) are written by
+   /// `fill(std::span<uint64_t, BITSET_CONTAINER_WORDS>)`; bit `i % 64` of word `i / 64`
+   /// holds value `i`. The cardinality is computed afterwards.
+   template <typename Fill>
+   static RoaringContainer bitsetFilledBy(Fill&& fill) {
+      auto* bitset = roaring::internal::bitset_container_create();
+      RHYDB_ASSERT(bitset != nullptr);
+      // Owned before `fill` runs, so the bitset is freed should `fill` throw.
+      RoaringContainer result{bitset, 0, BITSET_CONTAINER_TYPE};
+      std::forward<Fill>(fill)(
+         std::span<uint64_t, BITSET_CONTAINER_WORDS>{bitset->words, BITSET_CONTAINER_WORDS}
+      );
+      bitset->cardinality = roaring::internal::bitset_container_compute_cardinality(bitset);
+      result.cardinality = static_cast<uint32_t>(bitset->cardinality);
+      return result;
+   }
 
    RoaringContainer(RoaringContainer&& other) noexcept
        : container(other.container),
@@ -110,10 +220,6 @@ class RoaringContainer {
 
    /// Converts the container to a run container if that is more compact, then shrinks it to fit.
    void runOptimizeAndShrink();
-
-   /// Raw handle for interop with the roaring `internal` API (e.g. BitmapBuilderByContainer,
-   /// roaringSubsetRanks). The container stays owned by this object.
-   [[nodiscard]] const roaring::internal::container_t* rawContainer() const { return container; }
 
    [[nodiscard]] uint8_t getTypecode() const { return typecode; }
 
@@ -177,29 +283,94 @@ class RoaringContainer {
 // On 64-bit systems we expect a 16 byte struct, on 32-bit a 12 byte struct
 static_assert(sizeof(RoaringContainer) == (sizeof(void*) == 8 ? 16 : 12));
 
-/// Non-owning view into a single roaring bitmap container.
-/// The view is invalidated if the owner is destroyed or mutates the container.
+/// Non-owning view of a single roaring bitmap container: its typecode, its cardinality and a
+/// pointer to its payload (the sorted array values, the bitset words or the runs), which is all
+/// that is needed to rebuild roaring's container header on demand. The view does not point at a
+/// roaring container header, but it is invalidated if the owner is destroyed or mutates the
+/// container.
 class RoaringContainerView {
-   const roaring::internal::container_t* container = nullptr;
+   detail::ContainerPayload payload{.array = nullptr};
    uint32_t cardinality = 0;
-   uint8_t typecode = 0;
+   /// Number of runs of a run container, 0 otherwise. A run container holds at most 2^15 runs.
+   uint16_t n_runs = 0;
+   uint8_t typecode = ARRAY_CONTAINER_TYPE;
 
-  public:
    RoaringContainerView(
-      const roaring::internal::container_t* container,
+      detail::ContainerPayload payload,
       uint32_t cardinality,
+      uint16_t n_runs,
       uint8_t typecode
    )
-       : container(container),
+       : payload(payload),
          cardinality(cardinality),
+         n_runs(n_runs),
          typecode(typecode) {}
 
-   explicit RoaringContainerView(const RoaringContainer& owner)
-       : container(owner.rawContainer()),
-         cardinality(owner.getCardinality()),
-         typecode(owner.getTypecode()) {}
+   /// Views a non-shared roaring container by reading its header once.
+   static RoaringContainerView ofRawContainer(
+      const roaring::internal::container_t* container,
+      uint8_t typecode,
+      uint32_t cardinality
+   ) {
+      switch (typecode) {
+         case BITSET_CONTAINER_TYPE:
+            return {
+               {.bitset_words =
+                   static_cast<const roaring::internal::bitset_container_t*>(container)->words},
+               cardinality,
+               0,
+               typecode,
+            };
+         case RUN_CONTAINER_TYPE: {
+            const auto* run = static_cast<const roaring::internal::run_container_t*>(container);
+            return {
+               {.runs = run->runs},
+               cardinality,
+               static_cast<uint16_t>(run->n_runs),
+               typecode,
+            };
+         }
+         default:
+            RHYDB_DEBUG_ASSERT_EQ(typecode, uint8_t{ARRAY_CONTAINER_TYPE});
+            return {
+               {.array =
+                   static_cast<const roaring::internal::array_container_t*>(container)->array},
+               cardinality,
+               0,
+               typecode,
+            };
+      }
+   }
 
-   [[nodiscard]] const roaring::internal::container_t* rawContainer() const { return container; }
+   [[nodiscard]] detail::ContainerHeader header() const {
+      return detail::ContainerHeader{payload, cardinality, n_runs, typecode};
+   }
+
+   /// The address of the payload (read through the active member), to tell whether two views
+   /// borrow the same storage.
+   [[nodiscard]] const void* payloadAddress() const {
+      switch (typecode) {
+         case BITSET_CONTAINER_TYPE:
+            return payload.bitset_words;
+         case RUN_CONTAINER_TYPE:
+            return payload.runs;
+         default:
+            return payload.array;
+      }
+   }
+
+   friend class RoaringContainer;
+   friend struct detail::ContainerAccess;
+
+  public:
+   /// An empty view.
+   RoaringContainerView() = default;
+
+   explicit RoaringContainerView(const RoaringContainer& owner) {
+      if (owner.container != nullptr) {
+         *this = ofRawContainer(owner.container, owner.typecode, owner.cardinality);
+      }
+   }
 
    [[nodiscard]] uint8_t getTypecode() const { return typecode; }
 
@@ -208,21 +379,22 @@ class RoaringContainerView {
    [[nodiscard]] bool empty() const { return cardinality == 0; }
 
    [[nodiscard]] bool contains(uint16_t value) const {
-      return roaring::internal::container_contains(container, value, typecode);
+      const detail::ContainerHeader container = header();
+      return roaring::internal::container_contains(container.get(), value, typecode);
    }
 
    [[nodiscard]] size_t sizeInBytes() const;
 
-   [[nodiscard]] RoaringContainer toOwning() const {
-      return RoaringContainer::clonedFrom(container, typecode);
-   }
+   /// A deep copy of the viewed container.
+   [[nodiscard]] RoaringContainer toOwning() const;
+
+   friend uint32_t andCardinality(RoaringContainerView lhs, RoaringContainerView rhs);
 
    /// Forward iterator over the low-16-bit values held by the container, in ascending order. The
-   /// iterator borrows the container, so the view (and its owner) must outlive it and the container
-   /// must not be mutated while an iteration is in progress.
+   /// iterator holds its own copy of the container header, so it may outlive the view, but the
+   /// viewed container must outlive it and must not be mutated while an iteration is in progress.
    class ConstIterator {
-      const roaring::internal::container_t* container = nullptr;
-      uint8_t typecode = 0;
+      detail::ContainerHeader container;
       roaring::internal::roaring_container_iterator_t internal_iterator{};
       uint16_t current_value = 0;
       // An exhausted iterator (past the last value, or a default-constructed `end()`) holds no
@@ -240,19 +412,19 @@ class RoaringContainerView {
       ConstIterator() = default;
 
       // The container must be non-empty: `container_init_iterator` assumes a first value exists.
-      ConstIterator(const roaring::internal::container_t* container, uint8_t typecode)
+      explicit ConstIterator(const detail::ContainerHeader& container)
           : container(container),
-            typecode(typecode),
             exhausted(false) {
-         internal_iterator =
-            roaring::internal::container_init_iterator(container, typecode, &current_value);
+         internal_iterator = roaring::internal::container_init_iterator(
+            this->container.get(), this->container.getTypecode(), &current_value
+         );
       }
 
       uint16_t operator*() const { return current_value; }
 
       ConstIterator& operator++() {
          exhausted = !roaring::internal::container_iterator_next(
-            container, typecode, &internal_iterator, &current_value
+            container.get(), container.getTypecode(), &internal_iterator, &current_value
          );
          return *this;
       }
@@ -267,7 +439,8 @@ class RoaringContainerView {
          if (exhausted || other.exhausted) {
             return exhausted && other.exhausted;
          }
-         return container == other.container && current_value == other.current_value;
+         return container.payload() == other.container.payload() &&
+                current_value == other.current_value;
       }
 
       bool operator!=(const ConstIterator& other) const { return !(*this == other); }
@@ -279,15 +452,28 @@ class RoaringContainerView {
       if (empty()) {
          return ConstIterator{};
       }
-      return ConstIterator{container, typecode};
+      return ConstIterator{header()};
    }
 
    [[nodiscard]] static ConstIterator end() { return ConstIterator{}; }
 };
 
-[[nodiscard]] RoaringContainer operator&(RoaringContainerView lhs, RoaringContainerView rhs);
+// On 64-bit systems we expect a 16 byte struct, on 32-bit a 12 byte struct
+static_assert(sizeof(RoaringContainerView) == (sizeof(void*) == 8 ? 16 : 12));
+
 /// Cardinality of the intersection, without materializing it.
-[[nodiscard]] uint32_t andCardinality(RoaringContainerView lhs, RoaringContainerView rhs);
+[[nodiscard]] inline uint32_t andCardinality(RoaringContainerView lhs, RoaringContainerView rhs) {
+   if (lhs.empty() || rhs.empty()) {
+      return 0;
+   }
+   const detail::ContainerHeader lhs_container = lhs.header();
+   const detail::ContainerHeader rhs_container = rhs.header();
+   return static_cast<uint32_t>(roaring::internal::container_and_cardinality(
+      lhs_container.get(), lhs.typecode, rhs_container.get(), rhs.typecode
+   ));
+}
+
+[[nodiscard]] RoaringContainer operator&(RoaringContainerView lhs, RoaringContainerView rhs);
 [[nodiscard]] RoaringContainer operator-(RoaringContainerView lhs, RoaringContainerView rhs);
 [[nodiscard]] RoaringContainer operator|(RoaringContainerView lhs, RoaringContainerView rhs);
 
@@ -299,6 +485,24 @@ class RoaringContainerView {
 /// lazily -- without maintaining the cardinality after every step -- into a bitset, which is
 /// repaired (and converted to its most compact representation) once at the end.
 [[nodiscard]] RoaringContainer fastUnion(std::span<const RoaringContainerView> views);
+
+/// Views the containers of `bitmap` as `{key, view}` pairs in ascending key order. A shared
+/// (copy-on-write) container is viewed through to the container it wraps. The views are
+/// invalidated when `bitmap` is destroyed or mutated.
+[[nodiscard]] std::vector<std::pair<uint16_t, RoaringContainerView>> containerViews(
+   const roaring::Roaring& bitmap
+);
+
+/// Moves the containers out of `bitmap` as `{key, container}` pairs in ascending key order,
+/// leaving `bitmap` empty. A shared (copy-on-write) container is replaced by a private copy.
+[[nodiscard]] std::vector<std::pair<uint16_t, RoaringContainer>> releaseContainers(
+   roaring::Roaring&& bitmap
+);
+
+/// Hands `container` over to `bitmap` as the container of the 2^16 block `key`, which must be
+/// greater than every key `bitmap` already holds. An empty container is dropped, preserving
+/// roaring's invariant that a bitmap holds no empty containers.
+void appendTo(roaring::Roaring& bitmap, uint16_t key, RoaringContainer&& container);
 
 /// A single roaring container that is either a non-owning view into a container owned elsewhere or
 /// a privately-owned copy

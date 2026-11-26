@@ -138,17 +138,10 @@ std::optional<typename SymbolType::Symbol> VerticalSequenceIndex<SymbolType>::ad
       position_idx, {SymbolType::SYMBOLS.begin(), SymbolType::SYMBOLS.end()}
    );
 
-   const auto& roaring_array = old_reference_bitmap.roaring.high_low_container;
-   RHYDB_ASSERT_LT(roaring_array.size, UINT16_MAX);
-   auto num_containers = static_cast<uint16_t>(roaring_array.size);
-   for (uint16_t container_idx = 0; container_idx < num_containers; ++container_idx) {
-      const uint8_t typecode = roaring_array.typecodes[container_idx];
-      const uint16_t v_index = roaring_array.keys[container_idx];
-
+   for (auto& [v_index, container] :
+        roaring_util::releaseContainers(std::move(old_reference_bitmap))) {
       auto key = SequenceDiffKey{position_idx, v_index, current_local_reference_symbol};
-      vertical_bitmaps.insert(
-         {key, SequenceDiff::clonedFrom(roaring_array.containers[container_idx], typecode)}
-      );
+      vertical_bitmaps.insert({key, std::move(container)});
    }
 
    std::vector<uint16_t> v_indices_to_remove;
@@ -198,7 +191,7 @@ roaring::Roaring VerticalSequenceIndex<SymbolType>::getMatchingContainersAsBitma
          continue;
       }
       builder.addContainer(
-         sequence_diff_key.v_index, sequence_diff.rawContainer(), sequence_diff.getTypecode()
+         sequence_diff_key.v_index, roaring_util::RoaringContainerView{sequence_diff}
       );
    }
    return std::move(builder).getBitmap();
@@ -248,18 +241,14 @@ void VerticalSequenceIndex<SymbolType>::overwriteSymbolsInSequences(
    // Construct the slicesarrays that correspond to individual roaring containers = v_index
    std::vector<std::string*> sequences_by_v_index(max_v_index + 1);
    std::vector<size_t> sequences_by_v_index_sizes(max_v_index + 1);
-   std::vector<const roaring::internal::container_t*> roaring_containers_by_v_index(
-      max_v_index + 1
-   );
-   std::vector<uint8_t> roaring_typecodes_by_v_index(max_v_index + 1);
+   std::vector<roaring_util::RoaringContainerView> row_ids_by_v_index(max_v_index + 1);
    std::string* current_sequences_pointer = sequences.data();
 
    for (const auto& [key, view] : row_ids) {
       RHYDB_ASSERT(key <= max_v_index);
       sequences_by_v_index.at(key) = current_sequences_pointer;
       sequences_by_v_index_sizes.at(key) = view.getCardinality();
-      roaring_containers_by_v_index.at(key) = view.rawContainer();
-      roaring_typecodes_by_v_index.at(key) = view.getTypecode();
+      row_ids_by_v_index.at(key) = view;
       current_sequences_pointer += view.getCardinality();
    }
 
@@ -271,10 +260,8 @@ void VerticalSequenceIndex<SymbolType>::overwriteSymbolsInSequences(
       }
 
       auto ranks_in_reconstructed_sequences = roaringSubsetRanks(
-         roaring_containers_by_v_index.at(v_index),
-         roaring_typecodes_by_v_index.at(v_index),
-         sequence_diff.rawContainer(),
-         sequence_diff.getTypecode(),
+         row_ids_by_v_index.at(v_index),
+         roaring_util::RoaringContainerView{sequence_diff},
          /*base=*/0  // Base rank is 0, because we have a slice per container
       );
 

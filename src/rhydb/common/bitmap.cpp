@@ -19,58 +19,33 @@ void Bitmap::pushIfNonEmpty(
    std::vector<uint16_t>& out_keys,
    std::vector<Container>& out_containers,
    uint16_t key,
-   roaring::internal::container_t* container,
-   uint8_t typecode
+   roaring_util::RoaringContainer&& container
 ) {
-   const auto cardinality =
-      static_cast<uint32_t>(roaring::internal::container_get_cardinality(container, typecode));
-   if (cardinality == 0) {
-      roaring::internal::container_free(container, typecode);
+   if (container.empty()) {
       return;
    }
    out_keys.push_back(key);
-   out_containers.emplace_back(roaring_util::RoaringContainer{container, cardinality, typecode});
+   out_containers.emplace_back(std::move(container));
 }
 
 Bitmap::Bitmap(const roaring::Roaring* bitmap) {
-   const auto& roaring_array = bitmap->roaring.high_low_container;
-   keys.reserve(roaring_array.size);
-   containers.reserve(roaring_array.size);
-   for (int32_t idx = 0; idx < roaring_array.size; ++idx) {
-      const auto cardinality = static_cast<uint32_t>(roaring::internal::container_get_cardinality(
-         roaring_array.containers[idx], roaring_array.typecodes[idx]
-      ));
-      keys.push_back(roaring_array.keys[idx]);
-      containers.emplace_back(
-         roaring_util::RoaringContainerView{
-            roaring_array.containers[idx],
-            cardinality,
-            roaring_array.typecodes[idx],
-         }
-      );
+   auto views = roaring_util::containerViews(*bitmap);
+   keys.reserve(views.size());
+   containers.reserve(views.size());
+   for (const auto& [key, view] : views) {
+      keys.push_back(key);
+      containers.emplace_back(view);
    }
 }
 
 Bitmap::Bitmap(roaring::Roaring&& bitmap) {
-   auto& roaring_array = bitmap.roaring.high_low_container;
-   keys.reserve(roaring_array.size);
-   containers.reserve(roaring_array.size);
-   for (int32_t idx = 0; idx < roaring_array.size; ++idx) {
-      const auto cardinality = static_cast<uint32_t>(roaring::internal::container_get_cardinality(
-         roaring_array.containers[idx], roaring_array.typecodes[idx]
-      ));
-      keys.push_back(roaring_array.keys[idx]);
-      containers.emplace_back(
-         roaring_util::RoaringContainer{
-            roaring_array.containers[idx],
-            cardinality,
-            roaring_array.typecodes[idx],
-         }
-      );
+   auto owned = roaring_util::releaseContainers(std::move(bitmap));
+   keys.reserve(owned.size());
+   containers.reserve(owned.size());
+   for (auto& [key, container] : owned) {
+      keys.push_back(key);
+      containers.emplace_back(std::move(container));
    }
-   // The containers now belong to this object; drop the source's bookkeeping arrays without
-   // freeing the containers they pointed at.
-   roaring::internal::ra_clear_without_containers(&roaring_array);
 }
 
 Bitmap::Bitmap(const Bitmap& other) = default;
@@ -116,14 +91,8 @@ uint64_t Bitmap::andCardinality(const Bitmap& other) const {
       } else if (keys[left] > other.keys[right]) {
          ++right;
       } else {
-         const auto left_view = containers[left].view();
-         const auto right_view = other.containers[right].view();
-         total += static_cast<uint64_t>(roaring::internal::container_and_cardinality(
-            left_view.rawContainer(),
-            left_view.getTypecode(),
-            right_view.rawContainer(),
-            right_view.getTypecode()
-         ));
+         total +=
+            roaring_util::andCardinality(containers[left].view(), other.containers[right].view());
          ++left;
          ++right;
       }
@@ -142,18 +111,11 @@ Bitmap& Bitmap::operator&=(const Bitmap& other) {
       } else if (keys[left] > other.keys[right]) {
          ++right;
       } else {
-         const auto left_view = containers[left].view();
-         const auto right_view = other.containers[right].view();
-         uint8_t result_typecode = 0;
-         auto* result_container = roaring::internal::container_and(
-            left_view.rawContainer(),
-            left_view.getTypecode(),
-            right_view.rawContainer(),
-            right_view.getTypecode(),
-            &result_typecode
-         );
          pushIfNonEmpty(
-            result_keys, result_containers, keys[left], result_container, result_typecode
+            result_keys,
+            result_containers,
+            keys[left],
+            containers[left].view() & other.containers[right].view()
          );
          ++left;
          ++right;
@@ -177,18 +139,11 @@ Bitmap& Bitmap::operator-=(const Bitmap& other) {
       } else if (keys[left] > other.keys[right]) {
          ++right;
       } else {
-         const auto left_view = containers[left].view();
-         const auto right_view = other.containers[right].view();
-         uint8_t result_typecode = 0;
-         auto* result_container = roaring::internal::container_andnot(
-            left_view.rawContainer(),
-            left_view.getTypecode(),
-            right_view.rawContainer(),
-            right_view.getTypecode(),
-            &result_typecode
-         );
          pushIfNonEmpty(
-            result_keys, result_containers, keys[left], result_container, result_typecode
+            result_keys,
+            result_containers,
+            keys[left],
+            containers[left].view() - other.containers[right].view()
          );
          ++left;
          ++right;
@@ -214,18 +169,11 @@ Bitmap& Bitmap::operator|=(const Bitmap& other) {
          result_containers.push_back(other.containers[right]);
          ++right;
       } else {
-         const auto left_view = containers[left].view();
-         const auto right_view = other.containers[right].view();
-         uint8_t result_typecode = 0;
-         auto* result_container = roaring::internal::container_or(
-            left_view.rawContainer(),
-            left_view.getTypecode(),
-            right_view.rawContainer(),
-            right_view.getTypecode(),
-            &result_typecode
-         );
          pushIfNonEmpty(
-            result_keys, result_containers, keys[left], result_container, result_typecode
+            result_keys,
+            result_containers,
+            keys[left],
+            containers[left].view() | other.containers[right].view()
          );
          ++left;
          ++right;
@@ -246,18 +194,11 @@ Bitmap Bitmap::operator&(const Bitmap& other) const {
       } else if (keys[left] > other.keys[right]) {
          ++right;
       } else {
-         const auto left_view = containers[left].view();
-         const auto right_view = other.containers[right].view();
-         uint8_t result_typecode = 0;
-         auto* result_container = roaring::internal::container_and(
-            left_view.rawContainer(),
-            left_view.getTypecode(),
-            right_view.rawContainer(),
-            right_view.getTypecode(),
-            &result_typecode
-         );
          pushIfNonEmpty(
-            result.keys, result.containers, keys[left], result_container, result_typecode
+            result.keys,
+            result.containers,
+            keys[left],
+            containers[left].view() & other.containers[right].view()
          );
          ++left;
          ++right;
@@ -374,13 +315,7 @@ Bitmap Bitmap::fromChunkContainers(
 roaring::Roaring Bitmap::toRoaring() const {
    roaring::Roaring result;
    for (size_t idx = 0; idx < keys.size(); ++idx) {
-      const auto container_view = containers[idx].view();
-      auto* clone = roaring::internal::container_clone(
-         container_view.rawContainer(), container_view.getTypecode()
-      );
-      roaring::internal::ra_append(
-         &result.roaring.high_low_container, keys[idx], clone, container_view.getTypecode()
-      );
+      roaring_util::appendTo(result, keys[idx], containers[idx].toOwning());
    }
    return result;
 }

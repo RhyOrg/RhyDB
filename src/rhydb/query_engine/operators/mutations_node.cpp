@@ -21,6 +21,7 @@
 #include "rhydb/query_engine/exec_node/async_batch_producer.h"
 #include "rhydb/query_engine/exec_node/schema_output_builder.h"
 #include "rhydb/query_engine/operators/compute_filter.h"
+#include "rhydb/roaring_util/roaring_container.h"
 #include "rhydb/schema/database_schema.h"
 #include "rhydb/storage/column/sequence_column.h"
 #include "rhydb/storage/table.h"
@@ -161,27 +162,16 @@ void countActualFilteredMutations(
    const std::map<SequenceDiffKey<SymbolType>, SequenceDiff<SymbolType>>& vertical_bitmaps
 ) {
    EVOBENCH_SCOPE("Mutations", "countActualFilteredMutations");
-   const auto& filter_roaring_array = filter.roaring.high_low_container;
-   std::map<size_t, roaring::internal::container_t*> filter_containers;
-   std::map<size_t, uint8_t> filter_container_typecodes;
-   for (int32_t idx = 0; idx < filter_roaring_array.size; ++idx) {
-      filter_containers[filter_roaring_array.keys[idx]] = filter_roaring_array.containers[idx];
-      filter_container_typecodes[filter_roaring_array.keys[idx]] =
-         filter_roaring_array.typecodes[idx];
+   std::map<size_t, roaring_util::RoaringContainerView> filter_containers;
+   for (const auto& [key, view] : roaring_util::containerViews(filter)) {
+      filter_containers.emplace(key, view);
    }
 
    for (const auto& [sequence_diff_key, sequence_diff] : vertical_bitmaps) {
       auto iter = filter_containers.find(sequence_diff_key.v_index);
       if (iter != filter_containers.end()) {
-         auto filter_container = iter->second;
-         const uint8_t filter_container_typecode =
-            filter_container_typecodes.at(sequence_diff_key.v_index);
-
-         auto contained_count = roaring::internal::container_and_cardinality(
-            filter_container,
-            filter_container_typecode,
-            sequence_diff.rawContainer(),
-            sequence_diff.getTypecode()
+         const uint32_t contained_count = roaring_util::andCardinality(
+            iter->second, roaring_util::RoaringContainerView{sequence_diff}
          );
 
          count_of_mutations_per_position[sequence_diff_key.symbol][sequence_diff_key.position] +=
