@@ -3,9 +3,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <span>
 #include <stdexcept>
+#include <string>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -13,6 +17,7 @@
 
 using rhydb::common::Buffer;
 using rhydb::common::BufferBuilder;
+using rhydb::roaring_util::ContainerType;
 using rhydb::roaring_util::RoaringContainerView;
 using rhydb::storage::sequence::VerticalSequenceIndex;
 using rhydb::storage::sequence::VerticalSequenceIndexBuilder;
@@ -21,6 +26,7 @@ using rhydb::storage::sequence::VerticalSequenceIndexHeader;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 using ::testing::HasSubstr;
+using ::testing::ThrowsMessage;
 
 namespace {
 
@@ -53,16 +59,14 @@ Buffer exampleBuffer() {
 
 // A copy of `buffer` in freshly allocated memory, as it would be after reading it back from disk,
 // with `corrupt` applied to its bytes.
-template <typename Corrupt>
-Buffer copyOf(const Buffer& buffer, Corrupt corrupt) {
+Buffer copyOf(
+   const Buffer& buffer,
+   const std::function<void(std::span<std::byte>)>& corrupt = [](auto /*bytes*/) {}
+) {
    BufferBuilder builder{buffer.size()};
    builder.write(0, buffer.bytes());
    corrupt(builder.bytes());
    return std::move(builder).finish();
-}
-
-Buffer copyOf(const Buffer& buffer) {
-   return copyOf(buffer, [](std::span<std::byte> /*bytes*/) {});
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -71,27 +75,26 @@ void expectExampleContent(const VerticalSequenceIndex& index) {
 
    const auto at_one = index.entriesAtPosition(1);
    ASSERT_EQ(at_one.size(), 2);
-   EXPECT_EQ(at_one[0].symbol, 2);
-   EXPECT_EQ(at_one[0].type, rhydb::roaring_util::ContainerType::ARRAY);
+   EXPECT_EQ(
+      std::pair(at_one[0].symbol, at_one[0].type), std::pair(uint8_t{2}, ContainerType::ARRAY)
+   );
    EXPECT_THAT(valuesOf(index.container(at_one[0])), ElementsAre(3, 9, 27));
    EXPECT_EQ(at_one[1].symbol, 5);
    EXPECT_THAT(valuesOf(index.container(at_one[1])), ElementsAre(4));
 
-   const auto at_three = index.entriesAtPosition(3);
-   ASSERT_EQ(at_three.size(), 1);
-   EXPECT_EQ(at_three[0].type, rhydb::roaring_util::ContainerType::BITSET);
-   EXPECT_EQ(index.container(at_three[0]).getCardinality(), range(0, 20000, 3).size());
-   EXPECT_THAT(valuesOf(index.container(at_three[0])), ElementsAreArray(range(0, 20000, 3)));
-
-   const auto at_seven = index.entriesAtPosition(7);
-   ASSERT_EQ(at_seven.size(), 1);
-   EXPECT_EQ(at_seven[0].type, rhydb::roaring_util::ContainerType::RUN);
-   EXPECT_EQ(index.container(at_seven[0]).getCardinality(), 4900);
-   EXPECT_THAT(valuesOf(index.container(at_seven[0])), ElementsAreArray(range(100, 5000)));
-
-   EXPECT_TRUE(index.entriesAtPosition(0).empty());
-   EXPECT_TRUE(index.entriesAtPosition(2).empty());
-   EXPECT_TRUE(index.entriesAtPosition(8).empty());
+   for (const auto& [position, type, rows] : {
+           std::tuple{3U, ContainerType::BITSET, range(0, 20000, 3)},
+           std::tuple{7U, ContainerType::RUN, range(100, 5000)},
+        }) {
+      const auto entries = index.entriesAtPosition(position);
+      ASSERT_EQ(entries.size(), 1);
+      EXPECT_EQ(entries[0].type, type);
+      EXPECT_EQ(index.container(entries[0]).getCardinality(), rows.size());
+      EXPECT_THAT(valuesOf(index.container(entries[0])), ElementsAreArray(rows));
+   }
+   for (const uint32_t position : {0, 2, 8}) {
+      EXPECT_TRUE(index.entriesAtPosition(position).empty());
+   }
 }
 
 VerticalSequenceIndexEntry* entryOf(std::span<std::byte> bytes, size_t index) {
@@ -103,7 +106,9 @@ VerticalSequenceIndexEntry* entryOf(std::span<std::byte> bytes, size_t index) {
 }  // namespace
 
 TEST(VerticalSequenceIndex, emptyIndexIsRereadable) {
-   const auto buffer = VerticalSequenceIndexBuilder{}.finish();
+   VerticalSequenceIndexBuilder builder;
+   builder.add(0, 0, std::span<const uint16_t>{});  // An empty container is skipped
+   const auto buffer = std::move(builder).finish();
    const auto index = VerticalSequenceIndex::fromBuffer(buffer);
    EXPECT_TRUE(index.entries().empty());
    EXPECT_TRUE(index.entriesAtPosition(0).empty());
@@ -112,80 +117,50 @@ TEST(VerticalSequenceIndex, emptyIndexIsRereadable) {
    EXPECT_TRUE(VerticalSequenceIndex::fromBuffer(copy).entries().empty());
 }
 
-TEST(VerticalSequenceIndex, storesEveryContainerTypeAndFindsThemByPosition) {
+TEST(VerticalSequenceIndex, storesEveryContainerTypeAndRereadsItInPlace) {
    const auto buffer = exampleBuffer();
    expectExampleContent(VerticalSequenceIndex::fromBuffer(buffer));
-}
 
-TEST(VerticalSequenceIndex, rereadBytesViewTheSameContainersInPlace) {
-   const auto copy = copyOf(exampleBuffer());
+   const auto copy = copyOf(buffer);
    const auto index = VerticalSequenceIndex::fromBuffer(copy);
    expectExampleContent(index);
-
    // The containers are views into the new bytes.
-   const auto entry = index.entriesAtPosition(3)[0];
-   const auto* payload = index.container(entry).payload().data();
+   const auto* payload = index.container(index.entriesAtPosition(3)[0]).payload().data();
    EXPECT_GE(payload, copy.bytes().data());
    EXPECT_LT(payload, copy.bytes().data() + copy.size());
    EXPECT_EQ(reinterpret_cast<uintptr_t>(payload) % VerticalSequenceIndex::ALIGNMENT, 0);  // NOLINT
 }
 
-TEST(VerticalSequenceIndex, builderSkipsEmptyContainers) {
-   VerticalSequenceIndexBuilder builder;
-   builder.add(0, 0, std::span<const uint16_t>{});
-   const auto buffer = std::move(builder).finish();
-   EXPECT_TRUE(VerticalSequenceIndex::fromBuffer(buffer).entries().empty());
-}
-
 TEST(VerticalSequenceIndex, rejectsMalformedBytes) {
-   const auto buffer = exampleBuffer();
-   auto expect_rejected = [&](auto corrupt, std::string_view message) {
-      EXPECT_THAT(
-         [&]() {
-            const auto copy = copyOf(buffer, corrupt);
-            static_cast<void>(VerticalSequenceIndex::fromBuffer(copy));
+   using Corrupt = std::function<void(std::span<std::byte>)>;
+   const std::vector<std::pair<Corrupt, std::string>> cases{
+      {[](auto bytes) { bytes[0] = std::byte{0}; }, "magic"},
+      {
+         [](auto bytes) {
+            VerticalSequenceIndexHeader header;
+            std::memcpy(&header, bytes.data(), sizeof(header));
+            header.num_entries = 1'000'000;
+            std::memcpy(bytes.data(), &header, sizeof(header));
          },
-         ThrowsMessage<std::runtime_error>(HasSubstr(std::string{message}))
-      );
+         "do not fit",
+      },
+      {[](auto bytes) { entryOf(bytes, 2)->payload_offset += 8; }, "outside the payload section"},
+      {[](auto bytes) { entryOf(bytes, 0)->payload_offset += 1; }, "misaligned payload"},
+      {[](auto bytes) { entryOf(bytes, 0)->cardinality = 5; }, "does not match its cardinality"},
+      {[](auto bytes) { entryOf(bytes, 1)->type = static_cast<ContainerType>(9); }, "unknown"},
+      {[](auto bytes) { entryOf(bytes, 1)->symbol = 1; }, "not strictly sorted"},
    };
-
-   expect_rejected([](std::span<std::byte> bytes) { bytes[0] = std::byte{0}; }, "magic");
-   expect_rejected(
-      [](std::span<std::byte> bytes) {
-         VerticalSequenceIndexHeader header;
-         std::memcpy(&header, bytes.data(), sizeof(header));
-         header.num_entries = 1'000'000;
-         std::memcpy(bytes.data(), &header, sizeof(header));
-      },
-      "do not fit"
-   );
-   expect_rejected(
-      [](std::span<std::byte> bytes) { entryOf(bytes, 2)->payload_offset += 8; },
-      "outside the payload section"
-   );
-   expect_rejected(
-      [](std::span<std::byte> bytes) { entryOf(bytes, 0)->payload_offset += 1; },
-      "misaligned payload"
-   );
-   expect_rejected(
-      [](std::span<std::byte> bytes) { entryOf(bytes, 0)->cardinality = 5; },
-      "payload size does not match its cardinality"
-   );
-   expect_rejected(
-      [](std::span<std::byte> bytes) {
-         entryOf(bytes, 1)->type = static_cast<rhydb::roaring_util::ContainerType>(9);
-      },
-      "unknown container"
-   );
-   expect_rejected(
-      [](std::span<std::byte> bytes) { entryOf(bytes, 1)->symbol = 1; }, "not strictly sorted"
-   );
-
+   const auto buffer = exampleBuffer();
+   for (const auto& [corrupt, message] : cases) {
+      const auto copy = copyOf(buffer, corrupt);
+      EXPECT_THAT(
+         [&]() { static_cast<void>(VerticalSequenceIndex::fromBuffer(copy)); },
+         ThrowsMessage<std::runtime_error>(HasSubstr(message))
+      );
+   }
+   const auto truncated = BufferBuilder{10}.finish();
    EXPECT_THAT(
-      [&]() {
-         const auto truncated = BufferBuilder{10}.finish();
-         static_cast<void>(VerticalSequenceIndex::fromBuffer(truncated));
-      },
+      [&]() { static_cast<void>(VerticalSequenceIndex::fromBuffer(truncated)); },
       ThrowsMessage<std::runtime_error>(HasSubstr("cannot hold a header"))
    );
 }

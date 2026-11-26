@@ -178,40 +178,26 @@ TEST(SequenceReference, mapsSymbolsAndRejectsIllegalCharacters) {
    EXPECT_EQ(reference->text(), "AC-N");
 }
 
-TEST(SequenceChunk, reconstructsTheTextsOfAllRows) {
+TEST(SequenceChunk, reconstructsTheTextsOfAllOrSelectedRows) {
    const auto rows = RandomRows::nucleotides(1, 300, 120);
    ASSERT_EQ(rows.chunk.numRows(), 300);
-   EXPECT_EQ(reconstructAll(rows.chunk), rows.expectedTexts(allRows(300)));
-}
-
-TEST(SequenceChunk, reconstructsTheTextsOfSelectedRows) {
-   const auto rows = RandomRows::nucleotides(2, 300, 120);
-   const auto selected = someRows(300);
-   EXPECT_EQ(reconstruct(rows.chunk, selected), rows.expectedTexts(selected));
-   EXPECT_EQ(reconstruct(rows.chunk, {}), std::vector<std::string>{});
+   for (const auto& selected : {allRows(300), someRows(300), std::vector<uint16_t>{}}) {
+      EXPECT_EQ(reconstruct(rows.chunk, selected), rows.expectedTexts(selected));
+   }
 }
 
 TEST(SequenceChunk, reconstructsEveryNucleotideAndAminoAcidSymbol) {
-   {
-      SequenceChunkBuilder builder{SequenceReference::create<Nucleotide>("A")};
+   auto expect_every_symbol = []<typename SymbolType> {
+      SequenceChunkBuilder builder{SequenceReference::create<SymbolType>("A")};
       std::vector<std::string> expected;
-      for (const auto symbol : Nucleotide::SYMBOLS) {
-         const std::string text(1, Nucleotide::symbolToChar(symbol));
-         builder.addText(text);
-         expected.push_back(text);
+      for (const auto symbol : SymbolType::SYMBOLS) {
+         expected.emplace_back(1, SymbolType::symbolToChar(symbol));
+         builder.addText(expected.back());
       }
       EXPECT_EQ(reconstructAll(std::move(builder).finish()), expected);
-   }
-   {
-      SequenceChunkBuilder builder{SequenceReference::create<AminoAcid>("A")};
-      std::vector<std::string> expected;
-      for (const auto symbol : AminoAcid::SYMBOLS) {
-         const std::string text(1, AminoAcid::symbolToChar(symbol));
-         builder.addText(text);
-         expected.push_back(text);
-      }
-      EXPECT_EQ(reconstructAll(std::move(builder).finish()), expected);
-   }
+   };
+   expect_every_symbol.template operator()<Nucleotide>();
+   expect_every_symbol.template operator()<AminoAcid>();
 }
 
 TEST(SequenceChunk, builderRejectsSequencesThatDoNotFit) {
@@ -221,34 +207,53 @@ TEST(SequenceChunk, builderRejectsSequencesThatDoNotFit) {
    EXPECT_THROW(builder.addText("AJ"), std::invalid_argument);
 }
 
+// Every per-position algorithm, at every position and for several selections, against the texts
+// the rows were built from.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST(SequenceChunk, symbolsAtEqualTheReconstructedCharacters) {
-   const auto rows = RandomRows::nucleotides(3, 400, 90);
-   for (const auto& selected : {allRows(400), someRows(400)}) {
-      const auto container = containerOf(selected);
-      std::vector<char> symbols(selected.size());
-      for (uint32_t position = 0; position < 90; ++position) {
-         symbolsAt(rows.chunk, position, RoaringContainerView{container}, symbols);
-         for (size_t index = 0; index < selected.size(); ++index) {
-            ASSERT_EQ(symbols[index], rows.expectedText(selected[index])[position])
-               << "row " << selected[index] << " position " << position;
+TEST(SequenceChunk, perPositionAlgorithmsMatchTheTexts) {
+   constexpr uint32_t NUM_ROWS = 500;
+   constexpr uint32_t LENGTH = 80;
+   const auto rows = RandomRows::nucleotides(4, NUM_ROWS, LENGTH);
+   auto symbol_of = [](char character) {
+      return static_cast<uint8_t>(Nucleotide::charToSymbol(character).value());
+   };
+   auto is_covered = [&](uint16_t row, uint32_t position) {
+      return rows.texts[row].has_value() && rows.expectedText(row)[position] != 'N';
+   };
+
+   // The stored symbols are the rows differing from the reference.
+   for (uint32_t position = 0; position < LENGTH; ++position) {
+      std::vector<std::vector<uint16_t>> expected(Nucleotide::COUNT);
+      for (uint16_t row = 0; row < NUM_ROWS; ++row) {
+         const char symbol = rows.expectedText(row)[position];
+         if (is_covered(row, position) && symbol != rows.reference[position]) {
+            expected[symbol_of(symbol)].push_back(row);
          }
       }
+      std::vector<std::vector<uint16_t>> actual(Nucleotide::COUNT);
+      for (const auto& [symbol, stored] : storedSymbolsAt(rows.chunk, position)) {
+         actual[symbol] = valuesOf(stored);
+      }
+      ASSERT_EQ(actual, expected) << "position " << position;
    }
-}
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST(SequenceChunk, coveredRowsAndRowsWithSymbolsMatchTheTexts) {
-   const auto rows = RandomRows::nucleotides(4, 500, 80);
-   const auto& reference = *rows.shared_reference;
-   for (const auto& selected : {allRows(500), someRows(500), std::vector<uint16_t>{7, 99}}) {
+   for (const auto& selected :
+        {allRows(NUM_ROWS), someRows(NUM_ROWS), std::vector<uint16_t>{7, 99}}) {
       const auto container = containerOf(selected);
       const RoaringContainerView selection{container};
-      for (uint32_t position = 0; position < 80; ++position) {
+      SymbolCounts expected_counts{static_cast<uint8_t>(Nucleotide::COUNT), LENGTH};
+      for (uint32_t position = 0; position < LENGTH; ++position) {
+         SCOPED_TRACE(::testing::Message() << selected.size() << " rows at " << position);
+         std::vector<char> symbols(selected.size());
+         symbolsAt(rows.chunk, position, selection, symbols);
          std::vector<uint16_t> expected_covered;
-         for (const uint16_t row : selected) {
-            if (rows.texts[row].has_value() && rows.expectedText(row)[position] != 'N') {
+         for (size_t index = 0; index < selected.size(); ++index) {
+            const uint16_t row = selected[index];
+            const char symbol = rows.expectedText(row)[position];
+            ASSERT_EQ(symbols[index], symbol) << "row " << row;
+            if (is_covered(row, position)) {
                expected_covered.push_back(row);
+               ++expected_counts.at(symbol_of(symbol), position);
             }
          }
          ASSERT_EQ(
@@ -256,15 +261,16 @@ TEST(SequenceChunk, coveredRowsAndRowsWithSymbolsMatchTheTexts) {
             expected_covered
          );
 
-         for (const std::string symbols : {"A", "N", "AN", "C-", "-NRY"}) {
+         for (const std::string symbol_chars : {"A", "N", "AN", "C-", "-NRY"}) {
             SymbolSet set;
-            for (const char symbol : symbols) {
-               set.add(static_cast<uint8_t>(Nucleotide::charToSymbol(symbol).value()));
-            }
             std::vector<uint16_t> expected;
+            for (const char symbol : symbol_chars) {
+               set.add(symbol_of(symbol));
+            }
             for (const uint16_t row : selected) {
                if (
-                  rows.texts[row].has_value() && symbols.contains(rows.expectedText(row)[position])
+                  rows.texts[row].has_value() &&
+                  symbol_chars.contains(rows.expectedText(row)[position])
                ) {
                   expected.push_back(row);
                }
@@ -275,68 +281,12 @@ TEST(SequenceChunk, coveredRowsAndRowsWithSymbolsMatchTheTexts) {
                ),
                expected
             ) << "symbols "
-              << symbols << " position " << position;
+              << symbol_chars;
          }
-      }
-   }
-   (void)reference;
-}
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST(SequenceChunk, storedSymbolsAreTheRowsDifferingFromTheReference) {
-   const auto rows = RandomRows::nucleotides(5, 200, 50);
-   for (uint32_t position = 0; position < 50; ++position) {
-      std::vector<std::vector<uint16_t>> expected(Nucleotide::COUNT);
-      for (uint16_t row = 0; row < 200; ++row) {
-         const char symbol = rows.expectedText(row)[position];
-         if (symbol != 'N' && symbol != rows.reference[position]) {
-            expected[static_cast<uint8_t>(Nucleotide::charToSymbol(symbol).value())].push_back(row);
-         }
-      }
-      std::vector<std::vector<uint16_t>> actual(Nucleotide::COUNT);
-      for (const auto& [symbol, stored] : storedSymbolsAt(rows.chunk, position)) {
-         actual[symbol] = valuesOf(stored);
-      }
-      ASSERT_EQ(actual, expected) << "position " << position;
-   }
-}
-
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST(SequenceChunk, symbolCountsCountTheCoveredRows) {
-   const auto rows = RandomRows::nucleotides(6, 300, 60);
-   for (const auto& selected : {allRows(300), someRows(300)}) {
-      SymbolCounts expected{static_cast<uint8_t>(Nucleotide::COUNT), 60};
-      for (const uint16_t row : selected) {
-         const std::string text = rows.expectedText(row);
-         for (uint32_t position = 0; position < 60; ++position) {
-            if (text[position] != 'N') {
-               ++expected.at(
-                  static_cast<uint8_t>(Nucleotide::charToSymbol(text[position]).value()), position
-               );
-            }
-         }
-      }
-      SymbolCounts actual{static_cast<uint8_t>(Nucleotide::COUNT), 60};
-      const auto container = containerOf(selected);
-      addSymbolCounts(rows.chunk, RoaringContainerView{container}, actual);
-      for (uint8_t symbol = 0; symbol < Nucleotide::COUNT; ++symbol) {
-         for (uint32_t position = 0; position < 60; ++position) {
-            ASSERT_EQ(actual.at(symbol, position), expected.at(symbol, position))
-               << "symbol " << int{symbol} << " position " << position;
-         }
-      }
-   }
-}
-
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST(SequenceChunk, symbolGroupsPartitionTheSelectedRows) {
-   const auto rows = RandomRows::nucleotides(7, 300, 70);
-   for (const auto& selected : {allRows(300), someRows(300)}) {
-      const auto container = containerOf(selected);
-      const RoaringContainerView selection{container};
-      for (uint32_t position = 0; position < 70; ++position) {
+         // The symbol groups partition the selected rows; null rows form a group of their own.
          const auto groups = groupRowsBySymbolAt(rows.chunk, position, selection);
-         std::vector<int> group_of_row(300, -1);
+         std::vector<int> group_of_row(NUM_ROWS, -1);
          if (groups.every_row_symbol.has_value()) {
             for (const uint16_t row : selected) {
                group_of_row[row] = *groups.every_row_symbol;
@@ -358,13 +308,21 @@ TEST(SequenceChunk, symbolGroupsPartitionTheSelectedRows) {
             }
          }
          for (const uint16_t row : selected) {
-            const int expected =
-               rows.texts[row].has_value()
-                  ? static_cast<int>(
-                       Nucleotide::charToSymbol(rows.expectedText(row)[position]).value()
-                    )
-                  : static_cast<int>(Nucleotide::COUNT);
-            ASSERT_EQ(group_of_row[row], expected) << "row " << row << " position " << position;
+            ASSERT_EQ(
+               group_of_row[row],
+               rows.texts[row].has_value() ? symbol_of(rows.expectedText(row)[position])
+                                           : Nucleotide::COUNT
+            ) << "row "
+              << row;
+         }
+      }
+
+      SymbolCounts counts{static_cast<uint8_t>(Nucleotide::COUNT), LENGTH};
+      addSymbolCounts(rows.chunk, selection, counts);
+      for (uint8_t symbol = 0; symbol < Nucleotide::COUNT; ++symbol) {
+         for (uint32_t position = 0; position < LENGTH; ++position) {
+            ASSERT_EQ(counts.at(symbol, position), expected_counts.at(symbol, position))
+               << "symbol " << int{symbol} << " position " << position;
          }
       }
    }
@@ -444,20 +402,16 @@ TEST(SequenceChunk, compactionRemovesTheDeletedRows) {
    EXPECT_EQ(reconstructAll(rows.chunk), rows.expectedTexts(allRows(200)));
 }
 
-TEST(SequenceChunk, copiesShareTheBuffers) {
-   const auto rows = RandomRows::nucleotides(10, 50, 30);
-   const SequenceChunk copy = rows.chunk;  // NOLINT(performance-unnecessary-copy-initialization)
-   EXPECT_EQ(copy.mutationsBuffer(), rows.chunk.mutationsBuffer());
-   EXPECT_EQ(copy.coverageBuffer(), rows.chunk.coverageBuffer());
-   EXPECT_EQ(copy.mutations().entries().data(), rows.chunk.mutations().entries().data());
-   EXPECT_EQ(copy.coverage().starts().data(), rows.chunk.coverage().starts().data());
-   EXPECT_EQ(copy.nullRows().payload().data(), rows.chunk.nullRows().payload().data());
-   EXPECT_EQ(copy.sharedReference(), rows.chunk.sharedReference());
-}
-
-TEST(SequenceChunk, copiesKeepTheBuffersAlive) {
-   std::optional<RandomRows> rows = RandomRows::nucleotides(13, 50, 30);
+TEST(SequenceChunk, copiesShareTheBuffersAndKeepThemAlive) {
+   std::optional<RandomRows> rows = RandomRows::nucleotides(10, 50, 30);
    const SequenceChunk copy = rows->chunk;
+   EXPECT_EQ(copy.mutationsBuffer(), rows->chunk.mutationsBuffer());
+   EXPECT_EQ(copy.coverageBuffer(), rows->chunk.coverageBuffer());
+   EXPECT_EQ(copy.mutations().entries().data(), rows->chunk.mutations().entries().data());
+   EXPECT_EQ(copy.coverage().starts().data(), rows->chunk.coverage().starts().data());
+   EXPECT_EQ(copy.nullRows().payload().data(), rows->chunk.nullRows().payload().data());
+   EXPECT_EQ(copy.sharedReference(), rows->chunk.sharedReference());
+
    const auto expected = rows->expectedTexts(allRows(50));
    rows.reset();
    EXPECT_EQ(copy.mutationsBuffer().use_count(), 1);
