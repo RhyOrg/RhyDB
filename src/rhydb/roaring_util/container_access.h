@@ -21,7 +21,9 @@ struct ContainerAccess {
    }
 
    /// The payload `view` points at, e.g. to tell whether two views share their storage.
-   [[nodiscard]] static const void* payload(RoaringContainerView view) { return view.payload; }
+   [[nodiscard]] static const void* payload(RoaringContainerView view) {
+      return view.payloadAddress();
+   }
 
    /// Takes ownership of a roaring-allocated, non-shared container.
    [[nodiscard]] static RoaringContainer adopt(

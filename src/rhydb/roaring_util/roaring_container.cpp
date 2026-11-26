@@ -256,7 +256,7 @@ RoaringContainer& RoaringContainer::operator|=(RoaringContainerView addend) {
    }
    // OR-ing a container into itself changes nothing. It must not reach `container_ior`, which
    // could reallocate the payload the addend's header still points at.
-   if (addend.payload == RoaringContainerView{*this}.payload) {
+   if (addend.payloadAddress() == RoaringContainerView{*this}.payloadAddress()) {
       return *this;
    }
    const detail::ContainerHeader addend_container = addend.header();

@@ -30,6 +30,15 @@ namespace detail {
 /// the implementation and tests of roaring_util only. Defined in `container_access.h`.
 struct ContainerAccess;
 
+/// The borrowed payload of a container: a pointer to the sorted array values, the bitset words or
+/// the runs. Which member is active is determined by the container's typecode; only that member
+/// may be read.
+union ContainerPayload {
+   const uint16_t* array;
+   const uint64_t* bitset_words;
+   const roaring::internal::rle16_t* runs;
+};
+
 /// Roaring's per-type container header (`array_container_t`, `bitset_container_t` or
 /// `run_container_t`), built from a view's fields for the duration of a call into roaring's generic
 /// `container_*` functions, which dispatch on the typecode themselves. The header only borrows the
@@ -45,7 +54,12 @@ class ContainerHeader {
   public:
    ContainerHeader() = default;
 
-   ContainerHeader(const void* payload, uint32_t cardinality, uint16_t n_runs, uint8_t typecode)
+   ContainerHeader(
+      ContainerPayload payload,
+      uint32_t cardinality,
+      uint16_t n_runs,
+      uint8_t typecode
+   )
        : typecode(typecode) {
       // Roaring's headers hold mutable payload pointers, but this header is only ever handed out
       // as `const container_t*`.
@@ -53,20 +67,18 @@ class ContainerHeader {
       switch (typecode) {
          case BITSET_CONTAINER_TYPE:
             header.bitset.cardinality = static_cast<int32_t>(cardinality);
-            header.bitset.words = const_cast<uint64_t*>(static_cast<const uint64_t*>(payload));
+            header.bitset.words = const_cast<uint64_t*>(payload.bitset_words);
             break;
          case RUN_CONTAINER_TYPE:
             header.run.n_runs = n_runs;
             header.run.capacity = n_runs;
-            header.run.runs = const_cast<roaring::internal::rle16_t*>(
-               static_cast<const roaring::internal::rle16_t*>(payload)
-            );
+            header.run.runs = const_cast<roaring::internal::rle16_t*>(payload.runs);
             break;
          default:
             RHYDB_DEBUG_ASSERT_EQ(typecode, uint8_t{ARRAY_CONTAINER_TYPE});
             header.array.cardinality = static_cast<int32_t>(cardinality);
             header.array.capacity = static_cast<int32_t>(cardinality);
-            header.array.array = const_cast<uint16_t*>(static_cast<const uint16_t*>(payload));
+            header.array.array = const_cast<uint16_t*>(payload.array);
             break;
       }
       // NOLINTEND(cppcoreguidelines-pro-type-const-cast)
@@ -277,14 +289,14 @@ static_assert(sizeof(RoaringContainer) == (sizeof(void*) == 8 ? 16 : 12));
 /// roaring container header, but it is invalidated if the owner is destroyed or mutates the
 /// container.
 class RoaringContainerView {
-   const void* payload = nullptr;
+   detail::ContainerPayload payload{.array = nullptr};
    uint32_t cardinality = 0;
    /// Number of runs of a run container, 0 otherwise. A run container holds at most 2^15 runs.
    uint16_t n_runs = 0;
    uint8_t typecode = ARRAY_CONTAINER_TYPE;
 
    RoaringContainerView(
-      const void* payload,
+      detail::ContainerPayload payload,
       uint32_t cardinality,
       uint16_t n_runs,
       uint8_t typecode
@@ -303,19 +315,26 @@ class RoaringContainerView {
       switch (typecode) {
          case BITSET_CONTAINER_TYPE:
             return {
-               static_cast<const roaring::internal::bitset_container_t*>(container)->words,
+               {.bitset_words =
+                   static_cast<const roaring::internal::bitset_container_t*>(container)->words},
                cardinality,
                0,
                typecode,
             };
          case RUN_CONTAINER_TYPE: {
             const auto* run = static_cast<const roaring::internal::run_container_t*>(container);
-            return {run->runs, cardinality, static_cast<uint16_t>(run->n_runs), typecode};
+            return {
+               {.runs = run->runs},
+               cardinality,
+               static_cast<uint16_t>(run->n_runs),
+               typecode,
+            };
          }
          default:
             RHYDB_DEBUG_ASSERT_EQ(typecode, uint8_t{ARRAY_CONTAINER_TYPE});
             return {
-               static_cast<const roaring::internal::array_container_t*>(container)->array,
+               {.array =
+                   static_cast<const roaring::internal::array_container_t*>(container)->array},
                cardinality,
                0,
                typecode,
@@ -325,6 +344,19 @@ class RoaringContainerView {
 
    [[nodiscard]] detail::ContainerHeader header() const {
       return detail::ContainerHeader{payload, cardinality, n_runs, typecode};
+   }
+
+   /// The address of the payload (read through the active member), to tell whether two views
+   /// borrow the same storage.
+   [[nodiscard]] const void* payloadAddress() const {
+      switch (typecode) {
+         case BITSET_CONTAINER_TYPE:
+            return payload.bitset_words;
+         case RUN_CONTAINER_TYPE:
+            return payload.runs;
+         default:
+            return payload.array;
+      }
    }
 
    friend class RoaringContainer;
