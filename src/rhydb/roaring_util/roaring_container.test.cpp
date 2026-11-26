@@ -316,6 +316,23 @@ TEST(RoaringContainerView, emptyViewIteratesAsEmptyRange) {
    EXPECT_TRUE(iterate(view).empty());
 }
 
+// A default-constructed view has no payload at all (unlike a view of an allocated empty
+// container), and is used as such in production, e.g. for chunks without null rows.
+TEST(RoaringContainerView, defaultViewIsEmpty) {
+   const RoaringContainerView view{};
+   EXPECT_TRUE(view.empty());
+   EXPECT_EQ(view.getCardinality(), 0);
+   EXPECT_FALSE(view.contains(0));
+   EXPECT_FALSE(view.contains(uint16_t{65535}));
+   EXPECT_EQ(view.begin(), view.end());
+   EXPECT_TRUE(iterate(view).empty());
+
+   auto owned = view.toOwning();
+   EXPECT_TRUE(owned.empty());
+   owned.add(7);
+   EXPECT_EQ(toRoaring(owned), (roaring::Roaring{7}));
+}
+
 TEST(RoaringContainer, serializationRoundTrip) {
    auto container = RoaringContainer::withCapacity(4);
    container.add(1);
@@ -982,6 +999,35 @@ TEST_P(RoaringContainerPerType, complementWithinTheUniverse) {
    expected -= roaringOf(lhsValues());
    EXPECT_EQ(toRoaring(result), expected);
    EXPECT_EQ(result.getCardinality(), expected.cardinality());
+}
+
+TEST_P(RoaringContainerPerType, defaultViewAsEitherOperand) {
+   const auto values = lhsValues();
+   const auto container = makeTyped(values, GetParam());
+   const RoaringContainerView view{container};
+   const RoaringContainerView empty{};
+
+   EXPECT_TRUE((view & empty).empty());
+   EXPECT_TRUE((empty & view).empty());
+   EXPECT_EQ(rhydb::roaring_util::andCardinality(view, empty), 0);
+   EXPECT_EQ(rhydb::roaring_util::andCardinality(empty, view), 0);
+   EXPECT_EQ(toRoaring(view - empty), roaringOf(values));
+   EXPECT_TRUE((empty - view).empty());
+   EXPECT_EQ(toRoaring(view | empty), roaringOf(values));
+   EXPECT_EQ(toRoaring(empty | view), roaringOf(values));
+
+   const std::vector<RoaringContainerView> views{empty, view, empty};
+   EXPECT_EQ(toRoaring(rhydb::roaring_util::fastUnion(views)), roaringOf(values));
+   EXPECT_EQ(rhydb::roaring_util::complement(empty, 1U << 16).getCardinality(), 1U << 16);
+
+   auto accumulator = view.toOwning();
+   accumulator |= empty;
+   accumulator -= empty;
+   EXPECT_EQ(toRoaring(accumulator), roaringOf(values));
+
+   auto from_empty = empty.toOwning();
+   from_empty |= view;
+   EXPECT_EQ(toRoaring(from_empty), roaringOf(values));
 }
 
 INSTANTIATE_TEST_SUITE_P(AllTypes, RoaringContainerPerType, ALL_TYPECODES, [](const auto& info) {
