@@ -100,8 +100,12 @@ class VerticalSequenceIndex {
    [[nodiscard]] roaring_util::RoaringContainerView container(
       const VerticalSequenceIndexEntry& entry
    ) const {
+      // A valid entry's payload lies within the payload section, so its offset fits into a
+      // `size_t` even where it is 32 bits wide (wasm32).
       return roaring_util::RoaringContainerView::fromPayload(
-         entry.type, entry.cardinality, payload.subspan(entry.payload_offset, entry.payload_size)
+         entry.type,
+         entry.cardinality,
+         payload.subspan(static_cast<size_t>(entry.payload_offset), entry.payload_size)
       );
    }
 

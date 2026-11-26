@@ -104,7 +104,7 @@ struct Layout {
    size_t missing_ranges;
    size_t size;
 
-   Layout(uint32_t num_rows, uint32_t num_rows_with_missing, uint64_t num_missing_ranges)
+   Layout(uint32_t num_rows, uint32_t num_rows_with_missing, size_t num_missing_ranges)
        : starts(alignUp(sizeof(HorizontalCoverageIndexHeader))),
          ends(alignUp(starts + (num_rows * sizeof(uint32_t)))),
          rows_with_missing(alignUp(ends + (num_rows * sizeof(uint32_t)))),
@@ -146,21 +146,24 @@ bool rangesContain(std::span<const MissingRange> ranges, uint32_t position) {
 size_t HorizontalCoverageIndex::blobSize(
    uint32_t num_rows,
    uint32_t num_rows_with_missing,
-   uint64_t num_missing_ranges
+   size_t num_missing_ranges
 ) {
    return Layout{num_rows, num_rows_with_missing, num_missing_ranges}.size;
 }
 
 HorizontalCoverageIndex::HorizontalCoverageIndex(const common::Buffer& buffer)
     : header(buffer.view<HorizontalCoverageIndexHeader>(0, 1)[0]) {
-   const Layout layout{header.num_rows, header.num_rows_with_missing, header.num_missing_ranges};
+   // `fromBuffer` checked that the missing ranges fit into the buffer, so their number fits into
+   // a `size_t` even where it is 32 bits wide (wasm32).
+   const auto num_missing_ranges = static_cast<size_t>(header.num_missing_ranges);
+   const Layout layout{header.num_rows, header.num_rows_with_missing, num_missing_ranges};
    starts_ = buffer.view<uint32_t>(layout.starts, header.num_rows);
    ends_ = buffer.view<uint32_t>(layout.ends, header.num_rows);
    rows_with_missing =
       buffer.view<uint32_t>(layout.rows_with_missing, header.num_rows_with_missing);
    missing_range_offsets =
       buffer.view<uint32_t>(layout.missing_range_offsets, header.num_rows_with_missing + 1UL);
-   missing_ranges = buffer.view<MissingRange>(layout.missing_ranges, header.num_missing_ranges);
+   missing_ranges = buffer.view<MissingRange>(layout.missing_ranges, num_missing_ranges);
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -185,8 +188,12 @@ HorizontalCoverageIndex HorizontalCoverageIndex::fromBuffer(const common::Buffer
    if (
       header.num_rows > (1U << 16) || header.num_rows_with_missing > header.num_rows ||
       header.num_missing_ranges > buffer.size() ||
-      blobSize(header.num_rows, header.num_rows_with_missing, header.num_missing_ranges) !=
-         buffer.size()
+      // Checked first, so that the number of missing ranges fits into a `size_t` here.
+      blobSize(
+         header.num_rows,
+         header.num_rows_with_missing,
+         static_cast<size_t>(header.num_missing_ranges)
+      ) != buffer.size()
    ) {
       fail(
          fmt::format(
@@ -413,7 +420,7 @@ common::Buffer HorizontalCoverageIndexBuilder::finish() && {
       header.max_end = std::max(header.max_end, ends[row]);
    }
 
-   const Layout layout{header.num_rows, header.num_rows_with_missing, header.num_missing_ranges};
+   const Layout layout{header.num_rows, header.num_rows_with_missing, missing_ranges.size()};
    common::BufferBuilder buffer{layout.size};
    buffer.write(0, std::span{&header, 1});
    buffer.write(layout.starts, std::span{starts});

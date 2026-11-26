@@ -5,6 +5,8 @@
 #include <cstring>
 #include <memory>
 #include <span>
+#include <stdexcept>
+#include <string>
 #include <type_traits>
 #include <utility>
 
@@ -104,7 +106,13 @@ class Buffer {
    void load(Archive& archive, [[maybe_unused]] const uint32_t version) {
       uint64_t size = 0;
       archive >> size;
-      *this = read(archive, size);
+      // A 64-bit process may have written a buffer that a 32-bit one (wasm32) cannot address.
+      if (!std::in_range<size_t>(size)) {
+         throw std::runtime_error(
+            "cannot load a buffer of " + std::to_string(size) + " bytes in this address space"
+         );
+      }
+      *this = read(archive, static_cast<size_t>(size));
    }
 
    BOOST_SERIALIZATION_SPLIT_MEMBER()

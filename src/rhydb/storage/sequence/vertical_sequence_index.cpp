@@ -103,8 +103,10 @@ VerticalSequenceIndex VerticalSequenceIndex::fromBuffer(const common::Buffer& bu
    if (header.num_entries > max_entries) {
       fail(fmt::format("{} entries do not fit into {} bytes", header.num_entries, bytes.size()));
    }
-   const size_t entries_end =
-      sizeof(header) + (header.num_entries * sizeof(VerticalSequenceIndexEntry));
+   // From here on, `num_entries` (just checked) and the payload section (checked next) lie within
+   // the buffer, so they fit into a `size_t` even where it is 32 bits wide (wasm32).
+   const auto num_entries = static_cast<size_t>(header.num_entries);
+   const size_t entries_end = sizeof(header) + (num_entries * sizeof(VerticalSequenceIndexEntry));
    if (
       header.payload_offset < entries_end || header.payload_offset % ALIGNMENT != 0 ||
       header.payload_offset > bytes.size() ||
@@ -120,7 +122,7 @@ VerticalSequenceIndex VerticalSequenceIndex::fromBuffer(const common::Buffer& bu
       );
    }
 
-   const auto entries = buffer.view<VerticalSequenceIndexEntry>(sizeof(header), header.num_entries);
+   const auto entries = buffer.view<VerticalSequenceIndexEntry>(sizeof(header), num_entries);
    for (size_t index = 0; index < entries.size(); ++index) {
       checkEntry(entries[index], header.payload_size, index);
       if (
@@ -135,9 +137,14 @@ VerticalSequenceIndex VerticalSequenceIndex::fromBuffer(const common::Buffer& bu
 
 VerticalSequenceIndex VerticalSequenceIndex::viewTrusted(const common::Buffer& buffer) {
    const auto header = buffer.view<VerticalSequenceIndexHeader>(0, 1)[0];
+   // A valid index lies within the buffer, so its sizes fit into a `size_t`.
    return VerticalSequenceIndex{
-      buffer.view<VerticalSequenceIndexEntry>(sizeof(header), header.num_entries),
-      buffer.bytes().subspan(header.payload_offset, header.payload_size),
+      buffer.view<VerticalSequenceIndexEntry>(
+         sizeof(header), static_cast<size_t>(header.num_entries)
+      ),
+      buffer.bytes().subspan(
+         static_cast<size_t>(header.payload_offset), static_cast<size_t>(header.payload_size)
+      ),
    };
 }
 
@@ -243,18 +250,21 @@ void VerticalSequenceIndexBuilder::add(
 }
 
 common::Buffer VerticalSequenceIndexBuilder::finish() && {
-   VerticalSequenceIndexHeader header;
-   header.num_entries = entries.size();
-   header.payload_offset = alignUp(
-      sizeof(header) + (entries.size() * sizeof(VerticalSequenceIndexEntry)),
+   // Computed as `size_t`, which the header's `uint64_t` fields hold without loss even where
+   // `size_t` is 32 bits wide (wasm32).
+   const size_t payload_offset = alignUp(
+      sizeof(VerticalSequenceIndexHeader) + (entries.size() * sizeof(VerticalSequenceIndexEntry)),
       VerticalSequenceIndex::ALIGNMENT
    );
+   VerticalSequenceIndexHeader header;
+   header.num_entries = entries.size();
+   header.payload_offset = payload_offset;
    header.payload_size = payload.size();
 
-   common::BufferBuilder buffer{header.payload_offset + header.payload_size};
+   common::BufferBuilder buffer{payload_offset + payload.size()};
    buffer.write(0, std::span{&header, 1});
    buffer.write(sizeof(header), std::span{entries});
-   buffer.write(header.payload_offset, std::span{payload});
+   buffer.write(payload_offset, std::span{payload});
    auto result = std::move(buffer).finish();
    if constexpr (RHYDB_DEBUG_ASSERTIONS) {
       static_cast<void>(VerticalSequenceIndex::fromBuffer(result));

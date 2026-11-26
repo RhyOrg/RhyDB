@@ -89,7 +89,7 @@ class HorizontalCoverageIndex {
    [[nodiscard]] static size_t blobSize(
       uint32_t num_rows,
       uint32_t num_rows_with_missing,
-      uint64_t num_missing_ranges
+      size_t num_missing_ranges
    );
 
    /// Views `buffer` as an index. Checks the header, the section lengths, the envelope and that
