@@ -1,6 +1,7 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <exception>
 #include <fstream>
@@ -151,6 +152,8 @@ struct ScenarioResult {
    std::string_view name;
    double ingest_seconds;
    double query_seconds;
+   uint64_t vertical_bitmaps_size;
+   uint64_t horizontal_bitmaps_size;
 };
 
 void run() {
@@ -188,18 +191,25 @@ void run() {
       );
       const double query_seconds = executeAllQueries(database, reference.size());
       SPDLOG_INFO("Finished query set in {:.3f} seconds", query_seconds);
-      results.push_back(
-         {.name = scenario.name, .ingest_seconds = ingest_seconds, .query_seconds = query_seconds}
-      );
+      const auto info = database->getDatabaseInfo();
+      results.push_back({
+         .name = scenario.name,
+         .ingest_seconds = ingest_seconds,
+         .query_seconds = query_seconds,
+         .vertical_bitmaps_size = info.vertical_bitmaps_size,
+         .horizontal_bitmaps_size = info.horizontal_bitmaps_size,
+      });
    }
 
    SPDLOG_INFO("=== Summary (ingestion / {} queries) ===", DEFAULT_QUERY_COUNT);
    for (const auto& result : results) {
       SPDLOG_INFO(
-         "{:<48} ingest {:>8.3f}s   queries {:>8.3f}s",
+         "{:<48} ingest {:>8.3f}s   queries {:>8.3f}s   vertical {:>11} B   horizontal {:>11} B",
          result.name,
          result.ingest_seconds,
-         result.query_seconds
+         result.query_seconds,
+         result.vertical_bitmaps_size,
+         result.horizontal_bitmaps_size
       );
    }
 }
