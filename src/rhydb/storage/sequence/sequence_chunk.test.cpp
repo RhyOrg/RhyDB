@@ -71,9 +71,12 @@ std::vector<std::string> reconstructAll(const SequenceChunk& chunk) {
    return reconstruct(chunk, allRows(chunk.numRows()));
 }
 
-/// Random rows over a random reference: each row is a run of the text at an offset, with
-/// mutations (including gaps and ambiguous symbols) and runs of missing symbols, or null. The
-/// expected texts carry the missing symbol wherever a row does not cover a position.
+/// Random rows over a random reference: each row is a run of a random variant of the reference (the
+/// same for all rows, so the rows' most common symbols differ from the reference) at an offset,
+/// with mutations (including gaps and ambiguous symbols) and runs of missing symbols, or null. The
+/// expected texts carry the missing symbol wherever a row does not cover a position. With
+/// `local_reference`, the chunk is stored against its own local reference
+/// (`finishWithLocalReference`), otherwise against the random reference.
 struct RandomRows {
    std::string reference;
    /// nullopt for a null row
@@ -81,13 +84,25 @@ struct RandomRows {
    std::shared_ptr<const SequenceReference> shared_reference;
    SequenceChunk chunk;
 
-   static RandomRows nucleotides(uint32_t seed, uint32_t num_rows, uint32_t length) {
+   // NOLINTNEXTLINE(readability-function-cognitive-complexity)
+   static RandomRows nucleotides(
+      uint32_t seed,
+      uint32_t num_rows,
+      uint32_t length,
+      bool local_reference = false
+   ) {
       std::mt19937 random{seed};  // NOLINT(bugprone-random-generator-seed): reproducible
       const std::string bases = "ACGT";
       const std::string mutation_symbols = "ACGT-RY";
       std::string reference;
       for (uint32_t position = 0; position < length; ++position) {
          reference.push_back(bases[random() % bases.size()]);
+      }
+      std::string variant = reference;
+      for (uint32_t position = 0; position < length; ++position) {
+         if (random() % 5 == 0) {
+            variant[position] = "ACGT-"[random() % 5];
+         }
       }
       auto shared_reference = SequenceReference::create<Nucleotide>(reference);
       SequenceChunkBuilder builder{shared_reference};
@@ -100,7 +115,7 @@ struct RandomRows {
          }
          const uint32_t start = random() % 3 == 0 ? random() % (length / 4) : 0;
          const uint32_t end = random() % 3 == 0 ? length - (random() % (length / 4)) : length;
-         std::string text = reference;
+         std::string text = random() % 4 == 0 ? reference : variant;
          for (uint32_t position = 0; position < length; ++position) {
             if (random() % 10 == 0) {
                text[position] = mutation_symbols[random() % mutation_symbols.size()];
@@ -122,7 +137,12 @@ struct RandomRows {
          }
          texts.emplace_back(std::move(text));
       }
-      auto chunk = std::move(builder).finish();
+      auto chunk = local_reference ? std::move(builder).finishWithLocalReference({})
+                                   : std::move(builder).finish();
+      if (local_reference) {
+         shared_reference = chunk.sharedReference();
+         reference = shared_reference->text();
+      }
       return RandomRows{
          .reference = std::move(reference),
          .texts = std::move(texts),
@@ -178,8 +198,57 @@ TEST(SequenceReference, mapsSymbolsAndRejectsIllegalCharacters) {
    EXPECT_EQ(reference->text(), "AC-N");
 }
 
-TEST(SequenceChunk, reconstructsTheTextsOfAllOrSelectedRows) {
-   const auto rows = RandomRows::nucleotides(1, 300, 120);
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST(SequenceReference, storesOnlyTheDifferencesFromItsBase) {
+   using Differences = std::vector<SequenceReference::SymbolAt>;
+   const auto symbol_at = [](uint32_t position, char symbol) {
+      return SequenceReference::SymbolAt{
+         position, static_cast<uint8_t>(Nucleotide::charToSymbol(symbol).value())
+      };
+   };
+   const auto base = SequenceReference::create<Nucleotide>("ACGTACGT");
+   const auto derived =
+      base->withSymbolsReplaced(Differences{symbol_at(1, 'T'), symbol_at(6, 'A')});
+   EXPECT_EQ(derived->text(), "ATGTACAT");
+   for (uint32_t position = 0; position < 8; ++position) {
+      EXPECT_EQ(derived->symbolAt(position), symbol_at(position, "ATGTACAT"[position]).second);
+   }
+   EXPECT_EQ(derived->differencesFrom(*base), (Differences{symbol_at(1, 'T'), symbol_at(6, 'A')}));
+   EXPECT_EQ(base->differencesFrom(*derived), (Differences{symbol_at(1, 'C'), symbol_at(6, 'G')}));
+   EXPECT_LE(derived->differencesSizeInBytes(), 2 * sizeof(SequenceReference::SymbolAt));
+   std::string written(8, '?');
+   derived->writeText(written.data());
+   EXPECT_EQ(written, "ATGTACAT");
+
+   // Replacing a derived reference's symbols merges them into its differences, and a position
+   // that carries the base symbol again is no difference anymore
+   const auto twice =
+      derived->withSymbolsReplaced(Differences{symbol_at(0, '-'), symbol_at(1, 'C')});
+   EXPECT_EQ(twice->text(), "-CGTACAT");
+   EXPECT_EQ(twice->differencesFrom(*base), (Differences{symbol_at(0, '-'), symbol_at(6, 'A')}));
+
+   // Equality compares the symbols, whatever the base
+   EXPECT_EQ(*derived, *SequenceReference::create<Nucleotide>("ATGTACAT"));
+   EXPECT_FALSE(*derived == *base);
+   EXPECT_EQ(*base->withSymbolsReplaced({}), *base);
+}
+
+namespace {
+
+// The chunks are stored against the random reference, or against their own local reference.
+class SequenceChunkWithReference : public ::testing::TestWithParam<bool> {};
+
+}  // namespace
+
+INSTANTIATE_TEST_SUITE_P(
+   SequenceChunk,
+   SequenceChunkWithReference,
+   ::testing::Bool(),
+   [](const auto& info) { return info.param ? "local" : "given"; }
+);
+
+TEST_P(SequenceChunkWithReference, reconstructsTheTextsOfAllOrSelectedRows) {
+   const auto rows = RandomRows::nucleotides(1, 300, 120, GetParam());
    ASSERT_EQ(rows.chunk.numRows(), 300);
    for (const auto& selected : {allRows(300), someRows(300), std::vector<uint16_t>{}}) {
       EXPECT_EQ(reconstruct(rows.chunk, selected), rows.expectedTexts(selected));
@@ -210,10 +279,10 @@ TEST(SequenceChunk, builderRejectsSequencesThatDoNotFit) {
 // Every per-position algorithm, at every position and for several selections, against the texts
 // the rows were built from.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST(SequenceChunk, perPositionAlgorithmsMatchTheTexts) {
+TEST_P(SequenceChunkWithReference, perPositionAlgorithmsMatchTheTexts) {
    constexpr uint32_t NUM_ROWS = 500;
    constexpr uint32_t LENGTH = 80;
-   const auto rows = RandomRows::nucleotides(4, NUM_ROWS, LENGTH);
+   const auto rows = RandomRows::nucleotides(4, NUM_ROWS, LENGTH, GetParam());
    auto symbol_of = [](char character) {
       return static_cast<uint8_t>(Nucleotide::charToSymbol(character).value());
    };
@@ -460,6 +529,62 @@ TEST(SequenceChunk, rejectsPartsThatDoNotFitTogether) {
           .validate()),
       std::runtime_error
    );
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST(SequenceChunk, theLocalReferenceHasTheMostCommonCoveredSymbolAtEveryPosition) {
+   const auto original = RandomRows::nucleotides(13, 400, 90);
+   const auto rows = RandomRows::nucleotides(13, 400, 90, /*local_reference=*/true);
+   EXPECT_NE(rows.reference, original.reference);
+   for (uint32_t position = 0; position < 90; ++position) {
+      std::vector<uint32_t> counts(Nucleotide::COUNT, 0);
+      for (uint16_t row = 0; row < 400; ++row) {
+         const char symbol = rows.expectedText(row)[position];
+         if (symbol != 'N') {
+            ++counts[static_cast<uint8_t>(Nucleotide::charToSymbol(symbol).value())];
+         }
+      }
+      const auto original_symbol =
+         static_cast<uint8_t>(Nucleotide::charToSymbol(original.reference[position]).value());
+      // The first symbol with the highest count, unless the original reference symbol has it
+      uint8_t expected = original_symbol;
+      for (uint8_t symbol = 0; symbol < Nucleotide::COUNT; ++symbol) {
+         if (counts[symbol] > counts[expected]) {
+            expected = symbol;
+         }
+      }
+      ASSERT_EQ(rows.shared_reference->symbolAt(position), expected) << "position " << position;
+   }
+   // Choosing again changes nothing
+   EXPECT_TRUE(mostCommonSymbols(rows.chunk).empty());
+}
+
+TEST(SequenceChunk, finishingWithALocalReferenceSharesAKnownEqualReference) {
+   auto make_builder = [] {
+      SequenceChunkBuilder builder{SequenceReference::create<Nucleotide>("ACGT")};
+      builder.addText("ACTT");
+      builder.addText("ACTT");
+      builder.addText("ACGT");
+      return builder;
+   };
+   const auto known = SequenceReference::create<Nucleotide>("ACTT");
+   const auto other = SequenceReference::create<Nucleotide>("AAAA");
+   const auto chunk = make_builder().finishWithLocalReference(
+      std::vector<std::shared_ptr<const SequenceReference>>{other, known}
+   );
+   EXPECT_EQ(chunk.sharedReference(), known);
+   EXPECT_EQ(reconstructAll(chunk), (std::vector<std::string>{"ACTT", "ACTT", "ACGT"}));
+
+   const auto unknown = make_builder().finishWithLocalReference({});
+   EXPECT_EQ(unknown.reference().text(), "ACTT");
+   EXPECT_NE(unknown.sharedReference(), known);
+
+   // A chunk that keeps the reference keeps the builder's reference object
+   const auto reference = SequenceReference::create<Nucleotide>("ACGT");
+   SequenceChunkBuilder builder{reference};
+   builder.addText("ACGT");
+   builder.addNullRow();
+   EXPECT_EQ(std::move(builder).finishWithLocalReference({}).sharedReference(), reference);
 }
 
 }  // namespace rhydb::storage::sequence

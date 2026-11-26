@@ -19,6 +19,7 @@
 #include "rhydb/common/nucleotide_symbols.h"
 #include "rhydb/common/panic.h"
 #include "rhydb/storage/column/row_compaction.h"
+#include "rhydb/storage/sequence/sequence_chunk_algorithms.h"
 
 namespace rhydb::storage::sequence {
 
@@ -94,26 +95,115 @@ std::shared_ptr<const common::Buffer> share(common::Buffer buffer) {
 }  // namespace
 
 SequenceReference::SequenceReference(SequenceAlphabet alphabet, std::string text)
-    : alphabet_(alphabet),
-      text_(std::move(text)) {
+    : alphabet_(alphabet) {
+   auto new_base = std::make_shared<Base>();
+   new_base->text = std::move(text);
    if (alphabet == SequenceAlphabet::NUCLEOTIDE) {
       fillAlphabet<Nucleotide>(symbol_chars, num_symbols, missing_symbol);
-      symbols_ = symbolsOf<Nucleotide>(text_);
+      new_base->symbols = symbolsOf<Nucleotide>(new_base->text);
    } else {
       fillAlphabet<AminoAcid>(symbol_chars, num_symbols, missing_symbol);
-      symbols_ = symbolsOf<AminoAcid>(text_);
+      new_base->symbols = symbolsOf<AminoAcid>(new_base->text);
+   }
+   base = std::move(new_base);
+}
+
+std::string SequenceReference::text() const {
+   std::string result(length(), ' ');
+   writeText(result.data());
+   return result;
+}
+
+void SequenceReference::writeText(char* out) const {
+   std::copy_n(base->text.data(), base->text.size(), out);
+   for (const auto& [position, symbol] : differences) {
+      out[position] = symbol_chars[symbol];
    }
 }
 
-std::shared_ptr<const SequenceReference> SequenceReference::withSymbolsReplaced(
-   std::span<const std::pair<uint32_t, uint8_t>> replacements
-) const {
-   std::string text = text_;
-   for (const auto& [position, symbol] : replacements) {
-      RHYDB_ASSERT_LT(symbol, num_symbols);
-      text.at(position) = symbol_chars[symbol];
+std::vector<uint8_t> SequenceReference::symbols() const {
+   std::vector<uint8_t> result = base->symbols;
+   for (const auto& [position, symbol] : differences) {
+      result[position] = symbol;
    }
-   return std::make_shared<const SequenceReference>(alphabet_, std::move(text));
+   return result;
+}
+
+uint8_t SequenceReference::symbolAtWithDifferences(uint32_t position) const {
+   const auto found = std::ranges::lower_bound(differences, position, {}, &SymbolAt::first);
+   if (found != differences.end() && found->first == position) {
+      return found->second;
+   }
+   return base->symbols[position];
+}
+
+std::shared_ptr<const SequenceReference> SequenceReference::withSymbolsReplaced(
+   std::span<const SymbolAt> replacements
+) const {
+   // Merges the replacements (ascending) into the differences (ascending), dropping the positions
+   // that come to carry the base symbol again
+   std::vector<SymbolAt> merged;
+   merged.reserve(differences.size() + replacements.size());
+   auto difference = differences.begin();
+   for (const auto& [position, symbol] : replacements) {
+      RHYDB_ASSERT_LT(position, length());
+      RHYDB_ASSERT_LT(symbol, num_symbols);
+      for (; difference != differences.end() && difference->first < position; ++difference) {
+         merged.push_back(*difference);
+      }
+      if (difference != differences.end() && difference->first == position) {
+         ++difference;
+      }
+      RHYDB_ASSERT(merged.empty() || merged.back().first < position);
+      if (symbol != base->symbols[position]) {
+         merged.emplace_back(position, symbol);
+      }
+   }
+   merged.insert(merged.end(), difference, differences.end());
+   auto result = std::make_shared<SequenceReference>(*this);
+   result->differences = std::move(merged);
+   return result;
+}
+
+std::vector<SequenceReference::SymbolAt> SequenceReference::differencesFrom(
+   const SequenceReference& other
+) const {
+   RHYDB_ASSERT(alphabet_ == other.alphabet_);
+   RHYDB_ASSERT_EQ(length(), other.length());
+   std::vector<SymbolAt> result;
+   if (base == other.base) {
+      // Only the positions where either differs from the shared base can differ
+      std::vector<uint32_t> positions;
+      positions.reserve(differences.size() + other.differences.size());
+      for (const auto& [position, symbol] : differences) {
+         positions.push_back(position);
+      }
+      for (const auto& [position, symbol] : other.differences) {
+         positions.push_back(position);
+      }
+      std::ranges::sort(positions);
+      const auto [first, last] = std::ranges::unique(positions);
+      positions.erase(first, last);
+      for (const uint32_t position : positions) {
+         if (symbolAt(position) != other.symbolAt(position)) {
+            result.emplace_back(position, symbolAt(position));
+         }
+      }
+      return result;
+   }
+   const auto own_symbols = symbols();
+   const auto other_symbols = other.symbols();
+   for (uint32_t position = 0; position < own_symbols.size(); ++position) {
+      if (own_symbols[position] != other_symbols[position]) {
+         result.emplace_back(position, own_symbols[position]);
+      }
+   }
+   return result;
+}
+
+bool SequenceReference::operator==(const SequenceReference& other) const {
+   return alphabet_ == other.alphabet_ && length() == other.length() &&
+          differencesFrom(other).empty();
 }
 
 SequenceChunk::SequenceChunk(
@@ -197,12 +287,8 @@ SequenceChunk SequenceChunk::rebasedOnto(std::shared_ptr<const SequenceReference
    std::vector<VerticalSequenceIndex::PositionReplacement> replacements;
    // Owns the containers the replacements view
    std::deque<roaring_util::RoaringContainer> old_reference_rows;
-   for (uint32_t position = 0; position < reference->length(); ++position) {
+   for (const auto& [position, new_symbol] : reference->differencesFrom(*reference_)) {
       const uint8_t old_symbol = reference_->symbolAt(position);
-      const uint8_t new_symbol = reference->symbolAt(position);
-      if (old_symbol == new_symbol) {
-         continue;
-      }
       const auto entries = mutations.entriesAtPosition(position);
       std::vector<roaring_util::RoaringContainerView> stored;
       bool stores_new_symbol = false;
@@ -339,11 +425,14 @@ void SequenceChunkBuilder::addRow(
 }
 
 void SequenceChunkBuilder::addText(std::string_view sequence, uint32_t offset) {
+   if (reference_text.empty()) {
+      reference_text = reference->text();
+   }
    if (reference->alphabet() == SequenceAlphabet::NUCLEOTIDE) {
-      const auto diff = diffAgainst<Nucleotide>(sequence, offset, reference->text());
+      const auto diff = diffAgainst<Nucleotide>(sequence, offset, reference_text);
       addRow(diff.coverage, diff.mutations);
    } else {
-      const auto diff = diffAgainst<AminoAcid>(sequence, offset, reference->text());
+      const auto diff = diffAgainst<AminoAcid>(sequence, offset, reference_text);
       addRow(diff.coverage, diff.mutations);
    }
 }
@@ -390,6 +479,48 @@ SequenceChunk SequenceChunkBuilder::finish() && {
       share(std::move(coverage).finish()),
       std::make_shared<const roaring_util::RoaringContainer>(std::move(null_container)),
    };
+}
+
+SequenceChunk SequenceChunkBuilder::finishWithLocalReference(
+   std::span<const std::shared_ptr<const SequenceReference>> known_references
+) && {
+   SequenceChunk chunk = std::move(*this).finish();
+   const auto replacements = mostCommonSymbols(chunk);
+   if (replacements.empty()) {
+      return chunk;
+   }
+   auto local_reference = chunk.reference().withSymbolsReplaced(replacements);
+   const auto known = std::ranges::find_if(known_references, [&](const auto& reference) {
+      return *reference == *local_reference;
+   });
+   if (known != known_references.end()) {
+      local_reference = *known;
+   }
+   return chunk.rebasedOnto(std::move(local_reference));
+}
+
+std::vector<std::pair<uint32_t, uint8_t>> mostCommonSymbols(const SequenceChunk& chunk) {
+   const SequenceReference& reference = chunk.reference();
+   SymbolCounts counts{reference.numSymbols(), reference.length()};
+   addSymbolCounts(chunk, counts);
+
+   const auto reference_symbols = reference.symbols();
+   std::vector<std::pair<uint32_t, uint8_t>> replacements;
+   for (uint32_t position = 0; position < reference.length(); ++position) {
+      const uint8_t current_symbol = reference_symbols[position];
+      uint8_t best_symbol = current_symbol;
+      uint32_t best_count = counts.at(current_symbol, position);
+      for (uint8_t symbol = 0; symbol < reference.numSymbols(); ++symbol) {
+         if (counts.at(symbol, position) > best_count) {
+            best_symbol = symbol;
+            best_count = counts.at(symbol, position);
+         }
+      }
+      if (best_symbol != current_symbol) {
+         replacements.emplace_back(position, best_symbol);
+      }
+   }
+   return replacements;
 }
 
 }  // namespace rhydb::storage::sequence

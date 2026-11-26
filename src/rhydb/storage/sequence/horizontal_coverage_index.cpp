@@ -435,35 +435,4 @@ common::Buffer HorizontalCoverageIndexBuilder::finish() && {
    return result;
 }
 
-std::vector<uint64_t> computeCoverageCardinalities(
-   std::span<const HorizontalCoverageIndex* const> chunks,
-   size_t genome_length
-) {
-   std::vector<int64_t> coverage_changes(genome_length + 1, 0);
-   for (const auto* chunk_pointer : chunks) {
-      const HorizontalCoverageIndex& chunk = *chunk_pointer;
-      for (uint32_t row = 0; row < chunk.numRows(); ++row) {
-         const auto [start, end] = chunk.coverageRange(static_cast<uint16_t>(row));
-         RHYDB_ASSERT_LE(end, genome_length);
-         coverage_changes[start] += 1;
-         coverage_changes[end] -= 1;
-      }
-      chunk.forEachRowWithMissing([&](uint16_t /*row*/, std::span<const MissingRange> ranges) {
-         for (const auto& [begin, end] : ranges) {
-            coverage_changes[begin] -= 1;
-            coverage_changes[end] += 1;
-         }
-      });
-   }
-
-   std::vector<uint64_t> cardinalities(genome_length);
-   int64_t cardinality = 0;
-   for (size_t position_idx = 0; position_idx < genome_length; ++position_idx) {
-      cardinality += coverage_changes[position_idx];
-      RHYDB_ASSERT_GE(cardinality, 0L);
-      cardinalities[position_idx] = static_cast<uint64_t>(cardinality);
-   }
-   return cardinalities;
-}
-
 }  // namespace rhydb::storage::sequence

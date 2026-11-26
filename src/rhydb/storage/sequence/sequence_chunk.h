@@ -38,17 +38,31 @@ template <typename SymbolType>
 
 /// The local reference the rows of sequence chunks are stored against: a row stores only where its
 /// text differs from this reference. It is immutable and shared (via `std::shared_ptr`) by all
-/// chunks stored against it, e.g. by all chunks of a sequence column.
+/// chunks stored against it, e.g. by the chunks of a sequence column with equal local references.
+///
+/// It is stored as a base text, shared by all references derived from it with
+/// `withSymbolsReplaced`, and the (few) positions where it differs from the base. The local
+/// references of a column's chunks are derived from the column's reference, so each costs only its
+/// differences.
 ///
 /// Symbols are addressed by their id, the `uint8_t` value of `SymbolType::Symbol`.
 class SequenceReference {
   public:
    static constexpr size_t MAX_SYMBOLS = 32;
 
+   /// A `(position, symbol)` pair
+   using SymbolAt = std::pair<uint32_t, uint8_t>;
+
   private:
+   struct Base {
+      std::string text;
+      std::vector<uint8_t> symbols;
+   };
+
    SequenceAlphabet alphabet_;
-   std::string text_;
-   std::vector<uint8_t> symbols_;
+   std::shared_ptr<const Base> base;
+   /// The positions where this reference differs from the base, with their symbols, ascending
+   std::vector<SymbolAt> differences;
    std::array<char, MAX_SYMBOLS> symbol_chars{};
    uint8_t num_symbols = 0;
    uint8_t missing_symbol = 0;
@@ -66,12 +80,23 @@ class SequenceReference {
    [[nodiscard]] SequenceAlphabet alphabet() const { return alphabet_; }
 
    /// The reference as text, one character per position.
-   [[nodiscard]] const std::string& text() const { return text_; }
+   [[nodiscard]] std::string text() const;
 
-   [[nodiscard]] size_t length() const { return text_.size(); }
+   /// Writes the reference as text to `out`, which must hold `length()` characters.
+   void writeText(char* out) const;
+
+   /// The id of the reference symbol at every position.
+   [[nodiscard]] std::vector<uint8_t> symbols() const;
+
+   [[nodiscard]] size_t length() const { return base->text.size(); }
 
    /// The id of the reference symbol at `position`.
-   [[nodiscard]] uint8_t symbolAt(uint32_t position) const { return symbols_[position]; }
+   [[nodiscard]] uint8_t symbolAt(uint32_t position) const {
+      if (differences.empty()) {
+         return base->symbols[position];
+      }
+      return symbolAtWithDifferences(position);
+   }
 
    /// The number of symbols of the alphabet; symbol ids are `< numSymbols()`.
    [[nodiscard]] uint8_t numSymbols() const { return num_symbols; }
@@ -83,10 +108,26 @@ class SequenceReference {
 
    [[nodiscard]] char missingChar() const { return symbol_chars[missing_symbol]; }
 
-   /// A copy of this reference with the symbol at each `(position, symbol)` replaced.
+   /// A copy of this reference with the symbol at each `(position, symbol)` replaced (ascending
+   /// positions). It shares the base text with this reference.
    [[nodiscard]] std::shared_ptr<const SequenceReference> withSymbolsReplaced(
-      std::span<const std::pair<uint32_t, uint8_t>> replacements
+      std::span<const SymbolAt> replacements
    ) const;
+
+   /// The `(position, symbol)` of every position where this reference differs from `other`, which
+   /// must have the same alphabet and length, ascending.
+   [[nodiscard]] std::vector<SymbolAt> differencesFrom(const SequenceReference& other) const;
+
+   /// Bytes this reference holds in addition to its (shared) base text.
+   [[nodiscard]] size_t differencesSizeInBytes() const {
+      return differences.capacity() * sizeof(SymbolAt);
+   }
+
+   /// Whether both references have the same symbol at every position.
+   [[nodiscard]] bool operator==(const SequenceReference& other) const;
+
+  private:
+   [[nodiscard]] uint8_t symbolAtWithDifferences(uint32_t position) const;
 };
 
 /// A set of symbol ids (all `< SequenceReference::MAX_SYMBOLS`).
@@ -257,6 +298,8 @@ class SequenceChunk {
 /// Builds a `SequenceChunk` row by row, in row order.
 class SequenceChunkBuilder {
    std::shared_ptr<const SequenceReference> reference;
+   /// The reference as text, materialized by the first `addText`
+   std::string reference_text;
    HorizontalCoverageIndexBuilder coverage;
    /// Per position, `symbol << 16 | row` of every stored symbol, in row order. Sized lazily.
    std::vector<std::vector<uint32_t>> mutations_by_position;
@@ -299,8 +342,26 @@ class SequenceChunkBuilder {
 
    [[nodiscard]] uint32_t numRows() const { return coverage.numRows(); }
 
+   /// The chunk, stored against the reference the builder was created with.
    [[nodiscard]] SequenceChunk finish() &&;
+
+   /// The chunk, stored against its own local reference: at every position, the symbol most of
+   /// the chunk's covered rows carry there (see `mostCommonSymbols`), derived from the builder's
+   /// reference with `withSymbolsReplaced`. If that reference equals one of `known_references`,
+   /// the chunk shares it.
+   [[nodiscard]] SequenceChunk finishWithLocalReference(
+      std::span<const std::shared_ptr<const SequenceReference>> known_references
+   ) &&;
 };
+
+/// The symbols to replace in `chunk`'s reference so that, at every position, the reference symbol
+/// is the symbol most of the chunk's covered rows carry there (a stored missing symbol counts as
+/// carried). On a tie, the current reference symbol is kept, and among other symbols the one with
+/// the lowest id wins. A position no row covers keeps its symbol. As `(position, symbol)`, in
+/// ascending position order.
+[[nodiscard]] std::vector<std::pair<uint32_t, uint8_t>> mostCommonSymbols(
+   const SequenceChunk& chunk
+);
 
 template <typename SymbolType>
 constexpr SequenceAlphabet alphabetOf() {

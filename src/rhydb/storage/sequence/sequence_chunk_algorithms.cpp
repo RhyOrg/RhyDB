@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <optional>
 #include <span>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -52,8 +53,9 @@ void reconstructSequences(
    }
    const SequenceReference& reference = chunk.reference();
    const size_t length = reference.length();
+   const std::string reference_text = reference.text();
    for (char* text : texts) {
-      std::copy_n(reference.text().data(), length, text);
+      std::copy_n(reference_text.data(), length, text);
    }
 
    const auto& mutations = chunk.mutations();
@@ -234,6 +236,7 @@ void addCountsFromCoverageChanges(
    const SequenceReference& reference = chunk.reference();
    const auto& mutations = chunk.mutations();
    const auto entries = mutations.entries();
+   const auto reference_symbols = reference.symbols();
    size_t entry_idx = 0;
    int64_t covered = 0;
    for (uint32_t position = 0; position < reference.length(); ++position) {
@@ -246,7 +249,7 @@ void addCountsFromCoverageChanges(
          reference_count -= count;
       }
       RHYDB_ASSERT_GE(reference_count, int64_t{0});
-      counts.at(reference.symbolAt(position), position) += static_cast<uint32_t>(reference_count);
+      counts.at(reference_symbols[position], position) += static_cast<uint32_t>(reference_count);
    }
 }
 

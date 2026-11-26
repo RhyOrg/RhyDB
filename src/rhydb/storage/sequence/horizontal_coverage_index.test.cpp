@@ -239,36 +239,18 @@ TEST(HorizontalCoverageIndex, emptyIndexHasNoRowsAndAnEmptyEnvelope) {
 
 // Every query of the index, at every position, against the coverage of the rows it was built from:
 // the envelope fast paths (no row / every row covers), the scan around its 16-row stride, and the
-// in-region missing positions. Also checks the cardinalities summed over several chunks.
+// in-region missing positions.
 TEST(HorizontalCoverageIndex, matchesTheRowsItWasBuiltFrom) {
    std::mt19937 random{20260922};  // NOLINT(bugprone-random-generator-seed): reproducible
    constexpr uint32_t LENGTH = 120;
-   std::vector<std::vector<Row>> chunk_rows;
    for (const size_t num_rows : {1, 17, 100, 300}) {
-      chunk_rows.push_back(randomRows(random, num_rows, LENGTH, false));
-      chunk_rows.push_back(randomRows(random, num_rows, LENGTH, true));
-   }
-
-   std::vector<common::Buffer> buffers;
-   std::vector<HorizontalCoverageIndex> chunks;
-   for (const auto& rows : chunk_rows) {
-      buffers.push_back(copyOf(build(rows).bytes()));
-      chunks.push_back(HorizontalCoverageIndex::fromBuffer(buffers.back()));
-      SCOPED_TRACE(rows.size());
-      expectMatchesRows(chunks.back(), rows, LENGTH);
-   }
-
-   std::vector<const HorizontalCoverageIndex*> pointers;
-   std::vector<uint64_t> expected(LENGTH, 0);
-   for (size_t chunk = 0; chunk < chunks.size(); ++chunk) {
-      pointers.push_back(&chunks[chunk]);
-      for (uint32_t position = 0; position < LENGTH; ++position) {
-         expected[position] += std::ranges::count_if(chunk_rows[chunk], [&](const Row& row) {
-            return row.covers(position);
-         });
+      for (const bool shared_core : {false, true}) {
+         const auto rows = randomRows(random, num_rows, LENGTH, shared_core);
+         const auto buffer = copyOf(build(rows).bytes());
+         SCOPED_TRACE(rows.size());
+         expectMatchesRows(HorizontalCoverageIndex::fromBuffer(buffer), rows, LENGTH);
       }
    }
-   EXPECT_EQ(computeCoverageCardinalities(pointers, LENGTH), expected);
 }
 
 TEST(HorizontalCoverageIndex, rejectsMalformedBytes) {

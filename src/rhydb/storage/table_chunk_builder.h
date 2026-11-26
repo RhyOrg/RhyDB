@@ -48,9 +48,8 @@ class TableChunkBuilder {
    std::map<std::string, column::ZstdCompressedStringColumn::Builder>
       zstd_compressed_string_column_builders;
 
-   /// The sequence column builders are seeded with each column's current
-   /// (possibly adapted) local reference, so sequences buffered into a chunk are
-   /// diffed against the same reference basis as the already-stored rows.
+   /// The sequence column builders are seeded with each column's reference
+   /// sequence, which sequences buffered into a chunk are diffed against.
    explicit TableChunkBuilder(const Table& table);
 
    /// Extract the value of one column for the current row from the json line and
