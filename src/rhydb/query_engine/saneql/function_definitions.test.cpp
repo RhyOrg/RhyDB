@@ -258,8 +258,48 @@ TEST(FunctionDefinitions, scalarParameterTakesConstants) {
 
 TEST(FunctionDefinitions, defaultValuesMustFitTheirParameter) {
    EXPECT_THAT(
-      [] { (void)parseQuery("let f(age scalar := other_column) := age, data"); },
+      [] { (void)parseQuery("let f(age scalar := other_column) := age, data.filter(x = f())"); },
       ThrowsMessage<IllegalQueryException>(HasSubstr("the argument 'age' must be a constant"))
+   );
+   EXPECT_THAT(
+      [] { (void)parseQuery("let n := 5, let f(c symbol := n) := data.map({c := 1}), f()"); },
+      ThrowsMessage<IllegalQueryException>(
+         HasSubstr("f(): the argument 'c' must be a name, but is 5 at 1:")
+      )
+   );
+}
+
+TEST(FunctionDefinitions, defaultValuesAreExpandedBeforeTheyAreChecked) {
+   EXPECT_EQ(
+      expanded("let x := 18, let f(c scalar := x) := c, data.filter(age > f())"),
+      "filter(data, (age > 18))"
+   );
+   EXPECT_EQ(
+      expanded(
+         "let base := 10, let plus(a scalar) := a, let f(c scalar := plus(base)) := c, "
+         "data.filter(age > f())"
+      ),
+      "filter(data, (age > 10))"
+   );
+}
+
+TEST(FunctionDefinitions, defaultValuesSeeTheParametersBeforeThem) {
+   EXPECT_EQ(
+      expanded(
+         "let f(lo expression, hi expression := lo) := age >= lo && age <= hi, "
+         "data.filter(f(10))"
+      ),
+      "filter(data, ((age >= 10) && (age <= 10)))"
+   );
+   EXPECT_EQ(
+      expanded(
+         "let f(lo scalar, hi scalar := lo) := age >= lo && age <= hi, data.filter(f(10, 20))"
+      ),
+      "filter(data, ((age >= 10) && (age <= 20)))"
+   );
+   EXPECT_EQ(
+      expanded("let f(lo scalar, hi scalar := lo) := age >= lo && age <= hi, data.filter(f(10))"),
+      "filter(data, ((age >= 10) && (age <= 10)))"
    );
 }
 

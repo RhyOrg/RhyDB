@@ -167,6 +167,8 @@ data.recent().filter(country.inCountries())
 
 A definition `let name(parameter type [:= default], ...) := body,` is called like a builtin
 function, binding its arguments positionally or by name; parameters with a default may be omitted.
+A default is expanded at each call that omits its parameter, and may refer to the parameters before
+it, e.g. `let between(c expression, lo scalar, hi scalar := lo) := c >= lo && c <= hi,`.
 A definition without parameters, `let name := body,`, is referenced by its name alone, like `since`
 above. Such a definition of a table expression is a view:
 

@@ -47,9 +47,9 @@ class FunctionDefinitions {
   public:
    explicit FunctionDefinitions(const FunctionDefinitions* parent = nullptr);
 
-   /// Appends a `let` definition. Throws if this scope already defines its name, if a parameter
-   /// name repeats, if a parameter has an unknown type, or if a default value does not fit its
-   /// parameter.
+   /// Appends a `let` definition. Throws if this scope already defines its name or if a parameter
+   /// name repeats. A default value is expanded and checked against its parameter at every call
+   /// that omits the parameter, as it may refer to the parameters before it.
    void add(ast::FunctionDefinition definition);
 
    /// Parses `source`, a sequence of `let` definitions, and appends them.

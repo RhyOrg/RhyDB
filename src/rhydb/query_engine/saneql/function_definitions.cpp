@@ -126,34 +126,33 @@ FunctionSignature signatureOf(const Definition& definition) {
 }
 
 /// The argument bound to a parameter of the definition whose body is being expanded. The argument
-/// is final: it was expanded where the call is, and is inserted into the body as it is.
+/// is final: it was expanded where the call is, checked against the parameter, and is inserted
+/// into the body as it is.
 struct Binding {
    ParameterType type;
-   const ast::Expression* value;
+   ast::ExpressionPtr value;
 };
 
 /// Where an expression is expanded.
 struct Scope {
    /// The visible definitions: the first `count` definitions of `definitions`, and those of its
    /// enclosing scopes.
-   const FunctionDefinitions* definitions;
+   const FunctionDefinitions& definitions;
    size_t count;
-   /// The parameters of the definition whose body is expanded, or null outside of any body.
-   const std::map<std::string, Binding>* bindings = nullptr;
+   /// The parameters of the definition whose body is expanded, empty outside of any body.
+   std::map<std::string, Binding> bindings = {};
    /// Within a body, the location of the outermost call, which the nodes of the body take, so
    /// that errors point at the call site.
    std::optional<SourceLocation> location = std::nullopt;
 
    [[nodiscard]] std::optional<FunctionDefinitions::Lookup> find(const std::string& name) const {
-      return definitions->find(name, count);
+      return definitions.find(name, count);
    }
 
+   /// The binding of the parameter `name`, or null if `name` is no parameter.
    [[nodiscard]] const Binding* binding(const std::string& name) const {
-      if (bindings == nullptr) {
-         return nullptr;
-      }
-      const auto found = bindings->find(name);
-      return found == bindings->end() ? nullptr : &found->second;
+      const auto found = bindings.find(name);
+      return found == bindings.end() ? nullptr : &found->second;
    }
 };
 
@@ -197,7 +196,12 @@ class Expander {
          [&](const std::string& field_name) {
             const auto* binding = scope.binding(field_name);
             if (binding != nullptr && binding->type == ParameterType::SYMBOL) {
-               return std::get<ast::Identifier>(binding->value->value).name;
+               // checkArgument() made sure that the argument of a symbol is a name
+               const auto* name = std::get_if<ast::Identifier>(&binding->value->value);
+               if (name == nullptr) {
+                  RHYDB_PANIC("the symbol {} is bound to no name", field_name);
+               }
+               return name->name;
             }
             return field_name;
          },
@@ -342,25 +346,6 @@ class Expander {
       );
    }
 
-   /// The value of the unbound `parameter` of `lookup.definition`: its default value, expanded
-   /// with the definitions that the definition sees.
-   // NOLINTNEXTLINE(misc-no-recursion)
-   ast::ExpressionPtr defaultValue(
-      const Definition::Parameter& parameter,
-      const FunctionDefinitions::Lookup& lookup,
-      const SourceLocation& call_location
-   ) {
-      return expand(
-         *parameter.default_value,
-         Scope{
-            .definitions = lookup.scope,
-            .count = lookup.index,
-            .bindings = nullptr,
-            .location = call_location,
-         }
-      );
-   }
-
    /// Expands a call to `lookup.definition` with the given arguments, made in `scope`. The
    /// arguments are expanded in `scope` and then bound to the parameters, against which the body
    /// is expanded with the definitions before `lookup.definition`. The nodes of the body take the
@@ -394,29 +379,33 @@ class Expander {
             .location = argument.location,
          });
       }
-      const auto bound = bindArguments(function_name, signatureOf(definition), positional, named);
+      // Throws if the arguments do not fit the parameters
+      (void)bindArguments(function_name, signatureOf(definition), positional, named);
+      std::map<std::string, ast::ExpressionPtr> arguments;
+      for (size_t index = 0; index < positional.size(); ++index) {
+         arguments.emplace(definition.parameters.at(index).name, std::move(positional[index].value));
+      }
+      for (auto& argument : named) {
+         arguments.emplace(argument.name, std::move(argument.value));
+      }
 
-      const Scope definition_scope{
-         .definitions = lookup.scope,
+      // The body sees the definitions before `lookup.definition`, and the parameters. The default
+      // value of a parameter sees the same definitions, and the parameters before it.
+      Scope body_scope{
+         .definitions = *lookup.scope,
          .count = lookup.index,
-         .bindings = nullptr,
+         .bindings = {},
          .location = call_location,
       };
-
-      std::vector<ast::ExpressionPtr> default_values;
-      std::map<std::string, Binding> bindings;
       for (const auto& parameter : definition.parameters) {
-         const auto* argument = bound.get(parameter.name);
-         if (argument != nullptr) {
-            checkArgument(function_name, parameter, *argument);
-         } else {
-            default_values.push_back(defaultValue(parameter, lookup, call_location));
-            argument = default_values.back().get();
-         }
-         bindings.emplace(parameter.name, Binding{.type = parameter.type, .value = argument});
+         auto argument = arguments.extract(parameter.name);
+         auto value = argument.empty() ? expand(*parameter.default_value, body_scope)
+                                       : std::move(argument.mapped());
+         checkArgument(function_name, parameter, *value);
+         body_scope.bindings.emplace(
+            parameter.name, Binding{.type = parameter.type, .value = std::move(value)}
+         );
       }
-      auto body_scope = definition_scope;
-      body_scope.bindings = &bindings;
       return expand(definition.body(), body_scope);
    }
 };
@@ -456,15 +445,11 @@ void FunctionDefinitions::add(ast::FunctionDefinition definition) {
          source->name,
          parameter.location.toString()
       );
-      const Definition::Parameter result_parameter{
+      result.parameters.push_back({
          .name = parameter.name,
          .type = parameter.type,
          .default_value = parameter.default_value.get(),
-      };
-      if (parameter.default_value != nullptr) {
-         checkArgument(source->name, result_parameter, *parameter.default_value);
-      }
-      result.parameters.push_back(result_parameter);
+      });
    }
    definitions_.push_back(std::move(result));
 }
@@ -509,7 +494,7 @@ ast::ExpressionPtr expandFunctionDefinitions(
    const ExpansionLimits& limits
 ) {
    Expander expander{limits};
-   return expander.expand(expression, Scope{.definitions = &definitions, .count = SIZE_MAX});
+   return expander.expand(expression, Scope{.definitions = definitions, .count = SIZE_MAX});
 }
 
 ast::ExpressionPtr parseQuery(std::string_view query) {
