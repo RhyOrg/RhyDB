@@ -87,7 +87,8 @@ ast::Program Parser::parseProgram() {
    while (check(TokenType::LET)) {
       program.definitions.push_back(parseFunctionDefinition());
    }
-   program.body = parseExpression();
+   // Like parse(), the top-level expression does not count as nested
+   program.body = parseOrExpr();
    expect(TokenType::END_OF_FILE);
    return program;
 }
@@ -149,7 +150,7 @@ ast::FunctionDefinition Parser::parseFunctionDefinition() {
       expect(TokenType::RIGHT_PAREN);
    }
    expect(TokenType::COLON_EQUALS);
-   definition.body = parseExpression();
+   definition.body = parseOrExpr();
    expect(TokenType::COMMA);
    return definition;
 }

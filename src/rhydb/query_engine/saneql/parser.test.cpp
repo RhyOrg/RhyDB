@@ -872,6 +872,12 @@ TEST(SaneQLParser, acceptsNestingUpToTheMaximumDepth) {
    EXPECT_NO_THROW((void)parser.parse());
 }
 
+TEST(SaneQLParser, programAndDefinitionsAcceptNestingUpToTheMaximumDepth) {
+   const std::string input = alternatingAndOr(MAX_ALTERNATING_DEPTH);
+   EXPECT_NO_THROW((void)Parser(input).parseProgram());
+   EXPECT_NO_THROW((void)Parser("let f := " + input + ", data").parseProgram());
+}
+
 TEST(SaneQLParser, rejectsNestingBeyondTheMaximumDepth) {
    const std::string input = alternatingAndOr(MAX_ALTERNATING_DEPTH + 1);
    Parser parser(input);
