@@ -23,6 +23,7 @@ std::shared_ptr<arrow::DataType> columnTypeToArrowType(const schema::DataTypePtr
       case Kind::AMINO_ACID_SEQUENCE:
       case Kind::NUCLEOTIDE_SEQUENCE:
       case Kind::ZSTD_COMPRESSED_STRING:
+      case Kind::BINARY:
          return arrow::large_binary();
    }
    RHYDB_UNREACHABLE();

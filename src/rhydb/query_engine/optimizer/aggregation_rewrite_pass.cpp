@@ -188,6 +188,7 @@ bool isGroupableScalarType(const schema::DataTypePtr& type) {
       case Kind::AMINO_ACID_SEQUENCE:
       case Kind::NUCLEOTIDE_SEQUENCE:
       case Kind::ZSTD_COMPRESSED_STRING:
+      case Kind::BINARY:
          return false;
    }
    return false;

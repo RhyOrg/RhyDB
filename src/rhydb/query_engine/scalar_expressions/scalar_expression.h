@@ -54,6 +54,7 @@ class ScalarExpression {
       STRING_LITERAL,
       BOOL_LITERAL,
       DATE_LITERAL,
+      BINARY_LITERAL,
       NULL_LITERAL,
       HAS_MUTATION_NUCLEOTIDE,
       HAS_MUTATION_AMINO_ACID,

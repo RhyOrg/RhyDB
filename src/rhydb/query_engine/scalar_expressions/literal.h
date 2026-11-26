@@ -196,6 +196,38 @@ class DateLiteral : public ScalarExpression {
    ) const override;
 };
 
+/// A byte string, e.g. `'ACGT'::binary`
+class BinaryLiteral : public ScalarExpression {
+  public:
+   std::string value;
+
+   explicit BinaryLiteral(std::string value);
+
+   [[nodiscard]] schema::DataTypePtr type() const override { return schema::DataType::BINARY; }
+
+   static constexpr Kind KIND = Kind::BINARY_LITERAL;
+   [[nodiscard]] Kind kind() const override { return KIND; }
+
+   [[nodiscard]] std::unique_ptr<ScalarExpression> clone() const override {
+      return std::make_unique<BinaryLiteral>(value);
+   }
+
+   [[nodiscard]] arrow::Result<arrow::compute::Expression> toArrowExpression() const override;
+
+   /// The value base64 encoded, as binary values are output
+   [[nodiscard]] std::string toString() const override;
+
+   [[nodiscard]] std::unique_ptr<ScalarExpression> rewrite(
+      const storage::Table& table,
+      AmbiguityMode mode
+   ) const override;
+
+   [[nodiscard]] std::unique_ptr<filter::operators::Operator> compile(
+      const storage::Table& table,
+      bool with_null_rows
+   ) const override;
+};
+
 /// The SaneQL `null` literal. It has no type of its own, so it is given the type of the value it
 /// stands for, e.g. the column it is assigned to.
 class NullLiteral : public ScalarExpression {

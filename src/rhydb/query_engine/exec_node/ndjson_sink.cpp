@@ -11,6 +11,7 @@
 #include <nlohmann/json.hpp>
 
 #include "evobench/evobench.hpp"
+#include "rhydb/common/base64.h"
 #include "rhydb/common/date32.h"
 #include "rhydb/common/panic.h"
 
@@ -123,6 +124,20 @@ class ArrayToJsonTypeVisitor : public arrow::ArrayVisitor {
             const std::string_view value = array.GetView(row_base + i);
             const nlohmann::json json_string = value;
             output_stream.streams.at(i) << json_string.dump();
+         }
+      }
+      return arrow::Status::OK();
+   }
+
+   /// JSON cannot hold raw bytes, so binary values are written as base64 strings, the encoding in
+   /// which they are ingested
+   arrow::Status Visit(const arrow::LargeBinaryArray& array) override {
+      for (size_t i = 0; i < BatchSize; ++i) {
+         if (array.IsNull(row_base + i)) {
+            output_stream.streams.at(i) << "null";
+         } else {
+            // Base64 needs no JSON escaping
+            output_stream.streams.at(i) << '"' << encodeBase64(array.GetView(row_base + i)) << '"';
          }
       }
       return arrow::Status::OK();

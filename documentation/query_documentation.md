@@ -78,7 +78,7 @@ Any Unicode white space (e.g. the non-breaking space) separates tokens.
 |----------|---------|------------------------|
 | `=` | equals | all |
 | `<>` | not equals | all |
-| `<`, `<=`, `>`, `>=` | ordering | int32, int64, float, date, string (lexicographic) |
+| `<`, `<=`, `>`, `>=` | ordering | int32, int64, float, date, string (lexicographic), binary (byte-wise lexicographic) |
 
 Notes:
 - One side must be a column identifier; the other a literal value. The column may
@@ -94,6 +94,8 @@ Notes:
   `!(country = 'Germany') || country.isNull()`.
 - String ordering is lexicographic and applies to both plain and
   dictionary-encoded string columns.
+- A `binary` column is compared to a binary literal, written as a cast of a string, e.g.
+  `payload = 'ACGT'::binary`. Comparing it to a string literal is an error.
 
 Examples:
 ```
@@ -109,13 +111,14 @@ date <= '2021-12-31'::date
 applies to any expression and can be chained (`age::string::int64`).
 
 Type names are those of the database config: `string`, `date`, `boolean`, `int32`, `int64`,
-`float` (`int` is an alias of `int32`). Dictionary-encoded columns cast like plain ones.
+`float`, `binary` (`int` is an alias of `int32`). Dictionary-encoded columns cast like plain ones.
 
 | From                      | To                                           |
 |---------------------------|----------------------------------------------|
 | `int32`, `int64`, `float` | each other, and `string`                     |
 | `date`, `boolean`         | `string`                                     |
-| `string`                  | `int32`, `int64`, `float`, `date`, `boolean` |
+| `string`                  | `int32`, `int64`, `float`, `date`, `boolean`, `binary` |
+| `binary`                  | `string`                                     |
 
 Every other combination is an error, e.g. `date::int32` or `boolean::int32`. Casting to the
 type an expression already has does nothing.
@@ -127,6 +130,8 @@ Rules:
 - Strings are parsed strictly: no surrounding whitespace, `'5'::int32` works but `'5.0'::int32`
   does not. A date must be exactly `YYYY-MM-DD`, and a boolean exactly `true` or `false`.
 - Casting a number to a string gives its plain decimal form, e.g. `5::string` is `'5'`.
+- Casting between `string` and `binary` keeps the bytes: `'foo'::binary` is the three bytes of
+  `foo` (not a base64 decoding), and a binary value cast to a string must be valid UTF-8.
 - A cast of a literal is evaluated when the query is read, so it can be used wherever a
   literal is required, e.g. `date > '2021-12-31'::date` or `age = '42'::int32`. An invalid
   literal is a query error with its position.
@@ -260,7 +265,7 @@ data.project(division)
 
 Sequence data columns use the naming convention `<sequenceName>` for aligned sequences and `unaligned_<sequenceName>` for unaligned sequences.
 
-**Output:** one row per input row containing only the projected columns. Values reflect the column type: strings, integers, floats, booleans, dates (`"YYYY-MM-DD"` string in ndjson output), or `null`.
+**Output:** one row per input row containing only the projected columns. Values reflect the column type: strings, integers, floats, booleans, dates (`"YYYY-MM-DD"` string in ndjson output), binary values (base64-encoded string in ndjson output, raw `large_binary` in Arrow output), or `null`.
 
 ```json
 {"primary_key": "key_31", "country": "Switzerland", "date": "2021-03-21", "pango_lineage": "B.1.1.7", "qc_value": 0.96}
@@ -600,7 +605,7 @@ data.mutations(minProportion:=0.1).schema()
 | Field       | Type   | Description                                                                                          |
 |-------------|--------|------------------------------------------------------------------------------------------------------|
 | `fieldName` | string | Name of the field                                                                                    |
-| `type`      | string | Type of the field (e.g. `STRING`, `INT32`, `INT64`, `DATE32`, `BOOL`, `FLOAT`, `DICTIONARY_ENCODED(STRING)`) |
+| `type`      | string | Type of the field (e.g. `STRING`, `INT32`, `INT64`, `DATE32`, `BOOL`, `FLOAT`, `BINARY`, `DICTIONARY_ENCODED(STRING)`) |
 
 ```json lines
 {"fieldName": "age", "type": "INT32"}
@@ -757,7 +762,7 @@ rows are inserted.
 query (its outermost operation) and cannot be chained further (e.g. `x.insertInto(y).filter(...)` is
 not valid).
 
-**Limitation:** only value columns (`STRING`, `INT32`, `INT64`, `FLOAT`, `DATE32`, `BOOL`) round-trip
+**Limitation:** only value columns (`STRING`, `INT32`, `INT64`, `FLOAT`, `DATE32`, `BOOL`, `BINARY`) round-trip
 through an insert query. A sequence column is decompressed to a plain string when read into a
 pipeline, which does not match the structured form the target's sequence column expects, so query
 results containing sequence columns cannot be inserted.
@@ -812,6 +817,7 @@ value can be assigned to any string column:
 | `BOOL`                              | `true`, `false`, `test_boolean_column`           |
 | `DATE32`                            | `'2021-03-15'::date`, `date`                     |
 | `STRING` (plain, indexed or zstd compressed) | `'Basel'`, `country`, `at(main, 100)`  |
+| `BINARY`                            | `'ACGT'::binary`, `payload`                      |
 | any of them                         | `null`                                           |
 
 **Limitation:** sequence columns and string columns backed by a phylogenetic tree cannot be updated.
@@ -890,6 +896,7 @@ identifiers can be written as quoted identifiers, e.g. `"S:ORF1a" := aminoAcidSe
 | `int32` / `int`, `int64`      |                                   | 32 / 64 bit integer                                           |
 | `float`                       |                                   | floating point number                                         |
 | `boolean`                     |                                   | boolean                                                       |
+| `binary`                      |                                   | arbitrary bytes, given and output base64 encoded in NDJSON    |
 | `date`                        | `generateIndex := <bool>`         | date; with `generateIndex := true` dictionary encoded and indexed |
 | `nucleotideSequence`          | `reference := <name>` (required)  | aligned nucleotide sequence                                   |
 | `aminoAcidSequence`           | `reference := <name>` (required)  | aligned amino acid sequence                                   |

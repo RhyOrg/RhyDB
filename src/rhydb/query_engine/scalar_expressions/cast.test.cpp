@@ -313,7 +313,7 @@ const QueryTestScenario UNKNOWN_TARGET_TYPE_THROWS_SCENARIO = {
    .query = "data.map({a := int_col::banana}).project({primaryKey, a})",
    .expected_error_message =
       "cannot cast to unknown type 'banana' at 1:23; supported types are string, date, boolean, "
-      "int32, int64, float",
+      "int32, int64, float, binary",
 };
 
 const QueryTestScenario SEQUENCE_TARGET_TYPE_THROWS_SCENARIO = {
@@ -321,7 +321,7 @@ const QueryTestScenario SEQUENCE_TARGET_TYPE_THROWS_SCENARIO = {
    .query = "data.map({a := text::nucleotideSequence}).project({primaryKey, a})",
    .expected_error_message =
       "cannot cast to unknown type 'nucleotideSequence' at 1:20; supported types are string, "
-      "date, boolean, int32, int64, float",
+      "date, boolean, int32, int64, float, binary",
 };
 
 const QueryTestScenario UNKNOWN_COLUMN_THROWS_SCENARIO = {

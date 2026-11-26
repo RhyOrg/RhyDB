@@ -123,7 +123,7 @@ const QueryTestScenario INT64_EQUALS_FUNCTION_CALL_VALUE_SCENARIO = {
    .query = "data.filter(int64_value = primaryKey.at(1))",
    .expected_error_message =
       "Unsupported value type in comparison with column 'int64_value': the value must be an int, "
-      "float, date, string, or bool literal",
+      "float, date, string, bool, or binary literal",
 };
 
 }  // namespace

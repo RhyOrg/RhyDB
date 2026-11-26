@@ -158,7 +158,7 @@ ColumnDefinition parseColumnDefinition(
 
    throw IllegalQueryException(
       "createTable(): unknown type '{}' of column '{}', expected one of string, int, int32, int64, "
-      "float, boolean, date, nucleotideSequence, aminoAcidSequence, zstdCompressedString",
+      "float, boolean, date, binary, nucleotideSequence, aminoAcidSequence, zstdCompressedString",
       type_name,
       column_name
    );
@@ -328,6 +328,7 @@ std::shared_ptr<ColumnMetadata> createColumnMetadata(
       case Kind::INT32:
       case Kind::INT64:
       case Kind::FLOAT:
+      case Kind::BINARY:
          return std::make_shared<ColumnMetadata>(column.name);
       case Kind::NUCLEOTIDE_SEQUENCE: {
          auto reference = getReferenceSequence(

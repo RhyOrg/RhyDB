@@ -2,6 +2,7 @@
 
 #include "rhydb/common/panic.h"
 #include "rhydb/schema/database_schema.h"
+#include "rhydb/storage/column/binary_column.h"
 #include "rhydb/storage/column/bool_column.h"
 #include "rhydb/storage/column/column.h"
 #include "rhydb/storage/column/date32_column.h"
@@ -51,6 +52,8 @@ static decltype(auto) visit(
          return func.template operator()<SequenceColumn<AminoAcid>>(std::forward<Args>(args)...);
       case Kind::ZSTD_COMPRESSED_STRING:
          return func.template operator()<ZstdCompressedStringColumn>(std::forward<Args>(args)...);
+      case Kind::BINARY:
+         return func.template operator()<BinaryColumn>(std::forward<Args>(args)...);
    }
    RHYDB_UNREACHABLE();
 }

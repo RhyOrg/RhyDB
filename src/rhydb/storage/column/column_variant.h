@@ -4,6 +4,7 @@
 
 #include "rhydb/common/aa_symbols.h"
 #include "rhydb/common/nucleotide_symbols.h"
+#include "rhydb/storage/column/binary_column.h"
 #include "rhydb/storage/column/bool_column.h"
 #include "rhydb/storage/column/date32_column.h"
 #include "rhydb/storage/column/dictionary_encoded_column.h"
@@ -27,6 +28,7 @@ using ColumnVariant = std::variant<
    Date32Column,
    SequenceColumn<Nucleotide>,
    SequenceColumn<AminoAcid>,
-   ZstdCompressedStringColumn>;
+   ZstdCompressedStringColumn,
+   BinaryColumn>;
 
 }  // namespace rhydb::storage::column

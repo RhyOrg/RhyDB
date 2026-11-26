@@ -83,6 +83,12 @@ std::map<std::string, column::ZstdCompressedStringColumn::Builder>& TableChunkBu
    return zstd_compressed_string_column_builders;
 }
 
+template <>
+std::map<std::string, column::BinaryColumn::Builder>& TableChunkBuilder::getColumnBuilders<
+   column::BinaryColumn>() {
+   return binary_column_builders;
+}
+
 namespace {
 
 #define RAISE_STRING_ERROR_WITH_CONTEXT(error, value, ...)                                  \
@@ -284,6 +290,34 @@ std::expected<void, std::string> ColumnValueExtractor::operator()<
    return insertToDateBuilder<column::DictionaryEncodedColumn<column::Date32Column>>(
       builders, column, value
    );
+}
+
+/// Binary values are given as base64-encoded strings in the input, as JSON cannot hold raw bytes
+template <>
+std::expected<void, std::string> ColumnValueExtractor::operator()<column::BinaryColumn>(
+   TableChunkBuilder& builders,
+   const schema::ColumnIdentifier& column,
+   simdjson::ondemand::value& value
+) {
+   auto& builder = builders.getColumnBuilders<column::BinaryColumn>().at(column.name);
+   bool is_null;
+   auto error = value.is_null().get(is_null);
+   RAISE_STRING_ERROR_WITH_CONTEXT(error, value, "error checking value for null: {}");
+   if (is_null) {
+      builder.insertNull();
+      return {};
+   }
+   std::string_view encoded;
+   error = value.get(encoded);
+   RAISE_STRING_ERROR_WITH_CONTEXT(
+      error, value, "error getting value as base64 string: {}. {}", value.raw_json_token()
+   );
+   auto decoded = decodeBase64(encoded);
+   if (!decoded.has_value()) {
+      return std::unexpected{fmt::format("invalid base64 binary value: {}", decoded.error())};
+   }
+   builder.insert(decoded.value());
+   return {};
 }
 
 template <>

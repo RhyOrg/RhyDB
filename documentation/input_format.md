@@ -52,7 +52,7 @@ schema:
 
 **Metadata Field Options**:
 - `name`: Field name (must match JSON key)
-- `type`: One of `string`, `int32` (32-bit integer, alias `int`), `int64` (64-bit integer), `float`, `date`, `boolean`
+- `type`: One of `string`, `int32` (32-bit integer, alias `int`), `int64` (64-bit integer), `float`, `date`, `boolean`, `binary`
 - `generateIndex`: Set to `true` to create a bitmap index for fast equality lookups. This is only valid for `string` and `date` columns
 - `generateLineageIndex`: Path to lineage definition file for hierarchical queries. This is only possible if `generateIndex` is also set.
   Preprocessing materializes the definition as a relation table named after the column and an alias table named `<column>_aliases`, which is what `lineage(...)` resolves against. See [lineage_definitions.md](lineage_definitions.md) for their schema.
@@ -153,6 +153,23 @@ String values for textual data which is stored compressed by a common dictionary
 ```json
 {"unaligned_main": "ACGTACGTACGTACGT"}
 {"unaligned_main": null}
+```
+
+### BINARY
+
+Arbitrary byte strings, e.g. compressed or otherwise encoded data. Configured as `binary`. As JSON
+cannot hold raw bytes, values are given as standard base64-encoded strings (RFC 4648, with padding),
+and query results output them the same way. An empty string is the empty byte string, not null.
+
+| Property | Value |
+|----------|-------|
+| JSON Type | String (base64) |
+| Null | `null` |
+
+```json
+{"payload": "AP8="}
+{"payload": ""}
+{"payload": null}
 ```
 
 ### INT32

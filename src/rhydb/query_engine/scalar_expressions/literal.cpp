@@ -10,6 +10,7 @@
 #include <arrow/type.h>
 #include <fmt/format.h>
 
+#include "rhydb/common/base64.h"
 #include "rhydb/common/date32.h"
 #include "rhydb/common/panic.h"
 #include "rhydb/query_engine/exec_node/arrow_util.h"
@@ -169,6 +170,29 @@ std::unique_ptr<ScalarExpression> DateLiteral::rewrite(
 }
 
 std::unique_ptr<filter::operators::Operator> DateLiteral::
+   compile(const Table& /*table*/, bool /*with_null_rows*/) const {
+   compileNonBooleanLiteral();
+}
+
+BinaryLiteral::BinaryLiteral(std::string value)
+    : value(std::move(value)) {}
+
+std::string BinaryLiteral::toString() const {
+   return fmt::format("binary('{}')", encodeBase64(value));
+}
+
+arrow::Result<arrow::compute::Expression> BinaryLiteral::toArrowExpression() const {
+   return arrow::compute::literal(arrow::Datum(std::make_shared<arrow::LargeBinaryScalar>(value)));
+}
+
+std::unique_ptr<ScalarExpression> BinaryLiteral::rewrite(
+   const Table& /*table*/,
+   AmbiguityMode /*mode*/
+) const {
+   return std::make_unique<BinaryLiteral>(value);
+}
+
+std::unique_ptr<filter::operators::Operator> BinaryLiteral::
    compile(const Table& /*table*/, bool /*with_null_rows*/) const {
    compileNonBooleanLiteral();
 }
