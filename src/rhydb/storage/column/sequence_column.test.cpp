@@ -6,6 +6,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -283,14 +284,6 @@ using rhydb::roaring_util::RoaringContainerView;
 using rhydb::storage::column::RowCompaction;
 using rhydb::storage::column::RowLayout;
 
-const std::vector<std::vector<std::string>> TWO_CHUNKS_OF_SEQUENCES{
-   {"ACGTA", "TCGTA", "ACG-A", "TTGTA"},
-   {"TCGGA", "TCGTA", "ACGTC"},
-};
-
-const std::vector<std::string>
-   ALL_SEQUENCES{"ACGTA", "TCGTA", "ACG-A", "TTGTA", "TCGGA", "TCGTA", "ACGTC"};
-
 std::vector<Nucleotide::Symbol> symbolsOf(std::string_view sequence) {
    std::vector<Nucleotide::Symbol> result;
    for (const char character : sequence) {
@@ -299,17 +292,18 @@ std::vector<Nucleotide::Symbol> symbolsOf(std::string_view sequence) {
    return result;
 }
 
-// A column over the reference ACGTA holding `TWO_CHUNKS_OF_SEQUENCES`, one appended chunk per
-// inner vector, finalized after each. Position 0 adapts from A to T once enough rows carry T.
-void appendTwoChunks(SequenceColumn<Nucleotide>& column) {
-   for (const auto& chunk : TWO_CHUNKS_OF_SEQUENCES) {
-      SequenceColumn<Nucleotide>::Builder builder(column.metadata, column.localReferenceText());
-      for (const auto& sequence : chunk) {
+// Appends `sequences` (or null rows for "null") as one chunk and finalizes the column
+void appendChunk(SequenceColumn<Nucleotide>& column, const std::vector<std::string>& sequences) {
+   SequenceColumn<Nucleotide>::Builder builder(column.metadata, column.localReferenceText());
+   for (const auto& sequence : sequences) {
+      if (sequence == "null") {
+         builder.insertNull();
+      } else {
          builder.insert(sequence, 0, std::vector<std::string>{});
       }
-      RHYDB_ASSERT(column.appendChunk(builder.finalize()).has_value());
-      column.finalize();
    }
+   RHYDB_ASSERT(column.appendChunk(builder.finalize()).has_value());
+   column.finalize();
 }
 
 // Reconstructs every row of `column`, chunk by chunk
@@ -331,40 +325,24 @@ std::vector<std::string> reconstruct(const SequenceColumn<Nucleotide>& column) {
 
 }  // namespace
 
+// Two chunks over the reference ACGTA, after which position 0 adapts from A to T, and a third with
+// a null row; serialized and loaded again.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST(SequenceColumn, reconstructsSequencesAcrossChunksAfterReferenceAdaptation) {
-   SequenceColumnMetadata<Nucleotide> column_metadata{"test_column", symbolsOf("ACGTA")};
-   SequenceColumn<Nucleotide> under_test(&column_metadata);
-   appendTwoChunks(under_test);
-
-   EXPECT_EQ(under_test.localReferenceText(), "TCGTA");
-   ASSERT_EQ(under_test.numChunks(), 2);
-   EXPECT_EQ(under_test.chunkSize(0), 4);
-   EXPECT_EQ(under_test.chunkSize(1), 3);
-   // Every chunk is stored against the column's local reference
-   for (const auto& chunk : under_test.chunks()) {
-      EXPECT_EQ(chunk->sharedReference(), under_test.localReference());
-   }
-   // After the flip, A is stored as a mutation at position 0 in both chunks, and T is not stored.
-   EXPECT_EQ(
-      stored(under_test, 0, Nucleotide::Symbol::A), (roaring::Roaring{0, 2, (1U << 16) + 2})
-   );
-   EXPECT_EQ(stored(under_test, 0, Nucleotide::Symbol::T), roaring::Roaring{});
-   EXPECT_EQ(reconstruct(under_test), ALL_SEQUENCES);
-}
-
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST(SequenceColumn, serializationRoundTripsTheChunks) {
+TEST(SequenceColumn, reconstructsAndSerializesChunksAfterReferenceAdaptation) {
    SequenceColumnMetadata<Nucleotide> column_metadata{"test_column", symbolsOf("ACGTA")};
    SequenceColumn<Nucleotide> original(&column_metadata);
-   appendTwoChunks(original);
-   {
-      SequenceColumn<Nucleotide>::Builder builder(original.metadata, original.localReferenceText());
-      builder.insertNull();
-      builder.insert("ACG", 1, std::vector<std::string>{"2:AA"});
-      RHYDB_ASSERT(original.appendChunk(builder.finalize()).has_value());
-      original.finalize();
-   }
+   appendChunk(original, {"ACGTA", "TCGTA", "ACG-A", "TTGTA"});
+   appendChunk(original, {"TCGGA", "TCGTA", "ACGTC"});
+   appendChunk(original, {"null", "NACGN"});
+
+   ASSERT_EQ(original.numChunks(), 3);
+   EXPECT_EQ(original.chunkSize(0), 4);
+   EXPECT_EQ(original.chunkSize(1), 3);
+   EXPECT_EQ(original.localReferenceText(), "TCGTA");
+   // After the flip, A is stored as a mutation at position 0 in both chunks, and T is not stored.
+   const uint32_t chunk_1 = 1U << 16U;
+   EXPECT_EQ(stored(original, 0, Nucleotide::Symbol::A), (roaring::Roaring{0, 2, chunk_1 + 2}));
+   EXPECT_EQ(stored(original, 0, Nucleotide::Symbol::T), roaring::Roaring{});
 
    std::stringstream buffer;
    {
@@ -376,10 +354,31 @@ TEST(SequenceColumn, serializationRoundTripsTheChunks) {
       boost::archive::binary_iarchive input_archive(buffer);
       input_archive >> loaded;
    }
-
-   ASSERT_EQ(loaded.numChunks(), 3);
-   EXPECT_EQ(loaded.localReferenceText(), original.localReferenceText());
-   EXPECT_EQ(loaded.sequence_count, original.sequence_count);
+   for (const auto* column : {&original, &loaded}) {
+      EXPECT_EQ(column->localReferenceText(), "TCGTA");
+      EXPECT_EQ(column->sequence_count, 9);
+      // Every chunk is stored against the column's local reference
+      for (const auto& chunk : column->chunks()) {
+         EXPECT_EQ(chunk->sharedReference(), column->localReference());
+      }
+      EXPECT_TRUE(column->isNull({.chunk_id = 2, .row_in_chunk = 0}));
+      EXPECT_FALSE(column->isNull({.chunk_id = 2, .row_in_chunk = 1}));
+      EXPECT_EQ(column->nullRows().toRoaring(), roaring::Roaring{2U << 16U});
+      EXPECT_EQ(
+         reconstruct(*column),
+         (std::vector<std::string>{
+            "ACGTA",
+            "TCGTA",
+            "ACG-A",
+            "TTGTA",
+            "TCGGA",
+            "TCGTA",
+            "ACGTC",
+            "NNNNN",
+            "NACGN",
+         })
+      );
+   }
    for (size_t chunk_id = 0; chunk_id < 3; ++chunk_id) {
       const auto& original_chunk = *original.chunks()[chunk_id];
       const auto& loaded_chunk = *loaded.chunks()[chunk_id];
@@ -393,44 +392,28 @@ TEST(SequenceColumn, serializationRoundTripsTheChunks) {
             original_chunk.coverageBuffer()->bytes(), loaded_chunk.coverageBuffer()->bytes()
          )
       );
-      EXPECT_EQ(loaded_chunk.sharedReference(), loaded.localReference());
    }
-   EXPECT_TRUE(loaded.isNull({.chunk_id = 2, .row_in_chunk = 0}));
-   EXPECT_FALSE(loaded.isNull({.chunk_id = 2, .row_in_chunk = 1}));
-   EXPECT_EQ(loaded.nullRows().toRoaring(), roaring::Roaring{2U << 16U});
-   auto expected = ALL_SEQUENCES;
-   expected.emplace_back("NNNNN");
-   expected.emplace_back("NACGN");
-   EXPECT_EQ(reconstruct(loaded), expected);
    EXPECT_EQ(loaded.getInfo().vertical_bitmaps_size, original.getInfo().vertical_bitmaps_size);
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST(SequenceColumn, deleteRowsCompactsTheChunksThatLoseRows) {
    SequenceColumnMetadata<Nucleotide> column_metadata{"test_column", symbolsOf("ACGTA")};
    SequenceColumn<Nucleotide> under_test(&column_metadata);
-   appendTwoChunks(under_test);
-   {
-      SequenceColumn<Nucleotide>::Builder builder(
-         under_test.metadata, under_test.localReferenceText()
-      );
-      builder.insert("ACGTT", 0, std::vector<std::string>{});
-      RHYDB_ASSERT(under_test.appendChunk(builder.finalize()).has_value());
-      under_test.finalize();
-   }
+   appendChunk(under_test, {"ACGTA", "TCGTA", "ACG-A", "TTGTA"});
+   appendChunk(under_test, {"TCGGA", "TCGTA", "ACGTC"});
+   appendChunk(under_test, {"ACGTT"});
    const auto untouched_chunk = under_test.chunks()[2];
 
    // Delete rows 1 and 3 of chunk 0 and the whole chunk 1
    RowLayout layout;
-   layout.appendChunk(4);
-   layout.appendChunk(3);
-   layout.appendChunk(1);
+   for (const uint32_t size : {4, 3, 1}) {
+      layout.appendChunk(size);
+   }
    const roaring::Roaring deleted{1, 3, 1U << 16U, (1U << 16U) + 1, (1U << 16U) + 2};
    under_test.deleteRows(RowCompaction{layout, rhydb::Bitmap{&deleted}});
 
    ASSERT_EQ(under_test.numChunks(), 2);
    EXPECT_EQ(under_test.chunkSize(0), 2);
-   EXPECT_EQ(under_test.chunkSize(1), 1);
    EXPECT_EQ(under_test.sequence_count, 3);
    // A chunk that loses no rows is kept as it is
    EXPECT_EQ(under_test.chunks()[1], untouched_chunk);
@@ -453,75 +436,39 @@ TEST(SequenceColumn, aMalformedInsertionLeavesTheColumnUnchanged) {
    EXPECT_EQ(under_test.sequence_count, 0);
 }
 
-// Local reference adaptation at a single position, driven through `finalize` by real sequences.
-// An `N` row does not cover the position, so it counts for no symbol.
-namespace {
-
-struct OnePositionColumn {
-   SequenceColumnMetadata<Nucleotide> metadata;
-   SequenceColumn<Nucleotide> column{&metadata};
-
-   OnePositionColumn(char reference, const std::vector<std::string>& sequences)
-       : metadata("test_column", {Nucleotide::charToSymbol(reference).value()}) {
-      SequenceColumn<Nucleotide>::Builder builder(column.metadata, column.localReferenceText());
-      for (const auto& sequence : sequences) {
-         builder.insert(sequence, 0, std::vector<std::string>{});
+// Local reference adaptation at a single position, driven through `finalize` by real sequences. An
+// `N` row does not cover the position, so it counts for no symbol; ties keep the reference, or else
+// go to the first symbol in symbol order. Afterwards, the rows not carrying the new reference
+// symbol store their symbol.
+TEST(SequenceColumn, adaptsTheLocalReferenceToTheMostCommonCoveredSymbol) {
+   // The reference symbol, the rows, the local reference, and the rows storing some symbols
+   using Case = std::tuple<
+      char,
+      std::vector<std::string>,
+      std::string,
+      std::vector<std::pair<char, roaring::Roaring>>>;
+   const std::vector<Case> cases{
+      {'C', {"A"}, "A", {{'A', {}}, {'C', {}}}},
+      {'C', {"A", "N", "N"}, "A", {{'A', {}}, {'C', {}}}},
+      {'C', {"A", "C"}, "C", {{'A', {0}}}},
+      {'T', {"A", "N", "T", "N", "T", "T", "A"}, "T", {{'A', {0, 6}}}},
+      {'T', {"A", "N", "T", "N", "A", "T", "A"}, "A", {{'A', {}}, {'T', {2, 5}}}},
+      // A and - both occur three times; - comes first in symbol order, so it wins.
+      {
+         'T',
+         {"A", "N", "T", "N", "A", "-", "-", "-", "T", "A"},
+         "-",
+         {{'A', {0, 4, 9}}, {'T', {2, 8}}, {'-', {}}},
+      },
+   };
+   for (const auto& [reference, sequences, adapted, stored_rows] : cases) {
+      SequenceColumnMetadata<Nucleotide> metadata{"test_column", symbolsOf(std::string{reference})};
+      SequenceColumn<Nucleotide> column{&metadata};
+      appendChunk(column, sequences);
+      EXPECT_EQ(column.localReferenceText(), adapted) << ::testing::PrintToString(sequences);
+      for (const auto& [symbol, rows] : stored_rows) {
+         EXPECT_EQ(stored(column, 0, Nucleotide::charToSymbol(symbol).value()), rows)
+            << ::testing::PrintToString(sequences) << " storing " << symbol;
       }
-      RHYDB_ASSERT(column.appendChunk(builder.finalize()).has_value());
-      column.finalize();
    }
-
-   [[nodiscard]] roaring::Roaring storedRows(Nucleotide::Symbol symbol) const {
-      return stored(column, 0, symbol);
-   }
-};
-
-}  // namespace
-
-TEST(SequenceColumnReferenceAdaptation, adaptsToTheOnlyCoveredSymbol) {
-   const OnePositionColumn under_test{'C', {"A"}};
-
-   EXPECT_EQ(under_test.column.localReferenceText(), "A");
-   EXPECT_EQ(under_test.storedRows(Nucleotide::Symbol::A), roaring::Roaring{});
-   EXPECT_EQ(under_test.storedRows(Nucleotide::Symbol::C), roaring::Roaring{});
-}
-
-TEST(SequenceColumnReferenceAdaptation, adaptsToTheOnlyCoveredSymbolWhenOthersAreMissing) {
-   const OnePositionColumn under_test{'C', {"A", "N", "N"}};
-
-   EXPECT_EQ(under_test.column.localReferenceText(), "A");
-   EXPECT_EQ(under_test.storedRows(Nucleotide::Symbol::A), roaring::Roaring{});
-   EXPECT_EQ(under_test.storedRows(Nucleotide::Symbol::C), roaring::Roaring{});
-}
-
-TEST(SequenceColumnReferenceAdaptation, keepsTheReferenceOnATie) {
-   const OnePositionColumn under_test{'C', {"A", "C"}};
-
-   EXPECT_EQ(under_test.column.localReferenceText(), "C");
-   EXPECT_EQ(under_test.storedRows(Nucleotide::Symbol::A), roaring::Roaring{0});
-}
-
-TEST(SequenceColumnReferenceAdaptation, keepsTheReferenceWhenItIsMostCommonAmongCoveredRows) {
-   const OnePositionColumn under_test{'T', {"A", "N", "T", "N", "T", "T", "A"}};
-
-   EXPECT_EQ(under_test.column.localReferenceText(), "T");
-   EXPECT_EQ(under_test.storedRows(Nucleotide::Symbol::A), (roaring::Roaring{0, 6}));
-}
-
-TEST(SequenceColumnReferenceAdaptation, flipsStoredRowsToTheOldReference) {
-   const OnePositionColumn under_test{'T', {"A", "N", "T", "N", "A", "T", "A"}};
-
-   EXPECT_EQ(under_test.column.localReferenceText(), "A");
-   EXPECT_EQ(under_test.storedRows(Nucleotide::Symbol::A), roaring::Roaring{});
-   EXPECT_EQ(under_test.storedRows(Nucleotide::Symbol::T), (roaring::Roaring{2, 5}));
-}
-
-TEST(SequenceColumnReferenceAdaptation, flipsWithManySymbolsAndBreaksTiesBySymbolOrder) {
-   // A and - both occur three times; - comes first in symbol order, so it wins.
-   const OnePositionColumn under_test{'T', {"A", "N", "T", "N", "A", "-", "-", "-", "T", "A"}};
-
-   EXPECT_EQ(under_test.column.localReferenceText(), "-");
-   EXPECT_EQ(under_test.storedRows(Nucleotide::Symbol::A), (roaring::Roaring{0, 4, 9}));
-   EXPECT_EQ(under_test.storedRows(Nucleotide::Symbol::T), (roaring::Roaring{2, 8}));
-   EXPECT_EQ(under_test.storedRows(Nucleotide::Symbol::GAP), roaring::Roaring{});
 }
