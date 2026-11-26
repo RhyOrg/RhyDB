@@ -188,7 +188,8 @@ class RoaringContainer {
       return result;
    }
 
-   // A moved-from container holds no container and may only be destroyed or assigned to.
+   // After move construction the source holds no container; after move assignment it holds the
+   // destination's previous container. Either way, it may only be destroyed or assigned to.
    RoaringContainer(RoaringContainer&& other) noexcept
        : container(other.container),
          cardinality(other.cardinality),
