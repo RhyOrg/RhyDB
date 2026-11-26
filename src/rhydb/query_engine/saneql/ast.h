@@ -141,6 +141,49 @@ struct Expression {
    [[nodiscard]] std::string toString() const;
 };
 
+/// The type of a parameter of a definition, which determines what an argument may be and how it is
+/// substituted. These are SaneQL's parameter types.
+enum class ParameterType : uint8_t {
+   /// `scalar`: a constant value, e.g. `true`, `5` or `'2021-01-01'::date`. The argument must not
+   /// refer to any column or table.
+   SCALAR,
+   /// `expression`: any expression, substituted as written and resolved where it ends up in the
+   /// body, e.g. a predicate over the columns of a table that the body builds.
+   EXPRESSION,
+   /// `table`: a table expression, e.g. a table name or a pipeline `data.filter(...)`.
+   TABLE,
+   /// `symbol`: a name, substituted wherever the parameter appears as a name in the body: as a
+   /// column or table reference, and as the name of a record field (e.g. in `map({x := ...})`).
+   SYMBOL,
+};
+
+/// The type named `name` in a parameter declaration (`scalar`, `table`, `expression` or `symbol`),
+/// if any.
+[[nodiscard]] std::optional<ParameterType> parameterTypeFromName(std::string_view name);
+
+/// A parameter `name type [:= default]` of a FunctionDefinition. Without a default value, every
+/// call must bind it.
+struct DefinitionParameter {
+   std::string name;
+   ParameterType type;
+   ExpressionPtr default_value;
+   SourceLocation location;
+};
+
+/// `let name(parameter, ...) := body,`, or `let name := body,` without parameters.
+struct FunctionDefinition {
+   std::string name;
+   std::vector<DefinitionParameter> parameters;
+   ExpressionPtr body;
+   SourceLocation location;
+};
+
+/// A query: the function definitions it starts with, followed by the expression to evaluate.
+struct Program {
+   std::vector<FunctionDefinition> definitions;
+   ExpressionPtr body;
+};
+
 ExpressionPtr makeExpr(ExpressionVariant value, SourceLocation location);
 
 [[nodiscard]] std::string extractIdentifierName(const Expression& expression);

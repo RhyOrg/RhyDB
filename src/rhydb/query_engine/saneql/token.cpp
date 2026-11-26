@@ -18,6 +18,8 @@ std::string tokenTypeToString(TokenType type) {
          return "NullLiteral";
       case TokenType::IDENTIFIER:
          return "Identifier";
+      case TokenType::LET:
+         return "Let";
       case TokenType::DOT:
          return "Dot";
       case TokenType::DOUBLE_COLON:

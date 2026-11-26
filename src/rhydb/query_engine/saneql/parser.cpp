@@ -82,6 +82,79 @@ ast::ExpressionPtr Parser::parse() {
    return expr;
 }
 
+ast::Program Parser::parseProgram() {
+   ast::Program program;
+   while (check(TokenType::LET)) {
+      program.definitions.push_back(parseFunctionDefinition());
+   }
+   // Like parse(), the top-level expression does not count as nested
+   program.body = parseOrExpr();
+   expect(TokenType::END_OF_FILE);
+   return program;
+}
+
+std::vector<ast::FunctionDefinition> Parser::parseDefinitions() {
+   std::vector<ast::FunctionDefinition> definitions;
+   while (!check(TokenType::END_OF_FILE)) {
+      definitions.push_back(parseFunctionDefinition());
+   }
+   return definitions;
+}
+
+// `let name(parameter, ...) := body,` or `let name := body,`, where a parameter is
+// `name type [:= default]`. This is the syntax of SaneQL's let, except that a scalar parameter
+// must be declared with the type `scalar` for now.
+ast::FunctionDefinition Parser::parseFunctionDefinition() {
+   const SourceLocation loc = current().location;
+   expect(TokenType::LET);
+   ast::FunctionDefinition definition{
+      .name = expect(TokenType::IDENTIFIER).getStringValue(),
+      .parameters = {},
+      .body = nullptr,
+      .location = loc,
+   };
+   if (match(TokenType::LEFT_PAREN)) {
+      do {
+         const SourceLocation parameter_location = current().location;
+         std::string name = expect(TokenType::IDENTIFIER).getStringValue();
+         if (!check(TokenType::IDENTIFIER)) {
+            throw ParseException(
+               current().location,
+               "Expected the type of parameter '{}': 'scalar', 'table', 'expression' or 'symbol'",
+               name
+            );
+         }
+         const std::string type_name = current().getStringValue();
+         const auto type = ast::parameterTypeFromName(type_name);
+         if (!type.has_value()) {
+            throw ParseException(
+               current().location,
+               "Unknown type '{}' of parameter '{}'; the types are 'scalar', 'table', 'expression' "
+               "and 'symbol'",
+               type_name,
+               name
+            );
+         }
+         advance();
+         ast::DefinitionParameter parameter{
+            .name = std::move(name),
+            .type = type.value(),
+            .default_value = nullptr,
+            .location = parameter_location,
+         };
+         if (match(TokenType::COLON_EQUALS)) {
+            parameter.default_value = parseExpression();
+         }
+         definition.parameters.push_back(std::move(parameter));
+      } while (match(TokenType::COMMA));
+      expect(TokenType::RIGHT_PAREN);
+   }
+   expect(TokenType::COLON_EQUALS);
+   definition.body = parseOrExpr();
+   expect(TokenType::COMMA);
+   return definition;
+}
+
 // NOLINTNEXTLINE(misc-no-recursion)
 ast::ExpressionPtr Parser::parseExpression() {
    const RecursionGuard guard{*this};

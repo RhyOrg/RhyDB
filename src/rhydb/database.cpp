@@ -37,7 +37,7 @@
 #include "rhydb/query_engine/operators/table_scan_node.h"
 #include "rhydb/query_engine/planner.h"
 #include "rhydb/query_engine/saneql/ast_to_query.h"
-#include "rhydb/query_engine/saneql/parser.h"
+#include "rhydb/query_engine/saneql/function_definitions.h"
 #include "rhydb/query_engine/scalar_expressions/literal.h"
 #include "rhydb/schema/builtin_tables.h"
 #include "rhydb/schema/database_schema.h"
@@ -239,8 +239,7 @@ roaring::Roaring Database::getFilteredBitmap(
    }
    auto table = maybe_table->second;
 
-   query_engine::saneql::Parser parser(filter);
-   auto ast = parser.parse();
+   auto ast = query_engine::saneql::parseQuery(filter);
    auto filter_expression =
       query_engine::saneql::convertToFilter(*ast, table->schema->getColumnIdentifiers(), tables);
 

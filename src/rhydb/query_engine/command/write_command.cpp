@@ -14,7 +14,7 @@
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/query_engine/saneql/ast.h"
 #include "rhydb/query_engine/saneql/ast_to_query.h"
-#include "rhydb/query_engine/saneql/parser.h"
+#include "rhydb/query_engine/saneql/function_definitions.h"
 #include "rhydb/query_engine/scalar_expressions/literal.h"
 
 namespace rhydb::query_engine::command {
@@ -146,8 +146,7 @@ WriteStatementRegistry& WriteStatementRegistry::instance() {
 }
 
 Request parseRequest(std::string_view query_string, const Tables& tables) {
-   saneql::Parser parser(query_string);
-   auto ast = parser.parse();
+   auto ast = saneql::parseQuery(query_string);
 
    // A write statement is a root function call whose name is registered as a write statement;
    // anything else is an ordinary read query and goes through the unchanged read conversion path.

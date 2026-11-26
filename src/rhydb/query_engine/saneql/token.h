@@ -15,6 +15,7 @@ enum class TokenType : uint8_t {
    BOOL_LITERAL,
    NULL_LITERAL,
    IDENTIFIER,
+   LET,
    DOT,
    DOUBLE_COLON,
    COLON_EQUALS,

@@ -151,6 +151,61 @@ After the first named argument is given, no more positional arguments are accept
 
 A query may be nested at most 100 levels deep.
 
+### Function Definitions
+
+A query may start with definitions of its own functions, using SaneQL's `let`. A definition is a
+function from expressions to an expression: before the query is executed, every call is replaced
+with the body of the definition, the arguments substituted for the parameters. Each definition is
+followed by a comma:
+
+```
+let since := '2021-01-01'::date,
+let recent(t table) := t.filter(date >= since),
+let inCountries(c expression) := c.in({'Germany', 'Switzerland'}),
+data.recent().filter(country.inCountries())
+```
+
+A definition `let name(parameter type [:= default], ...) := body,` is called like a builtin
+function, binding its arguments positionally or by name; parameters with a default may be omitted.
+A default is expanded at each call that omits its parameter, and may refer to the parameters before
+it, e.g. `let between(c expression, lo scalar, hi scalar := lo) := c >= lo && c <= hi,`.
+A definition without parameters, `let name := body,`, is referenced by its name alone, like `since`
+above. Such a definition of a table expression is a view:
+
+```
+let recentGermany := data.filter(date >= '2021-01-01'::date && country = 'Germany'),
+recentGermany.group(by := {pango_lineage}, aggs := {count := count()})
+```
+
+Every parameter must declare its type, which determines what its argument may be and how it is
+substituted. (Unlike in SaneQL, a scalar parameter must be declared as `scalar` for now.)
+
+| Type         | Argument                                                     | Substituted                                                        |
+|--------------|--------------------------------------------------------------|--------------------------------------------------------------------|
+| `table`      | a table expression: a table name or a pipeline               | as written                                                         |
+| `expression` | any expression                                               | as written, and resolved where it ends up in the body              |
+| `symbol`     | a name                                                       | wherever the parameter is used as a name, also as a record field   |
+| `scalar`     | a constant, e.g. `true`, `5` or `'2021-01-01'::date`         | as written                                                         |
+
+An `expression` argument is resolved in the body, so it can refer to the columns of a table that
+the body builds. For example, the values of a column that occur more than `minimum` times:
+
+```
+let frequent(t table, c symbol, minimum scalar := 1) :=
+   t.group(by := {c}, aggs := {n := count()}).filter(n > minimum).projectout({n}),
+data.frequent(country, minimum := 100)
+```
+
+A definition sees only the definitions before it, so definitions cannot be recursive. A definition
+shadows a builtin function of the same name. Errors in the expansion of a call are reported at the
+position of the call.
+
+`let` is a keyword, so a column or table named `let` must be written as the quoted identifier
+`"let"`.
+
+The expansion of a query may be nested at most 200 levels deep, nest at most 100 calls of
+definitions in each other, and create at most 1,000,000 expressions.
+
 ---
 
 ## Pipeline Operations

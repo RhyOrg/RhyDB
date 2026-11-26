@@ -39,9 +39,9 @@
 #include "rhydb/query_engine/operators/unresolved_phylo_subtree_node.h"
 #include "rhydb/query_engine/order_by_field.h"
 #include "rhydb/query_engine/saneql/ast.h"
+#include "rhydb/query_engine/saneql/function_definitions.h"
 #include "rhydb/query_engine/saneql/function_registry.h"
 #include "rhydb/query_engine/saneql/lineage_from_tables.h"
-#include "rhydb/query_engine/saneql/parser.h"
 #include "rhydb/query_engine/saneql/table_literal_builder.h"
 #include "rhydb/query_engine/scalar_expressions/and.h"
 #include "rhydb/query_engine/scalar_expressions/at.h"
@@ -1946,8 +1946,7 @@ operators::QueryNodePtr parseAndConvertToQueryTree(
    std::string_view query_string,
    const std::map<schema::TableName, std::shared_ptr<storage::Table>>& tables
 ) {
-   Parser parser(query_string);
-   auto ast = parser.parse();
+   auto ast = parseQuery(query_string);
    return convertToQueryTree(*ast, tables);
 }
 
