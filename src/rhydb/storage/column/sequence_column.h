@@ -1,10 +1,13 @@
 #pragma once
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <memory>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -129,15 +132,26 @@ class SequenceColumn {
       }
    }
 
+   /// Reads a count written as `uint64_t`, which a 32-bit process (wasm32) may not be able to hold.
+   template <class Archive>
+   static size_t loadCount(Archive& archive) {
+      uint64_t count = 0;
+      archive >> count;
+      if (!std::in_range<size_t>(count)) {
+         throw std::runtime_error(
+            "cannot load a count of " + std::to_string(count) + " in this address space"
+         );
+      }
+      return static_cast<size_t>(count);
+   }
+
    template <class Archive>
    void load(Archive& archive, [[maybe_unused]] const uint32_t version) {
-      uint64_t num_references = 0;
-      archive >> num_references;
+      const size_t num_references = loadCount(archive);
       std::vector<std::shared_ptr<const sequence::SequenceReference>> references;
       references.reserve(num_references);
-      for (uint64_t index = 0; index < num_references; ++index) {
-         uint64_t num_differences = 0;
-         archive >> num_differences;
+      for (size_t index = 0; index < num_references; ++index) {
+         const size_t num_differences = loadCount(archive);
          if (num_differences == 0) {
             references.push_back(column_reference);
             continue;
@@ -152,11 +166,10 @@ class SequenceColumn {
       archive >> insertion_index;
       archive >> sequence_column_info;
       archive >> sequence_count;
-      uint64_t num_chunks = 0;
-      archive >> num_chunks;
+      const size_t num_chunks = loadCount(archive);
       chunks_.clear();
       chunks_.reserve(num_chunks);
-      for (uint64_t chunk_id = 0; chunk_id < num_chunks; ++chunk_id) {
+      for (size_t chunk_id = 0; chunk_id < num_chunks; ++chunk_id) {
          uint32_t reference_index = 0;
          archive >> reference_index;
          chunks_.push_back(
