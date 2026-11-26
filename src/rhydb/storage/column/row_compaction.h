@@ -33,14 +33,14 @@ class RowCompaction {
    std::vector<ChunkCompaction> chunks;
    RowLayout compacted_layout;
 
+  public:
    /// The remaining ones of `rows`, rows of chunk `chunk_id`, renumbered within their chunk. May be
-   /// empty.
+   /// empty. `chunk_id` must keep some, but not all of its rows (see `losesSomeRows`).
    [[nodiscard]] roaring_util::RoaringContainer compacted(
       uint16_t chunk_id,
       roaring_util::RoaringContainerView rows
    ) const;
 
-  public:
    /// Compacts `layout` by deleting `deleted_rows`, which must be valid row ids of `layout`. The
    /// deleted rows are copied, so `deleted_rows` may view into the structures being compacted.
    RowCompaction(const RowLayout& layout, const Bitmap& deleted_rows);
