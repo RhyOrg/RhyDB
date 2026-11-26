@@ -36,8 +36,10 @@ nlohmann::json row(const std::string& primary_key, const nlohmann::json& sequenc
    };
 }
 
-// Rows: 0 = reference, 1 = not covered, 2 = mutated, 3 = no sequence
-std::shared_ptr<Database> createDatabase() {
+using Chunks = std::vector<std::vector<std::optional<std::string>>>;
+
+// A database over the reference ATGC holding `chunks`, one append (and so one chunk) each
+std::shared_ptr<Database> createDatabase(const Chunks& chunks) {
    auto database = std::make_shared<Database>();
    initialize::Initializer::createTableInDatabase(
       schema::TableName::getDefault(),
@@ -55,12 +57,19 @@ schema:
       /*without_unaligned_sequences=*/false,
       *database
    );
-   std::stringstream ndjson;
-   ndjson << row("reference", "ATGC").dump() << "\n"
-          << row("not_covered", "NNNN").dump() << "\n"
-          << row("mutated", "CATG").dump() << "\n"
-          << row("no_sequence", nullptr).dump() << "\n";
-   database->appendData(schema::TableName::getDefault(), ndjson);
+   for (size_t chunk_id = 0; chunk_id < chunks.size(); ++chunk_id) {
+      std::stringstream ndjson;
+      for (size_t row_in_chunk = 0; row_in_chunk < chunks[chunk_id].size(); ++row_in_chunk) {
+         const auto& sequence = chunks[chunk_id][row_in_chunk];
+         ndjson << row(
+                      fmt::format("{}_{}", chunk_id, row_in_chunk),
+                      sequence.has_value() ? nlohmann::json(*sequence) : nlohmann::json(nullptr)
+                   )
+                      .dump()
+                << "\n";
+      }
+      database->appendData(schema::TableName::getDefault(), ndjson);
+   }
    return database;
 }
 
@@ -82,7 +91,10 @@ class SymbolInSetCompile : public ::testing::Test {
   protected:
    static std::shared_ptr<Database> database;
 
-   static void SetUpTestSuite() { database = createDatabase(); }
+   // Rows: 0 = reference, 1 = not covered, 2 = mutated, 3 = no sequence
+   static void SetUpTestSuite() {
+      database = createDatabase({{"ATGC", "NNNN", "CATG", std::nullopt}});
+   }
    static void TearDownTestSuite() { database.reset(); }
 };
 
@@ -116,55 +128,16 @@ TEST_F(SymbolInSetCompile, withMissingSymbolAndReferenceSelectsTheNullSequencesE
    EXPECT_EQ(selectedRows(*database, symbols, true), roaring::Roaring({0, 1, NO_SEQUENCE_ROW}));
 }
 
-namespace {
-
-// Two chunks (one per append) whose local references differ at position 0: most rows of the first
-// carry T there, most rows of the second the reference symbol A.
-const std::vector<std::vector<std::optional<std::string>>> CHUNKS_WITH_DIFFERENT_REFERENCES{
+// Two chunks whose local references differ at position 0: most rows of the first carry T there,
+// most rows of the second the reference symbol A.
+const Chunks CHUNKS_WITH_DIFFERENT_REFERENCES{
    {"TTGC", "TTGC", "ATGC", "NTGC", std::nullopt, "TTGC", "-TGC"},
    {"ATGC", "CTGC", "NTGC", std::nullopt, "-TGC", "ATGC", "TTGC"},
 };
 
-std::shared_ptr<Database> createDatabaseWithDifferentReferences() {
-   auto database = std::make_shared<Database>();
-   initialize::Initializer::createTableInDatabase(
-      schema::TableName::getDefault(),
-      config::DatabaseConfig::getValidatedConfig(R"(
-schema:
-  instanceName: "dummy name"
-  metadata:
-    - name: "primaryKey"
-      type: "string"
-  primaryKey: "primaryKey"
-)"),
-      ReferenceGenomes{{{"segment1", "ATGC"}}, {}},
-      {},
-      common::PhyloTree(),
-      /*without_unaligned_sequences=*/false,
-      *database
-   );
-   for (size_t chunk_id = 0; chunk_id < CHUNKS_WITH_DIFFERENT_REFERENCES.size(); ++chunk_id) {
-      std::stringstream ndjson;
-      const auto& sequences = CHUNKS_WITH_DIFFERENT_REFERENCES[chunk_id];
-      for (size_t row_in_chunk = 0; row_in_chunk < sequences.size(); ++row_in_chunk) {
-         const auto& sequence = sequences[row_in_chunk];
-         ndjson << row(
-                      fmt::format("{}_{}", chunk_id, row_in_chunk),
-                      sequence.has_value() ? nlohmann::json(*sequence) : nlohmann::json(nullptr)
-                   )
-                      .dump()
-                << "\n";
-      }
-      database->appendData(schema::TableName::getDefault(), ndjson);
-   }
-   return database;
-}
-
-}  // namespace
-
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST(SymbolInSetCompileWithLocalReferences, selectsTheRowsWithTheSymbolsInEveryChunk) {
-   const auto database = createDatabaseWithDifferentReferences();
+   const auto database = createDatabase(CHUNKS_WITH_DIFFERENT_REFERENCES);
    const auto& table = *database->tables.at(schema::TableName::getDefault());
    const auto& column = table.getColumn<Nucleotide::Column>("segment1");
    ASSERT_EQ(column.numChunks(), 2);

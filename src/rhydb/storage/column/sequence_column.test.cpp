@@ -229,21 +229,6 @@ std::vector<std::string> reconstruct(const SequenceColumn<Nucleotide>& column) {
 
 }  // namespace
 
-// The local reference of a chunk is chosen from the chunk's covered rows, so a row whose base is N
-// at a position does not count there: at position 2 the majority of *covered* rows is T even though
-// two rows have N there, so the chunk's local reference has T there.
-TEST(SequenceColumn, choosesTheLocalReferenceFromTheCoveredRowsOfTheChunk) {
-   SequenceColumnMetadata<Nucleotide> column_metadata{"test_column", symbolsOf("ACGT")};
-   SequenceColumn<Nucleotide> under_test(&column_metadata);
-   appendChunk(under_test, {"ACTT", "ACTT", "ACTT", "ACNT", "ACNT", "ACGT"});
-
-   EXPECT_EQ(under_test.chunk(0).reference().text(), "ACTT");
-   // The column's reference stays the reference sequence
-   EXPECT_EQ(under_test.referenceText(), "ACGT");
-   EXPECT_EQ(stored(under_test, 2, Nucleotide::Symbol::G), (roaring::Roaring{5}));
-   EXPECT_EQ(stored(under_test, 2, Nucleotide::Symbol::T), roaring::Roaring{});
-}
-
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST(SequenceColumn, appendingLeavesTheStoredChunksUntouched) {
    SequenceColumnMetadata<Nucleotide> column_metadata{"test_column", symbolsOf("ACGT")};
@@ -355,6 +340,7 @@ TEST(SequenceColumn, reconstructsAndSerializesChunksWithDifferentLocalReferences
    EXPECT_EQ(loaded.getInfo().vertical_bitmaps_size, original.getInfo().vertical_bitmaps_size);
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST(SequenceColumn, deleteRowsCompactsTheChunksThatLoseRows) {
    SequenceColumnMetadata<Nucleotide> column_metadata{"test_column", symbolsOf("ACGTA")};
    SequenceColumn<Nucleotide> under_test(&column_metadata);
@@ -397,25 +383,6 @@ TEST(SequenceColumn, aMalformedInsertionLeavesTheColumnUnchanged) {
    EXPECT_EQ(under_test.sequence_count, 0);
 }
 
-TEST(SequenceColumn, aChunkOfNullRowsKeepsTheReference) {
-   SequenceColumnMetadata<Nucleotide> column_metadata{"test_column", symbolsOf("ACGT")};
-   SequenceColumn<Nucleotide> under_test(&column_metadata);
-   appendChunk(under_test, {"null", "null"});
-
-   EXPECT_EQ(under_test.chunk(0).sharedReference(), under_test.reference());
-   EXPECT_EQ(reconstruct(under_test), (std::vector<std::string>{"NNNN", "NNNN"}));
-}
-
-TEST(SequenceColumn, aPositionNoRowCoversKeepsTheReferenceSymbol) {
-   SequenceColumnMetadata<Nucleotide> column_metadata{"test_column", symbolsOf("ACGT")};
-   SequenceColumn<Nucleotide> under_test(&column_metadata);
-   // Position 0 is covered by no row, position 3 is missing in every row
-   appendChunk(under_test, {"NTTN", "NTTN", "NGTN", "null"});
-
-   EXPECT_EQ(under_test.chunk(0).reference().text(), "ATTT");
-   EXPECT_EQ(reconstruct(under_test), (std::vector<std::string>{"NTTN", "NTTN", "NGTN", "NNNN"}));
-}
-
 TEST(SequenceColumn, choosesTheLocalReferenceOfAminoAcidChunks) {
    SequenceColumnMetadata<rhydb::AminoAcid> column_metadata{
       "test_column",
@@ -429,44 +396,64 @@ TEST(SequenceColumn, choosesTheLocalReferenceOfAminoAcidChunks) {
    EXPECT_EQ(under_test.chunk(1).sharedReference(), under_test.reference());
 }
 
-// The local reference of a chunk at a single position, driven through `appendChunk` by real
-// sequences. An `N` row does not cover the position, so it counts for no symbol; ties keep the
-// reference, or else go to the first symbol in symbol order. The rows not carrying the local
-// reference symbol store their symbol.
-TEST(SequenceColumn, choosesTheMostCommonCoveredSymbolAsLocalReference) {
-   // The reference symbol, the rows, the local reference, and the rows storing some symbols
+// The local reference of a chunk: at every position, the symbol most of its covered rows carry. A
+// row that is null or has `N` at a position does not cover it, so it counts for no symbol; ties
+// keep the reference, or else go to the first symbol in symbol order, and a position no row covers
+// keeps the reference symbol. The rows not carrying the local reference symbol store their symbol.
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST(SequenceColumn, choosesTheMostCommonCoveredSymbolsAsLocalReference) {
+   // The reference, the rows, the local reference, and the rows storing some symbols at a position
    using Case = std::tuple<
-      char,
+      std::string,
       std::vector<std::string>,
       std::string,
+      uint32_t,
       std::vector<std::pair<char, roaring::Roaring>>>;
    const std::vector<Case> cases{
-      {'C', {"A"}, "A", {{'A', {}}, {'C', {}}}},
-      {'C', {"A", "N", "N"}, "A", {{'A', {}}, {'C', {}}}},
-      {'C', {"A", "C"}, "C", {{'A', {0}}}},
-      {'T', {"A", "N", "T", "N", "T", "T", "A"}, "T", {{'A', {0, 6}}}},
-      {'T', {"A", "N", "T", "N", "A", "T", "A"}, "A", {{'A', {}}, {'T', {2, 5}}}},
+      {"C", {"A"}, "A", 0, {{'A', {}}, {'C', {}}}},
+      {"C", {"A", "N", "N"}, "A", 0, {{'A', {}}, {'C', {}}}},
+      {"C", {"A", "C"}, "C", 0, {{'A', {0}}}},
+      {"T", {"A", "N", "T", "N", "T", "T", "A"}, "T", 0, {{'A', {0, 6}}}},
+      {"T", {"A", "N", "T", "N", "A", "T", "A"}, "A", 0, {{'A', {}}, {'T', {2, 5}}}},
       // A and - both occur three times; - comes first in symbol order, so it wins.
       {
-         'T',
+         "T",
          {"A", "N", "T", "N", "A", "-", "-", "-", "T", "A"},
          "-",
+         0,
          {{'A', {0, 4, 9}}, {'T', {2, 8}}, {'-', {}}},
       },
+      // At position 2, T is the most common symbol of the covered rows, but not of all rows.
+      {
+         "ACGT",
+         {"ACTT", "ACTT", "ACTT", "ACNT", "ACNT", "ACGT"},
+         "ACTT",
+         2,
+         {{'G', {5}}, {'T', {}}},
+      },
+      {"ACGT", {"null", "null"}, "ACGT", 0, {}},
+      // Position 0 is covered by no row, position 3 is missing in every row
+      {"ACGT", {"NTTN", "NTTN", "NGTN", "null"}, "ATTT", 1, {{'G', {2}}}},
    };
-   for (const auto& [reference, sequences, local_reference, stored_rows] : cases) {
-      SequenceColumnMetadata<Nucleotide> metadata{"test_column", symbolsOf(std::string{reference})};
+   for (const auto& [reference, sequences, local_reference, position, stored_rows] : cases) {
+      SequenceColumnMetadata<Nucleotide> metadata{"test_column", symbolsOf(reference)};
       SequenceColumn<Nucleotide> column{&metadata};
       appendChunk(column, sequences);
       SCOPED_TRACE(::testing::PrintToString(sequences));
       EXPECT_EQ(column.chunk(0).reference().text(), local_reference);
-      if (local_reference == std::string{reference}) {
-         // A chunk that keeps the reference shares the column's
+      // The column's reference stays the reference sequence, and a chunk that keeps it shares it
+      EXPECT_EQ(column.referenceText(), reference);
+      if (local_reference == reference) {
          EXPECT_EQ(column.chunk(0).sharedReference(), column.reference());
       }
       for (const auto& [symbol, rows] : stored_rows) {
-         EXPECT_EQ(stored(column, 0, Nucleotide::charToSymbol(symbol).value()), rows)
+         EXPECT_EQ(stored(column, position, Nucleotide::charToSymbol(symbol).value()), rows)
             << "storing " << symbol;
       }
+      auto expected = sequences;
+      for (auto& sequence : expected) {
+         sequence = sequence == "null" ? std::string(reference.size(), 'N') : sequence;
+      }
+      EXPECT_EQ(reconstruct(column), expected);
    }
 }

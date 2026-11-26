@@ -200,24 +200,21 @@ TEST(SequenceReference, mapsSymbolsAndRejectsIllegalCharacters) {
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 TEST(SequenceReference, storesOnlyTheDifferencesFromItsBase) {
-   using Symbol = Nucleotide::Symbol;
+   using Differences = std::vector<SequenceReference::SymbolAt>;
+   const auto symbol_at = [](uint32_t position, char symbol) {
+      return SequenceReference::SymbolAt{
+         position, static_cast<uint8_t>(Nucleotide::charToSymbol(symbol).value())
+      };
+   };
    const auto base = SequenceReference::create<Nucleotide>("ACGTACGT");
-   const auto symbol = [](Symbol value) { return static_cast<uint8_t>(value); };
-   const auto derived = base->withSymbolsReplaced(
-      std::vector<SequenceReference::SymbolAt>{{1, symbol(Symbol::T)}, {6, symbol(Symbol::A)}}
-   );
+   const auto derived =
+      base->withSymbolsReplaced(Differences{symbol_at(1, 'T'), symbol_at(6, 'A')});
    EXPECT_EQ(derived->text(), "ATGTACAT");
-   EXPECT_EQ(derived->symbolAt(1), symbol(Symbol::T));
-   EXPECT_EQ(derived->symbolAt(2), symbol(Symbol::G));
-   EXPECT_EQ(derived->symbolAt(6), symbol(Symbol::A));
-   EXPECT_EQ(
-      derived->differencesFrom(*base),
-      (std::vector<SequenceReference::SymbolAt>{{1, symbol(Symbol::T)}, {6, symbol(Symbol::A)}})
-   );
-   EXPECT_EQ(
-      base->differencesFrom(*derived),
-      (std::vector<SequenceReference::SymbolAt>{{1, symbol(Symbol::C)}, {6, symbol(Symbol::G)}})
-   );
+   for (uint32_t position = 0; position < 8; ++position) {
+      EXPECT_EQ(derived->symbolAt(position), symbol_at(position, "ATGTACAT"[position]).second);
+   }
+   EXPECT_EQ(derived->differencesFrom(*base), (Differences{symbol_at(1, 'T'), symbol_at(6, 'A')}));
+   EXPECT_EQ(base->differencesFrom(*derived), (Differences{symbol_at(1, 'C'), symbol_at(6, 'G')}));
    EXPECT_LE(derived->differencesSizeInBytes(), 2 * sizeof(SequenceReference::SymbolAt));
    std::string written(8, '?');
    derived->writeText(written.data());
@@ -225,14 +222,10 @@ TEST(SequenceReference, storesOnlyTheDifferencesFromItsBase) {
 
    // Replacing a derived reference's symbols merges them into its differences, and a position
    // that carries the base symbol again is no difference anymore
-   const auto twice = derived->withSymbolsReplaced(
-      std::vector<SequenceReference::SymbolAt>{{0, symbol(Symbol::GAP)}, {1, symbol(Symbol::C)}}
-   );
+   const auto twice =
+      derived->withSymbolsReplaced(Differences{symbol_at(0, '-'), symbol_at(1, 'C')});
    EXPECT_EQ(twice->text(), "-CGTACAT");
-   EXPECT_EQ(
-      twice->differencesFrom(*base),
-      (std::vector<SequenceReference::SymbolAt>{{0, symbol(Symbol::GAP)}, {6, symbol(Symbol::A)}})
-   );
+   EXPECT_EQ(twice->differencesFrom(*base), (Differences{symbol_at(0, '-'), symbol_at(6, 'A')}));
 
    // Equality compares the symbols, whatever the base
    EXPECT_EQ(*derived, *SequenceReference::create<Nucleotide>("ATGTACAT"));
@@ -240,13 +233,25 @@ TEST(SequenceReference, storesOnlyTheDifferencesFromItsBase) {
    EXPECT_EQ(*base->withSymbolsReplaced({}), *base);
 }
 
-TEST(SequenceChunk, reconstructsTheTextsOfAllOrSelectedRows) {
-   for (const bool local_reference : {false, true}) {
-      const auto rows = RandomRows::nucleotides(1, 300, 120, local_reference);
-      ASSERT_EQ(rows.chunk.numRows(), 300);
-      for (const auto& selected : {allRows(300), someRows(300), std::vector<uint16_t>{}}) {
-         EXPECT_EQ(reconstruct(rows.chunk, selected), rows.expectedTexts(selected));
-      }
+namespace {
+
+// The chunks are stored against the random reference, or against their own local reference.
+class SequenceChunkWithReference : public ::testing::TestWithParam<bool> {};
+
+}  // namespace
+
+INSTANTIATE_TEST_SUITE_P(
+   SequenceChunk,
+   SequenceChunkWithReference,
+   ::testing::Bool(),
+   [](const auto& info) { return info.param ? "local" : "given"; }
+);
+
+TEST_P(SequenceChunkWithReference, reconstructsTheTextsOfAllOrSelectedRows) {
+   const auto rows = RandomRows::nucleotides(1, 300, 120, GetParam());
+   ASSERT_EQ(rows.chunk.numRows(), 300);
+   for (const auto& selected : {allRows(300), someRows(300), std::vector<uint16_t>{}}) {
+      EXPECT_EQ(reconstruct(rows.chunk, selected), rows.expectedTexts(selected));
    }
 }
 
@@ -274,121 +279,119 @@ TEST(SequenceChunk, builderRejectsSequencesThatDoNotFit) {
 // Every per-position algorithm, at every position and for several selections, against the texts
 // the rows were built from.
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-TEST(SequenceChunk, perPositionAlgorithmsMatchTheTexts) {
+TEST_P(SequenceChunkWithReference, perPositionAlgorithmsMatchTheTexts) {
    constexpr uint32_t NUM_ROWS = 500;
    constexpr uint32_t LENGTH = 80;
-   for (const bool local_reference : {false, true}) {
-      const auto rows = RandomRows::nucleotides(4, NUM_ROWS, LENGTH, local_reference);
-      auto symbol_of = [](char character) {
-         return static_cast<uint8_t>(Nucleotide::charToSymbol(character).value());
-      };
-      auto is_covered = [&](uint16_t row, uint32_t position) {
-         return rows.texts[row].has_value() && rows.expectedText(row)[position] != 'N';
-      };
+   const auto rows = RandomRows::nucleotides(4, NUM_ROWS, LENGTH, GetParam());
+   auto symbol_of = [](char character) {
+      return static_cast<uint8_t>(Nucleotide::charToSymbol(character).value());
+   };
+   auto is_covered = [&](uint16_t row, uint32_t position) {
+      return rows.texts[row].has_value() && rows.expectedText(row)[position] != 'N';
+   };
 
-      // The stored symbols are the rows differing from the reference.
+   // The stored symbols are the rows differing from the reference.
+   for (uint32_t position = 0; position < LENGTH; ++position) {
+      std::vector<std::vector<uint16_t>> expected(Nucleotide::COUNT);
+      for (uint16_t row = 0; row < NUM_ROWS; ++row) {
+         const char symbol = rows.expectedText(row)[position];
+         if (is_covered(row, position) && symbol != rows.reference[position]) {
+            expected[symbol_of(symbol)].push_back(row);
+         }
+      }
+      std::vector<std::vector<uint16_t>> actual(Nucleotide::COUNT);
+      for (const auto& [symbol, stored] : storedSymbolsAt(rows.chunk, position)) {
+         actual[symbol] = valuesOf(stored);
+      }
+      ASSERT_EQ(actual, expected) << "position " << position;
+   }
+
+   for (const auto& selected :
+        {allRows(NUM_ROWS), someRows(NUM_ROWS), std::vector<uint16_t>{7, 99}}) {
+      const auto container = containerOf(selected);
+      const RoaringContainerView selection{container};
+      SymbolCounts expected_counts{static_cast<uint8_t>(Nucleotide::COUNT), LENGTH};
       for (uint32_t position = 0; position < LENGTH; ++position) {
-         std::vector<std::vector<uint16_t>> expected(Nucleotide::COUNT);
-         for (uint16_t row = 0; row < NUM_ROWS; ++row) {
+         SCOPED_TRACE(::testing::Message() << selected.size() << " rows at " << position);
+         std::vector<char> symbols(selected.size());
+         symbolsAt(rows.chunk, position, selection, symbols);
+         std::vector<uint16_t> expected_covered;
+         for (size_t index = 0; index < selected.size(); ++index) {
+            const uint16_t row = selected[index];
             const char symbol = rows.expectedText(row)[position];
-            if (is_covered(row, position) && symbol != rows.reference[position]) {
-               expected[symbol_of(symbol)].push_back(row);
+            ASSERT_EQ(symbols[index], symbol) << "row " << row;
+            if (is_covered(row, position)) {
+               expected_covered.push_back(row);
+               ++expected_counts.at(symbol_of(symbol), position);
             }
          }
-         std::vector<std::vector<uint16_t>> actual(Nucleotide::COUNT);
-         for (const auto& [symbol, stored] : storedSymbolsAt(rows.chunk, position)) {
-            actual[symbol] = valuesOf(stored);
-         }
-         ASSERT_EQ(actual, expected) << "position " << position;
-      }
+         ASSERT_EQ(
+            valuesOf(RoaringContainerView{coveredRows(rows.chunk, position, selection)}),
+            expected_covered
+         );
 
-      for (const auto& selected :
-           {allRows(NUM_ROWS), someRows(NUM_ROWS), std::vector<uint16_t>{7, 99}}) {
-         const auto container = containerOf(selected);
-         const RoaringContainerView selection{container};
-         SymbolCounts expected_counts{static_cast<uint8_t>(Nucleotide::COUNT), LENGTH};
-         for (uint32_t position = 0; position < LENGTH; ++position) {
-            SCOPED_TRACE(::testing::Message() << selected.size() << " rows at " << position);
-            std::vector<char> symbols(selected.size());
-            symbolsAt(rows.chunk, position, selection, symbols);
-            std::vector<uint16_t> expected_covered;
-            for (size_t index = 0; index < selected.size(); ++index) {
-               const uint16_t row = selected[index];
-               const char symbol = rows.expectedText(row)[position];
-               ASSERT_EQ(symbols[index], symbol) << "row " << row;
-               if (is_covered(row, position)) {
-                  expected_covered.push_back(row);
-                  ++expected_counts.at(symbol_of(symbol), position);
+         for (const std::string symbol_chars : {"A", "N", "AN", "C-", "-NRY"}) {
+            SymbolSet set;
+            std::vector<uint16_t> expected;
+            for (const char symbol : symbol_chars) {
+               set.add(symbol_of(symbol));
+            }
+            for (const uint16_t row : selected) {
+               if (
+                  rows.texts[row].has_value() &&
+                  symbol_chars.contains(rows.expectedText(row)[position])
+               ) {
+                  expected.push_back(row);
                }
             }
             ASSERT_EQ(
-               valuesOf(RoaringContainerView{coveredRows(rows.chunk, position, selection)}),
-               expected_covered
-            );
-
-            for (const std::string symbol_chars : {"A", "N", "AN", "C-", "-NRY"}) {
-               SymbolSet set;
-               std::vector<uint16_t> expected;
-               for (const char symbol : symbol_chars) {
-                  set.add(symbol_of(symbol));
-               }
-               for (const uint16_t row : selected) {
-                  if (
-                     rows.texts[row].has_value() &&
-                     symbol_chars.contains(rows.expectedText(row)[position])
-                  ) {
-                     expected.push_back(row);
-                  }
-               }
-               ASSERT_EQ(
-                  valuesOf(
-                     RoaringContainerView{rowsWithSymbolsAt(rows.chunk, position, set, selection)}
-                  ),
-                  expected
-               ) << "symbols "
-                 << symbol_chars;
-            }
-
-            // The symbol groups partition the selected rows; null rows form a group of their own.
-            const auto groups = groupRowsBySymbolAt(rows.chunk, position, selection);
-            std::vector<int> group_of_row(NUM_ROWS, -1);
-            if (groups.every_row_symbol.has_value()) {
-               for (const uint16_t row : selected) {
-                  group_of_row[row] = *groups.every_row_symbol;
-               }
-            }
-            for (const auto& [symbol, group_rows] : groups.groups) {
-               for (const uint16_t row : group_rows) {
-                  if (selection.contains(row)) {
-                     ASSERT_EQ(group_of_row[row], -1) << "row " << row << " in two groups";
-                     group_of_row[row] = symbol;
-                  }
-               }
-            }
-            if (groups.null_rows.has_value()) {
-               for (const uint16_t row : *groups.null_rows) {
-                  if (selection.contains(row)) {
-                     group_of_row[row] = Nucleotide::COUNT;
-                  }
-               }
-            }
-            for (const uint16_t row : selected) {
-               ASSERT_EQ(
-                  group_of_row[row],
-                  rows.texts[row].has_value() ? symbol_of(rows.expectedText(row)[position])
-                                              : Nucleotide::COUNT
-               ) << "row "
-                 << row;
-            }
+               valuesOf(
+                  RoaringContainerView{rowsWithSymbolsAt(rows.chunk, position, set, selection)}
+               ),
+               expected
+            ) << "symbols "
+              << symbol_chars;
          }
 
-         SymbolCounts counts{static_cast<uint8_t>(Nucleotide::COUNT), LENGTH};
-         addSymbolCounts(rows.chunk, selection, counts);
-         for (uint8_t symbol = 0; symbol < Nucleotide::COUNT; ++symbol) {
-            for (uint32_t position = 0; position < LENGTH; ++position) {
-               ASSERT_EQ(counts.at(symbol, position), expected_counts.at(symbol, position))
-                  << "symbol " << int{symbol} << " position " << position;
+         // The symbol groups partition the selected rows; null rows form a group of their own.
+         const auto groups = groupRowsBySymbolAt(rows.chunk, position, selection);
+         std::vector<int> group_of_row(NUM_ROWS, -1);
+         if (groups.every_row_symbol.has_value()) {
+            for (const uint16_t row : selected) {
+               group_of_row[row] = *groups.every_row_symbol;
             }
+         }
+         for (const auto& [symbol, group_rows] : groups.groups) {
+            for (const uint16_t row : group_rows) {
+               if (selection.contains(row)) {
+                  ASSERT_EQ(group_of_row[row], -1) << "row " << row << " in two groups";
+                  group_of_row[row] = symbol;
+               }
+            }
+         }
+         if (groups.null_rows.has_value()) {
+            for (const uint16_t row : *groups.null_rows) {
+               if (selection.contains(row)) {
+                  group_of_row[row] = Nucleotide::COUNT;
+               }
+            }
+         }
+         for (const uint16_t row : selected) {
+            ASSERT_EQ(
+               group_of_row[row],
+               rows.texts[row].has_value() ? symbol_of(rows.expectedText(row)[position])
+                                           : Nucleotide::COUNT
+            ) << "row "
+              << row;
+         }
+      }
+
+      SymbolCounts counts{static_cast<uint8_t>(Nucleotide::COUNT), LENGTH};
+      addSymbolCounts(rows.chunk, selection, counts);
+      for (uint8_t symbol = 0; symbol < Nucleotide::COUNT; ++symbol) {
+         for (uint32_t position = 0; position < LENGTH; ++position) {
+            ASSERT_EQ(counts.at(symbol, position), expected_counts.at(symbol, position))
+               << "symbol " << int{symbol} << " position " << position;
          }
       }
    }
