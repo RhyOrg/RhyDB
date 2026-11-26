@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.17.7](https://github.com/RhyOrg/RhyDB/compare/v0.17.6...v0.17.7) (2026-11-26)
+
+
+### Features
+
+* **preprocessing:** record column references in table during preprocessing ([#1857](https://github.com/RhyOrg/RhyDB/issues/1857)) ([515fabc](https://github.com/RhyOrg/RhyDB/commit/515fabc37e3cd318f74455358546215ae0b614db))
+* **query_engine:** add `table` function to create inline tables ([#1780](https://github.com/RhyOrg/RhyDB/issues/1780)) ([4548400](https://github.com/RhyOrg/RhyDB/commit/4548400434c3f222dcf2d2ef0a92601381312aa6))
+* **query_engine:** implement `DateBetween::toArrowExpression` ([#1844](https://github.com/RhyOrg/RhyDB/issues/1844)) ([e307fca](https://github.com/RhyOrg/RhyDB/commit/e307fcae8e4074d66cc21ac69c89ac813ee1c2d4))
+* **query_engine:** implement `FloatBetween::toArrowExpression` ([#1848](https://github.com/RhyOrg/RhyDB/issues/1848)) ([8ad6ba0](https://github.com/RhyOrg/RhyDB/commit/8ad6ba0c3b55d6dc765c42e98dc197e5c8fbb759))
+* **query_engine:** implement `IntBetween::toArrowExpression` ([#1841](https://github.com/RhyOrg/RhyDB/issues/1841)) ([6956528](https://github.com/RhyOrg/RhyDB/commit/69565282f1faf82b8cec332462779d8307169097))
+* **query_engine:** implement `NOf::toArrowExpression` ([#1850](https://github.com/RhyOrg/RhyDB/issues/1850)) ([f878627](https://github.com/RhyOrg/RhyDB/commit/f87862739afc9722595089e1d5ba1de0e4360acd)), closes [#1824](https://github.com/RhyOrg/RhyDB/issues/1824)
+* **query_engine:** implement `StringSearch::toArrowExpression` ([#1855](https://github.com/RhyOrg/RhyDB/issues/1855)) ([e63243c](https://github.com/RhyOrg/RhyDB/commit/e63243c3ac3f029d7c9f6a94d99741a231ebdeee))
+* **roaring_util:** view container payloads stored in flat buffers ([#1861](https://github.com/RhyOrg/RhyDB/issues/1861)) ([8088741](https://github.com/RhyOrg/RhyDB/commit/8088741c6d4f1e66f26239b2cc252c965edd83ed))
+
+
+### Bug Fixes
+
+* **query_engine:** keep sequence-position comparisons null on rows without a sequence ([#1859](https://github.com/RhyOrg/RhyDB/issues/1859)) ([8bd0733](https://github.com/RhyOrg/RhyDB/commit/8bd07339b07444f2b27871d0627d9b8fbd4a3e9b))
+* **query_engine:** surface plan execution errors ([#1849](https://github.com/RhyOrg/RhyDB/issues/1849)) ([f45c520](https://github.com/RhyOrg/RhyDB/commit/f45c520ef42e6cb6e1e82f20465a097a77d7bf61))
+
 ## [0.17.6](https://github.com/RhyOrg/RhyDB/compare/v0.17.5...v0.17.6) (2026-11-18)
 
 
