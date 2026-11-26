@@ -32,6 +32,7 @@
 #include "rhydb/storage/column/date32_column.h"
 #include "rhydb/storage/column/dictionary_encoded_column.h"
 #include "rhydb/storage/column/sequence_column.h"
+#include "rhydb/storage/sequence/sequence_chunk_algorithms.h"
 #include "rhydb/storage/table.h"
 
 namespace rhydb::query_engine::exec_node {
@@ -52,15 +53,6 @@ class SequencePositionIndex : public DimensionIndex {
 
    const storage::column::SequenceColumn<SymbolType>& column;
    uint32_t position_idx;
-   SymbolType::Symbol reference_symbol;
-   SymbolType::Symbol missing_symbol = SymbolType::SYMBOL_MISSING;
-
-   // The position's vertical mutation containers, bucketed by 2^16 chunk so the per-chunk work is a
-   // lookup rather than a rescan of the position's whole diff range. Views into the stored index.
-   std::map<uint16_t, std::vector<std::pair<typename SymbolType::Symbol, RoaringContainerView>>>
-      mutations_by_chunk;
-   // The column's null rows, one view per 2^16 chunk (into `column.null_bitmap`).
-   std::map<uint16_t, RoaringContainerView> null_views;
 
   public:
    SequencePositionIndex(
@@ -70,149 +62,28 @@ class SequencePositionIndex : public DimensionIndex {
        : column(column),
          position_idx(position_idx) {
       RHYDB_ASSERT_LT(position_idx, column.metadata->reference_sequence.size());
-      reference_symbol = column.getLocalReferencePosition(position_idx);
-
-      auto [diff_it, diff_end] = column.vertical_sequence_index.getRangeForPosition(position_idx);
-      for (; diff_it != diff_end; ++diff_it) {
-         mutations_by_chunk[diff_it->first.v_index].emplace_back(
-            diff_it->first.symbol, RoaringContainerView(diff_it->second)
-         );
-      }
-
-      for (const auto& [chunk_id, view] : Bitmap::fromChunkContainers(column.null_bitmap)) {
-         null_views.emplace(chunk_id, view);
-      }
    }
 
-   struct ChunkMutationContainers {
-      SymbolMap<SymbolType, std::optional<RoaringContainerView>> views;
-      CopyOnWriteContainer except_missing;
-      CopyOnWriteContainer except_reference_and_missing;
-   };
-
-   [[nodiscard]] ChunkMutationContainers computeChunkMutationContainers(size_t chunk_id) const {
-      SymbolMap<SymbolType, std::optional<RoaringContainerView>> mutation_views;
-      // The reference symbol is never itself a stored mutation, so excluding it is a no-op in
-      // practice, but it is kept explicit to mirror the generic path exactly. Each accumulator
-      // starts empty (borrowing nothing) and copy-on-writes a private owning union on the first
-      // `|=`.
-      CopyOnWriteContainer except_missing;
-      CopyOnWriteContainer except_reference_and_missing;
-      if (
-         auto chunk_mutations = mutations_by_chunk.find(chunk_id);
-         chunk_mutations != mutations_by_chunk.end()
-      ) {
-         for (const auto& [symbol, view] : chunk_mutations->second) {
-            mutation_views[symbol] = view;
-            if (symbol != missing_symbol) {
-               except_missing |= view;
-               if (symbol != reference_symbol) {
-                  except_reference_and_missing |= view;
-               }
-            }
-         }
-      }
-      return ChunkMutationContainers{
-         .views = std::move(mutation_views),
-         .except_missing = std::move(except_missing),
-         .except_reference_and_missing = std::move(except_reference_and_missing),
-      };
-   }
-
-   // NOLINTNEXTLINE(readability-function-cognitive-complexity)
+   /// The chunk's rows grouped by their symbol at the position (see
+   /// `storage::sequence::groupRowsBySymbolAt`): the stored symbols' groups are views into the
+   /// chunk, handed out unfiltered (the aggregation intersects the filter in), and the null rows
+   /// form their own group
    [[nodiscard]] DimensionIndexChunk chunk(
       uint16_t chunk_id,
       RoaringContainerView filter_view
    ) const override {
-      const auto& coverage = column.horizontal_coverage_index;
-      const bool chunk_has_mutations = mutations_by_chunk.contains(chunk_id);
-
-      // fast path if chunk does not have any mutations
-      if (!chunk_has_mutations) {
-         // No row covers the position -> every row is missing. A null row would form its own group,
-         // so only collapse when the chunk has no nulls.
-         if (
-            !null_views.contains(chunk_id) &&
-            coverage.noRowCoversPositionInChunk(position_idx, chunk_id)
-         ) {
-            return static_cast<size_t>(missing_symbol);
-         }
-         // Every row covers the position with no in-region N -> every row is the reference symbol.
-         // (A null row forces the covered envelope empty, so this never fires with nulls.)
-         if (coverage.positionCoveredByWholeChunk(position_idx, chunk_id)) {
-            return static_cast<size_t>(reference_symbol);
-         }
+      auto symbol_groups =
+         storage::sequence::groupRowsBySymbolAt(column.chunk(chunk_id), position_idx, filter_view);
+      if (symbol_groups.every_row_symbol.has_value()) {
+         return static_cast<size_t>(*symbol_groups.every_row_symbol);
       }
-
       ValueBitmapDimension groups;
-
-      // The chunk's per-symbol mutation containers (raw views)
-      ChunkMutationContainers mutations = computeChunkMutationContainers(chunk_id);
-
-      // The chunk's exact row-ids where the symbol is not N
-      const RoaringContainer covered = coverage.coveredRowsInChunk(position_idx, chunk_id);
-
-      // A null sequence carries no symbol at any position, so it forms its own group (a zero-copy
-      // view, handed out un-filtered like the mutation groups) and is excluded from the missing
-      // symbol below. The computed missing/reference groups are already subsets of the filter, so
-      // subtracting the whole chunk's nulls there is equivalent to subtracting only the filtered
-      // ones.
-      std::optional<RoaringContainerView> null_view;
-      if (auto null_iter = null_views.find(chunk_id); null_iter != null_views.end()) {
-         null_view = null_iter->second;
+      groups.reserve(symbol_groups.groups.size() + 1);
+      for (auto& [symbol, rows] : symbol_groups.groups) {
+         groups.emplace_back(static_cast<size_t>(symbol), std::move(rows));
       }
-
-      for (auto symbol : SymbolType::SYMBOLS) {
-         auto symbol_rank = static_cast<size_t>(symbol);
-         const bool is_reference = symbol == reference_symbol;
-         const bool is_missing = symbol == missing_symbol;
-
-         if (!is_reference && !is_missing) {
-            // Plain mutation: hand the stored container straight through, no copy and no filtering
-            // (the aggregation intersects the filter in).
-            if (mutations.views[symbol].has_value()) {
-               groups.emplace_back(symbol_rank, CopyOnWriteContainer{*mutations.views[symbol]});
-            }
-            continue;
-         }
-
-         CopyOnWriteContainer group;
-
-         if (is_reference && is_missing) {
-            // The local reference symbol is itself the missing symbol: every filtered row without
-            // an explicit other mutation carries it, minus the sequence-less rows.
-            group = CopyOnWriteContainer{filter_view - mutations.except_missing.view()};
-            if (null_view.has_value()) {
-               group -= *null_view;
-            }
-         } else if (is_missing) {
-            group = CopyOnWriteContainer{
-               filter_view - RoaringContainerView{covered},
-            };  // not covered here ...
-            if (mutations.views[symbol].has_value()) {
-               // ... plus any explicit missing mutation (bounded by the filter) ...
-               const RoaringContainer explicit_missing = filter_view & *mutations.views[symbol];
-               group |= RoaringContainerView{explicit_missing};
-            }
-            // ... but a null sequence carries no symbol.
-            if (null_view.has_value()) {
-               group -= *null_view;
-            }
-         } else {  // is_reference
-            // covered ...
-            const RoaringContainer covered_in_filter = filter_view & RoaringContainerView{covered};
-            // ... and carrying no other mutation.
-            group = CopyOnWriteContainer{
-               RoaringContainerView{covered_in_filter} -
-                  mutations.except_reference_and_missing.view(),
-            };
-         }
-         if (!group.empty()) {
-            groups.emplace_back(symbol_rank, std::move(group));
-         }
-      }
-      if (null_view.has_value()) {
-         groups.emplace_back(NULL_INDEX, CopyOnWriteContainer{*null_view});
+      if (symbol_groups.null_rows.has_value()) {
+         groups.emplace_back(NULL_INDEX, CopyOnWriteContainer{*symbol_groups.null_rows});
       }
       return groups;
    }

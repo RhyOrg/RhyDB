@@ -106,20 +106,13 @@ void appendRows(
    appendDataToTable(table, reader, options);
 }
 
-const rhydb::storage::column::HorizontalCoverageIndex& coverageIndex(const Table& table) {
-   return table.getColumn<SequenceColumn<Nucleotide>>(std::string{SEQ_COLUMN})
-      .horizontal_coverage_index;
-}
-
 // All rows' covered [start, end) ranges across every chunk, flattened.
 std::vector<std::pair<uint32_t, uint32_t>> allRowRanges(const Table& table) {
-   const auto& index = coverageIndex(table);
+   const auto& column = table.getColumn<SequenceColumn<Nucleotide>>(std::string{SEQ_COLUMN});
    std::vector<std::pair<uint32_t, uint32_t>> ranges;
-   for (size_t chunk_id = 0; chunk_id < index.starts.size(); ++chunk_id) {
-      const auto& chunk_starts = index.starts[chunk_id];
-      const auto& chunk_ends = index.ends[chunk_id];
-      for (size_t row_in_chunk = 0; row_in_chunk < chunk_starts.size(); ++row_in_chunk) {
-         ranges.emplace_back(chunk_starts[row_in_chunk], chunk_ends[row_in_chunk]);
+   for (const auto& chunk : column.chunks()) {
+      for (uint32_t row = 0; row < chunk->numRows(); ++row) {
+         ranges.push_back(chunk->coverage().coverageRange(static_cast<uint16_t>(row)));
       }
    }
    return ranges;
@@ -169,14 +162,13 @@ TEST(ClusteredBuffering, nullSequencesClusterSeparatelyFromDataRows) {
 
    // One chunk for the two data rows, one for the two null rows.
    EXPECT_EQ(table->row_layout.numChunks(), 2);
-   const auto& index = coverageIndex(*table);
    const auto& nuc_column = table->getColumn<SequenceColumn<Nucleotide>>(std::string{SEQ_COLUMN});
-   EXPECT_EQ(rhydb::Bitmap::fromChunkContainers(nuc_column.null_bitmap).cardinality(), 2);
+   EXPECT_EQ(nuc_column.nullRows().cardinality(), 2);
 
    // The data chunk's bounding range is exactly [0,25) — the null rows never widened it.
    bool found_data_batch = false;
-   for (size_t chunk_id = 0; chunk_id < index.batch_min_start.size(); ++chunk_id) {
-      if (index.batch_min_start[chunk_id] == 0 && index.batch_max_end[chunk_id] == 25) {
+   for (const auto& chunk : nuc_column.chunks()) {
+      if (chunk->coverage().minStart() == 0 && chunk->coverage().maxEnd() == 25) {
          found_data_batch = true;
       }
    }
@@ -217,10 +209,7 @@ TEST(ClusteredBuffering, preservesAllRowsRegardlessOfChunkAssignment) {
       clustered->getColumn<SequenceColumn<Nucleotide>>(std::string{SEQ_COLUMN});
    const auto& baseline_nuc =
       baseline->getColumn<SequenceColumn<Nucleotide>>(std::string{SEQ_COLUMN});
-   EXPECT_EQ(
-      rhydb::Bitmap::fromChunkContainers(clustered_nuc.null_bitmap).cardinality(),
-      rhydb::Bitmap::fromChunkContainers(baseline_nuc.null_bitmap).cardinality()
-   );
+   EXPECT_EQ(clustered_nuc.nullRows().cardinality(), baseline_nuc.nullRows().cardinality());
 
    // Clustering only reorders rows across chunks, so the multiset of covered ranges is invariant.
    auto clustered_ranges = allRowRanges(*clustered);

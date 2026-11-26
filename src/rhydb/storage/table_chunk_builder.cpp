@@ -325,7 +325,7 @@ TableChunkBuilder::TableChunkBuilder(const Table& table) {
          const auto& column = table.getColumn<ColumnType>(column_identifier.name);
          getColumnBuilders<ColumnType>().emplace(
             column_identifier.name,
-            typename ColumnType::Builder{column_metadata, column.local_reference_sequence_string}
+            typename ColumnType::Builder{column_metadata, column.localReferenceText()}
          );
       } else if constexpr (
          std::is_constructible_v<typename ColumnType::Builder, typename ColumnType::Metadata*>

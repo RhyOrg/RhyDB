@@ -2,15 +2,15 @@
 
 #include <algorithm>
 #include <memory>
+#include <span>
+#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 #include <nlohmann/json.hpp>
-#include <roaring/roaring.hh>
 
 #include "rhydb/common/aa_symbols.h"
-#include "rhydb/common/bitmap.h"
 #include "rhydb/common/nucleotide_symbols.h"
 #include "rhydb/query_engine/filter/operators/operator.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
@@ -20,8 +20,10 @@
 #include "rhydb/query_engine/scalar_expressions/nof.h"
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
 #include "rhydb/query_engine/scalar_expressions/symbol_in_set.h"
+#include "rhydb/roaring_util/roaring_container.h"
 #include "rhydb/schema/database_schema.h"
-#include "rhydb/storage/column/horizontal_coverage_index.h"
+#include "rhydb/storage/column/sequence_column.h"
+#include "rhydb/storage/sequence/sequence_chunk_algorithms.h"
 #include "rhydb/storage/table.h"
 
 namespace rhydb::query_engine::scalar_expressions {
@@ -99,14 +101,14 @@ std::vector<typename SymbolType::Symbol> reconstructSequenceAtRow(
    const storage::column::SequenceColumn<SymbolType>& sequence_column,
    RowId row_id
 ) {
-   roaring::Roaring single_row_ids;
-   single_row_ids.add(row_id.toGlobal());
-   const Bitmap single_row{std::move(single_row_ids)};
-
-   std::vector<std::string> sequences = {sequence_column.local_reference_sequence_string};
-   sequence_column.vertical_sequence_index.overwriteSymbolsInSequences(sequences, single_row);
-   sequence_column.horizontal_coverage_index.template overwriteCoverageInSequence<SymbolType>(
-      sequences, single_row
+   const auto& chunk = sequence_column.chunk(row_id.chunk_id);
+   const auto single_row = roaring_util::RoaringContainer::ofRange(
+      row_id.row_in_chunk, uint32_t{row_id.row_in_chunk} + 1
+   );
+   std::vector<std::string> sequences = {std::string(chunk.sequenceLength(), '\0')};
+   char* const text = sequences[0].data();
+   storage::sequence::reconstructSequences(
+      chunk, roaring_util::RoaringContainerView{single_row}, std::span<char* const>{&text, 1}
    );
 
    std::vector<typename SymbolType::Symbol> profile;

@@ -87,6 +87,21 @@ std::vector<typename SymbolType::Symbol> negateSymbols(
    return result;
 }
 
+/// The rows that store one of `symbols` at `position_idx`, as views into the column's chunks
+template <typename SymbolType>
+Bitmap storedRowsWithSymbols(
+   const SequenceColumn<SymbolType>& sequence_column,
+   uint32_t position_idx,
+   const std::vector<typename SymbolType::Symbol>& symbols
+) {
+   return Bitmap::fromContainerViews(sequence_column.storedRowsWithSymbolsAt(
+      position_idx,
+      storage::sequence::SymbolSet::of<SymbolType>(
+         std::span<const typename SymbolType::Symbol>{symbols}
+      )
+   ));
+}
+
 // To make the difference, we produce `Left & !Right`
 std::unique_ptr<filter::operators::Operator> makeDifference(
    std::unique_ptr<filter::operators::Operator> left,
@@ -115,7 +130,7 @@ std::unique_ptr<filter::operators::Operator> excludeNullSequences(
    const SequenceColumn<SymbolType>& sequence_column,
    const storage::column::RowLayout& row_layout
 ) {
-   Bitmap null_rows = Bitmap::fromChunkContainers(sequence_column.null_bitmap);
+   Bitmap null_rows = sequence_column.nullRows();
    if (null_rows.isEmpty()) {
       return operator_;
    }
@@ -132,7 +147,7 @@ std::unique_ptr<filter::operators::Operator> includeNullSequences(
    const SequenceColumn<SymbolType>& sequence_column,
    const storage::column::RowLayout& row_layout
 ) {
-   Bitmap null_rows = Bitmap::fromChunkContainers(sequence_column.null_bitmap);
+   Bitmap null_rows = sequence_column.nullRows();
    if (null_rows.isEmpty()) {
       return operator_;
    }
@@ -154,10 +169,7 @@ std::unique_ptr<filter::operators::Operator> compileWithMissingSymbolAndReferenc
    // as the missing symbol and the reference symbol are included, we can just negate the other
    // symbols
    auto negated_symbols = negateSymbols<SymbolType>(symbols);
-   auto bitmap =
-      Bitmap::fromContainerViews(sequence_column.vertical_sequence_index.getMatchingContainerViews(
-         position_idx, negated_symbols
-      ));
+   auto bitmap = storedRowsWithSymbols(sequence_column, position_idx, negated_symbols);
    return std::make_unique<filter::operators::Complement>(
       std::make_unique<filter::operators::IndexScan>(std::move(bitmap), row_layout), row_layout
    );
@@ -172,15 +184,13 @@ std::unique_ptr<filter::operators::Operator> compileWithMissingSymbol(
 ) {
    // The missing symbol is included, so we start with the sequences with no coverage at this
    // position and then add the sequences with the mutation symbols
-   auto bitmap = Bitmap::fromContainerViews(
-      sequence_column.vertical_sequence_index.getMatchingContainerViews(position_idx, symbols)
-   );
+   auto bitmap = storedRowsWithSymbols(sequence_column, position_idx, symbols);
 
    filter::operators::OperatorVector operators_for_union;
    operators_for_union.push_back(
       std::make_unique<filter::operators::Selection>(
          std::make_unique<filter::operators::IsInCoveredRegion>(
-            &sequence_column.horizontal_coverage_index,
+            &sequence_column.chunks(),
             position_idx,
             filter::operators::IsInCoveredRegion::Comparator::IS_NOT_COVERED
          ),
@@ -203,15 +213,12 @@ std::unique_ptr<filter::operators::Operator> compileWithReference(
    // The reference symbol is included, so we start with the sequences with coverage at this
    // position and then remove the sequences with the negated mutation symbols
    auto negated_symbols = negateSymbolsExcluding<SymbolType>(symbols, SymbolType::SYMBOL_MISSING);
-   auto bitmap =
-      Bitmap::fromContainerViews(sequence_column.vertical_sequence_index.getMatchingContainerViews(
-         position_idx, negated_symbols
-      ));
+   auto bitmap = storedRowsWithSymbols(sequence_column, position_idx, negated_symbols);
 
    return makeDifference(
       std::make_unique<filter::operators::Selection>(
          std::make_unique<filter::operators::IsInCoveredRegion>(
-            &sequence_column.horizontal_coverage_index,
+            &sequence_column.chunks(),
             position_idx,
             filter::operators::IsInCoveredRegion::Comparator::IS_COVERED
          ),
@@ -230,9 +237,7 @@ std::unique_ptr<filter::operators::Operator> compileOnlyMutations(
    const storage::column::RowLayout& row_layout
 ) {
    // All our results are fully included in the vertical sequence index
-   auto bitmap = Bitmap::fromContainerViews(
-      sequence_column.vertical_sequence_index.getMatchingContainerViews(position_idx, symbols)
-   );
+   auto bitmap = storedRowsWithSymbols(sequence_column, position_idx, symbols);
    return std::make_unique<filter::operators::IndexScan>(std::move(bitmap), row_layout);
 }
 

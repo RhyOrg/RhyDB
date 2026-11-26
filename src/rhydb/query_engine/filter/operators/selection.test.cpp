@@ -5,10 +5,11 @@
 
 #include "rhydb/common/aligned_sequence.h"
 #include "rhydb/common/bitmap.h"
+#include "rhydb/common/nucleotide_symbols.h"
 #include "rhydb/query_engine/filter/operators/bitmap_producer.h"
 #include "rhydb/query_engine/filter/operators/is_in_covered_region.h"
-#include "rhydb/storage/column/horizontal_coverage_index.h"
 #include "rhydb/storage/column/int_column.h"
+#include "rhydb/storage/sequence/sequence_chunk.h"
 
 using rhydb::Bitmap;
 using rhydb::query_engine::filter::operators::BitmapProducer;
@@ -19,9 +20,7 @@ using rhydb::query_engine::filter::operators::Operator;
 using rhydb::query_engine::filter::operators::Predicate;
 using rhydb::query_engine::filter::operators::Selection;
 using rhydb::storage::column::ColumnMetadata;
-using rhydb::storage::column::HorizontalCoverageIndex;
 using rhydb::storage::column::Int32Column;
-using rhydb::storage::column::RowId;
 using rhydb::storage::column::RowLayout;
 
 namespace {
@@ -242,26 +241,30 @@ TEST(OperatorSelection, bulkPredicateWithLargeChildReturnsCorrectValues) {
    const auto row_layout = RowLayout::of(100);
 
    // Position 2 is covered exactly in the even rows.
-   HorizontalCoverageIndex coverage_index;
+   rhydb::storage::sequence::SequenceChunkBuilder chunk_builder{
+      rhydb::storage::sequence::SequenceReference::create<rhydb::Nucleotide>("AAAAA")
+   };
    for (uint32_t row = 0; row < 100; ++row) {
       std::vector<uint32_t> missing_positions;
       if (row % 2 == 1) {
          missing_positions.push_back(2);
       }
-      coverage_index.insertCoverage(
-         RowId::fromGlobal(row),
-         rhydb::Coverage{.start = 0, .end = 5, .missing_positions = missing_positions}
+      chunk_builder.addRow(
+         rhydb::Coverage{.start = 0, .end = 5, .missing_positions = missing_positions}, {}
       );
    }
+   const IsInCoveredRegion::Chunks chunks{
+      std::make_shared<const rhydb::storage::sequence::SequenceChunk>(
+         std::move(chunk_builder).finish()
+      ),
+   };
 
    std::vector<std::unique_ptr<Predicate>> predicates;
    predicates.push_back(
       std::make_unique<CompareToValueSelection<Int32Column>>(test_column, Comparator::LESS, 50)
    );
    predicates.push_back(
-      std::make_unique<IsInCoveredRegion>(
-         &coverage_index, 2, IsInCoveredRegion::Comparator::IS_COVERED
-      )
+      std::make_unique<IsInCoveredRegion>(&chunks, 2, IsInCoveredRegion::Comparator::IS_COVERED)
    );
 
    // IsInCoveredRegion evaluates chunks in bulk, so with a child this large Selection may

@@ -1,5 +1,8 @@
 #include "rhydb/query_engine/exec_node/table_scan.h"
+#include <memory>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include <roaring/roaring.h>
 #include <roaring/roaring.hh>
@@ -7,64 +10,72 @@
 #include "evobench/evobench.hpp"
 #include "rhydb/common/bitmap.h"
 #include "rhydb/query_engine/batched_bitmap_reader.h"
+#include "rhydb/roaring_util/roaring_container.h"
 #include "rhydb/storage/column/data_type_visitor.h"
+#include "rhydb/storage/sequence/sequence_chunk.h"
+#include "rhydb/storage/sequence/sequence_chunk_algorithms.h"
 
 namespace rhydb::query_engine::exec_node {
 
 namespace {
 
-template <typename SymbolType>
+/// The texts of the non-null rows `non_null_rows` of `chunk`, in ascending row order
 std::vector<std::string> reconstructNonNullSequences(
-   const storage::column::SequenceColumn<SymbolType>& sequence_column,
-   const Bitmap& non_null_row_ids
+   const storage::sequence::SequenceChunk& chunk,
+   roaring_util::RoaringContainerView non_null_rows
 ) {
-   const std::string reference = sequence_column.local_reference_sequence_string;
-
-   std::vector<std::string> reconstructed_sequences;
-   reconstructed_sequences.resize(non_null_row_ids.cardinality(), reference);
-
-   sequence_column.vertical_sequence_index.overwriteSymbolsInSequences(
-      reconstructed_sequences, non_null_row_ids
+   std::vector<std::string> sequences(
+      non_null_rows.getCardinality(), std::string(chunk.sequenceLength(), '\0')
    );
+   std::vector<char*> texts;
+   texts.reserve(sequences.size());
+   for (auto& sequence : sequences) {
+      texts.push_back(sequence.data());
+   }
+   storage::sequence::reconstructSequences(chunk, non_null_rows, texts);
+   return sequences;
+}
 
-   sequence_column.horizontal_coverage_index.template overwriteCoverageInSequence<SymbolType>(
-      reconstructed_sequences, non_null_row_ids
-   );
-   return reconstructed_sequences;
+/// Appends the selected `rows` of `chunk`: null for a null row, else the compressed text
+arrow::Status appendChunkSequences(
+   const storage::sequence::SequenceChunk& chunk,
+   roaring_util::RoaringContainerView rows,
+   rhydb::ZstdCompressor& compressor,
+   arrow::LargeBinaryBuilder& output_array
+) {
+   const roaring_util::RoaringContainer non_null_rows = rows - chunk.nullRows();
+   const auto reconstructed_sequences =
+      reconstructNonNullSequences(chunk, roaring_util::RoaringContainerView{non_null_rows});
+   auto next_sequence = reconstructed_sequences.begin();
+   for (const uint16_t row : rows) {
+      if (chunk.isNull(row)) {
+         ARROW_RETURN_NOT_OK(output_array.AppendNull());
+         continue;
+      }
+      ARROW_RETURN_NOT_OK(
+         output_array.Append(compressor.compress(next_sequence->data(), next_sequence->size()))
+      );
+      ++next_sequence;
+   }
+   return arrow::Status::OK();
 }
 
 template <typename SymbolType>
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 arrow::Status appendSequences(
    const storage::column::SequenceColumn<SymbolType>& sequence_column,
    const Bitmap& row_ids,
    arrow::LargeBinaryBuilder& output_array
 ) {
-   const Bitmap non_null_row_ids =
-      row_ids - Bitmap::fromChunkContainers(sequence_column.null_bitmap);
-   auto reconstructed_non_null_sequences =
-      reconstructNonNullSequences(sequence_column, non_null_row_ids);
-
    ARROW_RETURN_NOT_OK(output_array.Reserve(static_cast<int64_t>(row_ids.cardinality())));
    auto reference_sequence =
       SymbolType::sequenceToString(sequence_column.metadata->reference_sequence);
    auto dictionary = std::make_shared<rhydb::ZstdCDictionary>(reference_sequence, 3);
    rhydb::ZstdCompressor compressor{dictionary};
 
-   auto reconstructed_sequence_iterator = reconstructed_non_null_sequences.begin();
-   for (const auto& [chunk_key, view] : row_ids) {
-      const uint32_t base = static_cast<uint32_t>(chunk_key) << 16U;
-      for (const uint16_t low_bits : view) {
-         if (sequence_column.isNull(storage::column::RowId::fromGlobal(base | low_bits))) {
-            ARROW_RETURN_NOT_OK(output_array.AppendNull());
-         } else {
-            auto& reconstructed_sequence = *reconstructed_sequence_iterator;
-            ARROW_RETURN_NOT_OK(output_array.Append(
-               compressor.compress(reconstructed_sequence.data(), reconstructed_sequence.size())
-            ));
-            reconstructed_sequence_iterator++;
-         }
-      }
+   for (const auto& [chunk_id, rows] : row_ids) {
+      ARROW_RETURN_NOT_OK(
+         appendChunkSequences(sequence_column.chunk(chunk_id), rows, compressor, output_array)
+      );
    }
    return arrow::Status::OK();
 }
