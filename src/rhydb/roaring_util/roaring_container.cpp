@@ -104,15 +104,15 @@ RoaringContainerView RoaringContainerView::fromPayload(
          alignment = alignof(uint64_t);
          typed_payload.bitset_words = reinterpret_cast<const uint64_t*>(payload.data());
          break;
+      case ARRAY_CONTAINER_TYPE:
+         expected_size = size_t{cardinality} * sizeof(uint16_t);
+         typed_payload.array = reinterpret_cast<const uint16_t*>(payload.data());
+         break;
       case RUN_CONTAINER_TYPE:
          n_runs = payload.size() / sizeof(roaring::internal::rle16_t);
          expected_size = n_runs * sizeof(roaring::internal::rle16_t);
          alignment = alignof(roaring::internal::rle16_t);
          typed_payload.runs = reinterpret_cast<const roaring::internal::rle16_t*>(payload.data());
-         break;
-      case ARRAY_CONTAINER_TYPE:
-         expected_size = size_t{cardinality} * sizeof(uint16_t);
-         typed_payload.array = reinterpret_cast<const uint16_t*>(payload.data());
          break;
       default:
          RHYDB_PANIC("unknown roaring container typecode {}", typecode);
@@ -145,12 +145,14 @@ std::span<const std::byte> RoaringContainerView::payload() const {
       case BITSET_CONTAINER_TYPE:
          size_in_bytes = BITSET_CONTAINER_WORDS * sizeof(uint64_t);
          break;
+      case ARRAY_CONTAINER_TYPE:
+         size_in_bytes = size_t{cardinality} * sizeof(uint16_t);
+         break;
       case RUN_CONTAINER_TYPE:
          size_in_bytes = size_t{n_runs} * sizeof(roaring::internal::rle16_t);
          break;
       default:
-         size_in_bytes = size_t{cardinality} * sizeof(uint16_t);
-         break;
+         RHYDB_PANIC("unknown roaring container typecode {}", typecode);
    }
    return {static_cast<const std::byte*>(payloadAddress()), size_in_bytes};
 }

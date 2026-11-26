@@ -361,6 +361,8 @@ TEST(RoaringContainerView, emptyViewIteratesAsEmptyRange) {
 // container), and is used as such in production, e.g. for chunks without null rows.
 TEST(RoaringContainerView, defaultViewIsEmpty) {
    const RoaringContainerView view{};
+   EXPECT_EQ(view.getType(), ContainerType::ARRAY);
+   EXPECT_EQ(view.payload().data(), nullptr);
    EXPECT_TRUE(view.empty());
    EXPECT_EQ(view.getCardinality(), 0);
    EXPECT_FALSE(view.contains(0));
@@ -509,7 +511,7 @@ TEST(RoaringContainerSetAlgebra, fastUnionOfNoneOneOrTwoContainers) {
 }
 
 TEST(RoaringContainerSetAlgebra, fastUnionOfManyMixedContainers) {
-   // Array, bitset and run containers, plus empty ones, in a single union.
+   // Bitset, array and run containers, plus empty ones, in a single union.
    std::vector<RoaringContainer> containers;
    roaring::Roaring expected;
    for (uint16_t index = 0; index < 50; ++index) {
@@ -960,10 +962,10 @@ roaring::Roaring roaringOf(const std::vector<uint16_t>& values) {
 
 std::string_view typeName(ContainerType type) {
    switch (type) {
-      case ContainerType::ARRAY:
-         return "Array";
       case ContainerType::BITSET:
          return "Bitset";
+      case ContainerType::ARRAY:
+         return "Array";
       case ContainerType::RUN:
          return "Run";
    }
@@ -971,7 +973,7 @@ std::string_view typeName(ContainerType type) {
 }
 
 const auto ALL_TYPES =
-   ::testing::Values(ContainerType::ARRAY, ContainerType::BITSET, ContainerType::RUN);
+   ::testing::Values(ContainerType::BITSET, ContainerType::ARRAY, ContainerType::RUN);
 
 class RoaringContainerPerType : public ::testing::TestWithParam<ContainerType> {};
 
@@ -1432,11 +1434,11 @@ TEST(RoaringContainerView, fromPayloadRejectsMismatchedSizeOrAlignment) {
 
    // Wrong sizes.
    EXPECT_THROW(
-      std::ignore = RoaringContainerView::fromPayload(ContainerType::ARRAY, 3, bytes.first(4)),
+      std::ignore = RoaringContainerView::fromPayload(ContainerType::BITSET, 0, bytes.first(8)),
       std::runtime_error
    );
    EXPECT_THROW(
-      std::ignore = RoaringContainerView::fromPayload(ContainerType::BITSET, 0, bytes.first(8)),
+      std::ignore = RoaringContainerView::fromPayload(ContainerType::ARRAY, 3, bytes.first(4)),
       std::runtime_error
    );
    EXPECT_THROW(
