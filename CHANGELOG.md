@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.18.0](https://github.com/RhyOrg/RhyDB/compare/v0.17.7...v0.18.0) (2026-11-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* **query_engine:** `let` is now a keyword. A column or table named `let` must be written as the quoted identifier `"let"`.
+
+### Features
+
+* add binary column type ([#1880](https://github.com/RhyOrg/RhyDB/issues/1880)) ([4eb3d35](https://github.com/RhyOrg/RhyDB/commit/4eb3d3525d7db54289c7d407625d116e520cc2e0))
+* **query_engine:** support SaneQL's let function definitions ([#1856](https://github.com/RhyOrg/RhyDB/issues/1856)) ([b12c2a9](https://github.com/RhyOrg/RhyDB/commit/b12c2a90d65489f7e809ae32cc1eeb245edaeb77))
+
 ## [0.17.7](https://github.com/RhyOrg/RhyDB/compare/v0.17.6...v0.17.7) (2026-11-26)
 
 
