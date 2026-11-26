@@ -3,6 +3,7 @@
 #include <expected>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -11,17 +12,21 @@
 #include <fmt/format.h>
 #include <boost/serialization/access.hpp>
 #include <boost/serialization/split_free.hpp>
-#include <roaring/roaring.hh>
+#include <boost/serialization/split_member.hpp>
+#include <boost/serialization/string.hpp>
 
 #include "rhydb/common/aa_symbols.h"
 #include "rhydb/common/aligned_sequence.h"
+#include "rhydb/common/bitmap.h"
 #include "rhydb/common/nucleotide_symbols.h"
+#include "rhydb/common/panic.h"
+#include "rhydb/roaring_util/roaring_container.h"
 #include "rhydb/storage/column/column.h"
 #include "rhydb/storage/column/column_metadata.h"
-#include "rhydb/storage/column/horizontal_coverage_index.h"
 #include "rhydb/storage/column/insertion_index.h"
+#include "rhydb/storage/column/row_compaction.h"
 #include "rhydb/storage/column/row_id.h"
-#include "rhydb/storage/column/vertical_sequence_index.h"
+#include "rhydb/storage/sequence/sequence_chunk.h"
 #include "rhydb/zstd/zstd_decompressor.h"
 
 namespace rhydb::storage::column {
@@ -55,6 +60,11 @@ class SequenceColumnMetadata : public ColumnMetadata {
    );
 };
 
+/// A column of nucleotide or amino acid sequences, stored as one immutable `SequenceChunk` per
+/// 2^16-row ingestion chunk (see documentation/developer/sequence_storage.md). All chunks are
+/// stored against the column's local reference, which `finalize` adapts to the most common symbol
+/// at each position, replacing the chunks with chunks stored against the adapted reference. The
+/// insertions are held in a column-wide `InsertionIndex`.
 template <typename SymbolType>
 class SequenceColumn {
   public:
@@ -66,8 +76,8 @@ class SequenceColumn {
    /// adapted) local reference at insert time, so only the differences -- the
    /// covered range, the missing positions within it, and the mutations -- are
    /// buffered for the chunk. The full sequence is never retained, keeping
-   /// per-chunk memory bounded regardless of genome length. appendChunk assigns
-   /// the global row id and populates the column's indexes from this.
+   /// per-chunk memory bounded regardless of genome length. appendChunk builds the
+   /// chunk's `SequenceChunk` from this.
    struct BufferedSequence {
       bool is_null = false;
       Coverage coverage;
@@ -85,97 +95,137 @@ class SequenceColumn {
 
   private:
    friend class boost::serialization::access;
+
+   // The local reference is written once; the chunks are written without it and share it again
+   // after loading. Their indexes are written as raw bytes, so loading rebuilds nothing.
    template <class Archive>
-   void serialize(Archive& archive, [[maybe_unused]] const uint32_t version) {
-      // clang-format off
-      archive & local_reference_sequence_string;
-      archive & vertical_sequence_index;
-      archive & horizontal_coverage_index;
-      archive & insertion_index;
-      archive & sequence_column_info;
-      archive & sequence_count;
-      archive & null_bitmap;
-      archive & num_chunks;
-      // clang-format on
+   void save(Archive& archive, [[maybe_unused]] const uint32_t version) const {
+      const std::string& local_reference_text = local_reference->text();
+      archive << local_reference_text;
+      archive << insertion_index;
+      archive << sequence_column_info;
+      archive << sequence_count;
+      const uint64_t num_chunks = chunks_.size();
+      archive << num_chunks;
+      for (const auto& chunk : chunks_) {
+         chunk->save(archive);
+      }
    }
+
+   template <class Archive>
+   void load(Archive& archive, [[maybe_unused]] const uint32_t version) {
+      std::string local_reference_text;
+      archive >> local_reference_text;
+      local_reference =
+         sequence::SequenceReference::create<SymbolType>(std::move(local_reference_text));
+      archive >> insertion_index;
+      archive >> sequence_column_info;
+      archive >> sequence_count;
+      uint64_t num_chunks = 0;
+      archive >> num_chunks;
+      chunks_.clear();
+      chunks_.reserve(num_chunks);
+      for (uint64_t chunk_id = 0; chunk_id < num_chunks; ++chunk_id) {
+         chunks_.push_back(
+            std::make_shared<const sequence::SequenceChunk>(
+               sequence::SequenceChunk::load(archive, local_reference)
+            )
+         );
+      }
+   }
+
+   BOOST_SERIALIZATION_SPLIT_MEMBER()
+
+   /// The reference all chunks are stored against; shared with them.
+   std::shared_ptr<const sequence::SequenceReference> local_reference;
+
+   /// The chunks, indexed by chunk id. Shared with whoever reads them, so a
+   /// chunk is never modified, only replaced.
+   std::vector<std::shared_ptr<const sequence::SequenceChunk>> chunks_;
 
   public:
    const SequenceColumnMetadata<SymbolType>* metadata;
    const size_t genome_length;
 
-   // Store the local reference sequence as a string to speed up insertions
-   std::string local_reference_sequence_string;
-
-   VerticalSequenceIndex<SymbolType> vertical_sequence_index;
-   HorizontalCoverageIndex horizontal_coverage_index;
    insertion::InsertionIndex<SymbolType> insertion_index;
    SequenceColumnInfo sequence_column_info;
-   /// One container per chunk, indexed by chunk id: the rows of that chunk which are null.
-   std::vector<roaring_util::RoaringContainer> null_bitmap;
    uint32_t sequence_count = 0;
-   /// Number of appended chunks; see `RowLayout`. Kept so the column satisfies the `Column` concept
-   /// and the table can check every column was appended to in lockstep.
-   uint16_t num_chunks = 0;
 
    explicit SequenceColumn(Metadata* metadata);
 
-   [[nodiscard]] size_t numChunks() const { return num_chunks; }
+   [[nodiscard]] size_t numChunks() const { return chunks_.size(); }
 
    /// Number of rows in ingestion chunk `chunk_id`. The shared `RowLayout` is the authoritative
-   /// source, but the sequence column tracks the same per-chunk sizes in its coverage index (every
-   /// row, null or not, contributes a coverage entry) so it satisfies the `Column` concept.
+   /// source, but the sequence column's chunks know their sizes too (every row, null or not, is a
+   /// row of its chunk), so it satisfies the `Column` concept.
    [[nodiscard]] uint32_t chunkSize(uint16_t chunk_id) const {
-      return horizontal_coverage_index.chunkSize(chunk_id);
+      return chunks_.at(chunk_id)->numRows();
    }
 
-   [[nodiscard]] std::vector<typename SymbolType::Symbol> getLocalReference() const {
-      std::vector<typename SymbolType::Symbol> local_reference;
-      for (const char character : local_reference_sequence_string) {
-         local_reference.push_back(SymbolType::charToSymbol(character).value());
-      };
+   [[nodiscard]] const std::vector<std::shared_ptr<const sequence::SequenceChunk>>& chunks() const {
+      return chunks_;
+   }
+
+   [[nodiscard]] const sequence::SequenceChunk& chunk(uint16_t chunk_id) const {
+      return *chunks_[chunk_id];
+   }
+
+   [[nodiscard]] const std::shared_ptr<const sequence::SequenceReference>& localReference() const {
       return local_reference;
+   }
+
+   /// The local reference as text; inserted sequences are diffed against it.
+   [[nodiscard]] const std::string& localReferenceText() const { return local_reference->text(); }
+
+   [[nodiscard]] std::vector<typename SymbolType::Symbol> getLocalReference() const {
+      std::vector<typename SymbolType::Symbol> result;
+      result.reserve(local_reference->length());
+      for (uint32_t position = 0; position < local_reference->length(); ++position) {
+         result.push_back(static_cast<SymbolType::Symbol>(local_reference->symbolAt(position)));
+      }
+      return result;
    }
 
    [[nodiscard]] SymbolType::Symbol getLocalReferencePosition(size_t position) const {
       RHYDB_ASSERT(position < metadata->reference_sequence.size());
-      return SymbolType::charToSymbol(local_reference_sequence_string.at(position)).value();
+      return static_cast<SymbolType::Symbol>(
+         local_reference->symbolAt(static_cast<uint32_t>(position))
+      );
    }
 
    [[nodiscard]] SequenceColumnInfo getInfo() const;
 
-   /// Append a finalized ingestion chunk to the column's global structures,
-   /// assigning global row ids as it goes.
+   /// Appends a finalized ingestion chunk as a new `SequenceChunk`, stored against the current
+   /// local reference.
    std::expected<void, std::string> appendChunk(const Buffer& buffer);
 
-   [[nodiscard]] bool isNull(RowId row_id) const;
+   [[nodiscard]] bool isNull(RowId row_id) const {
+      return chunks_[row_id.chunk_id]->isNull(row_id.row_in_chunk);
+   }
+
+   /// The null rows of all chunks, as views into the chunks.
+   [[nodiscard]] Bitmap nullRows() const;
+
+   /// The length of every (non-null) row's text: the length of the reference sequence.
+   [[nodiscard]] size_t sequenceLength() const { return local_reference->length(); }
+
+   /// Views of the rows that store one of `symbols` at `position`, per chunk, in ascending chunk
+   /// order (see `storedSymbolsAt`). A chunk id appears once per stored symbol of `symbols`.
+   [[nodiscard]] std::vector<std::pair<uint16_t, roaring_util::RoaringContainerView>>
+   storedRowsWithSymbolsAt(uint32_t position, sequence::SymbolSet symbols) const;
 
    /// Removes the rows `compaction` deletes and renumbers the remaining ones, see `RowCompaction`.
-   /// The local reference is kept, since the mutations of the remaining rows are stored against it.
+   /// The chunks that lose some rows are rebuilt without them; the others are kept as they are.
    void deleteRows(const RowCompaction& compaction);
 
+   /// Adapts the local reference to the most common symbol at each position and replaces the
+   /// chunks with chunks stored against the adapted reference.
    void finalize();
 
   private:
-   static constexpr size_t BUFFER_SIZE = 1024;
-   std::vector<SymbolMap<SymbolType, std::vector<uint32_t>>> mutation_buffer;
-
-   // Population of a single pre-diffed row into the global structures at the given sparse global
-   // row id (`chunk_id << 16 | row_in_chunk`): records its coverage, mutations and insertions.
-   void appendValue(RowId row_id, const BufferedSequence& buffered);
-
-   void appendNullValue(RowId row_id);
-
-   void fillIndexes();
-
-   void optimizeBitmaps();
-
-   void flushBuffer();
+   void adaptLocalReference();
 
    SequenceColumnInfo calculateInfo();
-
-   [[nodiscard]] size_t computeVerticalBitmapsSize() const;
-
-   [[nodiscard]] size_t computeHorizontalBitmapsSize() const;
 };
 
 /// Buffers one ingestion chunk by diffing each inserted sequence against the

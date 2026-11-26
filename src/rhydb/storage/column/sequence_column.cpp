@@ -19,6 +19,8 @@
 #include "rhydb/preprocessing/preprocessing.h"
 #include "rhydb/preprocessing/preprocessing_exception.h"
 #include "rhydb/storage/insertion_format_exception.h"
+#include "rhydb/storage/sequence/horizontal_coverage_index.h"
+#include "rhydb/storage/sequence/sequence_chunk_algorithms.h"
 
 namespace rhydb::storage::column {
 
@@ -92,137 +94,212 @@ InsertionEntry<SymbolType> parseInsertion(const std::string& value) {
 template <typename SymbolType>
 SequenceColumn<SymbolType>::SequenceColumn(SequenceColumnMetadata<SymbolType>* metadata)
     : metadata(metadata),
-      genome_length(metadata->reference_sequence.size()),
-      local_reference_sequence_string(SymbolType::sequenceToString(metadata->reference_sequence)) {
-   mutation_buffer.resize(genome_length);
+      genome_length(metadata->reference_sequence.size()) {
    RHYDB_ASSERT_GT(genome_length, 0ULL);
+   local_reference = sequence::SequenceReference::create<SymbolType>(
+      SymbolType::sequenceToString(metadata->reference_sequence)
+   );
 }
 
 template <typename SymbolType>
 std::expected<void, std::string> SequenceColumn<SymbolType>::appendChunk(const Buffer& buffer) {
-   // Each ingestion chunk occupies its own 2^16-aligned block of the global row-id space: chunk `k`
-   // spans `[k << 16, (k << 16) + buffer.size())` (see `RowId`). Assigning sparse, chunk-aligned
-   // ids here keeps the sequence column's indexes consistent with the value columns and the shared
-   // `RowLayout`, which is what the query path addresses rows by.
-   auto null_rows = roaring_util::RoaringContainer::withCapacity(0);
+   // Parse every insertion first, so that a malformed one leaves the column unchanged
+   std::vector<std::pair<uint16_t, InsertionEntry<SymbolType>>> insertions;
    for (size_t row_in_chunk = 0; row_in_chunk < buffer.size(); ++row_in_chunk) {
-      const RowId row_id(num_chunks, row_in_chunk);
-      const auto& buffered = buffer[row_in_chunk];
-      if (buffered.is_null) {
-         null_rows.add(row_id.row_in_chunk);
-         appendNullValue(row_id);
-      } else {
-         appendValue(row_id, buffered);
+      for (const auto& insertion : buffer[row_in_chunk].insertions.insertions) {
+         auto parsed = parseInsertion<SymbolType>(insertion);
+         if (parsed.position_idx > genome_length) {
+            throw append::AppendException(
+               "the insertion position ({}) is larger than the length of the reference sequence "
+               "({})",
+               parsed.position_idx,
+               genome_length
+            );
+         }
+         insertions.emplace_back(static_cast<uint16_t>(row_in_chunk), std::move(parsed));
       }
    }
-   null_bitmap.push_back(std::move(null_rows));
+
+   // Each ingestion chunk becomes its own `SequenceChunk`, whose rows are addressed by their index
+   // in the chunk; the global row id of a row is `chunk_id << 16 | row_in_chunk` (see `RowId`).
+   sequence::SequenceChunkBuilder builder{local_reference};
+   for (const auto& buffered : buffer) {
+      if (buffered.is_null) {
+         builder.addNullRow();
+      } else {
+         builder.addRow(buffered.coverage, buffered.mutations);
+      }
+   }
+   chunks_.push_back(std::make_shared<const sequence::SequenceChunk>(std::move(builder).finish()));
+   sequence_count += static_cast<uint32_t>(buffer.size());
+
+   for (const auto& [row_in_chunk, insertion] : insertions) {
+      insertion_index.add(insertion.position_idx, insertion.insertion, row_in_chunk);
+   }
    insertion_index.appendChunk();
-   num_chunks++;
-   // The vertical index keys its roaring containers by the row id's high 16 bits (= the chunk id),
-   // so a chunk's mutations never share a container with another chunk's. Flushing the per-position
-   // mutation buffer at every chunk boundary therefore both keeps it bounded and is correct.
-   flushBuffer();
    return {};
 }
 
 template <typename SymbolType>
-void SequenceColumn<SymbolType>::appendValue(RowId row_id, const BufferedSequence& buffered) {
-   sequence_count++;
+Bitmap SequenceColumn<SymbolType>::nullRows() const {
+   return Bitmap::fromChunks(chunks_.size(), [&](size_t chunk_id) {
+      return chunks_[chunk_id]->nullRows();
+   });
+}
 
-   horizontal_coverage_index.insertCoverage(row_id, buffered.coverage);
-
-   for (const auto& [position_idx, symbol] : buffered.mutations.mutations) {
-      mutation_buffer.at(position_idx)[symbol].push_back(row_id.toGlobal());
-   }
-
-   for (const auto& insertion_and_position : buffered.insertions.insertions) {
-      auto [position, insertion] = parseInsertion<SymbolType>(insertion_and_position);
-      if (position > genome_length) {
-         throw append::AppendException(
-            "the insertion position ({}) is larger than the length of the reference sequence ({})",
-            position,
-            genome_length
-         );
+template <typename SymbolType>
+std::vector<std::pair<uint16_t, roaring_util::RoaringContainerView>> SequenceColumn<
+   SymbolType>::storedRowsWithSymbolsAt(uint32_t position, sequence::SymbolSet symbols) const {
+   std::vector<std::pair<uint16_t, roaring_util::RoaringContainerView>> result;
+   for (size_t chunk_id = 0; chunk_id < chunks_.size(); ++chunk_id) {
+      const auto& mutations = chunks_[chunk_id]->mutations();
+      for (const auto& entry : mutations.entriesAtPosition(position)) {
+         if (symbols.contains(entry.symbol)) {
+            result.emplace_back(static_cast<uint16_t>(chunk_id), mutations.container(entry));
+         }
       }
-      insertion_index.add(position, insertion, row_id.row_in_chunk);
    }
-}
-
-template <typename SymbolType>
-void SequenceColumn<SymbolType>::appendNullValue(RowId row_id) {
-   sequence_count += 1;
-   horizontal_coverage_index.insertNullSequence(row_id);
-}
-
-template <typename SymbolType>
-bool SequenceColumn<SymbolType>::isNull(RowId row_id) const {
-   return null_bitmap[row_id.chunk_id].contains(row_id.row_in_chunk);
+   return result;
 }
 
 template <typename SymbolType>
 void SequenceColumn<SymbolType>::deleteRows(const RowCompaction& compaction) {
-   // The mutation buffer is flushed at every chunk boundary, so it holds no rows to renumber
-   vertical_sequence_index.deleteRows(compaction);
-   horizontal_coverage_index.deleteRows(compaction);
+   std::vector<std::shared_ptr<const sequence::SequenceChunk>> remaining_chunks;
+   for (size_t index = 0; index < chunks_.size(); ++index) {
+      const auto chunk_id = static_cast<uint16_t>(index);
+      if (!compaction.newChunkId(chunk_id).has_value()) {
+         continue;
+      }
+      if (compaction.losesSomeRows(chunk_id)) {
+         remaining_chunks.push_back(
+            std::make_shared<const sequence::SequenceChunk>(
+               chunks_[index]->compacted(compaction, chunk_id)
+            )
+         );
+      } else {
+         remaining_chunks.push_back(chunks_[index]);
+      }
+   }
+   chunks_ = std::move(remaining_chunks);
    insertion_index.deleteRows(compaction);
-   compaction.compact(null_bitmap);
    // Every row, null or not, counts as a sequence
    sequence_count = compaction.compactedLayout().numRows();
-   num_chunks = static_cast<uint16_t>(compaction.compactedLayout().numChunks());
    calculateInfo();
 }
 
 template <typename SymbolType>
 void SequenceColumn<SymbolType>::finalize() {
-   flushBuffer();
-
-   const SequenceColumnInfo info_after_filling = calculateInfo();
-
    SPDLOG_DEBUG("Adapting local reference");
-   // We only need the number of rows covering a position to decide reference symbol adaptation
+   adaptLocalReference();
+   const SequenceColumnInfo info = calculateInfo();
+   SPDLOG_DEBUG("Sequence store info after local reference adaption: {}", info);
+}
+
+template <typename SymbolType>
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+void SequenceColumn<SymbolType>::adaptLocalReference() {
+   using Symbol = SymbolType::Symbol;
+   // The views are created on demand, so they are kept here for the pointers to point to
+   std::vector<sequence::HorizontalCoverageIndex> coverage_views;
+   std::vector<const sequence::HorizontalCoverageIndex*> coverages;
+   coverage_views.reserve(chunks_.size());
+   coverages.reserve(chunks_.size());
+   for (const auto& chunk : chunks_) {
+      coverages.push_back(&coverage_views.emplace_back(chunk->coverage()));
+   }
+   // Only the number of rows covering a position (and storing each symbol there) is needed to
+   // decide the adaptation
    const std::vector<uint64_t> coverage_cardinalities =
-      horizontal_coverage_index.computeCoverageCardinalities(genome_length);
-   for (uint32_t position_idx = 0; position_idx < genome_length; ++position_idx) {
-      const auto current_reference_symbol =
-         SymbolType::charToSymbol(local_reference_sequence_string.at(position_idx)).value();
-      if (!vertical_sequence_index
-              .findBetterLocalReferenceSymbol(
-                 position_idx, current_reference_symbol, coverage_cardinalities.at(position_idx)
-              )
-              .has_value()) {
-         continue;
+      sequence::computeCoverageCardinalities(coverages, genome_length);
+   std::vector<uint64_t> stored_counts(genome_length * SymbolType::COUNT, 0);
+   for (const auto& chunk : chunks_) {
+      for (const auto& entry : chunk->mutations().entries()) {
+         stored_counts[(entry.position * SymbolType::COUNT) + entry.symbol] += entry.cardinality;
       }
-      // Only now compute the coverage bitmap for the position that needs to be adapted
-      const roaring::Roaring coverage_bitmap = horizontal_coverage_index.coveredRows(position_idx);
-      const auto new_reference_symbol = vertical_sequence_index.adaptLocalReference(
-         coverage_bitmap, position_idx, current_reference_symbol
-      );
-      RHYDB_ASSERT(new_reference_symbol.has_value());
-      SPDLOG_DEBUG(
-         "At position {} adapted local reference symbol to '{}'",
-         position_idx,
-         SymbolType::symbolToChar(new_reference_symbol.value())
-      );
-      local_reference_sequence_string.at(position_idx) =
-         SymbolType::symbolToChar(new_reference_symbol.value());
    }
 
-   const SequenceColumnInfo info_after_adaption = calculateInfo();
+   std::vector<std::pair<uint32_t, uint8_t>> adapted_symbols;
+   for (uint32_t position = 0; position < genome_length; ++position) {
+      const uint8_t current_symbol = local_reference->symbolAt(position);
+      const std::span<const uint64_t> counts{
+         stored_counts.data() + (position * SymbolType::COUNT),
+         SymbolType::COUNT,
+      };
+      uint64_t stored_total = 0;
+      for (const uint64_t count : counts) {
+         stored_total += count;
+      }
+      RHYDB_ASSERT_EQ(counts[current_symbol], uint64_t{0});
+      RHYDB_ASSERT_GE(coverage_cardinalities[position], stored_total);
+      const uint64_t current_count = coverage_cardinalities[position] - stored_total;
+      uint8_t best_symbol = current_symbol;
+      uint64_t best_count = current_count;
+      for (const Symbol symbol : SymbolType::SYMBOLS) {
+         const auto symbol_id = static_cast<uint8_t>(symbol);
+         if (symbol_id != current_symbol && counts[symbol_id] > best_count) {
+            best_symbol = symbol_id;
+            best_count = counts[symbol_id];
+         }
+      }
+      if (best_symbol != current_symbol) {
+         SPDLOG_DEBUG(
+            "At position {} adapted local reference symbol to '{}'",
+            position,
+            local_reference->symbolChar(best_symbol)
+         );
+         adapted_symbols.emplace_back(position, best_symbol);
+      }
+   }
+   if (adapted_symbols.empty()) {
+      return;
+   }
 
-   SPDLOG_DEBUG("Optimizing bitmaps");
-
-   optimizeBitmaps();
-
-   const SequenceColumnInfo info_after_optimisation = calculateInfo();
-
-   SPDLOG_DEBUG(
-      "Sequence store info after filling it: {}, after local reference adaption: {}, and "
-      "after optimising: {}",
-      info_after_filling,
-      info_after_adaption,
-      info_after_optimisation
-   );
+   local_reference = local_reference->withSymbolsReplaced(adapted_symbols);
+   for (auto& chunk : chunks_) {
+      chunk = std::make_shared<const sequence::SequenceChunk>(chunk->rebasedOnto(local_reference));
+   }
 }
+
+template <typename SymbolType>
+SequenceColumnInfo SequenceColumn<SymbolType>::calculateInfo() {
+   size_t vertical_bitmaps_size = 0;
+   size_t horizontal_bitmaps_size = 0;
+   std::vector<uint32_t> positions;
+   for (const auto& chunk : chunks_) {
+      vertical_bitmaps_size += chunk->mutationsSizeInBytes();
+      // Reported as the size of one run-optimized roaring bitmap of each row's missing positions,
+      // as they were stored before the per-chunk indexes, so that the figure stays comparable
+      chunk->coverage().forEachRowWithMissing(
+         [&](uint16_t /*row*/, std::span<const sequence::MissingRange> ranges) {
+            // Built from the positions like the bitmaps were, so the representation (and thus the
+            // size) roaring picks is the same
+            positions.clear();
+            for (const auto& [begin, end] : ranges) {
+               for (uint32_t position = begin; position < end; ++position) {
+                  positions.push_back(position);
+               }
+            }
+            roaring::Roaring bitmap;
+            bitmap.addMany(positions.size(), positions.data());
+            bitmap.runOptimize();
+            bitmap.shrinkToFit();
+            horizontal_bitmaps_size += bitmap.getSizeInBytes(false);
+         }
+      );
+   }
+   sequence_column_info = {
+      .sequence_count = sequence_count,
+      .vertical_bitmaps_size = vertical_bitmaps_size,
+      .horizontal_bitmaps_size = horizontal_bitmaps_size,
+   };
+   return sequence_column_info;
+}
+
+template <typename SymbolType>
+SequenceColumnInfo SequenceColumn<SymbolType>::getInfo() const {
+   return sequence_column_info;
+}
+
 }  // namespace rhydb::storage::column
 
 [[maybe_unused]] auto fmt::formatter<rhydb::storage::column::SequenceColumnInfo>::format(
@@ -240,63 +317,6 @@ void SequenceColumn<SymbolType>::finalize() {
 }
 
 namespace rhydb::storage::column {
-
-template <typename SymbolType>
-SequenceColumnInfo SequenceColumn<SymbolType>::calculateInfo() {
-   sequence_column_info = {
-      .sequence_count = sequence_count,
-      .vertical_bitmaps_size = computeVerticalBitmapsSize(),
-      .horizontal_bitmaps_size = computeHorizontalBitmapsSize(),
-   };
-   return sequence_column_info;
-}
-
-template <typename SymbolType>
-SequenceColumnInfo SequenceColumn<SymbolType>::getInfo() const {
-   return sequence_column_info;
-}
-
-template <typename SymbolType>
-void SequenceColumn<SymbolType>::fillIndexes() {
-   for (size_t position_idx = 0; position_idx != genome_length; ++position_idx) {
-      vertical_sequence_index.addSymbolsToPositions(position_idx, mutation_buffer.at(position_idx));
-   }
-}
-
-template <typename SymbolType>
-void SequenceColumn<SymbolType>::optimizeBitmaps() {
-   for (auto& [sequence_diff_key, sequence_diff] : vertical_sequence_index.vertical_bitmaps) {
-      sequence_diff.runOptimizeAndShrink();
-   }
-}
-
-template <typename SymbolType>
-void SequenceColumn<SymbolType>::flushBuffer() {
-   fillIndexes();
-   for (auto& position : mutation_buffer) {
-      for (auto symbol : SymbolType::SYMBOLS) {
-         position[symbol].clear();
-      }
-   }
-}
-
-template <typename SymbolType>
-size_t SequenceColumn<SymbolType>::computeVerticalBitmapsSize() const {
-   size_t result = 0;
-   for (const auto& [pos, sequence_diff] : vertical_sequence_index.vertical_bitmaps) {
-      result += sequence_diff.sizeInBytes();
-   }
-   return result;
-}
-
-template <typename SymbolType>
-size_t SequenceColumn<SymbolType>::computeHorizontalBitmapsSize() const {
-   size_t result = 0;
-   for (const auto& [pos, bitmap] : horizontal_coverage_index.horizontal_bitmaps) {
-      result += bitmap.getSizeInBytes(false);
-   }
-   return result;
-}
 
 template <typename SymbolType>
 SequenceColumnMetadata<SymbolType>::SequenceColumnMetadata(

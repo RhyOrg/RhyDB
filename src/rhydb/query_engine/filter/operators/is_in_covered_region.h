@@ -3,11 +3,10 @@
 #include <cstdint>
 #include <memory>
 #include <string>
-
-#include <roaring/roaring.hh>
+#include <vector>
 
 #include "rhydb/query_engine/filter/operators/selection.h"
-#include "rhydb/storage/column/horizontal_coverage_index.h"
+#include "rhydb/storage/sequence/sequence_chunk.h"
 
 namespace rhydb::query_engine::filter::operators {
 
@@ -15,22 +14,21 @@ class IsInCoveredRegion : public Predicate {
   public:
    enum class Comparator : uint8_t { IS_COVERED, IS_NOT_COVERED };
 
+   /// The chunks of a sequence column, indexed by chunk id
+   using Chunks = std::vector<std::shared_ptr<const storage::sequence::SequenceChunk>>;
+
   private:
-   const storage::column::HorizontalCoverageIndex* horizontal_coverage_index;
+   const Chunks* chunks;
    uint32_t position_idx;
    Comparator comparator;
 
   public:
-   explicit IsInCoveredRegion(
-      const storage::column::HorizontalCoverageIndex* horizontal_coverage_index,
-      uint32_t position_idx,
-      Comparator comparator
-   );
+   explicit IsInCoveredRegion(const Chunks* chunks, uint32_t position_idx, Comparator comparator);
 
    ~IsInCoveredRegion() noexcept override;
 
    [[nodiscard]] std::string toString() const override;
-   [[nodiscard]] bool isCovered(uint32_t row_id) const;
+   [[nodiscard]] bool isCovered(storage::column::RowId row_id) const;
    [[nodiscard]] bool match(storage::column::RowId row_id) const override;
    [[nodiscard]] roaring_util::RoaringContainer makeChunk(
       uint16_t chunk_id,
