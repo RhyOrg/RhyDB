@@ -53,9 +53,10 @@ static_assert(sizeof(VerticalSequenceIndexHeader) == 32);
 /// 8-byte aligned. Values are in native byte order.
 ///
 /// Since nothing in the blob is a pointer, loading an index is a plain read of its bytes into an
-/// aligned `common::Buffer` (or, later, a memory mapping of them): the containers are viewed in
-/// place through `RoaringContainerView::fromPayload` and never materialized. Symbols are stored as
-/// their `uint8_t` value; the index does not know the alphabet.
+/// aligned `common::Buffer` (or, later, a memory mapping of them), checked once with `fromBuffer`;
+/// after that, `viewTrusted` views it in O(1). The containers are viewed in place through
+/// `RoaringContainerView::fromPayload` and never materialized. Symbols are stored as their
+/// `uint8_t` value; the index does not know the alphabet.
 ///
 /// `VerticalSequenceIndex` itself is a non-owning view of such a blob, like
 /// `RoaringContainerView`: whoever creates it keeps the buffer alive for as long as the view is
@@ -81,6 +82,13 @@ class VerticalSequenceIndex {
 
    /// A view must not outlive its buffer.
    static VerticalSequenceIndex fromBuffer(const common::Buffer&& buffer) = delete;
+
+   /// Views `buffer`, which holds a valid index (one this process built, or that `fromBuffer` has
+   /// checked), without checking it again: O(1), it only reads the header.
+   [[nodiscard]] static VerticalSequenceIndex viewTrusted(const common::Buffer& buffer);
+
+   /// A view must not outlive its buffer.
+   static VerticalSequenceIndex viewTrusted(const common::Buffer&& buffer) = delete;
 
    [[nodiscard]] std::span<const VerticalSequenceIndexEntry> entries() const { return entries_; }
 

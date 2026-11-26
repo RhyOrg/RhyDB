@@ -83,13 +83,12 @@ CoverageAndMutations<SymbolType> diffAgainst(
    return std::move(result).value();
 }
 
-std::shared_ptr<const common::Buffer> share(common::Buffer buffer) {
-   return std::make_shared<const common::Buffer>(std::move(buffer));
+void assertNotNull(const std::shared_ptr<const common::Buffer>& buffer) {
+   RHYDB_ASSERT(buffer != nullptr);
 }
 
-const common::Buffer& dereference(const std::shared_ptr<const common::Buffer>& buffer) {
-   RHYDB_ASSERT(buffer != nullptr);
-   return *buffer;
+std::shared_ptr<const common::Buffer> share(common::Buffer buffer) {
+   return std::make_shared<const common::Buffer>(std::move(buffer));
 }
 
 }  // namespace
@@ -126,15 +125,23 @@ SequenceChunk::SequenceChunk(
     : reference_(std::move(reference)),
       mutations_buffer(std::move(mutations)),
       coverage_buffer(std::move(coverage)),
-      mutations_(VerticalSequenceIndex::fromBuffer(dereference(mutations_buffer))),
-      coverage_(HorizontalCoverageIndex::fromBuffer(dereference(coverage_buffer))),
       null_rows_(std::move(null_rows)) {
    RHYDB_ASSERT(reference_ != nullptr);
+   assertNotNull(mutations_buffer);
+   assertNotNull(coverage_buffer);
    RHYDB_ASSERT(null_rows_ != nullptr);
+   if constexpr (RHYDB_DEBUG_ASSERTIONS) {
+      validate();
+   }
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+void SequenceChunk::validate() const {
    auto fail = [](std::string_view reason) {
       throw std::runtime_error(fmt::format("invalid sequence chunk: {}", reason));
    };
-   const auto entries = mutations_.entries();
+   const auto entries = VerticalSequenceIndex::fromBuffer(*mutations_buffer).entries();
+   const auto coverage = HorizontalCoverageIndex::fromBuffer(*coverage_buffer);
    if (!entries.empty() && entries.back().position >= reference_->length()) {
       fail(
          fmt::format(
@@ -149,20 +156,20 @@ SequenceChunk::SequenceChunk(
          fail(fmt::format("the symbol id {} is not a symbol of the alphabet", entry.symbol));
       }
    }
-   if (coverage_.numRows() > 0 && coverage_.maxEnd() > reference_->length()) {
+   if (coverage.numRows() > 0 && coverage.maxEnd() > reference_->length()) {
       fail(
          fmt::format(
             "a row is covered up to {}, beyond the reference of length {}",
-            coverage_.maxEnd(),
+            coverage.maxEnd(),
             reference_->length()
          )
       );
    }
    for (const uint16_t row : nullRows()) {
-      if (row >= coverage_.numRows()) {
-         fail(fmt::format("the null row {} is not a row of the {} rows", row, coverage_.numRows()));
+      if (row >= coverage.numRows()) {
+         fail(fmt::format("the null row {} is not a row of the {} rows", row, coverage.numRows()));
       }
-      const auto [start, end] = coverage_.coverageRange(row);
+      const auto [start, end] = coverage.coverageRange(row);
       if (start != end) {
          fail(fmt::format("the null row {} covers [{}, {})", row, start, end));
       }
@@ -185,6 +192,8 @@ SequenceChunk SequenceChunk::rebasedOnto(std::shared_ptr<const SequenceReference
    RHYDB_ASSERT(reference->alphabet() == reference_->alphabet());
    RHYDB_ASSERT_EQ(reference->length(), reference_->length());
 
+   const auto mutations = this->mutations();
+   const auto coverage = this->coverage();
    std::vector<VerticalSequenceIndex::PositionReplacement> replacements;
    // Owns the containers the replacements view
    std::deque<roaring_util::RoaringContainer> old_reference_rows;
@@ -194,15 +203,15 @@ SequenceChunk SequenceChunk::rebasedOnto(std::shared_ptr<const SequenceReference
       if (old_symbol == new_symbol) {
          continue;
       }
-      const auto entries = mutations_.entriesAtPosition(position);
+      const auto entries = mutations.entriesAtPosition(position);
       std::vector<roaring_util::RoaringContainerView> stored;
       bool stores_new_symbol = false;
       for (const auto& entry : entries) {
-         stored.push_back(mutations_.container(entry));
+         stored.push_back(mutations.container(entry));
          stores_new_symbol = stores_new_symbol || entry.symbol == new_symbol;
       }
       // The rows carrying the old reference symbol: covered, and storing no other symbol
-      roaring_util::RoaringContainer carrying_old_symbol = coverage_.coveredRows(position);
+      roaring_util::RoaringContainer carrying_old_symbol = coverage.coveredRows(position);
       if (!stored.empty() && !carrying_old_symbol.empty()) {
          const auto any_stored = roaring_util::fastUnion(stored);
          carrying_old_symbol -= roaring_util::RoaringContainerView{any_stored};
@@ -217,7 +226,7 @@ SequenceChunk SequenceChunk::rebasedOnto(std::shared_ptr<const SequenceReference
       };
       for (const auto& entry : entries) {
          if (entry.symbol != new_symbol) {
-            replacement.containers.emplace_back(entry.symbol, mutations_.container(entry));
+            replacement.containers.emplace_back(entry.symbol, mutations.container(entry));
          }
       }
       if (!carrying_old_symbol.empty()) {
@@ -235,9 +244,7 @@ SequenceChunk SequenceChunk::rebasedOnto(std::shared_ptr<const SequenceReference
    if (replacements.empty()) {
       return withMutations(std::move(reference), mutations_buffer);
    }
-   return withMutations(
-      std::move(reference), share(mutations_.withPositionsReplaced(replacements))
-   );
+   return withMutations(std::move(reference), share(mutations.withPositionsReplaced(replacements)));
 }
 
 SequenceChunk SequenceChunk::compacted(
@@ -249,21 +256,23 @@ SequenceChunk SequenceChunk::compacted(
       return *this;
    }
 
+   const auto mutations = this->mutations();
+   const auto coverage = this->coverage();
    VerticalSequenceIndexBuilder mutations_builder;
-   for (const auto& entry : mutations_.entries()) {
-      const auto rows = compaction.compacted(chunk_id, mutations_.container(entry));
+   for (const auto& entry : mutations.entries()) {
+      const auto rows = compaction.compacted(chunk_id, mutations.container(entry));
       mutations_builder.add(entry.position, entry.symbol, roaring_util::RoaringContainerView{rows});
    }
 
    // The remaining rows keep their order, so they are added in their new order
    HorizontalCoverageIndexBuilder coverage_builder;
-   for (uint32_t row = 0; row < coverage_.numRows(); ++row) {
+   for (uint32_t row = 0; row < coverage.numRows(); ++row) {
       const column::RowId row_id{.chunk_id = chunk_id, .row_in_chunk = static_cast<uint16_t>(row)};
       if (!compaction.map(row_id).has_value()) {
          continue;
       }
-      const auto [start, end] = coverage_.coverageRange(static_cast<uint16_t>(row));
-      coverage_builder.addRow(start, end, coverage_.missingRanges(static_cast<uint16_t>(row)));
+      const auto [start, end] = coverage.coverageRange(static_cast<uint16_t>(row));
+      coverage_builder.addRow(start, end, coverage.missingRanges(static_cast<uint16_t>(row)));
    }
 
    auto null_rows = compaction.compacted(chunk_id, nullRows());
@@ -276,11 +285,11 @@ SequenceChunk SequenceChunk::compacted(
 }
 
 size_t SequenceChunk::mutationsSizeInBytes() const {
-   return mutations_.containersSizeInBytes();
+   return mutations().containersSizeInBytes();
 }
 
 size_t SequenceChunk::missingSizeInBytes() const {
-   return coverage_.missingSizeInBytes();
+   return coverage().missingSizeInBytes();
 }
 
 SequenceChunkBuilder::SequenceChunkBuilder(std::shared_ptr<const SequenceReference> reference)

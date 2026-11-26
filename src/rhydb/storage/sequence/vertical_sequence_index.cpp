@@ -130,7 +130,15 @@ VerticalSequenceIndex VerticalSequenceIndex::fromBuffer(const common::Buffer& bu
          fail(fmt::format("entries are not strictly sorted at entry {}", index));
       }
    }
-   return VerticalSequenceIndex{entries, bytes.subspan(header.payload_offset, header.payload_size)};
+   return viewTrusted(buffer);
+}
+
+VerticalSequenceIndex VerticalSequenceIndex::viewTrusted(const common::Buffer& buffer) {
+   const auto header = buffer.view<VerticalSequenceIndexHeader>(0, 1)[0];
+   return VerticalSequenceIndex{
+      buffer.view<VerticalSequenceIndexEntry>(sizeof(header), header.num_entries),
+      buffer.bytes().subspan(header.payload_offset, header.payload_size),
+   };
 }
 
 std::span<const VerticalSequenceIndexEntry> VerticalSequenceIndex::entriesAtPosition(
@@ -247,7 +255,11 @@ common::Buffer VerticalSequenceIndexBuilder::finish() && {
    buffer.write(0, std::span{&header, 1});
    buffer.write(sizeof(header), std::span{entries});
    buffer.write(header.payload_offset, std::span{payload});
-   return std::move(buffer).finish();
+   auto result = std::move(buffer).finish();
+   if constexpr (RHYDB_DEBUG_ASSERTIONS) {
+      static_cast<void>(VerticalSequenceIndex::fromBuffer(result));
+   }
+   return result;
 }
 
 }  // namespace rhydb::storage::sequence

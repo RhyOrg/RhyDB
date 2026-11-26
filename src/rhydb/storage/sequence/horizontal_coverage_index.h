@@ -61,7 +61,8 @@ static_assert(sizeof(HorizontalCoverageIndexHeader) == 40);
 ///    missing_ranges            MissingRange[num_missing_ranges]     ascending, disjoint per row
 ///
 /// Values are in native byte order. Since nothing in the blob is a pointer, loading an index is a
-/// plain read of its bytes into an aligned `common::Buffer` (or, later, a memory mapping of them).
+/// plain read of its bytes into an aligned `common::Buffer` (or, later, a memory mapping of them),
+/// checked once with `fromBuffer`; after that, `viewTrusted` views it in O(1).
 ///
 /// `HorizontalCoverageIndex` itself is a non-owning view of such a blob, like
 /// `RoaringContainerView`: whoever creates it keeps the buffer alive for as long as the view is
@@ -98,6 +99,15 @@ class HorizontalCoverageIndex {
 
    /// A view must not outlive its buffer.
    static HorizontalCoverageIndex fromBuffer(const common::Buffer&& buffer) = delete;
+
+   /// Views `buffer`, which holds a valid index (one this process built, or that `fromBuffer` has
+   /// checked), without checking it again: O(1), it only reads the header.
+   [[nodiscard]] static HorizontalCoverageIndex viewTrusted(const common::Buffer& buffer) {
+      return HorizontalCoverageIndex{buffer};
+   }
+
+   /// A view must not outlive its buffer.
+   static HorizontalCoverageIndex viewTrusted(const common::Buffer&& buffer) = delete;
 
    [[nodiscard]] uint32_t numRows() const { return header.num_rows; }
 

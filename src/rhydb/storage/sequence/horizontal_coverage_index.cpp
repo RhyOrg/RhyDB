@@ -421,7 +421,11 @@ common::Buffer HorizontalCoverageIndexBuilder::finish() && {
    buffer.write(layout.rows_with_missing, std::span{rows_with_missing});
    buffer.write(layout.missing_range_offsets, std::span{missing_range_offsets});
    buffer.write(layout.missing_ranges, std::span{missing_ranges});
-   return std::move(buffer).finish();
+   auto result = std::move(buffer).finish();
+   if constexpr (RHYDB_DEBUG_ASSERTIONS) {
+      static_cast<void>(HorizontalCoverageIndex::fromBuffer(result));
+   }
+   return result;
 }
 
 std::vector<uint64_t> computeCoverageCardinalities(

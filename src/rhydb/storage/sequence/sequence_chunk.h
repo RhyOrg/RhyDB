@@ -137,17 +137,12 @@ class SequenceChunk {
    std::shared_ptr<const SequenceReference> reference_;
    std::shared_ptr<const common::Buffer> mutations_buffer;
    std::shared_ptr<const common::Buffer> coverage_buffer;
-   /// A view of `*mutations_buffer`
-   VerticalSequenceIndex mutations_;
-   /// A view of `*coverage_buffer`
-   HorizontalCoverageIndex coverage_;
    std::shared_ptr<const roaring_util::RoaringContainer> null_rows_;
 
   public:
-   /// Views the index blobs `mutations` (a `VerticalSequenceIndex`) and `coverage` (a
-   /// `HorizontalCoverageIndex`), validating them, and checks that the parts fit together: the null
-   /// rows are rows of the chunk with an empty covered range, and every position stored lies within
-   /// the reference. Throws `std::runtime_error` otherwise.
+   /// A chunk of the index blobs `mutations` (a `VerticalSequenceIndex`) and `coverage` (a
+   /// `HorizontalCoverageIndex`), which must be valid and fit together (see `validate`). Only
+   /// checked in debug builds: blobs that come from outside are checked by `load`.
    SequenceChunk(
       std::shared_ptr<const SequenceReference> reference,
       std::shared_ptr<const common::Buffer> mutations,
@@ -155,7 +150,12 @@ class SequenceChunk {
       std::shared_ptr<const roaring_util::RoaringContainer> null_rows
    );
 
-   [[nodiscard]] uint32_t numRows() const { return coverage_.numRows(); }
+   /// Checks the index blobs (`fromBuffer`) and that the parts fit together: the null rows are rows
+   /// of the chunk with an empty covered range, and every symbol stored lies within the reference
+   /// and its alphabet. Throws `std::runtime_error` otherwise. O(stored containers + rows).
+   void validate() const;
+
+   [[nodiscard]] uint32_t numRows() const { return coverage().numRows(); }
 
    [[nodiscard]] const SequenceReference& reference() const { return *reference_; }
 
@@ -166,9 +166,16 @@ class SequenceChunk {
    /// The length of the text of every non-null row.
    [[nodiscard]] size_t sequenceLength() const { return reference_->length(); }
 
-   [[nodiscard]] const VerticalSequenceIndex& mutations() const { return mutations_; }
+   /// A view of `*mutationsBuffer()`, created on demand in O(1). It is valid as long as the buffer
+   /// lives, i.e. as long as this chunk or a copy of it.
+   [[nodiscard]] VerticalSequenceIndex mutations() const {
+      return VerticalSequenceIndex::viewTrusted(*mutations_buffer);
+   }
 
-   [[nodiscard]] const HorizontalCoverageIndex& coverage() const { return coverage_; }
+   /// A view of `*coverageBuffer()`, created on demand in O(1), valid as long as the buffer lives.
+   [[nodiscard]] HorizontalCoverageIndex coverage() const {
+      return HorizontalCoverageIndex::viewTrusted(*coverage_buffer);
+   }
 
    /// The blob of `mutations()`.
    [[nodiscard]] const std::shared_ptr<const common::Buffer>& mutationsBuffer() const {
@@ -223,7 +230,8 @@ class SequenceChunk {
       archive << *null_rows_;
    }
 
-   /// Reads a chunk that `save` wrote, stored against `reference`.
+   /// Reads a chunk that `save` wrote, stored against `reference`, and validates it. Throws
+   /// `std::runtime_error` if the parts are not a valid chunk.
    template <class Archive>
    [[nodiscard]] static SequenceChunk load(
       Archive& archive,
@@ -235,12 +243,14 @@ class SequenceChunk {
       archive >> mutations;
       archive >> coverage;
       archive >> null_rows;
-      return SequenceChunk{
+      SequenceChunk chunk{
          std::move(reference),
          std::make_shared<const common::Buffer>(std::move(mutations)),
          std::make_shared<const common::Buffer>(std::move(coverage)),
          std::make_shared<const roaring_util::RoaringContainer>(std::move(null_rows)),
       };
+      chunk.validate();
+      return chunk;
    }
 };
 

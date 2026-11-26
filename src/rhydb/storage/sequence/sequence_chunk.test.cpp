@@ -437,13 +437,14 @@ TEST(SequenceChunk, serializationRoundTripsTheBuffers) {
    EXPECT_EQ(reconstructAll(loaded), rows.expectedTexts(allRows(300)));
 }
 
+// Validation runs on `load`, and in debug builds already on construction.
 TEST(SequenceChunk, rejectsPartsThatDoNotFitTogether) {
    const auto rows = RandomRows::nucleotides(12, 50, 40);
    // A shorter reference than the stored positions
    EXPECT_THROW(
-      static_cast<void>(rows.chunk.withMutations(
-         SequenceReference::create<Nucleotide>("ACGT"), rows.chunk.mutationsBuffer()
-      )),
+      rows.chunk
+         .withMutations(SequenceReference::create<Nucleotide>("ACGT"), rows.chunk.mutationsBuffer())
+         .validate(),
       std::runtime_error
    );
    // A null row that covers positions
@@ -455,7 +456,8 @@ TEST(SequenceChunk, rejectsPartsThatDoNotFitTogether) {
          std::make_shared<const common::Buffer>(VerticalSequenceIndexBuilder{}.finish()),
          std::make_shared<const common::Buffer>(std::move(coverage).finish()),
          std::make_shared<const RoaringContainer>(containerOf({0})),
-      }),
+      }
+          .validate()),
       std::runtime_error
    );
 }
