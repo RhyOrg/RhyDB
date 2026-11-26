@@ -11,6 +11,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+using rhydb::common::Buffer;
+using rhydb::common::BufferBuilder;
 using rhydb::roaring_util::RoaringContainerView;
 using rhydb::storage::sequence::VerticalSequenceIndex;
 using rhydb::storage::sequence::VerticalSequenceIndexBuilder;
@@ -34,9 +36,9 @@ std::vector<uint16_t> range(uint16_t begin, uint16_t end, uint16_t step = 1) {
    return result;
 }
 
-// An array container at (1, 2) and (1, 5), a bitset container at (3, 0) and a run container at
-// (7, 1).
-VerticalSequenceIndex exampleIndex() {
+// The blob of an index with an array container at (1, 2) and (1, 5), a bitset container at (3, 0)
+// and a run container at (7, 1).
+Buffer exampleBuffer() {
    VerticalSequenceIndexBuilder builder;
    const std::vector<uint16_t> array_rows{3, 9, 27};
    const std::vector<uint16_t> other_array_rows{4};
@@ -49,14 +51,18 @@ VerticalSequenceIndex exampleIndex() {
    return std::move(builder).finish();
 }
 
-// A copy of `index`'s bytes in freshly allocated memory, as it would be after reading it back
-// from disk.
-VerticalSequenceIndex reread(const VerticalSequenceIndex& index) {
-   const auto bytes = index.data();
-   auto memory = VerticalSequenceIndex::allocate(bytes.size());
-   std::memcpy(memory.get(), bytes.data(), bytes.size());
-   const std::span<const std::byte> copy{memory.get(), bytes.size()};
-   return VerticalSequenceIndex::fromBytes(std::move(memory), copy);
+// A copy of `buffer` in freshly allocated memory, as it would be after reading it back from disk,
+// with `corrupt` applied to its bytes.
+template <typename Corrupt>
+Buffer copyOf(const Buffer& buffer, Corrupt corrupt) {
+   BufferBuilder builder{buffer.size()};
+   builder.write(0, buffer.bytes());
+   corrupt(builder.bytes());
+   return std::move(builder).finish();
+}
+
+Buffer copyOf(const Buffer& buffer) {
+   return copyOf(buffer, [](std::span<std::byte> /*bytes*/) {});
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -88,68 +94,57 @@ void expectExampleContent(const VerticalSequenceIndex& index) {
    EXPECT_TRUE(index.entriesAtPosition(8).empty());
 }
 
-VerticalSequenceIndexHeader headerOf(const std::vector<std::byte>& bytes) {
-   VerticalSequenceIndexHeader header;
-   std::memcpy(&header, bytes.data(), sizeof(header));
-   return header;
-}
-
 VerticalSequenceIndexEntry* entryOf(std::span<std::byte> bytes, size_t index) {
    return reinterpret_cast<VerticalSequenceIndexEntry*>(  // NOLINT(*-reinterpret-cast)
       bytes.data() + sizeof(VerticalSequenceIndexHeader) + (index * sizeof(VerticalSequenceIndexEntry))
    );
 }
 
-// Re-reads `index` after applying `corrupt` to a copy of its bytes.
-template <typename Corrupt>
-void rereadCorrupted(const VerticalSequenceIndex& index, Corrupt corrupt) {
-   const auto bytes = index.data();
-   auto memory = VerticalSequenceIndex::allocate(bytes.size());
-   std::memcpy(memory.get(), bytes.data(), bytes.size());
-   corrupt(std::span<std::byte>{memory.get(), bytes.size()});
-   const std::span<const std::byte> copy{memory.get(), bytes.size()};
-   static_cast<void>(VerticalSequenceIndex::fromBytes(std::move(memory), copy));
-}
-
 }  // namespace
 
-TEST(VerticalSequenceIndex, defaultIndexIsEmptyAndRereadable) {
-   const VerticalSequenceIndex index;
+TEST(VerticalSequenceIndex, emptyIndexIsRereadable) {
+   const auto buffer = VerticalSequenceIndexBuilder{}.finish();
+   const auto index = VerticalSequenceIndex::fromBuffer(buffer);
    EXPECT_TRUE(index.entries().empty());
    EXPECT_TRUE(index.entriesAtPosition(0).empty());
    EXPECT_EQ(index.payloadSizeInBytes(), 0);
-   EXPECT_TRUE(reread(index).entries().empty());
+   const auto copy = copyOf(buffer);
+   EXPECT_TRUE(VerticalSequenceIndex::fromBuffer(copy).entries().empty());
 }
 
 TEST(VerticalSequenceIndex, storesEveryContainerTypeAndFindsThemByPosition) {
-   expectExampleContent(exampleIndex());
+   const auto buffer = exampleBuffer();
+   expectExampleContent(VerticalSequenceIndex::fromBuffer(buffer));
 }
 
 TEST(VerticalSequenceIndex, rereadBytesViewTheSameContainersInPlace) {
-   const auto original = exampleIndex();
-   const auto copy = reread(original);
-   expectExampleContent(copy);
+   const auto copy = copyOf(exampleBuffer());
+   const auto index = VerticalSequenceIndex::fromBuffer(copy);
+   expectExampleContent(index);
 
-   // The containers are views into the new bytes, not into the original's.
-   const auto entry = copy.entriesAtPosition(3)[0];
-   const auto* payload = copy.container(entry).payload().data();
-   EXPECT_GE(payload, copy.data().data());
-   EXPECT_LT(payload, copy.data().data() + copy.data().size());
+   // The containers are views into the new bytes.
+   const auto entry = index.entriesAtPosition(3)[0];
+   const auto* payload = index.container(entry).payload().data();
+   EXPECT_GE(payload, copy.bytes().data());
+   EXPECT_LT(payload, copy.bytes().data() + copy.size());
    EXPECT_EQ(reinterpret_cast<uintptr_t>(payload) % VerticalSequenceIndex::ALIGNMENT, 0);  // NOLINT
 }
 
 TEST(VerticalSequenceIndex, builderSkipsEmptyContainers) {
    VerticalSequenceIndexBuilder builder;
    builder.add(0, 0, std::span<const uint16_t>{});
-   const auto index = std::move(builder).finish();
-   EXPECT_TRUE(index.entries().empty());
+   const auto buffer = std::move(builder).finish();
+   EXPECT_TRUE(VerticalSequenceIndex::fromBuffer(buffer).entries().empty());
 }
 
 TEST(VerticalSequenceIndex, rejectsMalformedBytes) {
-   const auto index = exampleIndex();
+   const auto buffer = exampleBuffer();
    auto expect_rejected = [&](auto corrupt, std::string_view message) {
       EXPECT_THAT(
-         [&]() { rereadCorrupted(index, corrupt); },
+         [&]() {
+            const auto copy = copyOf(buffer, corrupt);
+            static_cast<void>(VerticalSequenceIndex::fromBuffer(copy));
+         },
          ThrowsMessage<std::runtime_error>(HasSubstr(std::string{message}))
       );
    };
@@ -188,10 +183,10 @@ TEST(VerticalSequenceIndex, rejectsMalformedBytes) {
 
    EXPECT_THAT(
       [&]() {
-         const auto bytes = index.data();
-         static_cast<void>(VerticalSequenceIndex::fromBytes(nullptr, bytes.subspan(1)));
+         const auto truncated = BufferBuilder{10}.finish();
+         static_cast<void>(VerticalSequenceIndex::fromBuffer(truncated));
       },
-      ThrowsMessage<std::runtime_error>(HasSubstr("aligned"))
+      ThrowsMessage<std::runtime_error>(HasSubstr("cannot hold a header"))
    );
 }
 
@@ -212,7 +207,8 @@ TEST(VerticalSequenceIndex, findsTheEntriesOfEveryPositionOfAnUnevenlyFilledInde
          symbols_at[position].push_back(symbol);
       }
    }
-   const auto index = std::move(builder).finish();
+   const auto buffer = std::move(builder).finish();
+   const auto index = VerticalSequenceIndex::fromBuffer(buffer);
    for (uint32_t position = 0; position < 1100; ++position) {
       std::vector<uint8_t> found;
       for (const auto& entry : index.entriesAtPosition(position)) {

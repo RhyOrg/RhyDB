@@ -7,7 +7,6 @@
 #include <numeric>
 #include <random>
 #include <span>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -16,11 +15,9 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <boost/archive/binary_iarchive.hpp>
-#include <boost/archive/binary_oarchive.hpp>
-#include <boost/serialization/vector.hpp>
 
 #include "rhydb/common/aligned_sequence.h"
+#include "rhydb/common/buffer.h"
 #include "rhydb/common/nucleotide_symbols.h"
 #include "rhydb/common/panic.h"
 #include "rhydb/storage/column/row_id.h"
@@ -34,6 +31,8 @@ namespace {
 /// cross-chunk questions by asking every chunk.
 class CoverageUnderTest {
    std::vector<std::vector<Coverage>> rows_by_chunk;
+   mutable std::vector<common::Buffer> built_buffers;
+   /// Views of `built_buffers`
    mutable std::vector<HorizontalCoverageIndex> built_chunks;
    mutable bool dirty = false;
 
@@ -56,12 +55,16 @@ class CoverageUnderTest {
    [[nodiscard]] const std::vector<HorizontalCoverageIndex>& chunks() const {
       if (dirty) {
          built_chunks.clear();
+         built_buffers.clear();
          for (const auto& rows : rows_by_chunk) {
             HorizontalCoverageIndexBuilder builder;
             for (const auto& coverage : rows) {
                builder.addRow(coverage);
             }
-            built_chunks.push_back(std::move(builder).finish());
+            built_buffers.push_back(std::move(builder).finish());
+         }
+         for (const auto& buffer : built_buffers) {
+            built_chunks.push_back(HorizontalCoverageIndex::fromBuffer(buffer));
          }
          dirty = false;
       }
@@ -1017,7 +1020,7 @@ namespace rhydb::storage::sequence {
 
 namespace {
 
-HorizontalCoverageIndex exampleIndex() {
+common::Buffer exampleBuffer() {
    HorizontalCoverageIndexBuilder builder;
    // Unsorted, duplicated and partly out-of-range missing positions collapse into sorted ranges
    // inside [10, 40).
@@ -1028,12 +1031,11 @@ HorizontalCoverageIndex exampleIndex() {
    return std::move(builder).finish();
 }
 
-HorizontalCoverageIndex reread(const HorizontalCoverageIndex& index) {
-   const auto bytes = index.data();
-   auto memory = HorizontalCoverageIndex::allocate(bytes.size());
-   std::memcpy(memory.get(), bytes.data(), bytes.size());
-   const std::span<const std::byte> copy{memory.get(), bytes.size()};
-   return HorizontalCoverageIndex::fromBytes(std::move(memory), copy);
+/// A copy of `bytes` in freshly allocated memory, as it would be after reading it back from disk.
+common::Buffer copyOf(std::span<const std::byte> bytes) {
+   common::BufferBuilder builder{bytes.size()};
+   builder.write(0, bytes);
+   return std::move(builder).finish();
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -1068,8 +1070,8 @@ void expectExampleContent(const HorizontalCoverageIndex& index) {
    EXPECT_EQ(index.maxEnd(), 50);
 }
 
-std::vector<std::byte> bytesOf(const HorizontalCoverageIndex& index) {
-   return {index.data().begin(), index.data().end()};
+std::vector<std::byte> bytesOf(const common::Buffer& buffer) {
+   return {buffer.bytes().begin(), buffer.bytes().end()};
 }
 
 HorizontalCoverageIndexHeader headerOf(const std::vector<std::byte>& bytes) {
@@ -1079,37 +1081,38 @@ HorizontalCoverageIndexHeader headerOf(const std::vector<std::byte>& bytes) {
 }
 
 void rereadBytes(const std::vector<std::byte>& bytes) {
-   auto memory = HorizontalCoverageIndex::allocate(bytes.size());
-   std::memcpy(memory.get(), bytes.data(), bytes.size());
-   const std::span<const std::byte> copy{memory.get(), bytes.size()};
-   static_cast<void>(HorizontalCoverageIndex::fromBytes(std::move(memory), copy));
+   const auto copy = copyOf(bytes);
+   static_cast<void>(HorizontalCoverageIndex::fromBuffer(copy));
 }
 
 }  // namespace
 
 TEST(HorizontalCoverageIndexBlob, collapsesMissingPositionsIntoRangesInsideTheCoveredRange) {
-   expectExampleContent(exampleIndex());
+   const auto buffer = exampleBuffer();
+   expectExampleContent(HorizontalCoverageIndex::fromBuffer(buffer));
 }
 
 TEST(HorizontalCoverageIndexBlob, emptyIndexHasNoRowsAndAnEmptyEnvelope) {
-   const HorizontalCoverageIndex index;
+   const auto buffer = HorizontalCoverageIndexBuilder{}.finish();
+   const auto index = HorizontalCoverageIndex::fromBuffer(buffer);
    EXPECT_EQ(index.numRows(), 0);
    EXPECT_TRUE(index.noRowCovers(0));
    EXPECT_FALSE(index.everyRowCovers(0));
-   EXPECT_EQ(reread(index).numRows(), 0);
+   const auto copy = copyOf(buffer.bytes());
+   EXPECT_EQ(HorizontalCoverageIndex::fromBuffer(copy).numRows(), 0);
 }
 
 TEST(HorizontalCoverageIndexBlob, rereadBytesAreReadInPlace) {
-   const auto original = exampleIndex();
-   const auto copy = reread(original);
-   expectExampleContent(copy);
-   const auto* starts = reinterpret_cast<const std::byte*>(copy.starts().data());  // NOLINT
-   EXPECT_GE(starts, copy.data().data());
-   EXPECT_LT(starts, copy.data().data() + copy.data().size());
+   const auto copy = copyOf(exampleBuffer().bytes());
+   const auto index = HorizontalCoverageIndex::fromBuffer(copy);
+   expectExampleContent(index);
+   const auto* starts = reinterpret_cast<const std::byte*>(index.starts().data());  // NOLINT
+   EXPECT_GE(starts, copy.bytes().data());
+   EXPECT_LT(starts, copy.bytes().data() + copy.size());
 }
 
 TEST(HorizontalCoverageIndexBlob, rejectsMalformedBytes) {
-   const auto original = bytesOf(exampleIndex());
+   const auto original = bytesOf(exampleBuffer());
    auto expect_rejected = [&](auto corrupt, std::string_view message) {
       auto bytes = original;
       corrupt(bytes);
@@ -1134,6 +1137,7 @@ TEST(HorizontalCoverageIndexBlob, rejectsMalformedBytes) {
    expect_rejected(
       [](std::vector<std::byte>& bytes) { bytes.resize(bytes.size() - 8); }, "do not match"
    );
+   expect_rejected([](std::vector<std::byte>& bytes) { bytes.resize(10); }, "cannot hold a header");
    // Make row 0's first missing range start before its covered range.
    expect_rejected(
       [&](std::vector<std::byte>& bytes) {
@@ -1146,33 +1150,16 @@ TEST(HorizontalCoverageIndexBlob, rejectsMalformedBytes) {
 }
 
 TEST(HorizontalCoverageIndexBlob, builderTakesMissingRangesAsTheIndexReturnsThem) {
-   const auto original = exampleIndex();
+   const auto original_buffer = exampleBuffer();
+   const auto original = HorizontalCoverageIndex::fromBuffer(original_buffer);
    HorizontalCoverageIndexBuilder builder;
    for (uint32_t row = 0; row < original.numRows(); ++row) {
       const auto [start, end] = original.coverageRange(static_cast<uint16_t>(row));
       builder.addRow(start, end, original.missingRanges(static_cast<uint16_t>(row)));
    }
    const auto rebuilt = std::move(builder).finish();
-   expectExampleContent(rebuilt);
-   EXPECT_TRUE(std::ranges::equal(rebuilt.data(), original.data()));
-}
-
-TEST(HorizontalCoverageIndexBlob, serializationRoundTripsThroughRawBytes) {
-   const std::vector<HorizontalCoverageIndex> original{exampleIndex(), HorizontalCoverageIndex{}};
-   std::stringstream buffer;
-   {
-      boost::archive::binary_oarchive output_archive(buffer);
-      output_archive << original;
-   }
-   std::vector<HorizontalCoverageIndex> loaded;
-   {
-      boost::archive::binary_iarchive input_archive(buffer);
-      input_archive >> loaded;
-   }
-   ASSERT_EQ(loaded.size(), 2);
-   expectExampleContent(loaded[0]);
-   EXPECT_TRUE(std::ranges::equal(loaded[0].data(), original[0].data()));
-   EXPECT_EQ(loaded[1].numRows(), 0);
+   expectExampleContent(HorizontalCoverageIndex::fromBuffer(rebuilt));
+   EXPECT_TRUE(std::ranges::equal(rebuilt.bytes(), original_buffer.bytes()));
 }
 
 }  // namespace rhydb::storage::sequence

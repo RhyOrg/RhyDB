@@ -3,9 +3,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
-#include <memory>
-#include <new>
 #include <span>
 #include <stdexcept>
 #include <vector>
@@ -120,11 +117,6 @@ struct Layout {
          size(missing_ranges + (num_missing_ranges * sizeof(MissingRange))) {}
 };
 
-template <typename T>
-std::span<const T> section(std::span<const std::byte> bytes, size_t offset, size_t count) {
-   return {reinterpret_cast<const T*>(bytes.data() + offset), count};  // NOLINT(*-reinterpret-cast)
-}
-
 /// This method can compute a `bitset` that shows which rows in the index could cover `position`.
 /// Sets bit `row` of `bitset` for every row where `starts[row] <= position < ends[row]`, returning
 /// the number of such rows. `bitset` must be a zeroed 2^16-bit (1024-word) buffer.
@@ -151,18 +143,6 @@ bool rangesContain(std::span<const MissingRange> ranges, uint32_t position) {
 
 }  // namespace
 
-HorizontalCoverageIndex::HorizontalCoverageIndex() {
-   *this = HorizontalCoverageIndexBuilder{}.finish();
-}
-
-// NOLINTNEXTLINE(modernize-avoid-c-arrays)
-std::shared_ptr<std::byte[]> HorizontalCoverageIndex::allocate(size_t size) {
-   auto* memory = new (std::align_val_t{ALIGNMENT}) std::byte[size]();
-   return {memory, [](std::byte* pointer) {
-              ::operator delete[](pointer, std::align_val_t{ALIGNMENT});
-           }};
-}
-
 size_t HorizontalCoverageIndex::blobSize(
    uint32_t num_rows,
    uint32_t num_rows_with_missing,
@@ -171,39 +151,27 @@ size_t HorizontalCoverageIndex::blobSize(
    return Layout{num_rows, num_rows_with_missing, num_missing_ranges}.size;
 }
 
-HorizontalCoverageIndex::HorizontalCoverageIndex(
-   std::shared_ptr<const void> owner,
-   std::span<const std::byte> bytes
-)
-    : owner(std::move(owner)),
-      bytes(bytes) {
-   std::memcpy(&header, bytes.data(), sizeof(header));
+HorizontalCoverageIndex::HorizontalCoverageIndex(const common::Buffer& buffer)
+    : header(buffer.view<HorizontalCoverageIndexHeader>(0, 1)[0]) {
    const Layout layout{header.num_rows, header.num_rows_with_missing, header.num_missing_ranges};
-   starts_ = section<uint32_t>(bytes, layout.starts, header.num_rows);
-   ends_ = section<uint32_t>(bytes, layout.ends, header.num_rows);
+   starts_ = buffer.view<uint32_t>(layout.starts, header.num_rows);
+   ends_ = buffer.view<uint32_t>(layout.ends, header.num_rows);
    rows_with_missing =
-      section<uint32_t>(bytes, layout.rows_with_missing, header.num_rows_with_missing);
+      buffer.view<uint32_t>(layout.rows_with_missing, header.num_rows_with_missing);
    missing_range_offsets =
-      section<uint32_t>(bytes, layout.missing_range_offsets, header.num_rows_with_missing + 1UL);
-   missing_ranges = section<MissingRange>(bytes, layout.missing_ranges, header.num_missing_ranges);
+      buffer.view<uint32_t>(layout.missing_range_offsets, header.num_rows_with_missing + 1UL);
+   missing_ranges = buffer.view<MissingRange>(layout.missing_ranges, header.num_missing_ranges);
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-HorizontalCoverageIndex HorizontalCoverageIndex::fromBytes(
-   std::shared_ptr<const void> owner,
-   std::span<const std::byte> bytes
-) {
+HorizontalCoverageIndex HorizontalCoverageIndex::fromBuffer(const common::Buffer& buffer) {
    auto fail = [](std::string_view reason) {
       throw std::runtime_error(fmt::format("invalid horizontal coverage index: {}", reason));
    };
-   HorizontalCoverageIndexHeader header;
-   if (bytes.size() < sizeof(header)) {
-      fail(fmt::format("{} bytes cannot hold a header", bytes.size()));
+   if (buffer.size() < sizeof(HorizontalCoverageIndexHeader)) {
+      fail(fmt::format("{} bytes cannot hold a header", buffer.size()));
    }
-   if (reinterpret_cast<uintptr_t>(bytes.data()) % ALIGNMENT != 0) {  // NOLINT(*-reinterpret-cast)
-      fail(fmt::format("the bytes are not {}-byte aligned", ALIGNMENT));
-   }
-   std::memcpy(&header, bytes.data(), sizeof(header));
+   const auto header = buffer.view<HorizontalCoverageIndexHeader>(0, 1)[0];
    if (header.magic != HorizontalCoverageIndexHeader::MAGIC) {
       fail("wrong magic number");
    }
@@ -216,9 +184,9 @@ HorizontalCoverageIndex HorizontalCoverageIndex::fromBytes(
    }
    if (
       header.num_rows > (1U << 16) || header.num_rows_with_missing > header.num_rows ||
-      header.num_missing_ranges > bytes.size() ||
+      header.num_missing_ranges > buffer.size() ||
       blobSize(header.num_rows, header.num_rows_with_missing, header.num_missing_ranges) !=
-         bytes.size()
+         buffer.size()
    ) {
       fail(
          fmt::format(
@@ -226,12 +194,12 @@ HorizontalCoverageIndex HorizontalCoverageIndex::fromBytes(
             header.num_rows,
             header.num_rows_with_missing,
             header.num_missing_ranges,
-            bytes.size()
+            buffer.size()
          )
       );
    }
 
-   HorizontalCoverageIndex index{std::move(owner), bytes};
+   HorizontalCoverageIndex index{buffer};
 
    HorizontalCoverageIndexHeader envelope;
    for (uint32_t row = 0; row < header.num_rows; ++row) {
@@ -433,7 +401,7 @@ void HorizontalCoverageIndexBuilder::addRow(
    missing_range_offsets.push_back(static_cast<uint32_t>(missing_ranges.size()));
 }
 
-HorizontalCoverageIndex HorizontalCoverageIndexBuilder::finish() && {
+common::Buffer HorizontalCoverageIndexBuilder::finish() && {
    HorizontalCoverageIndexHeader header;
    header.num_rows = static_cast<uint32_t>(starts.size());
    header.num_rows_with_missing = static_cast<uint32_t>(rows_with_missing.size());
@@ -446,22 +414,14 @@ HorizontalCoverageIndex HorizontalCoverageIndexBuilder::finish() && {
    }
 
    const Layout layout{header.num_rows, header.num_rows_with_missing, header.num_missing_ranges};
-   // NOLINTNEXTLINE(modernize-avoid-c-arrays)
-   std::shared_ptr<std::byte[]> memory = HorizontalCoverageIndex::allocate(layout.size);
-   auto write = [&](size_t offset, const auto& values) {
-      if (!values.empty()) {
-         std::memcpy(memory.get() + offset, values.data(), std::span{values}.size_bytes());
-      }
-   };
-   std::memcpy(memory.get(), &header, sizeof(header));
-   write(layout.starts, starts);
-   write(layout.ends, ends);
-   write(layout.rows_with_missing, rows_with_missing);
-   write(layout.missing_range_offsets, missing_range_offsets);
-   write(layout.missing_ranges, missing_ranges);
-
-   const std::span<const std::byte> bytes{memory.get(), layout.size};
-   return HorizontalCoverageIndex::fromBytes(std::move(memory), bytes);
+   common::BufferBuilder buffer{layout.size};
+   buffer.write(0, std::span{&header, 1});
+   buffer.write(layout.starts, std::span{starts});
+   buffer.write(layout.ends, std::span{ends});
+   buffer.write(layout.rows_with_missing, std::span{rows_with_missing});
+   buffer.write(layout.missing_range_offsets, std::span{missing_range_offsets});
+   buffer.write(layout.missing_ranges, std::span{missing_ranges});
+   return std::move(buffer).finish();
 }
 
 std::vector<uint64_t> computeCoverageCardinalities(

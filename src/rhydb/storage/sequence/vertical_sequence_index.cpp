@@ -3,9 +3,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
-#include <memory>
-#include <new>
 #include <span>
 #include <stdexcept>
 #include <tuple>
@@ -83,33 +80,15 @@ void checkEntry(const VerticalSequenceIndexEntry& entry, uint64_t payload_size, 
 
 }  // namespace
 
-VerticalSequenceIndex::VerticalSequenceIndex() {
-   *this = VerticalSequenceIndexBuilder{}.finish();
-}
-
-// NOLINTNEXTLINE(modernize-avoid-c-arrays)
-std::shared_ptr<std::byte[]> VerticalSequenceIndex::allocate(size_t size) {
-   auto* memory = new (std::align_val_t{ALIGNMENT}) std::byte[size]();
-   return {memory, [](std::byte* pointer) {
-              ::operator delete[](pointer, std::align_val_t{ALIGNMENT});
-           }};
-}
-
-VerticalSequenceIndex VerticalSequenceIndex::fromBytes(
-   std::shared_ptr<const void> owner,
-   std::span<const std::byte> bytes
-) {
+VerticalSequenceIndex VerticalSequenceIndex::fromBuffer(const common::Buffer& buffer) {
    auto fail = [](std::string_view reason) {
       throw std::runtime_error(fmt::format("invalid vertical sequence index: {}", reason));
    };
-   VerticalSequenceIndexHeader header;
-   if (bytes.size() < sizeof(header)) {
+   const std::span<const std::byte> bytes = buffer.bytes();
+   if (bytes.size() < sizeof(VerticalSequenceIndexHeader)) {
       fail(fmt::format("{} bytes cannot hold a header", bytes.size()));
    }
-   if (reinterpret_cast<uintptr_t>(bytes.data()) % ALIGNMENT != 0) {  // NOLINT(*-reinterpret-cast)
-      fail(fmt::format("the bytes are not {}-byte aligned", ALIGNMENT));
-   }
-   std::memcpy(&header, bytes.data(), sizeof(header));
+   const auto header = buffer.view<VerticalSequenceIndexHeader>(0, 1)[0];
    if (header.magic != VerticalSequenceIndexHeader::MAGIC) {
       fail("wrong magic number");
    }
@@ -141,10 +120,7 @@ VerticalSequenceIndex VerticalSequenceIndex::fromBytes(
       );
    }
 
-   const std::span<const VerticalSequenceIndexEntry> entries{
-      reinterpret_cast<const VerticalSequenceIndexEntry*>(bytes.data() + sizeof(header)),  // NOLINT
-      header.num_entries
-   };
+   const auto entries = buffer.view<VerticalSequenceIndexEntry>(sizeof(header), header.num_entries);
    for (size_t index = 0; index < entries.size(); ++index) {
       checkEntry(entries[index], header.payload_size, index);
       if (
@@ -154,9 +130,7 @@ VerticalSequenceIndex VerticalSequenceIndex::fromBytes(
          fail(fmt::format("entries are not strictly sorted at entry {}", index));
       }
    }
-   return VerticalSequenceIndex{
-      std::move(owner), bytes, entries, bytes.data() + header.payload_offset
-   };
+   return VerticalSequenceIndex{entries, bytes.subspan(header.payload_offset, header.payload_size)};
 }
 
 std::span<const VerticalSequenceIndexEntry> VerticalSequenceIndex::entriesAtPosition(
@@ -188,7 +162,7 @@ size_t VerticalSequenceIndex::containersSizeInBytes() const {
    return result;
 }
 
-VerticalSequenceIndex VerticalSequenceIndex::withPositionsReplaced(
+common::Buffer VerticalSequenceIndex::withPositionsReplaced(
    std::span<const PositionReplacement> replacements
 ) const {
    VerticalSequenceIndexBuilder builder;
@@ -260,7 +234,7 @@ void VerticalSequenceIndexBuilder::add(
    add(position, symbol, roaring_util::RoaringContainerView{container});
 }
 
-VerticalSequenceIndex VerticalSequenceIndexBuilder::finish() && {
+common::Buffer VerticalSequenceIndexBuilder::finish() && {
    VerticalSequenceIndexHeader header;
    header.num_entries = entries.size();
    header.payload_offset = alignUp(
@@ -269,22 +243,11 @@ VerticalSequenceIndex VerticalSequenceIndexBuilder::finish() && {
    );
    header.payload_size = payload.size();
 
-   const size_t size = header.payload_offset + header.payload_size;
-   // NOLINTNEXTLINE(modernize-avoid-c-arrays)
-   std::shared_ptr<std::byte[]> memory = VerticalSequenceIndex::allocate(size);
-   std::memcpy(memory.get(), &header, sizeof(header));
-   if (!entries.empty()) {
-      std::memcpy(
-         memory.get() + sizeof(header),
-         entries.data(),
-         entries.size() * sizeof(VerticalSequenceIndexEntry)
-      );
-   }
-   if (!payload.empty()) {
-      std::memcpy(memory.get() + header.payload_offset, payload.data(), payload.size());
-   }
-   const std::span<const std::byte> bytes{memory.get(), size};
-   return VerticalSequenceIndex::fromBytes(std::move(memory), bytes);
+   common::BufferBuilder buffer{header.payload_offset + header.payload_size};
+   buffer.write(0, std::span{&header, 1});
+   buffer.write(sizeof(header), std::span{entries});
+   buffer.write(header.payload_offset, std::span{payload});
+   return std::move(buffer).finish();
 }
 
 }  // namespace rhydb::storage::sequence

@@ -16,6 +16,7 @@
 
 #include "rhydb/common/aa_symbols.h"
 #include "rhydb/common/bitmap.h"
+#include "rhydb/common/buffer.h"
 #include "rhydb/common/nucleotide_symbols.h"
 #include "rhydb/roaring_util/roaring_container.h"
 #include "rhydb/storage/column/row_compaction.h"
@@ -407,9 +408,10 @@ TEST(SequenceChunk, rebasingOntoAnotherReferenceKeepsTheTexts) {
    EXPECT_EQ(back.mutations().entries().size(), rows.chunk.mutations().entries().size());
    // Rebasing onto the same reference shares everything
    EXPECT_EQ(
-      rows.chunk.rebasedOnto(rows.shared_reference).mutations().data().data(),
-      rows.chunk.mutations().data().data()
+      rows.chunk.rebasedOnto(rows.shared_reference).mutationsBuffer(), rows.chunk.mutationsBuffer()
    );
+   // Rebasing shares the coverage
+   EXPECT_EQ(rebased.coverageBuffer(), rows.chunk.coverageBuffer());
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -445,10 +447,21 @@ TEST(SequenceChunk, compactionRemovesTheDeletedRows) {
 TEST(SequenceChunk, copiesShareTheBuffers) {
    const auto rows = RandomRows::nucleotides(10, 50, 30);
    const SequenceChunk copy = rows.chunk;  // NOLINT(performance-unnecessary-copy-initialization)
-   EXPECT_EQ(copy.mutations().data().data(), rows.chunk.mutations().data().data());
-   EXPECT_EQ(copy.coverage().data().data(), rows.chunk.coverage().data().data());
+   EXPECT_EQ(copy.mutationsBuffer(), rows.chunk.mutationsBuffer());
+   EXPECT_EQ(copy.coverageBuffer(), rows.chunk.coverageBuffer());
+   EXPECT_EQ(copy.mutations().entries().data(), rows.chunk.mutations().entries().data());
+   EXPECT_EQ(copy.coverage().starts().data(), rows.chunk.coverage().starts().data());
    EXPECT_EQ(copy.nullRows().payload().data(), rows.chunk.nullRows().payload().data());
    EXPECT_EQ(copy.sharedReference(), rows.chunk.sharedReference());
+}
+
+TEST(SequenceChunk, copiesKeepTheBuffersAlive) {
+   std::optional<RandomRows> rows = RandomRows::nucleotides(13, 50, 30);
+   const SequenceChunk copy = rows->chunk;
+   const auto expected = rows->expectedTexts(allRows(50));
+   rows.reset();
+   EXPECT_EQ(copy.mutationsBuffer().use_count(), 1);
+   EXPECT_EQ(reconstructAll(copy), expected);
 }
 
 TEST(SequenceChunk, serializationRoundTripsTheBuffers) {
@@ -460,8 +473,12 @@ TEST(SequenceChunk, serializationRoundTripsTheBuffers) {
    }
    boost::archive::binary_iarchive input_archive(buffer);
    const auto loaded = SequenceChunk::load(input_archive, rows.shared_reference);
-   EXPECT_TRUE(std::ranges::equal(loaded.mutations().data(), rows.chunk.mutations().data()));
-   EXPECT_TRUE(std::ranges::equal(loaded.coverage().data(), rows.chunk.coverage().data()));
+   EXPECT_TRUE(
+      std::ranges::equal(loaded.mutationsBuffer()->bytes(), rows.chunk.mutationsBuffer()->bytes())
+   );
+   EXPECT_TRUE(
+      std::ranges::equal(loaded.coverageBuffer()->bytes(), rows.chunk.coverageBuffer()->bytes())
+   );
    EXPECT_EQ(valuesOf(loaded.nullRows()), valuesOf(rows.chunk.nullRows()));
    EXPECT_EQ(reconstructAll(loaded), rows.expectedTexts(allRows(300)));
 }
@@ -470,9 +487,9 @@ TEST(SequenceChunk, rejectsPartsThatDoNotFitTogether) {
    const auto rows = RandomRows::nucleotides(12, 50, 40);
    // A shorter reference than the stored positions
    EXPECT_THROW(
-      rows.chunk.withMutations(
-         SequenceReference::create<Nucleotide>("ACGT"), rows.chunk.mutations()
-      ),
+      static_cast<void>(rows.chunk.withMutations(
+         SequenceReference::create<Nucleotide>("ACGT"), rows.chunk.mutationsBuffer()
+      )),
       std::runtime_error
    );
    // A null row that covers positions
@@ -481,8 +498,8 @@ TEST(SequenceChunk, rejectsPartsThatDoNotFitTogether) {
    EXPECT_THROW(
       (SequenceChunk{
          SequenceReference::create<Nucleotide>("ACGT"),
-         VerticalSequenceIndex{},
-         std::move(coverage).finish(),
+         std::make_shared<const common::Buffer>(VerticalSequenceIndexBuilder{}.finish()),
+         std::make_shared<const common::Buffer>(std::move(coverage).finish()),
          std::make_shared<const RoaringContainer>(containerOf({0})),
       }),
       std::runtime_error

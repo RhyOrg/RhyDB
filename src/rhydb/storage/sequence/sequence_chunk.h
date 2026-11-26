@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "rhydb/common/aligned_sequence.h"
+#include "rhydb/common/buffer.h"
 #include "rhydb/roaring_util/roaring_container.h"
 #include "rhydb/storage/sequence/horizontal_coverage_index.h"
 #include "rhydb/storage/sequence/vertical_sequence_index.h"
@@ -125,25 +126,32 @@ class SymbolSet {
 /// missing symbol written over every position the row does not cover. A null row has an empty
 /// covered range.
 ///
-/// The indexes are pointer-free byte buffers and the null rows a roaring container, all behind
-/// `std::shared_ptr`s, so copying a chunk only copies reference counts: the stored chunks of a
-/// column can be shared with their readers without copying their buffers. Nothing mutates a
-/// finished chunk; `SequenceChunkBuilder` creates new ones, and the `with...` functions return
-/// changed copies that share the unchanged buffers.
+/// Each index is a pointer-free blob in an immutable `common::Buffer`, which the chunk holds by
+/// `std::shared_ptr` next to the index (a view of the buffer). The null rows are a roaring
+/// container, also behind a `std::shared_ptr`. Copying a chunk thus only copies reference counts
+/// (and the views, which still point into the same buffers): the stored chunks of a column can be
+/// shared with their readers without copying their buffers. Nothing mutates a finished chunk;
+/// `SequenceChunkBuilder` creates new ones, and the `with...` functions return changed copies that
+/// share the unchanged buffers.
 class SequenceChunk {
    std::shared_ptr<const SequenceReference> reference_;
+   std::shared_ptr<const common::Buffer> mutations_buffer;
+   std::shared_ptr<const common::Buffer> coverage_buffer;
+   /// A view of `*mutations_buffer`
    VerticalSequenceIndex mutations_;
+   /// A view of `*coverage_buffer`
    HorizontalCoverageIndex coverage_;
    std::shared_ptr<const roaring_util::RoaringContainer> null_rows_;
 
   public:
-   /// Checks that the parts fit together: the null rows are rows of the chunk with an empty covered
-   /// range, and every position stored lies within the reference. Throws `std::runtime_error`
-   /// otherwise.
+   /// Views the index blobs `mutations` (a `VerticalSequenceIndex`) and `coverage` (a
+   /// `HorizontalCoverageIndex`), validating them, and checks that the parts fit together: the null
+   /// rows are rows of the chunk with an empty covered range, and every position stored lies within
+   /// the reference. Throws `std::runtime_error` otherwise.
    SequenceChunk(
       std::shared_ptr<const SequenceReference> reference,
-      VerticalSequenceIndex mutations,
-      HorizontalCoverageIndex coverage,
+      std::shared_ptr<const common::Buffer> mutations,
+      std::shared_ptr<const common::Buffer> coverage,
       std::shared_ptr<const roaring_util::RoaringContainer> null_rows
    );
 
@@ -162,17 +170,27 @@ class SequenceChunk {
 
    [[nodiscard]] const HorizontalCoverageIndex& coverage() const { return coverage_; }
 
+   /// The blob of `mutations()`.
+   [[nodiscard]] const std::shared_ptr<const common::Buffer>& mutationsBuffer() const {
+      return mutations_buffer;
+   }
+
+   /// The blob of `coverage()`.
+   [[nodiscard]] const std::shared_ptr<const common::Buffer>& coverageBuffer() const {
+      return coverage_buffer;
+   }
+
    [[nodiscard]] roaring_util::RoaringContainerView nullRows() const {
       return roaring_util::RoaringContainerView{*null_rows_};
    }
 
    [[nodiscard]] bool isNull(uint16_t row) const { return null_rows_->contains(row); }
 
-   /// A copy stored against `reference` with the vertical index `mutations`; the coverage and null
-   /// rows are shared with this chunk.
+   /// A copy stored against `reference` with the vertical index blob `mutations`; the coverage and
+   /// null rows are shared with this chunk.
    [[nodiscard]] SequenceChunk withMutations(
       std::shared_ptr<const SequenceReference> reference,
-      VerticalSequenceIndex mutations
+      std::shared_ptr<const common::Buffer> mutations
    ) const;
 
    /// The same rows stored against `reference` instead, which must have the same alphabet and
@@ -196,12 +214,12 @@ class SequenceChunk {
    /// Bytes of the missing positions in the coverage index.
    [[nodiscard]] size_t missingSizeInBytes() const;
 
-   /// Writes the chunk without its reference (which chunks share, see `load`): the indexes as raw
-   /// bytes, so loading them does not rebuild anything.
+   /// Writes the chunk without its reference (which chunks share, see `load`): the index blobs as
+   /// raw bytes, so loading them does not rebuild anything.
    template <class Archive>
    void save(Archive& archive) const {
-      archive << mutations_;
-      archive << coverage_;
+      archive << *mutations_buffer;
+      archive << *coverage_buffer;
       archive << *null_rows_;
    }
 
@@ -211,16 +229,16 @@ class SequenceChunk {
       Archive& archive,
       std::shared_ptr<const SequenceReference> reference
    ) {
-      VerticalSequenceIndex mutations;
-      HorizontalCoverageIndex coverage;
+      common::Buffer mutations;
+      common::Buffer coverage;
       auto null_rows = roaring_util::RoaringContainer::withCapacity(0);
       archive >> mutations;
       archive >> coverage;
       archive >> null_rows;
       return SequenceChunk{
          std::move(reference),
-         std::move(mutations),
-         std::move(coverage),
+         std::make_shared<const common::Buffer>(std::move(mutations)),
+         std::make_shared<const common::Buffer>(std::move(coverage)),
          std::make_shared<const roaring_util::RoaringContainer>(std::move(null_rows)),
       };
    }

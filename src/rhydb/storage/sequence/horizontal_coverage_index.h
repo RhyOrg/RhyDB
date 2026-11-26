@@ -2,14 +2,11 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <span>
 #include <utility>
 #include <vector>
 
-#include <boost/serialization/access.hpp>
-#include <boost/serialization/split_member.hpp>
-
+#include "rhydb/common/buffer.h"
 #include "rhydb/roaring_util/roaring_container.h"
 
 // AVX-512 is x86-only; the project also targets Apple-Silicon macOS and wasm, where
@@ -64,11 +61,12 @@ static_assert(sizeof(HorizontalCoverageIndexHeader) == 40);
 ///    missing_ranges            MissingRange[num_missing_ranges]     ascending, disjoint per row
 ///
 /// Values are in native byte order. Since nothing in the blob is a pointer, loading an index is a
-/// plain read of its bytes into (64-byte aligned) memory, or a memory mapping of them.
+/// plain read of its bytes into an aligned `common::Buffer` (or, later, a memory mapping of them).
+///
+/// `HorizontalCoverageIndex` itself is a non-owning view of such a blob, like
+/// `RoaringContainerView`: whoever creates it keeps the buffer alive for as long as the view is
+/// used (`SequenceChunk` holds both).
 class HorizontalCoverageIndex {
-   /// Keeps the bytes alive: an aligned heap allocation, or e.g. a memory mapping.
-   std::shared_ptr<const void> owner;
-   std::span<const std::byte> bytes;
    HorizontalCoverageIndexHeader header;
    std::span<const uint32_t> starts_;
    std::span<const uint32_t> ends_;
@@ -76,21 +74,15 @@ class HorizontalCoverageIndex {
    std::span<const uint32_t> missing_range_offsets;
    std::span<const MissingRange> missing_ranges;
 
-   HorizontalCoverageIndex(std::shared_ptr<const void> owner, std::span<const std::byte> bytes);
+   /// Views the sections of `buffer`, whose size must match its header's section lengths.
+   explicit HorizontalCoverageIndex(const common::Buffer& buffer);
 
    /// Whether one of the missing ranges of the `missing_idx`-th row with missing positions
    /// contains `position`.
    [[nodiscard]] bool missingAt(size_t missing_idx, uint32_t position) const;
 
   public:
-   static constexpr size_t ALIGNMENT = 64;
-
-   /// An index of a chunk without rows.
-   HorizontalCoverageIndex();
-
-   /// Allocates `size` zeroed bytes aligned to `ALIGNMENT`, for an index to be read into.
-   // NOLINTNEXTLINE(modernize-avoid-c-arrays)
-   [[nodiscard]] static std::shared_ptr<std::byte[]> allocate(size_t size);
+   static constexpr size_t ALIGNMENT = common::Buffer::ALIGNMENT;
 
    /// The size of an index blob with the given section lengths.
    [[nodiscard]] static size_t blobSize(
@@ -99,16 +91,13 @@ class HorizontalCoverageIndex {
       uint64_t num_missing_ranges
    );
 
-   /// Interprets `bytes` as an index, kept alive by `owner`. Checks the header, the section
-   /// lengths, the envelope and that the missing ranges are sorted, disjoint and inside their
-   /// row's covered range. Throws `std::runtime_error` if `bytes` is not a valid index.
-   [[nodiscard]] static HorizontalCoverageIndex fromBytes(
-      std::shared_ptr<const void> owner,
-      std::span<const std::byte> bytes
-   );
+   /// Views `buffer` as an index. Checks the header, the section lengths, the envelope and that
+   /// the missing ranges are sorted, disjoint and inside their row's covered range. Throws
+   /// `std::runtime_error` if `buffer` does not hold a valid index.
+   [[nodiscard]] static HorizontalCoverageIndex fromBuffer(const common::Buffer& buffer);
 
-   /// The index's blob, e.g. for writing it out.
-   [[nodiscard]] std::span<const std::byte> data() const { return bytes; }
+   /// A view must not outlive its buffer.
+   static HorizontalCoverageIndex fromBuffer(const common::Buffer&& buffer) = delete;
 
    [[nodiscard]] uint32_t numRows() const { return header.num_rows; }
 
@@ -163,30 +152,6 @@ class HorizontalCoverageIndex {
 
    /// Bytes taken up by the missing positions (row list, offsets and ranges).
    [[nodiscard]] size_t missingSizeInBytes() const;
-
-  private:
-   friend class boost::serialization::access;
-
-   // Written as its size followed by its raw bytes, and read back by reading those bytes into
-   // aligned memory: nothing is rebuilt.
-   template <class Archive>
-   void save(Archive& archive, [[maybe_unused]] const uint32_t version) const {
-      const uint64_t size = bytes.size();
-      archive << size;
-      archive.save_binary(bytes.data(), bytes.size());
-   }
-
-   template <class Archive>
-   void load(Archive& archive, [[maybe_unused]] const uint32_t version) {
-      uint64_t size = 0;
-      archive >> size;
-      auto memory = allocate(size);
-      archive.load_binary(memory.get(), size);
-      const std::span<const std::byte> loaded{memory.get(), size};
-      *this = fromBytes(std::move(memory), loaded);
-   }
-
-   BOOST_SERIALIZATION_SPLIT_MEMBER()
 };
 
 /// Writes a `HorizontalCoverageIndex`, one row at a time in row order.
@@ -216,7 +181,8 @@ class HorizontalCoverageIndexBuilder {
 
    [[nodiscard]] uint32_t numRows() const { return static_cast<uint32_t>(starts.size()); }
 
-   [[nodiscard]] HorizontalCoverageIndex finish() &&;
+   /// The index's blob, to be viewed with `HorizontalCoverageIndex::fromBuffer`.
+   [[nodiscard]] common::Buffer finish() &&;
 };
 
 /// The number of rows of all `chunks` covering each position of a genome of `genome_length`.

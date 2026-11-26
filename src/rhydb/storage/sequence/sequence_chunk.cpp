@@ -83,6 +83,15 @@ CoverageAndMutations<SymbolType> diffAgainst(
    return std::move(result).value();
 }
 
+std::shared_ptr<const common::Buffer> share(common::Buffer buffer) {
+   return std::make_shared<const common::Buffer>(std::move(buffer));
+}
+
+const common::Buffer& dereference(const std::shared_ptr<const common::Buffer>& buffer) {
+   RHYDB_ASSERT(buffer != nullptr);
+   return *buffer;
+}
+
 }  // namespace
 
 SequenceReference::SequenceReference(SequenceAlphabet alphabet, std::string text)
@@ -110,13 +119,15 @@ std::shared_ptr<const SequenceReference> SequenceReference::withSymbolsReplaced(
 
 SequenceChunk::SequenceChunk(
    std::shared_ptr<const SequenceReference> reference,
-   VerticalSequenceIndex mutations,
-   HorizontalCoverageIndex coverage,
+   std::shared_ptr<const common::Buffer> mutations,
+   std::shared_ptr<const common::Buffer> coverage,
    std::shared_ptr<const roaring_util::RoaringContainer> null_rows
 )
     : reference_(std::move(reference)),
-      mutations_(std::move(mutations)),
-      coverage_(std::move(coverage)),
+      mutations_buffer(std::move(mutations)),
+      coverage_buffer(std::move(coverage)),
+      mutations_(VerticalSequenceIndex::fromBuffer(dereference(mutations_buffer))),
+      coverage_(HorizontalCoverageIndex::fromBuffer(dereference(coverage_buffer))),
       null_rows_(std::move(null_rows)) {
    RHYDB_ASSERT(reference_ != nullptr);
    RHYDB_ASSERT(null_rows_ != nullptr);
@@ -160,9 +171,9 @@ SequenceChunk::SequenceChunk(
 
 SequenceChunk SequenceChunk::withMutations(
    std::shared_ptr<const SequenceReference> reference,
-   VerticalSequenceIndex mutations
+   std::shared_ptr<const common::Buffer> mutations
 ) const {
-   return SequenceChunk{std::move(reference), std::move(mutations), coverage_, null_rows_};
+   return SequenceChunk{std::move(reference), std::move(mutations), coverage_buffer, null_rows_};
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -222,9 +233,11 @@ SequenceChunk SequenceChunk::rebasedOnto(std::shared_ptr<const SequenceReference
       replacements.push_back(std::move(replacement));
    }
    if (replacements.empty()) {
-      return withMutations(std::move(reference), mutations_);
+      return withMutations(std::move(reference), mutations_buffer);
    }
-   return withMutations(std::move(reference), mutations_.withPositionsReplaced(replacements));
+   return withMutations(
+      std::move(reference), share(mutations_.withPositionsReplaced(replacements))
+   );
 }
 
 SequenceChunk SequenceChunk::compacted(
@@ -256,8 +269,8 @@ SequenceChunk SequenceChunk::compacted(
    auto null_rows = compaction.compacted(chunk_id, nullRows());
    return SequenceChunk{
       reference_,
-      std::move(mutations_builder).finish(),
-      std::move(coverage_builder).finish(),
+      share(std::move(mutations_builder).finish()),
+      share(std::move(coverage_builder).finish()),
       std::make_shared<const roaring_util::RoaringContainer>(std::move(null_rows)),
    };
 }
@@ -364,8 +377,8 @@ SequenceChunk SequenceChunkBuilder::finish() && {
 
    return SequenceChunk{
       std::move(reference),
-      std::move(mutations_builder).finish(),
-      std::move(coverage).finish(),
+      share(std::move(mutations_builder).finish()),
+      share(std::move(coverage).finish()),
       std::make_shared<const roaring_util::RoaringContainer>(std::move(null_container)),
    };
 }

@@ -2,14 +2,11 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <span>
 #include <utility>
 #include <vector>
 
-#include <boost/serialization/access.hpp>
-#include <boost/serialization/split_member.hpp>
-
+#include "rhydb/common/buffer.h"
 #include "rhydb/roaring_util/roaring_container.h"
 
 namespace rhydb::storage::sequence {
@@ -55,49 +52,35 @@ static_assert(sizeof(VerticalSequenceIndexHeader) == 32);
 /// (bitset words, array values or runs), each bitset 64-byte aligned and every other payload
 /// 8-byte aligned. Values are in native byte order.
 ///
-/// Since nothing in the blob is a pointer, loading an index is a plain read of its bytes into
-/// (64-byte aligned) memory, or a memory mapping of them: the containers are viewed in place
-/// through `RoaringContainerView::fromPayload` and never materialized. Symbols are stored as their
-/// `uint8_t` value; the index does not know the alphabet.
+/// Since nothing in the blob is a pointer, loading an index is a plain read of its bytes into an
+/// aligned `common::Buffer` (or, later, a memory mapping of them): the containers are viewed in
+/// place through `RoaringContainerView::fromPayload` and never materialized. Symbols are stored as
+/// their `uint8_t` value; the index does not know the alphabet.
+///
+/// `VerticalSequenceIndex` itself is a non-owning view of such a blob, like
+/// `RoaringContainerView`: whoever creates it keeps the buffer alive for as long as the view is
+/// used (`SequenceChunk` holds both).
 class VerticalSequenceIndex {
-   /// Keeps the bytes alive: an aligned heap allocation, or e.g. a memory mapping.
-   std::shared_ptr<const void> owner;
-   std::span<const std::byte> bytes;
    std::span<const VerticalSequenceIndexEntry> entries_;
-   const std::byte* payload = nullptr;
+   std::span<const std::byte> payload;
 
    VerticalSequenceIndex(
-      std::shared_ptr<const void> owner,
-      std::span<const std::byte> bytes,
       std::span<const VerticalSequenceIndexEntry> entries,
-      const std::byte* payload
+      std::span<const std::byte> payload
    )
-       : owner(std::move(owner)),
-         bytes(bytes),
-         entries_(entries),
+       : entries_(entries),
          payload(payload) {}
 
   public:
-   static constexpr size_t ALIGNMENT = 64;
+   static constexpr size_t ALIGNMENT = common::Buffer::ALIGNMENT;
 
-   /// An index with no containers.
-   VerticalSequenceIndex();
+   /// Views `buffer` as an index. Checks the header, that every entry lies within the blob with a
+   /// well-formed, aligned payload, and that the entries are sorted; it never touches the payload
+   /// itself. Throws `std::runtime_error` if `buffer` does not hold a valid index.
+   [[nodiscard]] static VerticalSequenceIndex fromBuffer(const common::Buffer& buffer);
 
-   /// Allocates `size` zeroed bytes aligned to `ALIGNMENT`, for an index to be read into.
-   // NOLINTNEXTLINE(modernize-avoid-c-arrays)
-   [[nodiscard]] static std::shared_ptr<std::byte[]> allocate(size_t size);
-
-   /// Interprets `bytes` as an index, kept alive by `owner`. Checks the header, that every entry
-   /// lies within the blob with a well-formed, aligned payload, and that the entries are sorted;
-   /// it never touches the payload itself. Throws `std::runtime_error` if `bytes` is not a valid
-   /// index.
-   [[nodiscard]] static VerticalSequenceIndex fromBytes(
-      std::shared_ptr<const void> owner,
-      std::span<const std::byte> bytes
-   );
-
-   /// The index's blob, e.g. for writing it out.
-   [[nodiscard]] std::span<const std::byte> data() const { return bytes; }
+   /// A view must not outlive its buffer.
+   static VerticalSequenceIndex fromBuffer(const common::Buffer&& buffer) = delete;
 
    [[nodiscard]] std::span<const VerticalSequenceIndexEntry> entries() const { return entries_; }
 
@@ -110,7 +93,7 @@ class VerticalSequenceIndex {
       const VerticalSequenceIndexEntry& entry
    ) const {
       return roaring_util::RoaringContainerView::fromPayload(
-         entry.type, entry.cardinality, {payload + entry.payload_offset, entry.payload_size}
+         entry.type, entry.cardinality, payload.subspan(entry.payload_offset, entry.payload_size)
       );
    }
 
@@ -127,35 +110,11 @@ class VerticalSequenceIndex {
       std::vector<std::pair<uint8_t, roaring_util::RoaringContainerView>> containers;
    };
 
-   /// A copy of this index in which the containers at each replaced position are exactly the given
-   /// ones. `replacements` must be in ascending position order.
-   [[nodiscard]] VerticalSequenceIndex withPositionsReplaced(
+   /// The blob of a copy of this index in which the containers at each replaced position are
+   /// exactly the given ones. `replacements` must be in ascending position order.
+   [[nodiscard]] common::Buffer withPositionsReplaced(
       std::span<const PositionReplacement> replacements
    ) const;
-
-  private:
-   friend class boost::serialization::access;
-
-   // Written as its size followed by its raw bytes, and read back by reading those bytes into
-   // aligned memory: no container is rebuilt.
-   template <class Archive>
-   void save(Archive& archive, [[maybe_unused]] const uint32_t version) const {
-      const uint64_t size = bytes.size();
-      archive << size;
-      archive.save_binary(bytes.data(), bytes.size());
-   }
-
-   template <class Archive>
-   void load(Archive& archive, [[maybe_unused]] const uint32_t version) {
-      uint64_t size = 0;
-      archive >> size;
-      auto memory = allocate(size);
-      archive.load_binary(memory.get(), size);
-      const std::span<const std::byte> loaded{memory.get(), size};
-      *this = fromBytes(std::move(memory), loaded);
-   }
-
-   BOOST_SERIALIZATION_SPLIT_MEMBER()
 };
 
 /// Writes a `VerticalSequenceIndex`. Containers must be added in ascending (position, symbol)
@@ -173,7 +132,8 @@ class VerticalSequenceIndexBuilder {
    /// representation.
    void add(uint32_t position, uint8_t symbol, std::span<const uint16_t> rows);
 
-   [[nodiscard]] VerticalSequenceIndex finish() &&;
+   /// The index's blob, to be viewed with `VerticalSequenceIndex::fromBuffer`.
+   [[nodiscard]] common::Buffer finish() &&;
 };
 
 }  // namespace rhydb::storage::sequence
