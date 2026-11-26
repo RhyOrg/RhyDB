@@ -45,6 +45,13 @@ std::optional<std::string> valueAt(const BinaryColumn& column, RowId row_id) {
    return std::string{column.getValue(row_id)};
 }
 
+void expectChunk(const BinaryColumn& column, uint16_t chunk_id, const Values& chunk) {
+   ASSERT_EQ(column.chunkSize(chunk_id), chunk.size());
+   for (size_t row = 0; row < chunk.size(); ++row) {
+      EXPECT_EQ(valueAt(column, RowId(chunk_id, static_cast<uint16_t>(row))), chunk.at(row));
+   }
+}
+
 }  // namespace
 
 TEST(BinaryColumn, storesArbitraryBytesAcrossChunks) {
@@ -60,12 +67,8 @@ TEST(BinaryColumn, storesArbitraryBytesAcrossChunks) {
    }
 
    ASSERT_EQ(under_test.numChunks(), chunks.size());
-   for (uint16_t chunk_id = 0; chunk_id < chunks.size(); ++chunk_id) {
-      const auto& chunk = chunks.at(chunk_id);
-      ASSERT_EQ(under_test.chunkSize(chunk_id), chunk.size());
-      for (uint16_t row = 0; row < chunk.size(); ++row) {
-         EXPECT_EQ(valueAt(under_test, RowId(chunk_id, row)), chunk.at(row));
-      }
+   for (size_t chunk_id = 0; chunk_id < chunks.size(); ++chunk_id) {
+      expectChunk(under_test, static_cast<uint16_t>(chunk_id), chunks.at(chunk_id));
    }
    // An empty value is not null
    EXPECT_FALSE(under_test.isNull(RowId(1, 0)));
