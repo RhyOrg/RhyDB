@@ -71,9 +71,12 @@ std::vector<std::string> reconstructAll(const SequenceChunk& chunk) {
    return reconstruct(chunk, allRows(chunk.numRows()));
 }
 
-/// Random rows over a random reference: each row is a run of the text at an offset, with
-/// mutations (including gaps and ambiguous symbols) and runs of missing symbols, or null. The
-/// expected texts carry the missing symbol wherever a row does not cover a position.
+/// Random rows over a random reference: each row is a run of a random variant of the reference (the
+/// same for all rows, so the rows' most common symbols differ from the reference) at an offset,
+/// with mutations (including gaps and ambiguous symbols) and runs of missing symbols, or null. The
+/// expected texts carry the missing symbol wherever a row does not cover a position. With
+/// `local_reference`, the chunk is stored against its own local reference
+/// (`finishWithLocalReference`), otherwise against the random reference.
 struct RandomRows {
    std::string reference;
    /// nullopt for a null row
@@ -81,13 +84,25 @@ struct RandomRows {
    std::shared_ptr<const SequenceReference> shared_reference;
    SequenceChunk chunk;
 
-   static RandomRows nucleotides(uint32_t seed, uint32_t num_rows, uint32_t length) {
+   // NOLINTNEXTLINE(readability-function-cognitive-complexity)
+   static RandomRows nucleotides(
+      uint32_t seed,
+      uint32_t num_rows,
+      uint32_t length,
+      bool local_reference = false
+   ) {
       std::mt19937 random{seed};  // NOLINT(bugprone-random-generator-seed): reproducible
       const std::string bases = "ACGT";
       const std::string mutation_symbols = "ACGT-RY";
       std::string reference;
       for (uint32_t position = 0; position < length; ++position) {
          reference.push_back(bases[random() % bases.size()]);
+      }
+      std::string variant = reference;
+      for (uint32_t position = 0; position < length; ++position) {
+         if (random() % 5 == 0) {
+            variant[position] = "ACGT-"[random() % 5];
+         }
       }
       auto shared_reference = SequenceReference::create<Nucleotide>(reference);
       SequenceChunkBuilder builder{shared_reference};
@@ -100,7 +115,7 @@ struct RandomRows {
          }
          const uint32_t start = random() % 3 == 0 ? random() % (length / 4) : 0;
          const uint32_t end = random() % 3 == 0 ? length - (random() % (length / 4)) : length;
-         std::string text = reference;
+         std::string text = random() % 4 == 0 ? reference : variant;
          for (uint32_t position = 0; position < length; ++position) {
             if (random() % 10 == 0) {
                text[position] = mutation_symbols[random() % mutation_symbols.size()];
@@ -122,7 +137,12 @@ struct RandomRows {
          }
          texts.emplace_back(std::move(text));
       }
-      auto chunk = std::move(builder).finish();
+      auto chunk = local_reference ? std::move(builder).finishWithLocalReference({})
+                                   : std::move(builder).finish();
+      if (local_reference) {
+         shared_reference = chunk.sharedReference();
+         reference = shared_reference->text();
+      }
       return RandomRows{
          .reference = std::move(reference),
          .texts = std::move(texts),
@@ -178,11 +198,55 @@ TEST(SequenceReference, mapsSymbolsAndRejectsIllegalCharacters) {
    EXPECT_EQ(reference->text(), "AC-N");
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST(SequenceReference, storesOnlyTheDifferencesFromItsBase) {
+   using Symbol = Nucleotide::Symbol;
+   const auto base = SequenceReference::create<Nucleotide>("ACGTACGT");
+   const auto symbol = [](Symbol value) { return static_cast<uint8_t>(value); };
+   const auto derived = base->withSymbolsReplaced(
+      std::vector<SequenceReference::SymbolAt>{{1, symbol(Symbol::T)}, {6, symbol(Symbol::A)}}
+   );
+   EXPECT_EQ(derived->text(), "ATGTACAT");
+   EXPECT_EQ(derived->symbolAt(1), symbol(Symbol::T));
+   EXPECT_EQ(derived->symbolAt(2), symbol(Symbol::G));
+   EXPECT_EQ(derived->symbolAt(6), symbol(Symbol::A));
+   EXPECT_EQ(
+      derived->differencesFrom(*base),
+      (std::vector<SequenceReference::SymbolAt>{{1, symbol(Symbol::T)}, {6, symbol(Symbol::A)}})
+   );
+   EXPECT_EQ(
+      base->differencesFrom(*derived),
+      (std::vector<SequenceReference::SymbolAt>{{1, symbol(Symbol::C)}, {6, symbol(Symbol::G)}})
+   );
+   EXPECT_LE(derived->differencesSizeInBytes(), 2 * sizeof(SequenceReference::SymbolAt));
+   std::string written(8, '?');
+   derived->writeText(written.data());
+   EXPECT_EQ(written, "ATGTACAT");
+
+   // Replacing a derived reference's symbols merges them into its differences, and a position
+   // that carries the base symbol again is no difference anymore
+   const auto twice = derived->withSymbolsReplaced(
+      std::vector<SequenceReference::SymbolAt>{{0, symbol(Symbol::GAP)}, {1, symbol(Symbol::C)}}
+   );
+   EXPECT_EQ(twice->text(), "-CGTACAT");
+   EXPECT_EQ(
+      twice->differencesFrom(*base),
+      (std::vector<SequenceReference::SymbolAt>{{0, symbol(Symbol::GAP)}, {6, symbol(Symbol::A)}})
+   );
+
+   // Equality compares the symbols, whatever the base
+   EXPECT_EQ(*derived, *SequenceReference::create<Nucleotide>("ATGTACAT"));
+   EXPECT_FALSE(*derived == *base);
+   EXPECT_EQ(*base->withSymbolsReplaced({}), *base);
+}
+
 TEST(SequenceChunk, reconstructsTheTextsOfAllOrSelectedRows) {
-   const auto rows = RandomRows::nucleotides(1, 300, 120);
-   ASSERT_EQ(rows.chunk.numRows(), 300);
-   for (const auto& selected : {allRows(300), someRows(300), std::vector<uint16_t>{}}) {
-      EXPECT_EQ(reconstruct(rows.chunk, selected), rows.expectedTexts(selected));
+   for (const bool local_reference : {false, true}) {
+      const auto rows = RandomRows::nucleotides(1, 300, 120, local_reference);
+      ASSERT_EQ(rows.chunk.numRows(), 300);
+      for (const auto& selected : {allRows(300), someRows(300), std::vector<uint16_t>{}}) {
+         EXPECT_EQ(reconstruct(rows.chunk, selected), rows.expectedTexts(selected));
+      }
    }
 }
 
@@ -213,116 +277,118 @@ TEST(SequenceChunk, builderRejectsSequencesThatDoNotFit) {
 TEST(SequenceChunk, perPositionAlgorithmsMatchTheTexts) {
    constexpr uint32_t NUM_ROWS = 500;
    constexpr uint32_t LENGTH = 80;
-   const auto rows = RandomRows::nucleotides(4, NUM_ROWS, LENGTH);
-   auto symbol_of = [](char character) {
-      return static_cast<uint8_t>(Nucleotide::charToSymbol(character).value());
-   };
-   auto is_covered = [&](uint16_t row, uint32_t position) {
-      return rows.texts[row].has_value() && rows.expectedText(row)[position] != 'N';
-   };
+   for (const bool local_reference : {false, true}) {
+      const auto rows = RandomRows::nucleotides(4, NUM_ROWS, LENGTH, local_reference);
+      auto symbol_of = [](char character) {
+         return static_cast<uint8_t>(Nucleotide::charToSymbol(character).value());
+      };
+      auto is_covered = [&](uint16_t row, uint32_t position) {
+         return rows.texts[row].has_value() && rows.expectedText(row)[position] != 'N';
+      };
 
-   // The stored symbols are the rows differing from the reference.
-   for (uint32_t position = 0; position < LENGTH; ++position) {
-      std::vector<std::vector<uint16_t>> expected(Nucleotide::COUNT);
-      for (uint16_t row = 0; row < NUM_ROWS; ++row) {
-         const char symbol = rows.expectedText(row)[position];
-         if (is_covered(row, position) && symbol != rows.reference[position]) {
-            expected[symbol_of(symbol)].push_back(row);
-         }
-      }
-      std::vector<std::vector<uint16_t>> actual(Nucleotide::COUNT);
-      for (const auto& [symbol, stored] : storedSymbolsAt(rows.chunk, position)) {
-         actual[symbol] = valuesOf(stored);
-      }
-      ASSERT_EQ(actual, expected) << "position " << position;
-   }
-
-   for (const auto& selected :
-        {allRows(NUM_ROWS), someRows(NUM_ROWS), std::vector<uint16_t>{7, 99}}) {
-      const auto container = containerOf(selected);
-      const RoaringContainerView selection{container};
-      SymbolCounts expected_counts{static_cast<uint8_t>(Nucleotide::COUNT), LENGTH};
+      // The stored symbols are the rows differing from the reference.
       for (uint32_t position = 0; position < LENGTH; ++position) {
-         SCOPED_TRACE(::testing::Message() << selected.size() << " rows at " << position);
-         std::vector<char> symbols(selected.size());
-         symbolsAt(rows.chunk, position, selection, symbols);
-         std::vector<uint16_t> expected_covered;
-         for (size_t index = 0; index < selected.size(); ++index) {
-            const uint16_t row = selected[index];
+         std::vector<std::vector<uint16_t>> expected(Nucleotide::COUNT);
+         for (uint16_t row = 0; row < NUM_ROWS; ++row) {
             const char symbol = rows.expectedText(row)[position];
-            ASSERT_EQ(symbols[index], symbol) << "row " << row;
-            if (is_covered(row, position)) {
-               expected_covered.push_back(row);
-               ++expected_counts.at(symbol_of(symbol), position);
+            if (is_covered(row, position) && symbol != rows.reference[position]) {
+               expected[symbol_of(symbol)].push_back(row);
             }
          }
-         ASSERT_EQ(
-            valuesOf(RoaringContainerView{coveredRows(rows.chunk, position, selection)}),
-            expected_covered
-         );
-
-         for (const std::string symbol_chars : {"A", "N", "AN", "C-", "-NRY"}) {
-            SymbolSet set;
-            std::vector<uint16_t> expected;
-            for (const char symbol : symbol_chars) {
-               set.add(symbol_of(symbol));
-            }
-            for (const uint16_t row : selected) {
-               if (
-                  rows.texts[row].has_value() &&
-                  symbol_chars.contains(rows.expectedText(row)[position])
-               ) {
-                  expected.push_back(row);
-               }
-            }
-            ASSERT_EQ(
-               valuesOf(
-                  RoaringContainerView{rowsWithSymbolsAt(rows.chunk, position, set, selection)}
-               ),
-               expected
-            ) << "symbols "
-              << symbol_chars;
+         std::vector<std::vector<uint16_t>> actual(Nucleotide::COUNT);
+         for (const auto& [symbol, stored] : storedSymbolsAt(rows.chunk, position)) {
+            actual[symbol] = valuesOf(stored);
          }
-
-         // The symbol groups partition the selected rows; null rows form a group of their own.
-         const auto groups = groupRowsBySymbolAt(rows.chunk, position, selection);
-         std::vector<int> group_of_row(NUM_ROWS, -1);
-         if (groups.every_row_symbol.has_value()) {
-            for (const uint16_t row : selected) {
-               group_of_row[row] = *groups.every_row_symbol;
-            }
-         }
-         for (const auto& [symbol, group_rows] : groups.groups) {
-            for (const uint16_t row : group_rows) {
-               if (selection.contains(row)) {
-                  ASSERT_EQ(group_of_row[row], -1) << "row " << row << " in two groups";
-                  group_of_row[row] = symbol;
-               }
-            }
-         }
-         if (groups.null_rows.has_value()) {
-            for (const uint16_t row : *groups.null_rows) {
-               if (selection.contains(row)) {
-                  group_of_row[row] = Nucleotide::COUNT;
-               }
-            }
-         }
-         for (const uint16_t row : selected) {
-            ASSERT_EQ(
-               group_of_row[row],
-               rows.texts[row].has_value() ? symbol_of(rows.expectedText(row)[position])
-                                           : Nucleotide::COUNT
-            ) << "row "
-              << row;
-         }
+         ASSERT_EQ(actual, expected) << "position " << position;
       }
 
-      SymbolCounts counts{static_cast<uint8_t>(Nucleotide::COUNT), LENGTH};
-      addSymbolCounts(rows.chunk, selection, counts);
-      for (uint8_t symbol = 0; symbol < Nucleotide::COUNT; ++symbol) {
+      for (const auto& selected :
+           {allRows(NUM_ROWS), someRows(NUM_ROWS), std::vector<uint16_t>{7, 99}}) {
+         const auto container = containerOf(selected);
+         const RoaringContainerView selection{container};
+         SymbolCounts expected_counts{static_cast<uint8_t>(Nucleotide::COUNT), LENGTH};
          for (uint32_t position = 0; position < LENGTH; ++position) {
-            ASSERT_EQ(counts.at(symbol, position), expected_counts.at(symbol, position))
-               << "symbol " << int{symbol} << " position " << position;
+            SCOPED_TRACE(::testing::Message() << selected.size() << " rows at " << position);
+            std::vector<char> symbols(selected.size());
+            symbolsAt(rows.chunk, position, selection, symbols);
+            std::vector<uint16_t> expected_covered;
+            for (size_t index = 0; index < selected.size(); ++index) {
+               const uint16_t row = selected[index];
+               const char symbol = rows.expectedText(row)[position];
+               ASSERT_EQ(symbols[index], symbol) << "row " << row;
+               if (is_covered(row, position)) {
+                  expected_covered.push_back(row);
+                  ++expected_counts.at(symbol_of(symbol), position);
+               }
+            }
+            ASSERT_EQ(
+               valuesOf(RoaringContainerView{coveredRows(rows.chunk, position, selection)}),
+               expected_covered
+            );
+
+            for (const std::string symbol_chars : {"A", "N", "AN", "C-", "-NRY"}) {
+               SymbolSet set;
+               std::vector<uint16_t> expected;
+               for (const char symbol : symbol_chars) {
+                  set.add(symbol_of(symbol));
+               }
+               for (const uint16_t row : selected) {
+                  if (
+                     rows.texts[row].has_value() &&
+                     symbol_chars.contains(rows.expectedText(row)[position])
+                  ) {
+                     expected.push_back(row);
+                  }
+               }
+               ASSERT_EQ(
+                  valuesOf(
+                     RoaringContainerView{rowsWithSymbolsAt(rows.chunk, position, set, selection)}
+                  ),
+                  expected
+               ) << "symbols "
+                 << symbol_chars;
+            }
+
+            // The symbol groups partition the selected rows; null rows form a group of their own.
+            const auto groups = groupRowsBySymbolAt(rows.chunk, position, selection);
+            std::vector<int> group_of_row(NUM_ROWS, -1);
+            if (groups.every_row_symbol.has_value()) {
+               for (const uint16_t row : selected) {
+                  group_of_row[row] = *groups.every_row_symbol;
+               }
+            }
+            for (const auto& [symbol, group_rows] : groups.groups) {
+               for (const uint16_t row : group_rows) {
+                  if (selection.contains(row)) {
+                     ASSERT_EQ(group_of_row[row], -1) << "row " << row << " in two groups";
+                     group_of_row[row] = symbol;
+                  }
+               }
+            }
+            if (groups.null_rows.has_value()) {
+               for (const uint16_t row : *groups.null_rows) {
+                  if (selection.contains(row)) {
+                     group_of_row[row] = Nucleotide::COUNT;
+                  }
+               }
+            }
+            for (const uint16_t row : selected) {
+               ASSERT_EQ(
+                  group_of_row[row],
+                  rows.texts[row].has_value() ? symbol_of(rows.expectedText(row)[position])
+                                              : Nucleotide::COUNT
+               ) << "row "
+                 << row;
+            }
+         }
+
+         SymbolCounts counts{static_cast<uint8_t>(Nucleotide::COUNT), LENGTH};
+         addSymbolCounts(rows.chunk, selection, counts);
+         for (uint8_t symbol = 0; symbol < Nucleotide::COUNT; ++symbol) {
+            for (uint32_t position = 0; position < LENGTH; ++position) {
+               ASSERT_EQ(counts.at(symbol, position), expected_counts.at(symbol, position))
+                  << "symbol " << int{symbol} << " position " << position;
+            }
          }
       }
    }
@@ -460,6 +526,62 @@ TEST(SequenceChunk, rejectsPartsThatDoNotFitTogether) {
           .validate()),
       std::runtime_error
    );
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST(SequenceChunk, theLocalReferenceHasTheMostCommonCoveredSymbolAtEveryPosition) {
+   const auto original = RandomRows::nucleotides(13, 400, 90);
+   const auto rows = RandomRows::nucleotides(13, 400, 90, /*local_reference=*/true);
+   EXPECT_NE(rows.reference, original.reference);
+   for (uint32_t position = 0; position < 90; ++position) {
+      std::vector<uint32_t> counts(Nucleotide::COUNT, 0);
+      for (uint16_t row = 0; row < 400; ++row) {
+         const char symbol = rows.expectedText(row)[position];
+         if (symbol != 'N') {
+            ++counts[static_cast<uint8_t>(Nucleotide::charToSymbol(symbol).value())];
+         }
+      }
+      const auto original_symbol =
+         static_cast<uint8_t>(Nucleotide::charToSymbol(original.reference[position]).value());
+      // The first symbol with the highest count, unless the original reference symbol has it
+      uint8_t expected = original_symbol;
+      for (uint8_t symbol = 0; symbol < Nucleotide::COUNT; ++symbol) {
+         if (counts[symbol] > counts[expected]) {
+            expected = symbol;
+         }
+      }
+      ASSERT_EQ(rows.shared_reference->symbolAt(position), expected) << "position " << position;
+   }
+   // Choosing again changes nothing
+   EXPECT_TRUE(mostCommonSymbols(rows.chunk).empty());
+}
+
+TEST(SequenceChunk, finishingWithALocalReferenceSharesAKnownEqualReference) {
+   auto make_builder = [] {
+      SequenceChunkBuilder builder{SequenceReference::create<Nucleotide>("ACGT")};
+      builder.addText("ACTT");
+      builder.addText("ACTT");
+      builder.addText("ACGT");
+      return builder;
+   };
+   const auto known = SequenceReference::create<Nucleotide>("ACTT");
+   const auto other = SequenceReference::create<Nucleotide>("AAAA");
+   const auto chunk = make_builder().finishWithLocalReference(
+      std::vector<std::shared_ptr<const SequenceReference>>{other, known}
+   );
+   EXPECT_EQ(chunk.sharedReference(), known);
+   EXPECT_EQ(reconstructAll(chunk), (std::vector<std::string>{"ACTT", "ACTT", "ACGT"}));
+
+   const auto unknown = make_builder().finishWithLocalReference({});
+   EXPECT_EQ(unknown.reference().text(), "ACTT");
+   EXPECT_NE(unknown.sharedReference(), known);
+
+   // A chunk that keeps the reference keeps the builder's reference object
+   const auto reference = SequenceReference::create<Nucleotide>("ACGT");
+   SequenceChunkBuilder builder{reference};
+   builder.addText("ACGT");
+   builder.addNullRow();
+   EXPECT_EQ(std::move(builder).finishWithLocalReference({}).sharedReference(), reference);
 }
 
 }  // namespace rhydb::storage::sequence

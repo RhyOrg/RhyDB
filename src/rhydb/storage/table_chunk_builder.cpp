@@ -320,12 +320,12 @@ TableChunkBuilder::TableChunkBuilder(const Table& table) {
          std::is_same_v<ColumnType, column::SequenceColumn<Nucleotide>> ||
          std::is_same_v<ColumnType, column::SequenceColumn<AminoAcid>>
       ) {
-         // Seed the sequence builder with the column's current (possibly adapted)
-         // local reference so newly buffered rows share the stored reference basis.
+         // The sequence builder diffs the inserted sequences against the column's reference
+         // sequence; the column chooses each chunk's local reference when appending it.
          const auto& column = table.getColumn<ColumnType>(column_identifier.name);
          getColumnBuilders<ColumnType>().emplace(
             column_identifier.name,
-            typename ColumnType::Builder{column_metadata, column.localReferenceText()}
+            typename ColumnType::Builder{column_metadata, column.referenceText()}
          );
       } else if constexpr (
          std::is_constructible_v<typename ColumnType::Builder, typename ColumnType::Metadata*>

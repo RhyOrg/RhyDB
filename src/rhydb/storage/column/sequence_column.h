@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <expected>
 #include <memory>
 #include <optional>
@@ -61,10 +62,10 @@ class SequenceColumnMetadata : public ColumnMetadata {
 };
 
 /// A column of nucleotide or amino acid sequences, stored as one immutable `SequenceChunk` per
-/// 2^16-row ingestion chunk (see documentation/developer/sequence_storage.md). All chunks are
-/// stored against the column's local reference, which `finalize` adapts to the most common symbol
-/// at each position, replacing the chunks with chunks stored against the adapted reference. The
-/// insertions are held in a column-wide `InsertionIndex`.
+/// 2^16-row ingestion chunk (see documentation/developer/sequence_storage.md). Every chunk is
+/// stored against its own local reference, chosen from the chunk's rows when it is appended, so a
+/// stored chunk is never touched by later appends. Chunks with equal local references share one
+/// `SequenceReference`. The insertions are held in a column-wide `InsertionIndex`.
 template <typename SymbolType>
 class SequenceColumn {
   public:
@@ -72,8 +73,8 @@ class SequenceColumn {
    using Builder = SequenceColumnBuilder<SymbolType>;
 
    /// Compact, reference-diffed representation of a single sequence row. The
-   /// builder diffs each inserted sequence against the column's (possibly
-   /// adapted) local reference at insert time, so only the differences -- the
+   /// builder diffs each inserted sequence against the column's reference
+   /// sequence at insert time, so only the differences -- the
    /// covered range, the missing positions within it, and the mutations -- are
    /// buffered for the chunk. The full sequence is never retained, keeping
    /// per-chunk memory bounded regardless of genome length. appendChunk builds the
@@ -96,28 +97,58 @@ class SequenceColumn {
   private:
    friend class boost::serialization::access;
 
-   // The local reference is written once; the chunks are written without it and share it again
-   // after loading. Their indexes are written as raw bytes, so loading rebuilds nothing.
+   // The distinct local references of the chunks are written once each, as their differences
+   // from the column's reference; every chunk is written without its reference, preceded by the
+   // index of its reference, so the loaded chunks share their references as before. The indexes
+   // are written as raw bytes, so loading rebuilds nothing.
    template <class Archive>
    void save(Archive& archive, [[maybe_unused]] const uint32_t version) const {
-      const std::string& local_reference_text = local_reference->text();
-      archive << local_reference_text;
+      const auto references = chunkReferences();
+      const uint64_t num_references = references.size();
+      archive << num_references;
+      for (const auto& reference : references) {
+         const auto differences = reference->differencesFrom(*column_reference);
+         const uint64_t num_differences = differences.size();
+         archive << num_differences;
+         for (const auto& [position, symbol] : differences) {
+            archive << position;
+            archive << symbol;
+         }
+      }
       archive << insertion_index;
       archive << sequence_column_info;
       archive << sequence_count;
       const uint64_t num_chunks = chunks_.size();
       archive << num_chunks;
       for (const auto& chunk : chunks_) {
+         const auto reference_index = static_cast<uint32_t>(
+            std::ranges::find(references, chunk->sharedReference()) - references.begin()
+         );
+         archive << reference_index;
          chunk->save(archive);
       }
    }
 
    template <class Archive>
    void load(Archive& archive, [[maybe_unused]] const uint32_t version) {
-      std::string local_reference_text;
-      archive >> local_reference_text;
-      local_reference =
-         sequence::SequenceReference::create<SymbolType>(std::move(local_reference_text));
+      uint64_t num_references = 0;
+      archive >> num_references;
+      std::vector<std::shared_ptr<const sequence::SequenceReference>> references;
+      references.reserve(num_references);
+      for (uint64_t index = 0; index < num_references; ++index) {
+         uint64_t num_differences = 0;
+         archive >> num_differences;
+         if (num_differences == 0) {
+            references.push_back(column_reference);
+            continue;
+         }
+         std::vector<sequence::SequenceReference::SymbolAt> differences(num_differences);
+         for (auto& [position, symbol] : differences) {
+            archive >> position;
+            archive >> symbol;
+         }
+         references.push_back(column_reference->withSymbolsReplaced(differences));
+      }
       archive >> insertion_index;
       archive >> sequence_column_info;
       archive >> sequence_count;
@@ -126,9 +157,11 @@ class SequenceColumn {
       chunks_.clear();
       chunks_.reserve(num_chunks);
       for (uint64_t chunk_id = 0; chunk_id < num_chunks; ++chunk_id) {
+         uint32_t reference_index = 0;
+         archive >> reference_index;
          chunks_.push_back(
             std::make_shared<const sequence::SequenceChunk>(
-               sequence::SequenceChunk::load(archive, local_reference)
+               sequence::SequenceChunk::load(archive, references.at(reference_index))
             )
          );
       }
@@ -136,8 +169,9 @@ class SequenceColumn {
 
    BOOST_SERIALIZATION_SPLIT_MEMBER()
 
-   /// The reference all chunks are stored against; shared with them.
-   std::shared_ptr<const sequence::SequenceReference> local_reference;
+   /// The column's reference sequence (of the metadata), which inserted sequences are diffed
+   /// against. The chunks whose local reference equals it share it.
+   std::shared_ptr<const sequence::SequenceReference> column_reference;
 
    /// The chunks, indexed by chunk id. Shared with whoever reads them, so a
    /// chunk is never modified, only replaced.
@@ -170,33 +204,23 @@ class SequenceColumn {
       return *chunks_[chunk_id];
    }
 
-   [[nodiscard]] const std::shared_ptr<const sequence::SequenceReference>& localReference() const {
-      return local_reference;
+   /// The column's reference sequence (of the metadata).
+   [[nodiscard]] const std::shared_ptr<const sequence::SequenceReference>& reference() const {
+      return column_reference;
    }
 
-   /// The local reference as text; inserted sequences are diffed against it.
-   [[nodiscard]] const std::string& localReferenceText() const { return local_reference->text(); }
+   /// The column's reference sequence as text; inserted sequences are diffed against it.
+   [[nodiscard]] std::string referenceText() const { return column_reference->text(); }
 
-   [[nodiscard]] std::vector<typename SymbolType::Symbol> getLocalReference() const {
-      std::vector<typename SymbolType::Symbol> result;
-      result.reserve(local_reference->length());
-      for (uint32_t position = 0; position < local_reference->length(); ++position) {
-         result.push_back(static_cast<SymbolType::Symbol>(local_reference->symbolAt(position)));
-      }
-      return result;
-   }
-
-   [[nodiscard]] SymbolType::Symbol getLocalReferencePosition(size_t position) const {
-      RHYDB_ASSERT(position < metadata->reference_sequence.size());
-      return static_cast<SymbolType::Symbol>(
-         local_reference->symbolAt(static_cast<uint32_t>(position))
-      );
-   }
+   /// The distinct local references of the chunks, in order of their first chunk.
+   [[nodiscard]] std::vector<std::shared_ptr<const sequence::SequenceReference>>
+   chunkReferences() const;
 
    [[nodiscard]] SequenceColumnInfo getInfo() const;
 
-   /// Appends a finalized ingestion chunk as a new `SequenceChunk`, stored against the current
-   /// local reference.
+   /// Appends a finalized ingestion chunk as a new `SequenceChunk`, stored against the local
+   /// reference chosen from its rows (`SequenceChunkBuilder::finishWithLocalReference`). The
+   /// stored chunks are left as they are.
    std::expected<void, std::string> appendChunk(const Buffer& buffer);
 
    [[nodiscard]] bool isNull(RowId row_id) const {
@@ -207,7 +231,7 @@ class SequenceColumn {
    [[nodiscard]] Bitmap nullRows() const;
 
    /// The length of every (non-null) row's text: the length of the reference sequence.
-   [[nodiscard]] size_t sequenceLength() const { return local_reference->length(); }
+   [[nodiscard]] size_t sequenceLength() const { return column_reference->length(); }
 
    /// Views of the rows that store one of `symbols` at `position`, per chunk, in ascending chunk
    /// order (see `storedSymbolsAt`). A chunk id appears once per stored symbol of `symbols`.
@@ -218,42 +242,34 @@ class SequenceColumn {
    /// The chunks that lose some rows are rebuilt without them; the others are kept as they are.
    void deleteRows(const RowCompaction& compaction);
 
-   /// Adapts the local reference to the most common symbol at each position and replaces the
-   /// chunks with chunks stored against the adapted reference.
+   /// Updates the column info (`getInfo`). The chunks are left as they are.
    void finalize();
 
   private:
-   void adaptLocalReference();
-
    SequenceColumnInfo calculateInfo();
 };
 
 /// Buffers one ingestion chunk by diffing each inserted sequence against the
-/// column's (possibly adapted) local reference and storing only the differences
-/// (covered range, missing positions, mutations). The full sequences are never
-/// retained, so per-chunk memory stays bounded regardless of genome length.
+/// column's reference sequence and storing only the differences (covered range,
+/// missing positions, mutations). The full sequences are never retained, so
+/// per-chunk memory stays bounded regardless of genome length.
 template <typename SymbolType>
 class SequenceColumnBuilder {
    SequenceColumn<SymbolType>::Buffer buffer;
 
-   // The column's current local reference (possibly adapted by a previous
-   // finalize); inserted sequences are diffed against this so newly buffered
-   // rows share the same reference basis as the already-stored ones.
-   std::string local_reference;
+   // The column's reference sequence, which inserted sequences are diffed against
+   std::string reference;
 
-   bool local_reference_contains_missing_symbol;
+   bool reference_contains_missing_symbol;
 
   public:
    // Decompresses 'sequenceCompressed' input during phase-1 extraction. Uses the
-   // initial (unadapted) reference, which is what inputs are compressed against.
+   // reference sequence, which is what inputs are compressed against.
    ZstdDecompressor compressed_input_decompressor;
 
-   SequenceColumnBuilder(
-      const SequenceColumnMetadata<SymbolType>* metadata,
-      std::string local_reference
-   );
+   SequenceColumnBuilder(const SequenceColumnMetadata<SymbolType>* metadata, std::string reference);
 
-   // Diffs the sequence against the local reference and buffers the differences.
+   // Diffs the sequence against the reference and buffers the differences.
    // Throws AppendException on an illegal character or an over-long sequence.
    void insert(
       std::string_view sequence,

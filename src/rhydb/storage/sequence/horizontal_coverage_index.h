@@ -195,12 +195,6 @@ class HorizontalCoverageIndexBuilder {
    [[nodiscard]] common::Buffer finish() &&;
 };
 
-/// The number of rows of all `chunks` covering each position of a genome of `genome_length`.
-[[nodiscard]] std::vector<uint64_t> computeCoverageCardinalities(
-   std::span<const HorizontalCoverageIndex* const> chunks,
-   size_t genome_length
-);
-
 /// The `coverageScan` implementations the index picks between at runtime. Production code calls
 /// `coverageScan`, which dispatches on `cpuHasAvx512()`; these are declared so a test can run both
 /// over the same input and assert they agree. Without that, the hand-written AVX-512 kernel is

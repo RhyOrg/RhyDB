@@ -9,6 +9,7 @@
 #include "rhydb/common/aa_symbols.h"
 #include "rhydb/common/nucleotide_symbols.h"
 #include "rhydb/query_engine/filter/operators/complement.h"
+#include "rhydb/query_engine/filter/operators/has_symbol_in_set.h"
 #include "rhydb/query_engine/filter/operators/index_scan.h"
 #include "rhydb/query_engine/filter/operators/intersection.h"
 #include "rhydb/query_engine/filter/operators/is_in_covered_region.h"
@@ -259,9 +260,30 @@ std::unique_ptr<filter::operators::Operator> compileSymbolInSet(
       sequence_column.metadata->reference_sequence.size()
    );
 
-   auto local_reference_symbol = sequence_column.getLocalReferencePosition(position_idx);
-   const bool includes_reference =
-      std::find(symbols.begin(), symbols.end(), local_reference_symbol) != symbols.end();
+   // Every chunk is stored against its own local reference. The compilations below treat the
+   // reference symbol at the position alike in all chunks, so they apply if all chunks agree on
+   // whether it is one of `symbols`; otherwise every chunk is evaluated against its own reference.
+   const auto symbol_set = storage::sequence::SymbolSet::of<SymbolType>(
+      std::span<const typename SymbolType::Symbol>{symbols}
+   );
+   bool some_chunk_includes_reference = false;
+   bool some_chunk_excludes_reference = false;
+   for (const auto& chunk : sequence_column.chunks()) {
+      if (symbol_set.contains(chunk->reference().symbolAt(position_idx))) {
+         some_chunk_includes_reference = true;
+      } else {
+         some_chunk_excludes_reference = true;
+      }
+   }
+   if (some_chunk_includes_reference && some_chunk_excludes_reference) {
+      return std::make_unique<filter::operators::Selection>(
+         std::make_unique<filter::operators::HasSymbolInSet>(
+            &sequence_column.chunks(), position_idx, symbol_set, with_null_rows
+         ),
+         row_layout
+      );
+   }
+   const bool includes_reference = some_chunk_includes_reference;
 
    const bool includes_missing_symbol =
       std::find(symbols.begin(), symbols.end(), SymbolType::SYMBOL_MISSING) != symbols.end();

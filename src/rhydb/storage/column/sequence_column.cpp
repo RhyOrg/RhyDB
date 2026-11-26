@@ -96,7 +96,7 @@ SequenceColumn<SymbolType>::SequenceColumn(SequenceColumnMetadata<SymbolType>* m
     : metadata(metadata),
       genome_length(metadata->reference_sequence.size()) {
    RHYDB_ASSERT_GT(genome_length, 0ULL);
-   local_reference = sequence::SequenceReference::create<SymbolType>(
+   column_reference = sequence::SequenceReference::create<SymbolType>(
       SymbolType::sequenceToString(metadata->reference_sequence)
    );
 }
@@ -121,8 +121,10 @@ std::expected<void, std::string> SequenceColumn<SymbolType>::appendChunk(const B
    }
 
    // Each ingestion chunk becomes its own `SequenceChunk`, whose rows are addressed by their index
-   // in the chunk; the global row id of a row is `chunk_id << 16 | row_in_chunk` (see `RowId`).
-   sequence::SequenceChunkBuilder builder{local_reference};
+   // in the chunk; the global row id of a row is `chunk_id << 16 | row_in_chunk` (see `RowId`). The
+   // rows are buffered as differences from the column's reference; the chunk chooses its own local
+   // reference from them, sharing an equal reference of the column or of a stored chunk.
+   sequence::SequenceChunkBuilder builder{column_reference};
    for (const auto& buffered : buffer) {
       if (buffered.is_null) {
          builder.addNullRow();
@@ -130,7 +132,13 @@ std::expected<void, std::string> SequenceColumn<SymbolType>::appendChunk(const B
          builder.addRow(buffered.coverage, buffered.mutations);
       }
    }
-   chunks_.push_back(std::make_shared<const sequence::SequenceChunk>(std::move(builder).finish()));
+   auto known_references = chunkReferences();
+   known_references.push_back(column_reference);
+   chunks_.push_back(
+      std::make_shared<const sequence::SequenceChunk>(
+         std::move(builder).finishWithLocalReference(known_references)
+      )
+   );
    sequence_count += static_cast<uint32_t>(buffer.size());
 
    for (const auto& [row_in_chunk, insertion] : insertions) {
@@ -138,6 +146,18 @@ std::expected<void, std::string> SequenceColumn<SymbolType>::appendChunk(const B
    }
    insertion_index.appendChunk();
    return {};
+}
+
+template <typename SymbolType>
+std::vector<std::shared_ptr<const sequence::SequenceReference>> SequenceColumn<
+   SymbolType>::chunkReferences() const {
+   std::vector<std::shared_ptr<const sequence::SequenceReference>> references;
+   for (const auto& chunk : chunks_) {
+      if (std::ranges::find(references, chunk->sharedReference()) == references.end()) {
+         references.push_back(chunk->sharedReference());
+      }
+   }
+   return references;
 }
 
 template <typename SymbolType>
@@ -189,75 +209,10 @@ void SequenceColumn<SymbolType>::deleteRows(const RowCompaction& compaction) {
 
 template <typename SymbolType>
 void SequenceColumn<SymbolType>::finalize() {
-   SPDLOG_DEBUG("Adapting local reference");
-   adaptLocalReference();
    const SequenceColumnInfo info = calculateInfo();
-   SPDLOG_DEBUG("Sequence store info after local reference adaption: {}", info);
-}
-
-template <typename SymbolType>
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
-void SequenceColumn<SymbolType>::adaptLocalReference() {
-   using Symbol = SymbolType::Symbol;
-   // The views are created on demand, so they are kept here for the pointers to point to
-   std::vector<sequence::HorizontalCoverageIndex> coverage_views;
-   std::vector<const sequence::HorizontalCoverageIndex*> coverages;
-   coverage_views.reserve(chunks_.size());
-   coverages.reserve(chunks_.size());
-   for (const auto& chunk : chunks_) {
-      coverages.push_back(&coverage_views.emplace_back(chunk->coverage()));
-   }
-   // Only the number of rows covering a position (and storing each symbol there) is needed to
-   // decide the adaptation
-   const std::vector<uint64_t> coverage_cardinalities =
-      sequence::computeCoverageCardinalities(coverages, genome_length);
-   std::vector<uint64_t> stored_counts(genome_length * SymbolType::COUNT, 0);
-   for (const auto& chunk : chunks_) {
-      for (const auto& entry : chunk->mutations().entries()) {
-         stored_counts[(entry.position * SymbolType::COUNT) + entry.symbol] += entry.cardinality;
-      }
-   }
-
-   std::vector<std::pair<uint32_t, uint8_t>> adapted_symbols;
-   for (uint32_t position = 0; position < genome_length; ++position) {
-      const uint8_t current_symbol = local_reference->symbolAt(position);
-      const std::span<const uint64_t> counts{
-         stored_counts.data() + (position * SymbolType::COUNT),
-         SymbolType::COUNT,
-      };
-      uint64_t stored_total = 0;
-      for (const uint64_t count : counts) {
-         stored_total += count;
-      }
-      RHYDB_ASSERT_EQ(counts[current_symbol], uint64_t{0});
-      RHYDB_ASSERT_GE(coverage_cardinalities[position], stored_total);
-      const uint64_t current_count = coverage_cardinalities[position] - stored_total;
-      uint8_t best_symbol = current_symbol;
-      uint64_t best_count = current_count;
-      for (const Symbol symbol : SymbolType::SYMBOLS) {
-         const auto symbol_id = static_cast<uint8_t>(symbol);
-         if (symbol_id != current_symbol && counts[symbol_id] > best_count) {
-            best_symbol = symbol_id;
-            best_count = counts[symbol_id];
-         }
-      }
-      if (best_symbol != current_symbol) {
-         SPDLOG_DEBUG(
-            "At position {} adapted local reference symbol to '{}'",
-            position,
-            local_reference->symbolChar(best_symbol)
-         );
-         adapted_symbols.emplace_back(position, best_symbol);
-      }
-   }
-   if (adapted_symbols.empty()) {
-      return;
-   }
-
-   local_reference = local_reference->withSymbolsReplaced(adapted_symbols);
-   for (auto& chunk : chunks_) {
-      chunk = std::make_shared<const sequence::SequenceChunk>(chunk->rebasedOnto(local_reference));
-   }
+   SPDLOG_DEBUG(
+      "Sequence store info: {}, {} distinct local references", info, chunkReferences().size()
+   );
 }
 
 template <typename SymbolType>
@@ -329,18 +284,17 @@ SequenceColumnMetadata<SymbolType>::SequenceColumnMetadata(
 template <typename SymbolType>
 SequenceColumnBuilder<SymbolType>::SequenceColumnBuilder(
    const SequenceColumnMetadata<SymbolType>* metadata,
-   std::string local_reference
+   std::string reference
 )
-    : local_reference(std::move(local_reference)),
+    : reference(std::move(reference)),
       compressed_input_decompressor(
          std::make_shared<ZstdDDictionary>(
             SymbolType::sequenceToString(metadata->reference_sequence)
          )
       ) {
    RHYDB_ASSERT_GT(metadata->reference_sequence.size(), 0ULL);
-   RHYDB_ASSERT_EQ(this->local_reference.size(), metadata->reference_sequence.size());
-   local_reference_contains_missing_symbol =
-      referenceContainsMissingSymbol<SymbolType>(this->local_reference);
+   RHYDB_ASSERT_EQ(this->reference.size(), metadata->reference_sequence.size());
+   reference_contains_missing_symbol = referenceContainsMissingSymbol<SymbolType>(this->reference);
 }
 
 template <typename SymbolType>
@@ -349,7 +303,7 @@ void SequenceColumnBuilder<SymbolType>::insert(
    uint32_t offset,
    const std::vector<std::string>& insertions
 ) {
-   const size_t genome_length = local_reference.size();
+   const size_t genome_length = reference.size();
    if (sequence.size() + offset > genome_length) {
       throw append::AppendException(
          "the sequence '{}' which was inserted with an offset {} is larger than the length of "
@@ -362,7 +316,7 @@ void SequenceColumnBuilder<SymbolType>::insert(
    RHYDB_ASSERT(sequence.size() + offset < UINT32_MAX);
 
    auto coverage_mutations = extractCoverageAndMutationsFromSequence<SymbolType>(
-      sequence, offset, std::string_view{local_reference}, local_reference_contains_missing_symbol
+      sequence, offset, std::string_view{reference}, reference_contains_missing_symbol
    );
    if (!coverage_mutations.has_value()) {
       SPDLOG_INFO("{}", coverage_mutations.error());
