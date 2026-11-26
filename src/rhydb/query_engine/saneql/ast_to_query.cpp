@@ -236,7 +236,7 @@ DataTypePtr resolveCastTargetType(const TypeCast& cast, const SourceLocation& lo
    CHECK_RHYDB_QUERY(
       is_value_type,
       "cannot cast to unknown type '{}' at {}:{}; supported types are string, date, boolean, "
-      "int32, int64, float",
+      "int32, int64, float, binary",
       cast.target_type,
       location.line,
       location.column
@@ -253,6 +253,7 @@ bool isLiteral(const ScalarExpression& expression) {
       case Kind::STRING_LITERAL:
       case Kind::BOOL_LITERAL:
       case Kind::DATE_LITERAL:
+      case Kind::BINARY_LITERAL:
       case Kind::NULL_LITERAL:
          return true;
       default:

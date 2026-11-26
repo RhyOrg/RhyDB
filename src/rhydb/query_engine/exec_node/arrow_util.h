@@ -7,6 +7,7 @@
 
 #include "rhydb/common/nucleotide_symbols.h"
 #include "rhydb/schema/database_schema.h"
+#include "rhydb/storage/column/binary_column.h"
 #include "rhydb/storage/column/bool_column.h"
 #include "rhydb/storage/column/date32_column.h"
 #include "rhydb/storage/column/dictionary_encoded_column.h"
@@ -52,6 +53,12 @@ struct ArrowBuilderSelector<storage::column::SequenceColumn<AminoAcid>> {
 
 template <>
 struct ArrowBuilderSelector<storage::column::ZstdCompressedStringColumn> {
+   using builder_type = arrow::LargeBinaryBuilder;
+   using value_type = std::string;
+};
+
+template <>
+struct ArrowBuilderSelector<storage::column::BinaryColumn> {
    using builder_type = arrow::LargeBinaryBuilder;
    using value_type = std::string;
 };

@@ -208,7 +208,7 @@ const QueryTestScenario NO_LITERAL = {
    .query = "data.filter(int_value < primaryKey.at(1)).project(primaryKey)",
    .expected_error_message =
       "Unsupported value type in comparison with column 'int_value': the value must be an int, "
-      "float, date, string, or bool literal",
+      "float, date, string, bool, or binary literal",
 };
 
 const QueryTestScenario INT32_OVERFLOW = {

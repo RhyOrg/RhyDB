@@ -45,6 +45,8 @@ DataTypePtr nonParameterizedDataType(DataType::Kind kind) {
          return DataType::FLOAT;
       case Kind::ZSTD_COMPRESSED_STRING:
          return DataType::ZSTD_COMPRESSED_STRING;
+      case Kind::BINARY:
+         return DataType::BINARY;
       case Kind::DICTIONARY_ENCODED:
       case Kind::AMINO_ACID_SEQUENCE:
       case Kind::NUCLEOTIDE_SEQUENCE:
@@ -78,6 +80,8 @@ std::string dataTypeToString(const DataType& type) {
          return fmt::format("NUCLEOTIDE_SEQUENCE({})", cast<SequenceType>(&type)->getLength());
       case DataType::Kind::ZSTD_COMPRESSED_STRING:
          return "ZSTD_COMPRESSED_STRING";
+      case DataType::Kind::BINARY:
+         return "BINARY";
    }
    RHYDB_UNREACHABLE();
 }
@@ -102,6 +106,8 @@ std::string_view toSchemaTypeName(DataType::Kind kind) {
          return "aminoAcidSequence";
       case DataType::Kind::ZSTD_COMPRESSED_STRING:
          return "zstdCompressedString";
+      case DataType::Kind::BINARY:
+         return "binary";
       case DataType::Kind::DICTIONARY_ENCODED:
          break;
    }
@@ -123,6 +129,7 @@ std::optional<DataType::Kind> fromSchemaTypeName(std::string_view name) {
            Kind::NUCLEOTIDE_SEQUENCE,
            Kind::AMINO_ACID_SEQUENCE,
            Kind::ZSTD_COMPRESSED_STRING,
+           Kind::BINARY,
         }) {
       if (toSchemaTypeName(kind) == name) {
          return kind;

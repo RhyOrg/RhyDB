@@ -43,6 +43,7 @@ class DataType : public std::enable_shared_from_this<DataType> {
       AMINO_ACID_SEQUENCE,
       NUCLEOTIDE_SEQUENCE,
       ZSTD_COMPRESSED_STRING,
+      BINARY,
    };
 
   private:
@@ -66,6 +67,7 @@ class DataType : public std::enable_shared_from_this<DataType> {
    static const DataTypePtr INT64;
    static const DataTypePtr FLOAT;
    static const DataTypePtr ZSTD_COMPRESSED_STRING;
+   static const DataTypePtr BINARY;
 
    DataType(const DataType&) = delete;
    DataType& operator=(const DataType&) = delete;
@@ -230,6 +232,17 @@ class ZstdCompressedStringType final : public DataType {
    static constexpr Kind KIND = Kind::ZSTD_COMPRESSED_STRING;
 };
 
+/// A column of arbitrary byte strings
+class BinaryType final : public DataType {
+   friend class DataType;
+
+   BinaryType()
+       : DataType(KIND) {}
+
+  public:
+   static constexpr Kind KIND = Kind::BINARY;
+};
+
 /// A column storing each distinct value of type `getValueType()` once in a sorted dictionary
 class DictionaryType final : public DataType {
    friend class DataType;
@@ -317,6 +330,7 @@ inline const DataTypePtr DataType::INT64 = DataType::make<Int64Type>();
 inline const DataTypePtr DataType::FLOAT = DataType::make<FloatType>();
 inline const DataTypePtr DataType::ZSTD_COMPRESSED_STRING =
    DataType::make<ZstdCompressedStringType>();
+inline const DataTypePtr DataType::BINARY = DataType::make<BinaryType>();
 inline const DataTypePtr DictionaryType::STRING = DataType::make<DictionaryType>(DataType::STRING);
 inline const DataTypePtr DictionaryType::DATE32 = DataType::make<DictionaryType>(DataType::DATE32);
 

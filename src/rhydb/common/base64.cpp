@@ -40,4 +40,11 @@ std::expected<std::string, std::string> decodeBase64(std::string_view encoded) {
    return result;
 }
 
+std::string encodeBase64(std::string_view data) {
+   std::string result(simdutf::base64_length_from_binary(data.size()), '\0');
+   const size_t written = simdutf::binary_to_base64(data.data(), data.size(), result.data());
+   result.resize(written);
+   return result;
+}
+
 }  // namespace rhydb

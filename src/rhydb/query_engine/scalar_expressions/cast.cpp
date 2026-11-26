@@ -60,6 +60,11 @@ arrow::Result<std::unique_ptr<ScalarExpression>> scalarToLiteral(
    if (type == DataType::FLOAT) {
       return std::make_unique<FloatLiteral>(static_cast<const arrow::DoubleScalar&>(scalar).value);
    }
+   if (type == DataType::BINARY) {
+      return std::make_unique<BinaryLiteral>(
+         std::string{static_cast<const arrow::LargeBinaryScalar&>(scalar).view()}
+      );
+   }
    return arrow::Status::NotImplemented(
       "Cannot represent a value of type ", schema::dataTypeToString(type), " as a literal"
    );
@@ -74,8 +79,14 @@ bool isCastSupported(const DataTypePtr& from, const DataTypePtr& to) {
    if (isNumeric(from) && isNumeric(to)) {
       return true;
    }
+   // Between strings and binary values, the bytes are kept as they are; a binary value cast to a
+   // string must be valid UTF-8
    if (from == DataType::STRING) {
-      return isNumeric(to) || to == DataType::DATE32 || to == DataType::BOOL;
+      return isNumeric(to) || to == DataType::DATE32 || to == DataType::BOOL ||
+             to == DataType::BINARY;
+   }
+   if (from == DataType::BINARY) {
+      return to == DataType::STRING;
    }
    return to == DataType::STRING &&
           (isNumeric(from) || from == DataType::DATE32 || from == DataType::BOOL);

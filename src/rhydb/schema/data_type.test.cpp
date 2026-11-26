@@ -86,11 +86,13 @@ TEST(DataType, survivesSerialization) {
    EXPECT_EQ(roundTrip(DataType::DATE32), DataType::DATE32);
    EXPECT_EQ(roundTrip(DictionaryType::STRING), DictionaryType::STRING);
    EXPECT_EQ(roundTrip(DictionaryType::DATE32), DictionaryType::DATE32);
+   EXPECT_EQ(roundTrip(DataType::BINARY), DataType::BINARY);
 }
 
 TEST(DataType, hasDisplayNames) {
    EXPECT_EQ(dataTypeToString(DataType::ZSTD_COMPRESSED_STRING), "ZSTD_COMPRESSED_STRING");
    EXPECT_EQ(dataTypeToString(DictionaryType::STRING), "DICTIONARY_ENCODED(STRING)");
+   EXPECT_EQ(dataTypeToString(DataType::BINARY), "BINARY");
 }
 
 TEST(DataType, hasSchemaTypeNames) {
@@ -106,9 +108,11 @@ TEST(DataType, hasSchemaTypeNames) {
            Kind::NUCLEOTIDE_SEQUENCE,
            Kind::AMINO_ACID_SEQUENCE,
            Kind::ZSTD_COMPRESSED_STRING,
+           Kind::BINARY,
         }) {
       EXPECT_EQ(fromSchemaTypeName(toSchemaTypeName(kind)), kind);
    }
+   EXPECT_EQ(toSchemaTypeName(Kind::BINARY), "binary");
    EXPECT_EQ(toSchemaTypeName(Kind::INT32), "int32");
    EXPECT_EQ(fromSchemaTypeName("int"), Kind::INT32);
    EXPECT_EQ(fromSchemaTypeName("unknown"), std::nullopt);
@@ -117,6 +121,7 @@ TEST(DataType, hasSchemaTypeNames) {
 TEST(DataType, onlyNonParameterizedKindsHaveATypeOfTheirOwn) {
    using rhydb::schema::nonParameterizedDataType;
    EXPECT_EQ(nonParameterizedDataType(Kind::INT64), DataType::INT64);
+   EXPECT_EQ(nonParameterizedDataType(Kind::BINARY), DataType::BINARY);
    EXPECT_EQ(nonParameterizedDataType(Kind::NUCLEOTIDE_SEQUENCE), nullptr);
    EXPECT_EQ(nonParameterizedDataType(Kind::DICTIONARY_ENCODED), nullptr);
 }

@@ -12,6 +12,7 @@
 #include "rhydb/common/aa_symbols.h"
 #include "rhydb/common/nucleotide_symbols.h"
 #include "rhydb/schema/database_schema.h"
+#include "rhydb/storage/column/binary_column.h"
 #include "rhydb/storage/column/bool_column.h"
 #include "rhydb/storage/column/date32_column.h"
 #include "rhydb/storage/column/dictionary_encoded_column.h"
@@ -47,6 +48,7 @@ class TableChunkBuilder {
    std::map<std::string, column::SequenceColumn<AminoAcid>::Builder> aa_column_builders;
    std::map<std::string, column::ZstdCompressedStringColumn::Builder>
       zstd_compressed_string_column_builders;
+   std::map<std::string, column::BinaryColumn::Builder> binary_column_builders;
 
    /// The sequence column builders are seeded with each column's current
    /// (possibly adapted) local reference, so sequences buffered into a chunk are
@@ -116,5 +118,8 @@ std::map<std::string, column::SequenceColumn<AminoAcid>::Builder>& TableChunkBui
 template <>
 std::map<std::string, column::ZstdCompressedStringColumn::Builder>& TableChunkBuilder::
    getColumnBuilders<column::ZstdCompressedStringColumn>();
+template <>
+std::map<std::string, column::BinaryColumn::Builder>& TableChunkBuilder::getColumnBuilders<
+   column::BinaryColumn>();
 
 }  // namespace rhydb::storage

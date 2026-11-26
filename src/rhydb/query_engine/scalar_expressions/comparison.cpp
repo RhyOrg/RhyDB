@@ -34,6 +34,7 @@
 #include "rhydb/query_engine/scalar_expressions/scalar_expression.h"
 #include "rhydb/query_engine/scalar_expressions/string_in_set.h"
 #include "rhydb/query_engine/scalar_expressions/symbol_equals.h"
+#include "rhydb/storage/column/binary_column.h"
 #include "rhydb/storage/column/bool_column.h"
 #include "rhydb/storage/column/date32_column.h"
 #include "rhydb/storage/column/dictionary_encoded_column.h"
@@ -604,9 +605,16 @@ std::unique_ptr<Operator> Comparison::compile(const Table& table, bool with_null
       );
    }
 
+   if (const auto* binary_value = dynCast<BinaryLiteral>(value)) {
+      // Byte-wise lexicographic, like Arrow's comparison of binary values
+      return compileTypedComparison<storage::column::BinaryColumn>(
+         table, column_name, effective_comparator, "binary", binary_value->value, with_null_rows
+      );
+   }
+
    throw IllegalQueryException(
       "Unsupported value type in comparison with column '{}': the value must be an int, float, "
-      "date, string, or bool literal",
+      "date, string, bool, or binary literal",
       column_name
    );
 }
