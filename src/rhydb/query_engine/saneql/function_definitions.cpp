@@ -140,7 +140,7 @@ struct Scope {
    const FunctionDefinitions& definitions;
    size_t count;
    /// The parameters of the definition whose body is expanded, empty outside of any body.
-   std::map<std::string, Binding> bindings = {};
+   std::map<std::string, Binding> bindings;
    /// Within a body, the location of the outermost call, which the nodes of the body take, so
    /// that errors point at the call site.
    std::optional<SourceLocation> location = std::nullopt;
@@ -383,7 +383,9 @@ class Expander {
       (void)bindArguments(function_name, signatureOf(definition), positional, named);
       std::map<std::string, ast::ExpressionPtr> arguments;
       for (size_t index = 0; index < positional.size(); ++index) {
-         arguments.emplace(definition.parameters.at(index).name, std::move(positional[index].value));
+         arguments.emplace(
+            definition.parameters.at(index).name, std::move(positional[index].value)
+         );
       }
       for (auto& argument : named) {
          arguments.emplace(argument.name, std::move(argument.value));
@@ -494,7 +496,9 @@ ast::ExpressionPtr expandFunctionDefinitions(
    const ExpansionLimits& limits
 ) {
    Expander expander{limits};
-   return expander.expand(expression, Scope{.definitions = definitions, .count = SIZE_MAX});
+   return expander.expand(
+      expression, Scope{.definitions = definitions, .count = SIZE_MAX, .bindings = {}}
+   );
 }
 
 ast::ExpressionPtr parseQuery(std::string_view query) {

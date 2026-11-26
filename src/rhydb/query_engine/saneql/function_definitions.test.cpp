@@ -377,7 +377,7 @@ TEST(FunctionDefinitions, limitsTheDepthOfTheExpansion) {
 
 TEST(FunctionDefinitions, expansionTakesTheLocationOfTheCall) {
    const auto expression = parseQuery("let f(a expression) := a = unknown,\ndata.filter(f(1))");
-   const auto& filter = std::get<rhydb::query_engine::saneql::ast::FunctionCall>(expression->value);
+   const auto& filter = std::get<ast::FunctionCall>(expression->value);
    const auto& condition = *filter.positional_arguments.at(1).value;
    EXPECT_EQ(condition.location.line, 2);
    EXPECT_EQ(condition.location.column, 13);
