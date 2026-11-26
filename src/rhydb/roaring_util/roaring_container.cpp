@@ -1,5 +1,8 @@
 #include "rhydb/roaring_util/roaring_container.h"
 
+#include <cstddef>
+#include <cstdint>
+#include <span>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -81,6 +84,74 @@ size_t RoaringContainer::sizeInBytes() const {
 size_t RoaringContainerView::sizeInBytes() const {
    const detail::ContainerHeader container = header();
    return roaring::internal::container_size_in_bytes(container.get(), typecode);
+}
+
+RoaringContainerView RoaringContainerView::fromPayload(
+   uint8_t typecode,
+   uint32_t cardinality,
+   std::span<const std::byte> payload
+) {
+   size_t expected_size = 0;
+   size_t alignment = alignof(uint16_t);
+   size_t n_runs = 0;
+   detail::ContainerPayload typed_payload{.array = nullptr};
+   // The alignment is asserted below, before the view reads through these pointers.
+   // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
+   switch (typecode) {
+      case BITSET_CONTAINER_TYPE:
+         expected_size = BITSET_CONTAINER_WORDS * sizeof(uint64_t);
+         alignment = alignof(uint64_t);
+         typed_payload.bitset_words = reinterpret_cast<const uint64_t*>(payload.data());
+         break;
+      case RUN_CONTAINER_TYPE:
+         n_runs = payload.size() / sizeof(roaring::internal::rle16_t);
+         expected_size = n_runs * sizeof(roaring::internal::rle16_t);
+         alignment = alignof(roaring::internal::rle16_t);
+         typed_payload.runs = reinterpret_cast<const roaring::internal::rle16_t*>(payload.data());
+         break;
+      case ARRAY_CONTAINER_TYPE:
+         expected_size = size_t{cardinality} * sizeof(uint16_t);
+         typed_payload.array = reinterpret_cast<const uint16_t*>(payload.data());
+         break;
+      default:
+         RHYDB_PANIC("unknown roaring container typecode {}", typecode);
+   }
+   // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+   RHYDB_ASSERT_EQ(payload.size(), expected_size);
+   RHYDB_ASSERT_EQ(reinterpret_cast<std::uintptr_t>(payload.data()) % alignment, uintptr_t{0});
+   RHYDB_ASSERT_LE(cardinality, uint32_t{1} << 16);
+   // Runs are disjoint and not adjacent, so a container holds at most 2^15 of them.
+   RHYDB_ASSERT_LE(n_runs, size_t{1} << 15);
+
+   const RoaringContainerView view{
+      typed_payload,
+      cardinality,
+      static_cast<uint16_t>(n_runs),
+      typecode,
+   };
+   RHYDB_DEBUG_ASSERT_EQ(
+      static_cast<uint32_t>(
+         roaring::internal::container_get_cardinality(view.header().get(), typecode)
+      ),
+      cardinality
+   );
+   return view;
+}
+
+std::span<const std::byte> RoaringContainerView::payload() const {
+   size_t size_in_bytes = 0;
+   switch (typecode) {
+      case BITSET_CONTAINER_TYPE:
+         size_in_bytes = BITSET_CONTAINER_WORDS * sizeof(uint64_t);
+         break;
+      case RUN_CONTAINER_TYPE:
+         size_in_bytes = size_t{n_runs} * sizeof(roaring::internal::rle16_t);
+         break;
+      default:
+         size_in_bytes = size_t{cardinality} * sizeof(uint16_t);
+         break;
+   }
+   return {static_cast<const std::byte*>(payloadAddress()), size_in_bytes};
 }
 
 RoaringContainer RoaringContainerView::toOwning() const {

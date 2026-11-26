@@ -1,12 +1,14 @@
 #include "rhydb/roaring_util/roaring_container.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <iterator>
 #include <span>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -40,7 +42,7 @@ roaring::Roaring toRoaring(const RoaringContainer& container) {
 
 // The payload an owning container's views point at, to tell whether storage is shared.
 const void* payloadOf(const RoaringContainer& container) {
-   return ContainerAccess::payload(RoaringContainerView{container});
+   return RoaringContainerView{container}.payload().data();
 }
 
 // Collects the low-16-bit values yielded by iterating a view, in iteration order.
@@ -180,7 +182,7 @@ TEST(RoaringContainerView, mirrorsOwnerAndDoesNotFree) {
    const RoaringContainerView view{owner};
    EXPECT_EQ(view.getCardinality(), 2);
    EXPECT_FALSE(view.empty());
-   EXPECT_EQ(ContainerAccess::payload(view), payloadOf(owner));
+   EXPECT_EQ(view.payload().data(), payloadOf(owner));
    EXPECT_EQ(view.getTypecode(), owner.getTypecode());
 
    // The view is non-owning: when it goes out of scope the owner's container stays valid.
@@ -638,7 +640,7 @@ TEST(CopyOnWriteContainer, borrowsWithoutCopying) {
    // While only reading, it is a zero-copy view: same underlying container, same cardinality.
    EXPECT_EQ(cow.getCardinality(), 3);
    EXPECT_FALSE(cow.empty());
-   EXPECT_EQ(ContainerAccess::payload(cow.view()), payloadOf(owner));
+   EXPECT_EQ(cow.view().payload().data(), payloadOf(owner));
 }
 
 TEST(CopyOnWriteContainer, unionClonesOnWriteAndLeavesSourceUnchanged) {
@@ -653,7 +655,7 @@ TEST(CopyOnWriteContainer, unionClonesOnWriteAndLeavesSourceUnchanged) {
    EXPECT_EQ(toRoaring(owner), (roaring::Roaring{1, 2, 3}));
    EXPECT_EQ(payloadOf(owner), borrowed);
    // ... and the container now owns a different container holding the union.
-   EXPECT_NE(ContainerAccess::payload(cow.view()), borrowed);
+   EXPECT_NE(cow.view().payload().data(), borrowed);
    EXPECT_EQ(toRoaring(cow.toOwning()), (roaring::Roaring{1, 2, 3, 4}));
 }
 
@@ -742,7 +744,7 @@ TEST(CopyOnWriteContainer, defaultViewsAProperlyConstructedEmptyContainer) {
    // reads are all well-defined.
    EXPECT_TRUE(cow.empty());
    EXPECT_EQ(cow.getCardinality(), 0);
-   EXPECT_NE(ContainerAccess::payload(cow.view()), nullptr);
+   EXPECT_NE(cow.view().payload().data(), nullptr);
    EXPECT_EQ(cow.begin(), cow.end());  // iterates as an empty range
 }
 
@@ -774,14 +776,14 @@ TEST(CopyOnWriteContainer, distinctDefaultsShareTheEmptyContainerButOwnIndepende
    const CopyOnWriteContainer second;
 
    // Both defaults borrow the same shared empty container.
-   EXPECT_EQ(ContainerAccess::payload(first.view()), ContainerAccess::payload(second.view()));
+   EXPECT_EQ(first.view().payload().data(), second.view().payload().data());
 
    // Writing to one copy-on-writes into its own container, leaving the other (and the shared empty)
    // untouched.
    first |= RoaringContainerView{makeContainer({7})};
    EXPECT_EQ(toRoaring(first.toOwning()), roaring::Roaring{7});
    EXPECT_TRUE(second.empty());
-   EXPECT_NE(ContainerAccess::payload(first.view()), ContainerAccess::payload(second.view()));
+   EXPECT_NE(first.view().payload().data(), second.view().payload().data());
 }
 
 TEST(CopyOnWriteContainer, unionWithEmptyIsANoOp) {
@@ -808,7 +810,7 @@ TEST(CopyOnWriteContainer, copyOfBorrowingReborrowsSameContainer) {
    const CopyOnWriteContainer copy = cow;  // NOLINT(performance-unnecessary-copy-initialization)
 
    // A borrowing copy re-borrows the same underlying container rather than cloning it.
-   EXPECT_EQ(ContainerAccess::payload(copy.view()), payloadOf(owner));
+   EXPECT_EQ(copy.view().payload().data(), payloadOf(owner));
 }
 
 TEST(CopyOnWriteContainer, copyOfOwningDeepCopiesAndIsIndependent) {
@@ -820,7 +822,7 @@ TEST(CopyOnWriteContainer, copyOfOwningDeepCopiesAndIsIndependent) {
 
    EXPECT_EQ(toRoaring(owned.toOwning()), (roaring::Roaring{1, 2}));
    EXPECT_EQ(toRoaring(copy.toOwning()), (roaring::Roaring{1, 2, 3}));
-   EXPECT_NE(ContainerAccess::payload(owned.view()), ContainerAccess::payload(copy.view()));
+   EXPECT_NE(owned.view().payload().data(), copy.view().payload().data());
 }
 
 TEST(CopyOnWriteContainer, toOwningDeepCopiesTheBorrowedContainer) {
@@ -1245,4 +1247,194 @@ TEST(RoaringInterop, appendToDropsEmptyContainers) {
 
    EXPECT_EQ(bitmap.roaring.high_low_container.size, 2);
    EXPECT_EQ(bitmap, (roaring::Roaring{4, (5U << 16U) + 6}));
+}
+
+namespace {
+
+// A flat, pointer-free buffer of container payloads, each stored 8-byte aligned, as the buffered
+// sequence index stores them.
+class FlatPayloadBuffer {
+   struct Entry {
+      uint8_t typecode;
+      uint32_t cardinality;
+      size_t offset_in_words;
+      size_t size_in_bytes;
+   };
+   std::vector<uint64_t> words;
+   std::vector<Entry> entries;
+
+  public:
+   // Copies the payload of `view` into the buffer and returns its index.
+   size_t append(RoaringContainerView view) {
+      const auto payload = view.payload();
+      const size_t offset_in_words = words.size();
+      words.resize(offset_in_words + ((payload.size() + 7) / 8));
+      std::ranges::copy(payload, reinterpret_cast<std::byte*>(words.data() + offset_in_words));
+      entries.push_back({
+         .typecode = view.getTypecode(),
+         .cardinality = view.getCardinality(),
+         .offset_in_words = offset_in_words,
+         .size_in_bytes = payload.size(),
+      });
+      return entries.size() - 1;
+   }
+
+   // The buffer must not be appended to while the returned view is in use.
+   [[nodiscard]] RoaringContainerView view(size_t index) const {
+      const Entry& entry = entries.at(index);
+      return RoaringContainerView::fromPayload(
+         entry.typecode,
+         entry.cardinality,
+         std::span{
+            reinterpret_cast<const std::byte*>(words.data() + entry.offset_in_words),
+            entry.size_in_bytes,
+         }
+      );
+   }
+};
+
+// Applies every operation on views to `lhs` and `rhs`, collecting the results as bitmaps keyed by
+// the 2^16 block 0.
+std::vector<roaring::Roaring> applyAllOperations(
+   RoaringContainerView lhs,
+   RoaringContainerView rhs
+) {
+   std::vector<roaring::Roaring> results;
+   results.push_back(toRoaring(lhs & rhs));
+   results.push_back(toRoaring(lhs - rhs));
+   results.push_back(toRoaring(lhs | rhs));
+   results.push_back(roaring::Roaring{andCardinality(lhs, rhs)});
+   results.push_back(toRoaring(rhydb::roaring_util::complement(lhs, 1U << 16)));
+   results.push_back(toRoaring(rhydb::roaring_util::fastUnion(std::vector{lhs, rhs, lhs})));
+
+   auto or_assigned = lhs.toOwning();
+   or_assigned |= rhs;
+   results.push_back(toRoaring(or_assigned));
+   auto subtract_assigned = lhs.toOwning();
+   subtract_assigned -= rhs;
+   results.push_back(toRoaring(subtract_assigned));
+   CopyOnWriteContainer cow{lhs};
+   cow &= rhs;
+   results.push_back(toRoaring(cow.view()));
+
+   roaring::Roaring ranks;
+   for (const uint64_t rank : rhydb::roaring_util::roaringSubsetRanks(lhs, rhs, 0)) {
+      ranks.add(static_cast<uint32_t>(rank));
+   }
+   results.push_back(ranks);
+
+   BitmapBuilderByContainer builder;
+   builder.addContainer(0, lhs);
+   builder.addContainer(0, rhs);
+   results.push_back(std::move(builder).getBitmap());
+
+   roaring::Roaring contained;
+   for (uint32_t value = 0; value < (1U << 16); ++value) {
+      if (lhs.contains(static_cast<uint16_t>(value))) {
+         contained.add(value);
+      }
+   }
+   results.push_back(contained);
+   results.push_back(roaringOf(iterate(lhs)));
+   results.push_back(roaring::Roaring{static_cast<uint32_t>(lhs.sizeInBytes())});
+   return results;
+}
+
+}  // namespace
+
+TEST_P(RoaringContainerPerType, payloadRoundTripsThroughAFlatBuffer) {
+   const auto container = makeTyped(lhsValues(), GetParam());
+   const RoaringContainerView owned_view{container};
+
+   FlatPayloadBuffer buffer;
+   const size_t index = buffer.append(owned_view);
+   const RoaringContainerView flat_view = buffer.view(index);
+
+   EXPECT_NE(flat_view.payload().data(), owned_view.payload().data());
+   EXPECT_TRUE(std::ranges::equal(flat_view.payload(), owned_view.payload()));
+   EXPECT_EQ(flat_view.getTypecode(), GetParam());
+   EXPECT_EQ(flat_view.getCardinality(), container.getCardinality());
+   EXPECT_EQ(flat_view.sizeInBytes(), container.sizeInBytes());
+   EXPECT_EQ(iterate(flat_view), lhsValues());
+   EXPECT_EQ(toRoaring(flat_view.toOwning()), roaringOf(lhsValues()));
+}
+
+TEST_P(RoaringContainerPerType, payloadOfAContainerOwnedByARoaringBitmap) {
+   const auto container = makeTyped(lhsValues(), GetParam());
+   roaring::Roaring bitmap;
+   rhydb::roaring_util::appendTo(bitmap, 7, RoaringContainerView{container}.toOwning());
+   const auto views = rhydb::roaring_util::containerViews(bitmap);
+   ASSERT_EQ(views.size(), 1);
+
+   FlatPayloadBuffer buffer;
+   const RoaringContainerView flat_view = buffer.view(buffer.append(views[0].second));
+   EXPECT_TRUE(std::ranges::equal(flat_view.payload(), RoaringContainerView{container}.payload()));
+   EXPECT_EQ(iterate(flat_view), lhsValues());
+}
+
+TEST_P(RoaringContainerPerTypePair, flatPayloadViewsBehaveLikeOwnedViews) {
+   const Operands operands{GetParam()};
+
+   FlatPayloadBuffer buffer;
+   const size_t lhs_index = buffer.append(operands.lhsView());
+   const size_t rhs_index = buffer.append(operands.rhsView());
+
+   const auto expected = applyAllOperations(operands.lhsView(), operands.rhsView());
+   EXPECT_EQ(applyAllOperations(buffer.view(lhs_index), buffer.view(rhs_index)), expected);
+   EXPECT_EQ(applyAllOperations(buffer.view(lhs_index), operands.rhsView()), expected);
+   EXPECT_EQ(applyAllOperations(operands.lhsView(), buffer.view(rhs_index)), expected);
+}
+
+TEST(RoaringContainerView, emptyArrayPayload) {
+   const auto view = RoaringContainerView::fromPayload(ARRAY_CONTAINER_TYPE, 0, {});
+   EXPECT_TRUE(view.empty());
+   EXPECT_TRUE(view.payload().empty());
+   EXPECT_EQ(view.begin(), view.end());
+   EXPECT_TRUE(view.toOwning().empty());
+}
+
+TEST(RoaringContainerView, fromPayloadRejectsMismatchedSizeOrAlignment) {
+   alignas(8) std::array<std::byte, 8200> storage{};
+   const std::span<const std::byte> bytes{storage};
+
+   // Wrong sizes.
+   EXPECT_THROW(
+      std::ignore = RoaringContainerView::fromPayload(ARRAY_CONTAINER_TYPE, 3, bytes.first(4)),
+      std::runtime_error
+   );
+   EXPECT_THROW(
+      std::ignore = RoaringContainerView::fromPayload(BITSET_CONTAINER_TYPE, 0, bytes.first(8)),
+      std::runtime_error
+   );
+   EXPECT_THROW(
+      std::ignore = RoaringContainerView::fromPayload(RUN_CONTAINER_TYPE, 1, bytes.first(6)),
+      std::runtime_error
+   );
+   // Misaligned payloads: bitsets need 8 bytes, arrays and runs 2 bytes.
+   EXPECT_THROW(
+      std::ignore =
+         RoaringContainerView::fromPayload(BITSET_CONTAINER_TYPE, 0, bytes.subspan(2, 8192)),
+      std::runtime_error
+   );
+   EXPECT_THROW(
+      std::ignore = RoaringContainerView::fromPayload(ARRAY_CONTAINER_TYPE, 1, bytes.subspan(1, 2)),
+      std::runtime_error
+   );
+   EXPECT_THROW(
+      std::ignore = RoaringContainerView::fromPayload(RUN_CONTAINER_TYPE, 1, bytes.subspan(1, 4)),
+      std::runtime_error
+   );
+   // Unknown typecode.
+   EXPECT_THROW(
+      std::ignore = RoaringContainerView::fromPayload(SHARED_CONTAINER_TYPE, 0, {}),
+      std::runtime_error
+   );
+   // The same payloads, correctly aligned and sized, are accepted.
+   EXPECT_NO_THROW(
+      std::ignore =
+         RoaringContainerView::fromPayload(BITSET_CONTAINER_TYPE, 0, bytes.subspan(8, 8192))
+   );
+   EXPECT_NO_THROW(
+      std::ignore = RoaringContainerView::fromPayload(ARRAY_CONTAINER_TYPE, 1, bytes.subspan(2, 2))
+   );
 }
