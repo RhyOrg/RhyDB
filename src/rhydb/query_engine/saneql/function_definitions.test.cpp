@@ -84,6 +84,11 @@ TEST(FunctionDefinitions, queryWithoutDefinitionsIsUnchanged) {
    EXPECT_EQ(expanded("data.filter(x = 1)"), "filter(data, (x = 1))");
 }
 
+TEST(FunctionDefinitions, letIsAKeyword) {
+   EXPECT_THROW((void)parseQuery("data.filter(let = 1)"), ParseException);
+   EXPECT_EQ(expanded("data.filter(\"let\" = 1)"), "filter(data, (let = 1))");
+}
+
 TEST(FunctionDefinitions, substitutesArgumentsForParameters) {
    EXPECT_EQ(
       expanded(

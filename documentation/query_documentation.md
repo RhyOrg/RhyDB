@@ -200,6 +200,9 @@ A definition sees only the definitions before it, so definitions cannot be recur
 shadows a builtin function of the same name. Errors in the expansion of a call are reported at the
 position of the call.
 
+`let` is a keyword, so a column or table named `let` must be written as the quoted identifier
+`"let"`.
+
 The expansion of a query may be nested at most 200 levels deep, nest at most 100 calls of
 definitions in each other, and create at most 1,000,000 expressions.
 
