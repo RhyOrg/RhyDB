@@ -11,8 +11,6 @@
 #include <variant>
 #include <vector>
 
-#include <fmt/format.h>
-
 #include "rhydb/common/panic.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/query_engine/saneql/parser.h"
@@ -21,25 +19,6 @@
 namespace rhydb::query_engine::saneql {
 
 namespace {
-
-constexpr std::string_view GENSYM = "gensym";
-
-/// If `expression` is `gensym(name)`, returns `name`.
-std::optional<std::string> gensymName(const ast::Expression& expression) {
-   const auto* call = std::get_if<ast::FunctionCall>(&expression.value);
-   if (
-      call == nullptr || call->function_name != GENSYM || !call->named_arguments.empty() ||
-      call->positional_arguments.size() != 1
-   ) {
-      return std::nullopt;
-   }
-   const auto* name =
-      std::get_if<ast::Identifier>(&call->positional_arguments.front().value->value);
-   if (name == nullptr) {
-      return std::nullopt;
-   }
-   return name->name;
-}
 
 /// Whether `expression` refers to no column or table, i.e. contains no identifier.
 // NOLINTNEXTLINE(misc-no-recursion)
@@ -231,7 +210,6 @@ class Expander {
    ExpansionLimits limits_;
    size_t nested_calls_ = 0;
    size_t created_nodes_ = 0;
-   size_t gensym_counter_ = 0;
 
    /// Counts the nested calls while it is alive.
    class NestedCall {
@@ -365,26 +343,16 @@ class Expander {
       );
    }
 
-   ast::ExpressionPtr gensym(const std::string& name, const SourceLocation& location) {
-      // `#` cannot appear in an unquoted identifier, so the name cannot clash with one written in
-      // a query, unless quoted.
-      return make(ast::Identifier{fmt::format("{}#{}", name, ++gensym_counter_)}, location);
-   }
-
-   /// The value of the unbound `parameter` of `lookup.definition`: a fresh name for `gensym(x)`,
-   /// otherwise its default value, expanded with the definitions that the definition sees.
+   /// The value of the unbound `parameter` of `lookup.definition`: its default value, expanded
+   /// with the definitions that the definition sees.
    // NOLINTNEXTLINE(misc-no-recursion)
    ast::ExpressionPtr defaultValue(
       const Definition::Parameter& parameter,
       const FunctionDefinitions::Lookup& lookup,
       const SourceLocation& call_location
    ) {
-      const auto& default_value = *parameter.default_value;
-      if (const auto name = gensymName(default_value)) {
-         return gensym(*name, call_location);
-      }
       return expand(
-         default_value,
+         *parameter.default_value,
          Scope{
             .definitions = lookup.scope,
             .count = lookup.index,
@@ -507,17 +475,7 @@ void FunctionDefinitions::add(ast::FunctionDefinition definition) {
          .required = parameter.default_value == nullptr,
       };
       if (parameter.default_value != nullptr) {
-         const bool is_gensym = gensymName(*parameter.default_value).has_value();
-         CHECK_RHYDB_QUERY(
-            !is_gensym || parameter.type == ParameterType::SYMBOL,
-            "parameter '{}' of let '{}' at {}: only a symbol parameter can default to gensym()",
-            parameter.name,
-            source->name,
-            parameter.location.toString()
-         );
-         if (!is_gensym) {
-            checkArgument(source->name, result_parameter, *parameter.default_value);
-         }
+         checkArgument(source->name, result_parameter, *parameter.default_value);
       }
       result.parameters.push_back(result_parameter);
    }

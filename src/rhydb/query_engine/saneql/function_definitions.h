@@ -37,8 +37,7 @@ struct Definition {
    struct Parameter {
       std::string name;
       ParameterType type;
-      /// The default value of an optional parameter of a `let` definition; for a symbol parameter,
-      /// possibly `gensym(name)`.
+      /// The default value of an optional parameter of a `let` definition.
       const ast::Expression* default_value = nullptr;
       /// Whether a call must bind the parameter. Optional parameters of native definitions have
       /// no default value: their expansion sees them as absent.

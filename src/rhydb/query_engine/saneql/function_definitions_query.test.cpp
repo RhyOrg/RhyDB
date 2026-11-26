@@ -49,11 +49,11 @@ const QueryTestScenario VIEW = {
 )"),
 };
 
-// The example of query_documentation.md: `n` is a helper column, `c` a column of the argument.
-const QueryTestScenario SYMBOLS_AND_GENSYM = {
-   .name = "SYMBOLS_AND_GENSYM",
+// The example of query_documentation.md: `c` is a column of the argument.
+const QueryTestScenario SYMBOLS = {
+   .name = "SYMBOLS",
    .query =
-      "let frequent(t table, c symbol, minimum scalar := 1, n symbol := gensym(n)) :=\n"
+      "let frequent(t table, c symbol, minimum scalar := 1) :=\n"
       "   t.group(by := {c}, aggs := {n := count()}).filter(n > minimum).projectout({n}),\n"
       "data.frequent(country).order(by := {country})",
    .expected_query_result = nlohmann::json::parse(R"(
@@ -65,25 +65,11 @@ const QueryTestScenario SYMBOLS_AND_GENSYM = {
 const QueryTestScenario SCALAR_ARGUMENT = {
    .name = "SCALAR_ARGUMENT",
    .query =
-      "let frequent(t table, c symbol, minimum scalar := 1, n symbol := gensym(n)) :=\n"
+      "let frequent(t table, c symbol, minimum scalar := 1) :=\n"
       "   t.group(by := {c}, aggs := {n := count()}).filter(n > minimum).projectout({n}),\n"
       "data.frequent(country, minimum := 2)",
    .expected_query_result = nlohmann::json::parse(R"(
 [{"country":"Germany"}]
-)"),
-};
-
-// The helper column of the body does not clash with the column `r` of the argument.
-const QueryTestScenario GENSYM_DOES_NOT_CLASH = {
-   .name = "GENSYM_DOES_NOT_CLASH",
-   .query =
-      "let adults(t table, r symbol := gensym(r)) :=\n"
-      "   t.map({r := age}).filter(r >= 18).projectout({r}),\n"
-      "data.map({r := country}).adults().project({primaryKey, r})",
-   .expected_query_result = nlohmann::json::parse(R"(
-[{"primaryKey":"id_2","r":"Germany"},
-{"primaryKey":"id_3","r":"France"},
-{"primaryKey":"id_4","r":"Germany"}]
 )"),
 };
 
@@ -118,9 +104,8 @@ QUERY_TEST(
    TEST_DATA,
    ::testing::Values(
       VIEW,
-      SYMBOLS_AND_GENSYM,
+      SYMBOLS,
       SCALAR_ARGUMENT,
-      GENSYM_DOES_NOT_CLASH,
       EXPRESSION_IS_RESOLVED_IN_THE_BODY,
       SCALAR_ARGUMENT_MUST_BE_CONSTANT
    )

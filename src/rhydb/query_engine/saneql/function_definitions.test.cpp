@@ -263,12 +263,6 @@ TEST(FunctionDefinitions, defaultValuesMustFitTheirParameter) {
       [] { (void)parseQuery("let f(age scalar := other_column) := age, data"); },
       ThrowsMessage<IllegalQueryException>(HasSubstr("the argument 'age' must be a constant"))
    );
-   EXPECT_THAT(
-      [] { (void)parseQuery("let f(x scalar := gensym(x)) := x, data"); },
-      ThrowsMessage<IllegalQueryException>(
-         HasSubstr("only a symbol parameter can default to gensym()")
-      )
-   );
 }
 
 TEST(FunctionDefinitions, symbolParameterRenamesColumnsAndFields) {
@@ -284,37 +278,6 @@ TEST(FunctionDefinitions, symbolParameterRenamesColumnsAndFields) {
       ThrowsMessage<IllegalQueryException>(
          HasSubstr("withDouble(): the argument 'source' must be a name, but is 'age' at 1:")
       )
-   );
-}
-
-TEST(FunctionDefinitions, gensymGivesFreshNamesForEveryCall) {
-   EXPECT_EQ(
-      expanded(
-         "let numbered(t table, n symbol := gensym(n)) := t.map({n := 1}).projectout({n}), "
-         "numbered(numbered(data))"
-      ),
-      "projectout(map(projectout(map(data, {n#1:=1}), {n#1}), {n#2:=1}), {n#2})"
-   );
-}
-
-// The example of the SaneQL paper and saneql.com, with the functions that this query language
-// does not have (window, alias, distinct) written as calls that stay as they are.
-TEST(FunctionDefinitions, saneqlSemijoinExample) {
-   EXPECT_EQ(
-      expanded(
-         "let semijoin(preserve table, probe table, p expression, x symbol := gensym(x), "
-         "y symbol := gensym(y)) :=\n"
-         "   preserve\n"
-         "   .window({x := row_number()})\n"
-         "   .alias(y)\n"
-         "   .join(probe, p)\n"
-         "   .project({y})\n"
-         "   .distinct()\n"
-         "   .projectout({x}),\n"
-         "semijoin(nation, region.filter(r_name = 'ASIA'), n_regionkey = r_regionkey)"
-      ),
-      "projectout(distinct(project(join(alias(window(nation, {x#1:=row_number()}), y#2), "
-      "filter(region, (r_name = 'ASIA')), (n_regionkey = r_regionkey)), {y#2})), {x#1})"
    );
 }
 

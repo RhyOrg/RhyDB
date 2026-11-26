@@ -154,8 +154,6 @@ enum class ParameterType : uint8_t {
    TABLE,
    /// `symbol`: a name, substituted wherever the parameter appears as a name in the body: as a
    /// column or table reference, and as the name of a record field (e.g. in `map({x := ...})`).
-   /// The default `gensym(x)` gives a fresh name for every call, for helper columns of the body
-   /// that must not clash with the columns of the arguments.
    SYMBOL,
 };
 

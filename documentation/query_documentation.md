@@ -186,12 +186,10 @@ substituted. (Unlike in SaneQL, a scalar parameter must be declared as `scalar` 
 | `scalar`     | a constant, e.g. `true`, `5` or `'2021-01-01'::date`         | as written                                                         |
 
 An `expression` argument is resolved in the body, so it can refer to the columns of a table that
-the body builds. A `symbol` parameter may default to `gensym(name)`, a fresh name for every call,
-for a helper column of the body that must not clash with the columns of the arguments. For
-example, the values of a column that occur more than `minimum` times:
+the body builds. For example, the values of a column that occur more than `minimum` times:
 
 ```
-let frequent(t table, c symbol, minimum scalar := 1, n symbol := gensym(n)) :=
+let frequent(t table, c symbol, minimum scalar := 1) :=
    t.group(by := {c}, aggs := {n := count()}).filter(n > minimum).projectout({n}),
 data.frequent(country, minimum := 100)
 ```
