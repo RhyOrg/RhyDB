@@ -14,7 +14,6 @@
 #include "rhydb/common/panic.h"
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/query_engine/saneql/parser.h"
-#include "rhydb/query_engine/saneql/prelude.h"
 
 namespace rhydb::query_engine::saneql {
 
@@ -119,7 +118,7 @@ FunctionSignature signatureOf(const Definition& definition) {
    for (const auto& parameter : definition.parameters) {
       signature.parameters.push_back({
          .name = parameter.name,
-         .required = parameter.required,
+         .required = parameter.default_value == nullptr,
          .positional = true,
       });
    }
@@ -404,16 +403,6 @@ class Expander {
          .location = call_location,
       };
 
-      if (definition.native) {
-         for (const auto& parameter : definition.parameters) {
-            if (const auto* argument = bound.get(parameter.name)) {
-               checkArgument(function_name, parameter, *argument);
-            }
-         }
-         const auto expansion = definition.native(bound, call_location);
-         return expand(*expansion, definition_scope);
-      }
-
       std::vector<ast::ExpressionPtr> default_values;
       std::map<std::string, Binding> bindings;
       for (const auto& parameter : definition.parameters) {
@@ -457,7 +446,6 @@ void FunctionDefinitions::add(ast::FunctionDefinition definition) {
       .parameters = {},
       .location = source->location,
       .source = source,
-      .native = {},
    };
    std::set<std::string> parameter_names;
    for (const auto& parameter : source->parameters) {
@@ -472,7 +460,6 @@ void FunctionDefinitions::add(ast::FunctionDefinition definition) {
          .name = parameter.name,
          .type = parameter.type,
          .default_value = parameter.default_value.get(),
-         .required = parameter.default_value == nullptr,
       };
       if (parameter.default_value != nullptr) {
          checkArgument(source->name, result_parameter, *parameter.default_value);
@@ -486,22 +473,6 @@ void FunctionDefinitions::addFromSource(std::string_view source) {
    for (auto& definition : Parser(source).parseDefinitions()) {
       add(std::move(definition));
    }
-}
-
-void FunctionDefinitions::addNative(
-   std::string name,
-   std::vector<Definition::Parameter> parameters,
-   NativeExpansion expansion
-) {
-   const SourceLocation no_location;
-   checkNewName(name, no_location);
-   definitions_.push_back({
-      .name = std::move(name),
-      .parameters = std::move(parameters),
-      .location = no_location,
-      .source = nullptr,
-      .native = std::move(expansion),
-   });
 }
 
 std::optional<FunctionDefinitions::Lookup> FunctionDefinitions::find(
@@ -543,7 +514,7 @@ ast::ExpressionPtr expandFunctionDefinitions(
 
 ast::ExpressionPtr parseQuery(std::string_view query) {
    auto program = Parser(query).parseProgram();
-   FunctionDefinitions definitions{&builtinDefinitions()};
+   FunctionDefinitions definitions;
    for (auto& definition : program.definitions) {
       definitions.add(std::move(definition));
    }

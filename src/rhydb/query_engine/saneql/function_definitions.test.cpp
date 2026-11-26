@@ -8,10 +8,8 @@
 #include "rhydb/query_engine/illegal_query_exception.h"
 #include "rhydb/query_engine/saneql/parse_exception.h"
 #include "rhydb/query_engine/saneql/parser.h"
-#include "rhydb/query_engine/saneql/prelude.h"
 
 using rhydb::query_engine::IllegalQueryException;
-using rhydb::query_engine::saneql::builtinDefinitions;
 using rhydb::query_engine::saneql::expandFunctionDefinitions;
 using rhydb::query_engine::saneql::FunctionDefinitions;
 using rhydb::query_engine::saneql::ParameterType;
@@ -293,40 +291,6 @@ TEST(FunctionDefinitions, argumentsAreNotCapturedByInnerDefinitions) {
    );
 }
 
-TEST(FunctionDefinitions, nativeDefinitions) {
-   FunctionDefinitions natives;
-   natives.addNative(
-      "suffixed",
-      {
-         {.name = "name", .type = ParameterType::SYMBOL},
-         {.name = "suffix", .type = ParameterType::SCALAR, .required = false},
-      },
-      [](const auto& arguments, const auto& location) {
-         const auto* suffix = arguments.get("suffix");
-         return ast::makeExpr(
-            ast::Identifier{
-               ast::extractIdentifierName(arguments.at("name")) +
-                  (suffix != nullptr ? ast::extractStringLiteral(*suffix) : "_x"),
-            },
-            location
-         );
-      }
-   );
-   FunctionDefinitions definitions{&natives};
-   definitions.addFromSource("let suffixedTable(c symbol) := suffixed(c, '_table').limit(1),");
-   const auto expand = [&](std::string_view query) {
-      return expandFunctionDefinitions(*Parser(query).parse(), definitions)->toString();
-   };
-   EXPECT_EQ(expand("suffixed(a)"), "a_x");
-   EXPECT_EQ(expand("suffixedTable(a)"), "limit(a_table, 1)");
-   EXPECT_THAT(
-      [&] { (void)expand("suffixed(a, b)"); },
-      ThrowsMessage<IllegalQueryException>(
-         HasSubstr("suffixed(): the argument 'suffix' must be a constant")
-      )
-   );
-}
-
 TEST(FunctionDefinitions, limitsTheNestingOfCalls) {
    FunctionDefinitions definitions;
    definitions.addFromSource(
@@ -386,20 +350,6 @@ TEST(FunctionDefinitions, documentationExample) {
       "filter(filter(data, (date >= '2021-01-01'::date)), in(country, {'Germany', "
       "'Switzerland'}))"
    );
-}
-
-TEST(FunctionDefinitions, builtinDefinitionsParse) {
-   EXPECT_NO_THROW((void)builtinDefinitions());
-}
-
-TEST(FunctionDefinitions, lineageExpandsToLineageFromTables) {
-   const auto lineage = expanded("data.filter(pango.lineage('B.1', includeSublineages := true))");
-   const auto from_tables = expanded(
-      "data.filter(pango.lineageFromTables('B.1', pango, pango_aliases, includeSublineages := "
-      "true))"
-   );
-   EXPECT_EQ(lineage, from_tables);
-   EXPECT_THAT(lineage, HasSubstr("transitiveClosure("));
 }
 
 }  // namespace

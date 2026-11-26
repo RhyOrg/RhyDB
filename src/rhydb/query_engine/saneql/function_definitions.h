@@ -2,7 +2,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <optional>
 #include <string>
@@ -16,50 +15,34 @@ namespace rhydb::query_engine::saneql {
 
 using ast::ParameterType;
 
-/// Expands a call of a native definition: returns the expression that replaces the call, given
-/// its arguments (bound and checked against the definition's parameters, and already expanded).
-using NativeExpansion = std::function<
-   ast::ExpressionPtr(const BoundArguments& arguments, const SourceLocation& call_location)>;
-
 /// A definition: a function from expressions to an expression, which every call is replaced with
 /// before the query is converted. This is a pure rewrite of the AST, so definitions add functions
 /// to the language without adding anything to the query engine.
 ///
-/// A definition is either written in SaneQL with `let`:
+/// A definition is written in SaneQL with `let`:
 ///
-///    let name(parameter [type] [:= default], ...) := body,
+///    let name(parameter type [:= default], ...) := body,
 ///    let name := body,
-///
-/// or native, i.e. implemented in C++ for rewrites the language cannot express (e.g. deriving the
-/// name of a table from the name of a column). A native definition only sees the AST of its
-/// arguments, never the database.
 struct Definition {
    struct Parameter {
       std::string name;
       ParameterType type;
-      /// The default value of an optional parameter of a `let` definition.
+      /// The default value of an optional parameter, null if every call must bind it.
       const ast::Expression* default_value = nullptr;
-      /// Whether a call must bind the parameter. Optional parameters of native definitions have
-      /// no default value: their expansion sees them as absent.
-      bool required = true;
    };
 
    std::string name;
    std::vector<Parameter> parameters;
    SourceLocation location;
-   /// The `let` definition this was made from, which owns the body and the default values. Null
-   /// for a native definition.
+   /// The `let` definition this was made from, which owns the body and the default values.
    std::shared_ptr<const ast::FunctionDefinition> source;
-   /// The expansion of a native definition, empty for a `let` definition.
-   NativeExpansion native;
 
    [[nodiscard]] const ast::Expression& body() const { return *source->body; }
 };
 
 /// A scope of definitions. As in SaneQL, a definition only sees the definitions before it (so none
 /// can be recursive), and it shadows builtin functions and the definitions of enclosing scopes of
-/// the same name. A query's own definitions form a scope enclosed by that of the builtin
-/// definitions (builtinDefinitions() in prelude.h).
+/// the same name.
 class FunctionDefinitions {
   public:
    explicit FunctionDefinitions(const FunctionDefinitions* parent = nullptr);
@@ -71,14 +54,6 @@ class FunctionDefinitions {
 
    /// Parses `source`, a sequence of `let` definitions, and appends them.
    void addFromSource(std::string_view source);
-
-   /// Appends a native definition. Its parameters are bound like those of a builtin function
-   /// (positionally or by name).
-   void addNative(
-      std::string name,
-      std::vector<Definition::Parameter> parameters,
-      NativeExpansion expansion
-   );
 
    struct Lookup {
       const Definition* definition;

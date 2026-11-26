@@ -111,8 +111,7 @@ const QueryTestScenario LINEAGE_FILTER_NULL_IS_REJECTED = {
    .name = "LINEAGE_FILTER_NULL_IS_REJECTED",
    .query = "data.filter(pango_lineage.lineage(null)).project({pango_lineage, primaryKey})",
    .expected_error_message =
-      "a startingFrom vertex must be a literal value (int, float, string, bool, or date), a "
-      "column reference, or a scalar function call at 1:35",
+      "lineage() does not accept null as the lineage; use isNull(\"pango_lineage\") instead",
 };
 
 const QueryTestScenario LINEAGE_FILTER_NULL_INCLUDING_SUBLINEAGES_IS_REJECTED = {
@@ -121,8 +120,7 @@ const QueryTestScenario LINEAGE_FILTER_NULL_INCLUDING_SUBLINEAGES_IS_REJECTED = 
       "data.filter(pango_lineage.lineage(null, "
       "includeSublineages:=true)).project({pango_lineage, primaryKey})",
    .expected_error_message =
-      "a startingFrom vertex must be a literal value (int, float, string, bool, or date), a "
-      "column reference, or a scalar function call at 1:35",
+      "lineage() does not accept null as the lineage; use isNull(\"pango_lineage\") instead",
 };
 
 const QueryTestScenario FILTER_INCLUDING_RECOMBINANTS = {

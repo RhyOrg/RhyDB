@@ -41,7 +41,7 @@
 #include "rhydb/query_engine/saneql/ast.h"
 #include "rhydb/query_engine/saneql/function_definitions.h"
 #include "rhydb/query_engine/saneql/function_registry.h"
-#include "rhydb/query_engine/saneql/parser.h"
+#include "rhydb/query_engine/saneql/lineage_from_tables.h"
 #include "rhydb/query_engine/saneql/table_literal_builder.h"
 #include "rhydb/query_engine/scalar_expressions/and.h"
 #include "rhydb/query_engine/scalar_expressions/at.h"
@@ -2058,6 +2058,34 @@ ScalarFunctionRegistry::ScalarFunctionRegistry() {
 
    registerFunction("isNull", {{pos("column")}}, handleIsNull);
    registerFunction("isNotNull", {{pos("column")}}, handleIsNotNull);
+
+   registerFunction(
+      "lineage",
+      {
+         {
+            pos("column"),
+            pos("value"),
+            pos("includeSublineages", false),
+            pos("recombinantFollowingMode", false),
+         },
+      },
+      handleLineage
+   );
+
+   registerFunction(
+      "lineageFromTables",
+      {
+         {
+            pos("column"),
+            pos("value"),
+            pos("lineages"),
+            pos("aliases"),
+            pos("includeSublineages", false),
+            pos("recombinantFollowingMode", false),
+         },
+      },
+      handleLineageFromTables
+   );
 
    registerFunction("phyloDescendantOf", {{pos("column"), pos("node")}}, handlePhyloDescendantOf);
 

@@ -281,8 +281,8 @@ const QueryTestScenario NULL_LINEAGE = {
       "data.filter(pango_lineage.lineageFromTables(null, pango_lineage, pango_lineage_aliases))"
       ".project({pango_lineage, primaryKey})",
    .expected_error_message =
-      "a startingFrom vertex must be a literal value (int, float, string, bool, or date), a "
-      "column reference, or a scalar function call at 1:45",
+      "lineageFromTables() does not accept null as the lineage; use isNull(\"pango_lineage\") "
+      "instead",
 };
 
 const QueryTestScenario INVALID_RECOMBINANT_FOLLOWING_MODE = {
@@ -294,21 +294,6 @@ const QueryTestScenario INVALID_RECOMBINANT_FOLLOWING_MODE = {
    .expected_error_message =
       "invalid recombinantFollowingMode: 'sometimes'. Valid values are: alwaysFollow, "
       "followIfFullyContainedInClade, doNotFollow",
-};
-
-// The lineage tables can be any table expressions, e.g. a definition of the query itself.
-const QueryTestScenario TABLES_FROM_DEFINITIONS = {
-   .name = "TABLES_FROM_DEFINITIONS",
-   .query =
-      "let withoutChild2 := pango_lineage.filter(lineage <> 'CHILD.2'),\n"
-      "data.filter(pango_lineage.lineageFromTables('BASE.1', withoutChild2, "
-      "pango_lineage_aliases, includeSublineages:=true)).project({pango_lineage, primaryKey})",
-   .expected_query_result = nlohmann::json::parse(R"(
-[{"pango_lineage":"BASE.1","primaryKey":"id_0"},
-{"pango_lineage":"B1","primaryKey":"id_1"},
-{"pango_lineage":"CHILD","primaryKey":"id_2"},
-{"pango_lineage":"C","primaryKey":"id_3"}]
-)"),
 };
 
 }  // namespace
@@ -333,7 +318,6 @@ QUERY_TEST(
       UNKNOWN_LINEAGE_MATCHES_NOTHING,
       UNKNOWN_LINEAGE_WITHOUT_SUBLINEAGES_MATCHES_NOTHING,
       NULL_LINEAGE,
-      INVALID_RECOMBINANT_FOLLOWING_MODE,
-      TABLES_FROM_DEFINITIONS
+      INVALID_RECOMBINANT_FOLLOWING_MODE
    )
 )
