@@ -9,7 +9,8 @@ A sequence column (`storage::column::SequenceColumn<SymbolType>`, with `SymbolTy
 chunk of up to 2^16 rows (see `RowId`: the global row id of row `r` of chunk `k` is `k << 16 | r`).
 The chunks, their indexes and the algorithms on them live in `storage/sequence/` (namespace
 `storage::sequence`).
-Every chunk stores its rows as differences from a **local reference**:
+Every chunk stores its rows as differences from its own **local reference**, which the chunk
+chooses from its rows when it is built (see [Local References](#local-references)):
 
 - **Columnar storage** for mutations: per position, the rows whose symbol differs from the local
   reference, one roaring container per symbol (the vertical sequence index).
@@ -40,7 +41,8 @@ Code outside `roaring_util` never touches roaring's raw containers.
 
 ```
 SequenceChunk (immutable value; copying it copies reference counts)
-├── shared_ptr<const SequenceReference>   alphabet + local reference text, shared by all chunks
+├── shared_ptr<const SequenceReference>   alphabet + the chunk's local reference text, shared by
+│                                         the chunks of a column with an equal local reference
 ├── shared_ptr<const Buffer>              the vertical index blob
 │   └── VerticalSequenceIndex             a view of that blob, held next to it
 ├── shared_ptr<const Buffer>              the horizontal coverage index blob
@@ -57,10 +59,11 @@ Invariants:
 - A finished chunk is never modified. `SequenceChunkBuilder` creates chunks row by row (from a
   coverage and a list of `(position, symbol)` mutations, from coverage ranges, or by diffing a
   text against the reference with `addText`); changed chunks are new chunk objects that share the
-  unchanged buffers (`withMutations`, `rebasedOnto`, `compacted`).
+  unchanged buffers (`withMutations`, `rebasedOnto`, `compacted`). A chunk stored in a column is
+  never replaced by appends.
 - The vertical index never stores a row under the reference symbol of its position, and only stores
-  non-empty containers. A stored symbol may be the missing symbol (after reference adaptation, when
-  the old reference symbol was the missing symbol).
+  non-empty containers. A stored symbol may be the missing symbol (when the chunk's local reference
+  differs from the column's reference at a position where the latter has the missing symbol).
 - Positions and covered ranges lie within the reference; the null rows are rows of the chunk with an
   empty covered range (checked when a chunk is constructed).
 - Symbols are stored as their id, the `uint8_t` value of `SymbolType::Symbol`; the
@@ -160,39 +163,76 @@ The selected rows may include null rows, which cover no position (`reconstructSe
 the missing symbol everywhere for them); callers that distinguish them consult
 `SequenceChunk::nullRows()`.
 
-The column-level operations call them chunk by chunk: the mutations operator sums `addSymbolCounts`
-over the chunks of the filter, the `seq.at(p)` dimension index of the bitmap aggregation calls
-`groupRowsBySymbolAt`, `IsInCoveredRegion` uses `coveredRows`, symbol filters assemble their row
-sets from `storedSymbolsAt` views (`SequenceColumn::storedRowsWithSymbolsAt`), mutation profiles
-reconstruct single rows, and the table scan reconstructs the texts of the scanned rows per chunk.
+Every algorithm treats the reference symbol of a position as the chunk's own local reference symbol
+there, so the column-level operations work on chunks with different local references by calling
+them chunk by chunk: the mutations operator sums `addSymbolCounts` over the chunks of the filter,
+the `seq.at(p)` dimension index of the bitmap aggregation calls `groupRowsBySymbolAt`,
+`IsInCoveredRegion` uses `coveredRows`, mutation profiles reconstruct single rows, and the table
+scan reconstructs the texts of the scanned rows per chunk.
+
+A symbol filter (`SymbolInSet`, which `SymbolEquals`, `HasMutation`, ambiguity handling and
+mutation profiles compile to) selects the rows whose symbol at a position is in a set. If all
+chunks agree on whether their local reference symbol at the position is in the set, it is compiled
+as before from `storedSymbolsAt` views (`SequenceColumn::storedRowsWithSymbolsAt`), complemented or
+combined with `IsInCoveredRegion` when the reference symbol is in the set. Otherwise, it is the
+`HasSymbolInSet` predicate, which evaluates `rowsWithSymbolsAt` on every chunk against the chunk's
+own local reference.
 
 ## Sequence Column
 
 `SequenceColumn<SymbolType>` holds `std::vector<std::shared_ptr<const SequenceChunk>>`, one per
-appended ingestion chunk and indexed by chunk id, plus the local reference they are all stored
-against and the insertion index.
+appended ingestion chunk and indexed by chunk id, the column's reference (the reference sequence of
+the column's metadata) and the insertion index.
 
 - **Appending** (`appendChunk`): the table chunk builder diffs every inserted sequence against the
-  column's current local reference (`BufferedSequence`); the column turns the buffered rows into
-  one new `SequenceChunk`.
-- **Reference adaptation** (`finalize`): for every position, the symbol carried by most covered rows
-  (counted from the coverage cardinalities and the stored containers' cardinalities) becomes the
-  local reference symbol, ties keeping the current one. If any position changes, the column creates
-  the adapted `SequenceReference` and replaces every chunk by `chunk.rebasedOnto(reference)`: at the
-  changed positions, the rows that carried the old reference symbol (covered and storing nothing)
-  come to store it, and the rows storing the new reference symbol no longer do. Chunks keep their
-  coverage and null rows buffers, and their vertical index buffer if none of their positions change.
+  column's reference (`BufferedSequence`); the column turns the buffered rows into one new
+  `SequenceChunk` stored against the chunk's local reference (see below). Appending never touches
+  the stored chunks, and `finalize` only updates the column info.
 - **Deleting rows** (`deleteRows`, see `RowCompaction`): a chunk that loses all rows is dropped, a
   chunk that loses some is rebuilt through the builders without them (`SequenceChunk::compacted`),
-  and every other chunk is kept as it is (the same object).
-- **Serialization**: the local reference text is written once, then per chunk the two index blobs as
-  their size followed by their raw bytes (as `Buffer`s), and the null rows. Loading reads each blob
-  into a new 64-byte aligned `Buffer` and validates the chunk once (`SequenceChunk::validate`);
-  nothing is rebuilt. The
-  loaded chunks share the loaded local reference.
+  and every other chunk is kept as it is (the same object). A compacted chunk keeps its local
+  reference, even though another reference might suit its remaining rows better.
+- **Serialization**: the distinct local references of the chunks are written once each, as their
+  differences from the column's reference, then per chunk the index of its local reference, the two
+  index blobs as their size followed by their raw bytes (as `Buffer`s), and the null rows. Loading
+  reads each blob into a new 64-byte aligned `Buffer` and validates the chunk once
+  (`SequenceChunk::validate`); nothing is rebuilt. The loaded chunks share their references as before (a reference without differences is
+  the column's reference object).
+
+### Local References
+
+`SequenceChunkBuilder::finishWithLocalReference` builds the chunk against the column's reference,
+then chooses the chunk's local reference (`mostCommonSymbols`): at every position, the symbol most
+of the chunk's covered rows carry there (counted by `addSymbolCounts`). On a tie, the column's
+reference symbol is kept, and among other symbols the one with the lowest id wins; a position no row
+covers keeps the column's reference symbol. If any position changes, the chunk is rebased onto the
+local reference (`rebasedOnto`): at the changed positions, the rows that carried the old reference
+symbol (covered and storing nothing) come to store it, and the rows storing the new reference
+symbol no longer do.
+
+Choosing the reference per chunk instead of per column has two effects:
+
+- A chunk's representation depends only on its own rows, so appending never rebases (or
+  otherwise changes) the stored chunks.
+- The local reference adapts to local variation: when similar sequences are ingested together
+  (e.g. ordered by lineage or date), a chunk's local reference is close to its rows, and its
+  vertical index can be smaller than with one reference for the whole column. Datasets that do not
+  cluster variants by chunk keep about the same index size.
+
+A `SequenceReference` is a base text (with its symbol ids) and the sorted `(position, symbol)` pairs
+where the reference differs from it. `withSymbolsReplaced` derives a reference that shares the base,
+so every local reference of a column shares the column's reference text and only holds its own
+differences (8 bytes each); `symbolAt` looks a position up among them by binary search, and the
+algorithms that visit every position materialize the symbols once (`symbols()`). Chunks whose local
+reference equals the column's reference or the local reference of a stored chunk also share that
+`SequenceReference` object. On real wastewater short reads (173 chunks of SARS-CoV-2 reads), the
+chunks have 112 distinct local references that differ from the column's reference at 969 positions
+in total, so the local references take about 18 KB beside the shared 60 KB reference, where full
+copies would take 6.7 MB.
 
 ## Reading Sequences in Queries
 
 The table scan reconstructs the texts of the scanned rows chunk by chunk: the non-null rows of each
 chunk are passed to `reconstructSequences` as one container, and each text is compressed with zstd
-against the reference sequence (the null rows are output as nulls).
+against the column's reference sequence, whatever the chunk's local reference (the null rows are
+output as nulls).
